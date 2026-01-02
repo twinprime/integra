@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import mermaid from "mermaid"
 import { useSystemStore, findNode } from "../store/useSystemStore"
-import type { DiagramNode, Node } from "../store/types"
+import type { DiagramNode } from "../store/types"
 
 mermaid.initialize({
   startOnLoad: false,

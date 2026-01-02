@@ -12,7 +12,6 @@ import {
 import { useSystemStore } from "../store/useSystemStore"
 import type { Node, SystemNode, ComponentNode } from "../store/types"
 import { ContextMenu } from "./ContextMenu"
-import "./TreeView.css"
 
 interface TreeNodeProps {
   node: Node
@@ -83,27 +82,31 @@ const TreeNode = ({ node, onContextMenu }: TreeNodeProps) => {
   }
 
   return (
-    <div className="tree-node">
+    <div className="pl-4">
       <div
-        className={`tree-node-content ${isSelected ? "selected" : ""}`}
+        className={`flex items-center py-1 px-2 cursor-pointer rounded select-none text-[0.9rem] text-gray-700 hover:bg-gray-100 ${
+          isSelected ? "bg-sky-100 text-sky-700" : ""
+        }`}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >
         <div
-          className="toggle-icon"
+          className="w-4 h-4 flex items-center justify-center mr-1 text-gray-400 hover:text-gray-500"
           onClick={hasChildren ? handleToggle : undefined}
         >
           {hasChildren &&
             (expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
         </div>
-        <div className="node-icon">
+        <div className="mr-2 w-4 h-4">
           <NodeIcon type={node.type} />
         </div>
-        <div className="node-label">{node.name}</div>
+        <div className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
+          {node.name}
+        </div>
       </div>
 
       {hasChildren && expanded && (
-        <div className="tree-children">
+        <div>
           {children.map((child) => (
             <TreeNode
               key={child.id}
@@ -183,7 +186,7 @@ export const TreeView = () => {
   }
 
   return (
-    <div className="tree-container">
+    <div className="pb-8">
       <TreeNode node={system} onContextMenu={handleContextMenu} />
       {contextMenu && (
         <ContextMenu

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react"
 import { useSystemStore, findNode } from "../store/useSystemStore"
 import type { Node, DiagramNode } from "../store/types"
-import "./EditorPanel.css"
 
 const CommonEditor = ({
   node,
@@ -23,33 +22,37 @@ const CommonEditor = ({
   }
 
   return (
-    <div className="editor-container">
-      <div className="editor-header">
-        <h2 className="editor-title">
+    <div className="p-4 h-full flex flex-col">
+      <div className="mb-6 border-b border-gray-200 pb-4">
+        <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
           {node.name}
           <span className="text-xs font-normal text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full border border-gray-200">
             {node.type}
           </span>
         </h2>
-        <p className="editor-subtitle">
+        <p className="mt-1 text-sm text-gray-500">
           ID: <span className="font-mono text-gray-500">{node.id}</span>
         </p>
       </div>
 
-      <div className="form-group">
-        <label className="form-label">Name (Read-only)</label>
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Name (Read-only)
+        </label>
         <input
-          className="form-input form-input-readonly"
+          className="w-full p-2 border border-gray-300 rounded-md text-sm text-gray-500 bg-gray-50 cursor-not-allowed focus:outline-none"
           type="text"
           value={node.name}
           readOnly
         />
       </div>
 
-      <div className="form-group">
-        <label className="form-label">Description</label>
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Description
+        </label>
         <textarea
-          className="form-input"
+          className="w-full p-2 border border-gray-300 rounded-md text-sm text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           rows={3}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
@@ -80,10 +83,12 @@ const DiagramEditor = ({
   }
 
   return (
-    <div className="editor-container">
-      <div className="editor-header">
-        <h2 className="editor-title">{node.name}</h2>
-        <p className="editor-subtitle">
+    <div className="p-4 h-full flex flex-col">
+      <div className="mb-6 border-b border-gray-200 pb-4">
+        <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          {node.name}
+        </h2>
+        <p className="mt-1 text-sm text-gray-500">
           Usage:{" "}
           {node.type === "sequence-diagram"
             ? "Mermaid Sequence Syntax"
@@ -91,10 +96,12 @@ const DiagramEditor = ({
         </p>
       </div>
 
-      <div className="form-group flex-1 flex flex-col">
-        <label className="form-label">Specification</label>
+      <div className="mb-4 flex-1 flex flex-col">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Specification
+        </label>
         <textarea
-          className="form-input form-textarea form-textarea-code flex-1"
+          className="w-full p-2 border border-gray-300 rounded-md text-[0.85rem] font-mono text-gray-900 resize-y min-h-[200px] flex-1 bg-slate-50 leading-relaxed focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
           value={content}
           onChange={(e) => setContent(e.target.value)}
           onBlur={handleBlur}
