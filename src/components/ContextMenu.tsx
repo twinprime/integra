@@ -25,13 +25,13 @@ export const ContextMenu = ({ x, y, onClose, items }: ContextMenuProps) => {
   return (
     <div
       ref={ref}
-      className="fixed z-50 bg-white border border-gray-200 rounded-md shadow-lg min-w-[160px] py-1"
+      className="fixed z-50 bg-gray-800 border border-gray-700 rounded-md shadow-lg min-w-[160px] py-1"
       style={{ top: y, left: x }}
     >
       {items.map((item, index) => (
         <button
           key={index}
-          className="block w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 hover:text-gray-900 bg-transparent border-none cursor-pointer"
+          className="block w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 hover:text-gray-100 bg-transparent border-none cursor-pointer"
           onClick={() => {
             item.onClick()
             onClose()

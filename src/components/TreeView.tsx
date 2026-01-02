@@ -84,14 +84,14 @@ const TreeNode = ({ node, onContextMenu }: TreeNodeProps) => {
   return (
     <div className="pl-4">
       <div
-        className={`flex items-center py-1 px-2 cursor-pointer rounded select-none text-[0.9rem] text-gray-700 hover:bg-gray-100 ${
-          isSelected ? "bg-sky-100 text-sky-700" : ""
+        className={`flex items-center py-1 px-2 cursor-pointer rounded select-none text-[0.9rem] text-gray-300 hover:bg-gray-800 ${
+          isSelected ? "bg-sky-900/50 text-sky-300" : ""
         }`}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
       >
         <div
-          className="w-4 h-4 flex items-center justify-center mr-1 text-gray-400 hover:text-gray-500"
+          className="w-4 h-4 flex items-center justify-center mr-1 text-gray-500 hover:text-gray-400"
           onClick={hasChildren ? handleToggle : undefined}
         >
           {hasChildren &&
@@ -132,7 +132,7 @@ export const TreeView = () => {
   } | null>(null)
 
   if (!system)
-    return <div className="p-4 text-sm text-gray-400">No system defined</div>
+    return <div className="p-4 text-sm text-gray-500">No system defined</div>
 
   const handleContextMenu = (e: React.MouseEvent, node: Node) => {
     e.preventDefault()

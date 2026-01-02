@@ -115,7 +115,7 @@ export const DiagramPanel = () => {
       selectedNode.type !== "sequence-diagram")
   ) {
     return (
-      <div className="h-full flex items-center justify-center text-gray-400">
+      <div className="h-full flex items-center justify-center text-gray-500">
         Open a diagram to visualize
       </div>
     )
@@ -126,7 +126,7 @@ export const DiagramPanel = () => {
       {error && <div className="text-red-500 p-2 text-sm">{error}</div>}
       <div
         ref={elementRef}
-        className="flex-1 overflow-auto flex justify-center items-start pt-4"
+        className="flex-1 overflow-auto flex justify-center items-start pt-4 bg-white rounded-lg"
         dangerouslySetInnerHTML={{ __html: svg }}
         style={{ minHeight: "100px" }}
       />
