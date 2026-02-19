@@ -8,10 +8,13 @@ import {
   FileText,
   Layout,
   Activity,
+  Download,
+  Upload,
 } from "lucide-react"
 import { useSystemStore } from "../store/useSystemStore"
 import type { Node, SystemNode, ComponentNode } from "../store/types"
 import { ContextMenu } from "./ContextMenu"
+import yaml from "js-yaml"
 
 interface TreeNodeProps {
   node: Node
@@ -122,6 +125,7 @@ const TreeNode = ({ node, onContextMenu }: TreeNodeProps) => {
 
 export const TreeView = () => {
   const system = useSystemStore((state) => state.system)
+  const setSystem = useSystemStore((state) => state.setSystem)
   const addNode = useSystemStore((state) => state.addNode)
   const selectNode = useSystemStore((state) => state.selectNode)
 
@@ -130,6 +134,59 @@ export const TreeView = () => {
     y: number
     node: Node
   } | null>(null)
+
+  const handleSave = () => {
+    try {
+      const yamlContent = yaml.dump(system, {
+        indent: 2,
+        noRefs: true,
+        skipInvalid: true,
+      })
+
+      const blob = new Blob([yamlContent], { type: "text/yaml" })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `${system.name.toLowerCase().replace(/\s+/g, "-")}.yaml`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("Failed to save system:", error)
+      alert("Failed to save system: " + (error as Error).message)
+    }
+  }
+
+  const handleLoad = () => {
+    const input = document.createElement("input")
+    input.type = "file"
+    input.accept = ".yaml,.yml"
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+
+      try {
+        const text = await file.text()
+        const loadedSystem = yaml.load(text) as SystemNode
+
+        // Validate basic structure
+        if (
+          !loadedSystem ||
+          typeof loadedSystem !== "object" ||
+          loadedSystem.type !== "system"
+        ) {
+          throw new Error("Invalid system file format")
+        }
+
+        setSystem(loadedSystem)
+      } catch (error) {
+        console.error("Failed to load system:", error)
+        alert("Failed to load system: " + (error as Error).message)
+      }
+    }
+    input.click()
+  }
 
   if (!system)
     return <div className="p-4 text-sm text-gray-500">No system defined</div>
@@ -187,16 +244,37 @@ export const TreeView = () => {
   }
 
   return (
-    <div className="pb-8">
-      <TreeNode node={system} onContextMenu={handleContextMenu} />
-      {contextMenu && (
-        <ContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onClose={handleCloseContextMenu}
-          items={getMenuItems()}
-        />
-      )}
-    </div>
+    <>
+      <div className="p-4 border-b border-gray-800 font-semibold text-gray-300 bg-gray-800/50 backdrop-blur-sm flex items-center justify-between">
+        <span>System Explorer</span>
+        <div className="flex gap-1">
+          <button
+            onClick={handleSave}
+            className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-gray-200 transition-colors"
+            title="Save system to YAML file"
+          >
+            <Download size={16} />
+          </button>
+          <button
+            onClick={handleLoad}
+            className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-gray-200 transition-colors"
+            title="Load system from YAML file"
+          >
+            <Upload size={16} />
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-auto pb-8">
+        <TreeNode node={system} onContextMenu={handleContextMenu} />
+        {contextMenu && (
+          <ContextMenu
+            x={contextMenu.x}
+            y={contextMenu.y}
+            onClose={handleCloseContextMenu}
+            items={getMenuItems()}
+          />
+        )}
+      </div>
+    </>
   )
 }

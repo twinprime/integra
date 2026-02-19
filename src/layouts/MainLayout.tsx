@@ -21,10 +21,7 @@ export function MainLayout({
           className="bg-gray-900 border-r border-gray-800"
         >
           <div className="h-full flex flex-col">
-            <div className="p-4 border-b border-gray-800 font-semibold text-gray-300 bg-gray-800/50 backdrop-blur-sm">
-              System Explorer
-            </div>
-            <div className="flex-1 overflow-auto">{leftPanel}</div>
+            {leftPanel}
           </div>
         </Panel>
 
