@@ -166,10 +166,8 @@ const deleteNodeRecursive = (node: Node, uuid: string): Node => {
   return node
 }
 
-import {
-  parseUseCaseDiagram,
-  parseSequenceDiagram,
-} from "../utils/diagramParser"
+import { parseUseCaseDiagram } from "../utils/useCaseDiagramParser"
+import { parseSequenceDiagram } from "../utils/sequenceDiagramParser"
 
 export const useSystemStore = create<SystemState>((set) => ({
   rootComponent: initialSystem,

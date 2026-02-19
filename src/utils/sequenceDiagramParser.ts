@@ -1,138 +1,10 @@
-import type {
-  ComponentNode,
-  ActorNode,
-  UseCaseNode,
-  UseCaseDiagramNode,
-  SequenceDiagramNode,
-  Node,
-} from "../store/types"
+import type { ComponentNode } from "../store/types"
+import { findContainerInSystem, upsertTree } from "./diagramParserHelpers"
 
 // Regex patterns
-const ACTOR_PATTERN = /actor\s+"([^"]+)"\s+as\s+(\w+)/g
-const USE_CASE_PATTERN = /use case\s+"([^"]+)"\s+as\s+(\w+)/g
-// Sequence diagram patterns - support both actor/component with "as" keyword and simple names
 const SEQ_ACTOR_PATTERN = /(?:^|\n)\s*actor\s+(?:"([^"]+)"\s+as\s+)?(\w+)/gm
 const SEQ_COMPONENT_PATTERN = /(?:^|\n)\s*component\s+(?:"([^"]+)"\s+as\s+)?(\w+)/gm
 const MESSAGE_PATTERN = /(\w+)\s*->>\s*(\w+)\s*:\s*(\w+)\(([^)]*)\)/g
-
-// Helper to find a component by UUID
-const findContainerInSystem = (
-  rootComponent: ComponentNode,
-  uuid: string
-): ComponentNode | null => {
-  if (rootComponent.uuid === uuid) return rootComponent
-
-  const findRecursive = (nodes: ComponentNode[]): ComponentNode | null => {
-    for (const node of nodes) {
-      if (node.uuid === uuid) return node
-      const found = findRecursive(node.subComponents)
-      if (found) return found
-    }
-    return null
-  }
-
-  return findRecursive(rootComponent.subComponents)
-}
-
-export function parseUseCaseDiagram(
-  content: string,
-  rootComponent: ComponentNode,
-  parentUuid: string,
-  diagramUuid: string
-): ComponentNode {
-  const parent = findContainerInSystem(rootComponent, parentUuid)
-  if (!parent) return rootComponent
-
-  const referencedNodeIds: string[] = []
-
-  // Parse Actors
-  const newActors: ActorNode[] = []
-  let match
-  while ((match = ACTOR_PATTERN.exec(content)) !== null) {
-    const [_, name, id] = match
-    referencedNodeIds.push(id)
-    newActors.push({
-      uuid: crypto.randomUUID(),
-      id,
-      name,
-      type: "actor",
-      description: `Actor ${name}`,
-    })
-  }
-
-  // Parse Use Cases
-  const newUseCases: UseCaseNode[] = []
-  while ((match = USE_CASE_PATTERN.exec(content)) !== null) {
-    const [_, name, id] = match
-    referencedNodeIds.push(id)
-    newUseCases.push({
-      uuid: crypto.randomUUID(),
-      id,
-      name,
-      type: "use-case",
-      description: `Use Case ${name}`,
-    })
-  }
-
-  // Helper to merge lists (update existing or append new)
-  const mergeLists = <T extends { id: string; name: string }>(
-    existing: T[],
-    incoming: T[]
-  ): T[] => {
-    const result = [...existing]
-    incoming.forEach((item) => {
-      const index = result.findIndex((e) => e.id === item.id)
-      if (index >= 0) {
-        result[index] = { ...result[index], name: item.name }
-      } else {
-        result.push(item)
-      }
-    })
-    return result
-  }
-
-  // Construct new state
-  const updateParent = (
-    node: ComponentNode
-  ): ComponentNode => {
-    return {
-      ...node,
-      actors: mergeLists(node.actors || [], newActors),
-      useCases: mergeLists(node.useCases || [], newUseCases),
-    } as ComponentNode
-  }
-
-  // Recursive update of system tree
-  const updateTree = (node: Node): Node => {
-    if (node.uuid === parent.uuid) {
-      return updateParent(node as ComponentNode)
-    }
-
-    // Update the diagram node with referencedNodeIds
-    if (node.uuid === diagramUuid && node.type === "use-case-diagram") {
-      return {
-        ...node,
-        referencedNodeIds,
-      }
-    }
-
-    if (node.type === "component") {
-      const comp = node as ComponentNode
-      return {
-        ...comp,
-        subComponents: comp.subComponents.map(
-          (c) => updateTree(c) as ComponentNode
-        ),
-        useCaseDiagrams: comp.useCaseDiagrams.map(
-          (d) => updateTree(d) as UseCaseDiagramNode
-        ),
-      }
-    }
-    return node
-  }
-
-  return updateTree(rootComponent) as ComponentNode
-}
 
 export function parseSequenceDiagram(
   content: string,
@@ -186,8 +58,6 @@ export function parseSequenceDiagram(
   }
 
   // Parse Messages
-  // Reset regex usage just in case, though they are local regex literals usually stateless unless 'g' is reused globally.
-  // Const regex with 'g' IS stateful.
   MESSAGE_PATTERN.lastIndex = 0
   while ((match = MESSAGE_PATTERN.exec(content)) !== null) {
     messages.push({
@@ -209,8 +79,6 @@ export function parseSequenceDiagram(
       participants.push({ uuid: crypto.randomUUID(), id: msg.to, name: msg.to, type: "component" })
     }
   })
-
-  // Strategy: Calculate the NEW lists for the parent, then update tree.
 
   // 1. Identify Existing Components/Actors in Parent
   const existingComponents = parent.subComponents
@@ -251,7 +119,6 @@ export function parseSequenceDiagram(
   })
 
   // 3. Add Interfaces to Components based on messages
-  // We need to modify the components in 'updatedComponents' list.
   messages.forEach((msg) => {
     const targetCompIndex = updatedComponents.findIndex((c) => c.id === msg.to)
     if (targetCompIndex >= 0) {
@@ -300,38 +167,18 @@ export function parseSequenceDiagram(
   })
 
   // 4. Update the Tree
-  const updateTree = (node: Node): Node => {
-    if (node.uuid === parent.uuid) {
-      return {
-        ...node,
-        subComponents: updatedComponents,
-        actors: updatedActors,
-      } as ComponentNode
-    }
+  // First update the parent component with new actors and components
+  let updatedRoot = upsertTree(rootComponent, parentUuid, (node) => ({
+    ...node,
+    subComponents: updatedComponents,
+    actors: updatedActors,
+  } as ComponentNode))
 
-    // Update the diagram node with referencedNodeIds
-    if (node.uuid === diagramUuid && node.type === "sequence-diagram") {
-      return {
-        ...node,
-        referencedNodeIds,
-      }
-    }
+  // Then update the diagram with referencedNodeIds
+  updatedRoot = upsertTree(updatedRoot, diagramUuid, (node) => ({
+    ...node,
+    referencedNodeIds,
+  }))
 
-    if (node.type === "component") {
-      const comp = node as ComponentNode
-      return {
-        ...comp,
-        subComponents: comp.subComponents.map(
-          (c) => updateTree(c) as ComponentNode
-        ),
-        sequenceDiagrams: comp.sequenceDiagrams.map(
-          (d) => updateTree(d) as SequenceDiagramNode
-        ),
-      } as ComponentNode
-    }
-
-    return node
-  }
-
-  return updateTree(rootComponent) as ComponentNode
+  return updatedRoot
 }
