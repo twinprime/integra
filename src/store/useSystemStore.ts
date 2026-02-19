@@ -1,14 +1,5 @@
 import { create } from "zustand"
-import type {
-  ComponentNode,
-  Node,
-  ActorNode,
-  UseCaseNode,
-  UseCaseDiagramNode,
-  SequenceDiagramNode,
-  BaseNode,
-  DiagramNode,
-} from "./types"
+import type { ComponentNode, Node, BaseNode, DiagramNode } from "./types"
 
 interface SystemState {
   rootComponent: ComponentNode
@@ -37,7 +28,7 @@ const initialSystem: ComponentNode = {
 // Helper to recursively find a node by uuid
 export const findNode = (
   nodes: Node[] | BaseNode[],
-  uuid: string
+  uuid: string,
 ): Node | null => {
   for (const node of nodes) {
     if (node.uuid === uuid) return node as Node
@@ -63,7 +54,7 @@ export const findNode = (
 // Helper to recursively delete a node
 const deleteNodeRecursive = (node: Node, uuid: string): Node => {
   if (node.type === "component") {
-    const comp = node as ComponentNode
+    const comp = node
     return {
       ...comp,
       subComponents: comp.subComponents
@@ -93,20 +84,20 @@ export const useSystemStore = create<SystemState>((set) => ({
 
       // Helper to collect all diagrams with their parent UUIDs
       const collectDiagrams = (
-        node: Node
+        node: Node,
       ): Array<{ diagram: DiagramNode; parentUuid: string }> => {
         const diagrams: Array<{ diagram: DiagramNode; parentUuid: string }> = []
 
         if (node.type === "component") {
-          const comp = node as ComponentNode
+          const comp = node
           comp.useCaseDiagrams.forEach((d) =>
-            diagrams.push({ diagram: d, parentUuid: comp.uuid })
+            diagrams.push({ diagram: d, parentUuid: comp.uuid }),
           )
           comp.sequenceDiagrams.forEach((d) =>
-            diagrams.push({ diagram: d, parentUuid: comp.uuid })
+            diagrams.push({ diagram: d, parentUuid: comp.uuid }),
           )
           comp.subComponents.forEach((c) =>
-            diagrams.push(...collectDiagrams(c))
+            diagrams.push(...collectDiagrams(c)),
           )
         }
 
@@ -124,15 +115,15 @@ export const useSystemStore = create<SystemState>((set) => ({
               diagram.content,
               updatedSystem,
               parentUuid,
-              diagram.uuid
-            ) as ComponentNode
+              diagram.uuid,
+            )
           } else if (diagram.type === "sequence-diagram") {
             updatedSystem = parseSequenceDiagram(
               diagram.content,
               updatedSystem,
               parentUuid,
-              diagram.uuid
-            ) as ComponentNode
+              diagram.uuid,
+            )
           }
         }
       })
@@ -144,35 +135,28 @@ export const useSystemStore = create<SystemState>((set) => ({
     set((state) => ({
       rootComponent: upsertTree(state.rootComponent, parentUuid, (parent) => {
         if (parent.type !== "component") return parent
-        const comp = parent as ComponentNode
         switch (node.type) {
           case "component":
             return {
-              ...comp,
-              subComponents: [...comp.subComponents, node as ComponentNode],
+              ...parent,
+              subComponents: [...parent.subComponents, node],
             }
           case "actor":
-            return { ...comp, actors: [...comp.actors, node as ActorNode] }
+            return { ...parent, actors: [...parent.actors, node] }
           case "use-case":
             return {
-              ...comp,
-              useCases: [...comp.useCases, node as UseCaseNode],
+              ...parent,
+              useCases: [...parent.useCases, node],
             }
           case "use-case-diagram":
             return {
-              ...comp,
-              useCaseDiagrams: [
-                ...comp.useCaseDiagrams,
-                node as UseCaseDiagramNode,
-              ],
+              ...parent,
+              useCaseDiagrams: [...parent.useCaseDiagrams, node],
             }
           case "sequence-diagram":
             return {
-              ...comp,
-              sequenceDiagrams: [
-                ...comp.sequenceDiagrams,
-                node as SequenceDiagramNode,
-              ],
+              ...parent,
+              sequenceDiagrams: [...parent.sequenceDiagrams, node],
             }
           default:
             return parent
@@ -185,7 +169,7 @@ export const useSystemStore = create<SystemState>((set) => ({
       const updatedSystem = upsertTree(
         state.rootComponent,
         nodeUuid,
-        (node) => ({ ...node, ...updates })
+        (node) => ({ ...node, ...updates }),
       )
 
       // 2. Check if we updated a diagram content and need to parse
@@ -197,20 +181,22 @@ export const useSystemStore = create<SystemState>((set) => ({
       // Let's traverse to find parent of nodeUuid.
       const findParent = (
         root: Node,
-        targetUuid: string
+        targetUuid: string,
       ): ComponentNode | null => {
         if (root.type === "component") {
-          const comp = root as ComponentNode
+          const comp = root
           for (const c of comp.subComponents) {
             if (c.uuid === targetUuid) return comp
             // ... check other children lists if we supported nested diagrams there ...
             const found = findParent(c, targetUuid)
             if (found) return found
           }
-          if (comp.actors.find((a) => a.uuid === targetUuid)) return comp
-          if (comp.useCases.find((u) => u.uuid === targetUuid)) return comp
-          if (comp.useCaseDiagrams.find((d) => d.uuid === targetUuid)) return comp
-          if (comp.sequenceDiagrams.find((d) => d.uuid === targetUuid)) return comp
+          if (comp.actors.some((a) => a.uuid === targetUuid)) return comp
+          if (comp.useCases.some((u) => u.uuid === targetUuid)) return comp
+          if (comp.useCaseDiagrams.some((d) => d.uuid === targetUuid))
+            return comp
+          if (comp.sequenceDiagrams.some((d) => d.uuid === targetUuid))
+            return comp
         }
         return null
       }
@@ -226,8 +212,8 @@ export const useSystemStore = create<SystemState>((set) => ({
                   updates.content,
                   updatedSystem,
                   parent.uuid,
-                  nodeUuid
-                ) as ComponentNode,
+                  nodeUuid,
+                ),
               }
             } else if (node.type === "sequence-diagram") {
               return {
@@ -235,8 +221,8 @@ export const useSystemStore = create<SystemState>((set) => ({
                   updates.content,
                   updatedSystem,
                   parent.uuid,
-                  nodeUuid
-                ) as ComponentNode,
+                  nodeUuid,
+                ),
               }
             }
           }
@@ -248,9 +234,13 @@ export const useSystemStore = create<SystemState>((set) => ({
   deleteNode: (nodeUuid) =>
     set((state) => {
       // If deleting the selected node, clear selection
-      const newSelectedId = state.selectedNodeId === nodeUuid ? null : state.selectedNodeId
+      const newSelectedId =
+        state.selectedNodeId === nodeUuid ? null : state.selectedNodeId
       return {
-        rootComponent: deleteNodeRecursive(state.rootComponent, nodeUuid) as ComponentNode,
+        rootComponent: deleteNodeRecursive(
+          state.rootComponent,
+          nodeUuid,
+        ) as ComponentNode,
         selectedNodeId: newSelectedId,
       }
     }),
