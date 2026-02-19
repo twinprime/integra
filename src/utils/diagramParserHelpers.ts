@@ -3,6 +3,8 @@ import type {
   UseCaseDiagramNode,
   SequenceDiagramNode,
   Node,
+  ActorNode,
+  UseCaseNode,
 } from "../store/types"
 
 // Helper to find a component by UUID
@@ -43,6 +45,12 @@ export const upsertTree = (
         ...comp,
         subComponents: comp.subComponents.map(
           (c) => updateRecursive(c) as ComponentNode
+        ),
+        actors: comp.actors.map(
+          (a) => updateRecursive(a) as ActorNode
+        ),
+        useCases: comp.useCases.map(
+          (u) => updateRecursive(u) as UseCaseNode
         ),
         useCaseDiagrams: comp.useCaseDiagrams.map(
           (d) => updateRecursive(d) as UseCaseDiagramNode

@@ -116,37 +116,6 @@ const addNodeRecursive = (
   return node
 }
 
-// Helper to recursively update a node
-const updateNodeRecursive = (node: Node, uuid: string, updates: any): Node => {
-  if (node.uuid === uuid) {
-    return { ...node, ...updates }
-  }
-
-  if (node.type === "component") {
-    const comp = node as ComponentNode
-    return {
-      ...comp,
-      subComponents: comp.subComponents.map(
-        (c) => updateNodeRecursive(c, uuid, updates) as ComponentNode
-      ),
-      actors: comp.actors.map(
-        (a) => updateNodeRecursive(a, uuid, updates) as ActorNode
-      ),
-      useCases: comp.useCases.map(
-        (u) => updateNodeRecursive(u, uuid, updates) as UseCaseNode
-      ),
-      useCaseDiagrams: comp.useCaseDiagrams.map(
-        (d) => updateNodeRecursive(d, uuid, updates) as UseCaseDiagramNode
-      ),
-      sequenceDiagrams: comp.sequenceDiagrams.map(
-        (d) => updateNodeRecursive(d, uuid, updates) as SequenceDiagramNode
-      ),
-    }
-  }
-
-  return node
-}
-
 // Helper to recursively delete a node
 const deleteNodeRecursive = (node: Node, uuid: string): Node => {
   if (node.type === "component") {
@@ -168,6 +137,7 @@ const deleteNodeRecursive = (node: Node, uuid: string): Node => {
 
 import { parseUseCaseDiagram } from "../utils/useCaseDiagramParser"
 import { parseSequenceDiagram } from "../utils/sequenceDiagramParser"
+import { upsertTree } from "../utils/diagramParserHelpers"
 
 export const useSystemStore = create<SystemState>((set) => ({
   rootComponent: initialSystem,
@@ -233,11 +203,11 @@ export const useSystemStore = create<SystemState>((set) => ({
   updateNode: (nodeUuid, updates) =>
     set((state) => {
       // 1. First apply the explicit update
-      const updatedSystem = updateNodeRecursive(
+      const updatedSystem = upsertTree(
         state.rootComponent,
         nodeUuid,
-        updates
-      ) as ComponentNode
+        (node) => ({ ...node, ...updates })
+      )
 
       // 2. Check if we updated a diagram content and need to parse
       // We need to find the node again in the NEW system to check type and content
