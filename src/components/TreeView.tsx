@@ -10,16 +10,19 @@ import {
   Activity,
   Download,
   Upload,
+  Trash2,
 } from "lucide-react"
 import { useSystemStore } from "../store/useSystemStore"
 import type { Node, SystemNode, ComponentNode } from "../store/types"
 import { ContextMenu } from "./ContextMenu"
 import yaml from "js-yaml"
+import { isNodeOrphaned, findParentNode } from "../utils/nodeUtils"
 
 interface TreeNodeProps {
   node: Node
   level?: number
   onContextMenu: (e: React.MouseEvent, node: Node) => void
+  parent?: SystemNode | ComponentNode
 }
 
 const NodeIcon = ({ type }: { type: string }) => {
@@ -41,12 +44,13 @@ const NodeIcon = ({ type }: { type: string }) => {
   }
 }
 
-const TreeNode = ({ node, onContextMenu }: TreeNodeProps) => {
+const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
   const [expanded, setExpanded] = useState(true)
   const selectedNodeId = useSystemStore((state) => state.selectedNodeId)
   const selectNode = useSystemStore((state) => state.selectNode)
 
   const isSelected = selectedNodeId === node.uuid
+  const isOrphaned = parent ? isNodeOrphaned(node, parent) : false
 
   let children: Node[] = []
   if (node.type === "system") {
@@ -103,7 +107,11 @@ const TreeNode = ({ node, onContextMenu }: TreeNodeProps) => {
         <div className="mr-2 w-4 h-4">
           <NodeIcon type={node.type} />
         </div>
-        <div className="flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
+        <div
+          className={`flex-1 overflow-hidden text-ellipsis whitespace-nowrap ${
+            isOrphaned ? "line-through text-gray-500" : ""
+          }`}
+        >
           {node.name}
         </div>
       </div>
@@ -112,9 +120,10 @@ const TreeNode = ({ node, onContextMenu }: TreeNodeProps) => {
         <div>
           {children.map((child) => (
             <TreeNode
-              key={child.id}
+              key={child.uuid}
               node={child}
               onContextMenu={onContextMenu}
+              parent={node as SystemNode | ComponentNode}
             />
           ))}
         </div>
@@ -128,6 +137,7 @@ export const TreeView = () => {
   const setSystem = useSystemStore((state) => state.setSystem)
   const addNode = useSystemStore((state) => state.addNode)
   const selectNode = useSystemStore((state) => state.selectNode)
+  const deleteNode = useSystemStore((state) => state.deleteNode)
 
   const [contextMenu, setContextMenu] = useState<{
     x: number
@@ -179,6 +189,7 @@ export const TreeView = () => {
           throw new Error("Invalid system file format")
         }
 
+        // setSystem will parse all diagrams to rebuild referencedNodeIds
         setSystem(loadedSystem)
       } catch (error) {
         console.error("Failed to load system:", error)
@@ -218,6 +229,7 @@ export const TreeView = () => {
       type,
       content: "",
       description: "",
+      referencedNodeIds: [],
     }
 
     addNode(contextMenu.node.uuid, newNode)
@@ -228,8 +240,10 @@ export const TreeView = () => {
     if (!contextMenu) return []
     const { node } = contextMenu
 
+    const items = []
+
     if (node.type === "system" || node.type === "component") {
-      return [
+      items.push(
         {
           label: "Add Use Case Diagram",
           onClick: () => handleAddNode("use-case-diagram"),
@@ -237,10 +251,34 @@ export const TreeView = () => {
         {
           label: "Add Sequence Diagram",
           onClick: () => handleAddNode("sequence-diagram"),
-        },
-      ]
+        }
+      )
     }
-    return []
+
+    // Check if node is orphaned and can be deleted
+    if (node.type === "actor" || node.type === "component") {
+      const parent = findParentNode(system, node.uuid)
+      if (parent && isNodeOrphaned(node, parent)) {
+        items.push({
+          label: "Delete",
+          onClick: () => handleDeleteNode(),
+          icon: <Trash2 size={14} />,
+          className: "text-red-400 hover:bg-red-900/20",
+        })
+      }
+    }
+
+    return items
+  }
+
+  const handleDeleteNode = () => {
+    if (!contextMenu) return
+    if (
+      confirm(`Are you sure you want to delete "${contextMenu.node.name}"?`)
+    ) {
+      deleteNode(contextMenu.node.uuid)
+      setContextMenu(null)
+    }
   }
 
   return (

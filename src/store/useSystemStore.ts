@@ -8,6 +8,7 @@ import type {
   UseCaseDiagramNode,
   SequenceDiagramNode,
   BaseNode,
+  DiagramNode,
 } from "./types"
 
 interface SystemState {
@@ -17,6 +18,7 @@ interface SystemState {
   selectNode: (nodeId: string | null) => void
   updateNode: (nodeId: string, updates: Partial<BaseNode> | any) => void
   addNode: (parentId: string, node: Node) => void
+  deleteNode: (nodeId: string) => void
 }
 
 const initialSystem: SystemNode = {
@@ -232,6 +234,39 @@ const updateNodeRecursive = (node: Node, uuid: string, updates: any): Node => {
   return node
 }
 
+// Helper to recursively delete a node
+const deleteNodeRecursive = (node: Node, uuid: string): Node => {
+  if (node.type === "system") {
+    const sys = node as SystemNode
+    return {
+      ...sys,
+      components: sys.components
+        .filter((c) => c.uuid !== uuid)
+        .map((c) => deleteNodeRecursive(c, uuid) as ComponentNode),
+      actors: sys.actors?.filter((a) => a.uuid !== uuid) || [],
+      useCases: sys.useCases?.filter((u) => u.uuid !== uuid) || [],
+      useCaseDiagrams: sys.useCaseDiagrams?.filter((d) => d.uuid !== uuid) || [],
+      sequenceDiagrams: sys.sequenceDiagrams?.filter((d) => d.uuid !== uuid) || [],
+    }
+  }
+
+  if (node.type === "component") {
+    const comp = node as ComponentNode
+    return {
+      ...comp,
+      subComponents: comp.subComponents
+        .filter((c) => c.uuid !== uuid)
+        .map((c) => deleteNodeRecursive(c, uuid) as ComponentNode),
+      actors: comp.actors.filter((a) => a.uuid !== uuid),
+      useCases: comp.useCases.filter((u) => u.uuid !== uuid),
+      useCaseDiagrams: comp.useCaseDiagrams.filter((d) => d.uuid !== uuid),
+      sequenceDiagrams: comp.sequenceDiagrams.filter((d) => d.uuid !== uuid),
+    }
+  }
+
+  return node
+}
+
 import {
   parseUseCaseDiagram,
   parseSequenceDiagram,
@@ -240,7 +275,70 @@ import {
 export const useSystemStore = create<SystemState>((set) => ({
   system: initialSystem,
   selectedNodeId: null,
-  setSystem: (system) => set({ system }),
+  setSystem: (system) =>
+    set(() => {
+      // Parse all diagrams in the loaded system to rebuild referencedNodeIds and entities
+      let updatedSystem = system
+
+      // Helper to collect all diagrams with their parent UUIDs
+      const collectDiagrams = (
+        node: Node
+      ): Array<{ diagram: DiagramNode; parentUuid: string }> => {
+        const diagrams: Array<{ diagram: DiagramNode; parentUuid: string }> = []
+
+        if (node.type === "system") {
+          const sys = node as SystemNode
+          sys.useCaseDiagrams.forEach((d) =>
+            diagrams.push({ diagram: d, parentUuid: sys.uuid })
+          )
+          sys.sequenceDiagrams.forEach((d) =>
+            diagrams.push({ diagram: d, parentUuid: sys.uuid })
+          )
+          sys.components.forEach((c) =>
+            diagrams.push(...collectDiagrams(c))
+          )
+        } else if (node.type === "component") {
+          const comp = node as ComponentNode
+          comp.useCaseDiagrams.forEach((d) =>
+            diagrams.push({ diagram: d, parentUuid: comp.uuid })
+          )
+          comp.sequenceDiagrams.forEach((d) =>
+            diagrams.push({ diagram: d, parentUuid: comp.uuid })
+          )
+          comp.subComponents.forEach((c) =>
+            diagrams.push(...collectDiagrams(c))
+          )
+        }
+
+        return diagrams
+      }
+
+      // Collect all diagrams
+      const allDiagrams = collectDiagrams(updatedSystem)
+
+      // Parse each diagram to rebuild referencedNodeIds
+      allDiagrams.forEach(({ diagram, parentUuid }) => {
+        if (diagram.content) {
+          if (diagram.type === "use-case-diagram") {
+            updatedSystem = parseUseCaseDiagram(
+              diagram.content,
+              updatedSystem,
+              parentUuid,
+              diagram.uuid
+            )
+          } else if (diagram.type === "sequence-diagram") {
+            updatedSystem = parseSequenceDiagram(
+              diagram.content,
+              updatedSystem,
+              parentUuid,
+              diagram.uuid
+            )
+          }
+        }
+      })
+
+      return { system: updatedSystem }
+    }),
   selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
   addNode: (parentUuid, node) =>
     set((state) => ({
@@ -303,14 +401,15 @@ export const useSystemStore = create<SystemState>((set) => ({
       if (updates.content) {
         const parent = findParent(updatedSystem, nodeUuid)
         if (parent) {
-          const node = findNode([updatedSystem], nodeUuid) // Using existing helper but need to fix its signature or cast
+          const node = findNode([updatedSystem], nodeUuid)
           if (node) {
             if (node.type === "use-case-diagram") {
               return {
                 system: parseUseCaseDiagram(
                   updates.content,
                   updatedSystem,
-                  parent.uuid
+                  parent.uuid,
+                  nodeUuid
                 ),
               }
             } else if (node.type === "sequence-diagram") {
@@ -318,7 +417,8 @@ export const useSystemStore = create<SystemState>((set) => ({
                 system: parseSequenceDiagram(
                   updates.content,
                   updatedSystem,
-                  parent.uuid
+                  parent.uuid,
+                  nodeUuid
                 ),
               }
             }
@@ -327,5 +427,14 @@ export const useSystemStore = create<SystemState>((set) => ({
       }
 
       return { system: updatedSystem }
+    }),
+  deleteNode: (nodeUuid) =>
+    set((state) => {
+      // If deleting the selected node, clear selection
+      const newSelectedId = state.selectedNodeId === nodeUuid ? null : state.selectedNodeId
+      return {
+        system: deleteNodeRecursive(state.system, nodeUuid) as SystemNode,
+        selectedNodeId: newSelectedId,
+      }
     }),
 }))

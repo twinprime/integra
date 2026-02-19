@@ -40,7 +40,7 @@ describe("diagramParser", () => {
                 cust --> buy
             `
 
-      const newSystem = parseUseCaseDiagram(content, system, "comp1-uuid")
+      const newSystem = parseUseCaseDiagram(content, system, "comp1-uuid", "diagram-uuid")
       const comp = newSystem.components[0]
 
       expect(comp.actors).toHaveLength(1)
@@ -62,7 +62,7 @@ describe("diagramParser", () => {
       })
 
       const content = `actor "New Name" as cust`
-      const newSystem = parseUseCaseDiagram(content, system, "comp1-uuid")
+      const newSystem = parseUseCaseDiagram(content, system, "comp1-uuid", "diagram-uuid")
       const comp = newSystem.components[0]
 
       expect(comp.actors[0].name).toBe("New Name")
@@ -78,7 +78,7 @@ describe("diagramParser", () => {
                 component bob
             `
 
-      const newSystem = parseSequenceDiagram(content, system, "comp1-uuid")
+      const newSystem = parseSequenceDiagram(content, system, "comp1-uuid", "diagram-uuid")
       const comp = newSystem.components[0]
 
       expect(comp.subComponents).toHaveLength(1)
@@ -95,7 +95,7 @@ describe("diagramParser", () => {
                 Client->>Server: getData(id)
              `
 
-      const newSystem = parseSequenceDiagram(content, system, "comp1-uuid")
+      const newSystem = parseSequenceDiagram(content, system, "comp1-uuid", "diagram-uuid")
       const comp = newSystem.components[0]
 
       // Client and Server should be created as sub-components
@@ -116,10 +116,10 @@ describe("diagramParser", () => {
     it("should process system-level diagrams", () => {
       const system = createInitialSystem()
       const content = `
-                 participant "SysComponent"
+                 component "SysComponent" as SysComponent
              `
-      // Parse on HEAD system
-      const newSystem = parseSequenceDiagram(content, system, "root")
+      // Parse on system level
+      const newSystem = parseSequenceDiagram(content, system, "root-uuid", "diagram-uuid")
 
       expect(newSystem.components).toHaveLength(2) // Initial 'comp1' + 'SysComponent'
       expect(

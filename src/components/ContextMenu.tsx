@@ -4,7 +4,12 @@ interface ContextMenuProps {
   x: number
   y: number
   onClose: () => void
-  items: { label: string; onClick: () => void }[]
+  items: {
+    label: string
+    onClick: () => void
+    icon?: React.ReactNode
+    className?: string
+  }[]
 }
 
 export const ContextMenu = ({ x, y, onClose, items }: ContextMenuProps) => {
@@ -31,12 +36,15 @@ export const ContextMenu = ({ x, y, onClose, items }: ContextMenuProps) => {
       {items.map((item, index) => (
         <button
           key={index}
-          className="block w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 hover:text-gray-100 bg-transparent border-none cursor-pointer"
+          className={`flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 hover:text-gray-100 bg-transparent border-none cursor-pointer ${
+            item.className || ""
+          }`}
           onClick={() => {
             item.onClick()
             onClose()
           }}
         >
+          {item.icon && <span className="flex-shrink-0">{item.icon}</span>}
           {item.label}
         </button>
       ))}
