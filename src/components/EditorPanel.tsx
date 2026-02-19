@@ -9,13 +9,23 @@ const CommonEditor = ({
   node: Node
   onUpdate: (updates: any) => void
 }) => {
+  const [name, setName] = useState(node.name || "")
   const [description, setDescription] = useState(node.description || "")
 
   useEffect(() => {
+    setName(node.name || "")
     setDescription(node.description || "")
-  }, [node.id, node.description])
+  }, [node.id, node.name, node.description])
 
-  const handleBlur = () => {
+  const handleNameBlur = () => {
+    if (name !== node.name && name.trim() !== "") {
+      onUpdate({ name: name.trim() })
+    } else if (name.trim() === "") {
+      setName(node.name)
+    }
+  }
+
+  const handleDescriptionBlur = () => {
     if (description !== node.description) {
       onUpdate({ description })
     }
@@ -37,13 +47,14 @@ const CommonEditor = ({
 
       <div className="mb-4">
         <label className="block text-sm font-medium text-gray-300 mb-2">
-          Name (Read-only)
+          Name
         </label>
         <input
-          className="w-full p-2 border border-gray-700 rounded-md text-sm text-gray-400 bg-gray-800 cursor-not-allowed focus:outline-none"
+          className="w-full p-2 border border-gray-700 rounded-md text-sm text-gray-100 bg-gray-900 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
           type="text"
-          value={node.name}
-          readOnly
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={handleNameBlur}
         />
       </div>
 
@@ -56,7 +67,7 @@ const CommonEditor = ({
           rows={3}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          onBlur={handleBlur}
+          onBlur={handleDescriptionBlur}
         />
       </div>
     </div>
@@ -70,13 +81,23 @@ const DiagramEditor = ({
   node: DiagramNode
   onUpdate: (updates: any) => void
 }) => {
+  const [name, setName] = useState(node.name || "")
   const [content, setContent] = useState(node.content || "")
 
   useEffect(() => {
+    setName(node.name || "")
     setContent(node.content || "")
-  }, [node.id, node.content])
+  }, [node.id, node.name, node.content])
 
-  const handleBlur = () => {
+  const handleNameBlur = () => {
+    if (name !== node.name && name.trim() !== "") {
+      onUpdate({ name: name.trim() })
+    } else if (name.trim() === "") {
+      setName(node.name)
+    }
+  }
+
+  const handleContentBlur = () => {
     if (content !== node.content) {
       onUpdate({ content })
     }
@@ -96,6 +117,19 @@ const DiagramEditor = ({
         </p>
       </div>
 
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-300 mb-2">
+          Name
+        </label>
+        <input
+          className="w-full p-2 border border-gray-700 rounded-md text-sm text-gray-100 bg-gray-900 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={handleNameBlur}
+        />
+      </div>
+
       <div className="mb-4 flex-1 flex flex-col">
         <label className="block text-sm font-medium text-gray-300 mb-2">
           Specification
@@ -104,11 +138,11 @@ const DiagramEditor = ({
           className="w-full p-2 border border-gray-700 rounded-md text-[0.85rem] font-mono text-gray-100 resize-y min-h-[200px] flex-1 bg-gray-950 leading-relaxed focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          onBlur={handleBlur}
+          onBlur={handleContentBlur}
           placeholder={
             node.type === "sequence-diagram"
               ? "participant Alice\nparticipant Bob\nAlice->>Bob: Hello"
-              : "YAML specification"
+              : 'actor "User" as user\nuse case "Login" as login\nuser --> login'
           }
         />
       </div>
