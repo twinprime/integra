@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useSystemStore, findNode } from "../store/useSystemStore"
-import type { Node, DiagramNode } from "../store/types"
+import type { Node, DiagramNode, ComponentNode } from "../store/types"
 
 const CommonEditor = ({
   node,
@@ -70,6 +70,168 @@ const CommonEditor = ({
           onBlur={handleDescriptionBlur}
         />
       </div>
+    </div>
+  )
+}
+
+const ComponentEditor = ({
+  node,
+  onUpdate,
+}: {
+  node: ComponentNode
+  onUpdate: (updates: any) => void
+}) => {
+  const [name, setName] = useState(node.name || "")
+  const [description, setDescription] = useState(node.description || "")
+
+  useEffect(() => {
+    setName(node.name || "")
+    setDescription(node.description || "")
+  }, [node.uuid, node.name, node.description])
+
+  const handleNameBlur = () => {
+    if (name !== node.name && name.trim() !== "") {
+      onUpdate({ name: name.trim() })
+    } else if (name.trim() === "") {
+      setName(node.name)
+    }
+  }
+
+  const handleDescriptionBlur = () => {
+    if (description !== node.description) {
+      onUpdate({ description })
+    }
+  }
+
+  return (
+    <div className="p-4 h-full flex flex-col overflow-y-auto">
+      <div className="mb-6 border-b border-gray-800 pb-4">
+        <h2 className="text-xl font-semibold text-gray-100 flex items-center gap-2">
+          {node.name}
+          <span className="text-xs font-normal text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full border border-gray-700">
+            {node.type}
+          </span>
+        </h2>
+        <p className="mt-1 text-sm text-gray-400">
+          ID: <span className="font-mono text-gray-500">{node.id}</span>
+        </p>
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-300 mb-2">
+          Name
+        </label>
+        <input
+          className="w-full p-2 border border-gray-700 rounded-md text-sm text-gray-100 bg-gray-900 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={handleNameBlur}
+        />
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-300 mb-2">
+          Description
+        </label>
+        <textarea
+          className="w-full p-2 border border-gray-700 rounded-md text-sm text-gray-100 bg-gray-900 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+          rows={3}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          onBlur={handleDescriptionBlur}
+        />
+      </div>
+
+      {/* Interface Specifications Section */}
+      {node.interfaces && node.interfaces.length > 0 && (
+        <div className="mb-4">
+          <h3 className="text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
+            Interface Specifications
+            <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full border border-gray-700">
+              {node.interfaces.length}
+            </span>
+          </h3>
+          <div className="space-y-4">
+            {node.interfaces.map((iface) => (
+              <div
+                key={iface.id}
+                className="border border-gray-700 rounded-md bg-gray-900/50 p-3"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium text-gray-200">
+                    {iface.name}
+                  </h4>
+                  <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded border border-gray-700">
+                    {iface.type}
+                  </span>
+                </div>
+                <p className="text-xs text-gray-500 mb-3">
+                  ID: <span className="font-mono">{iface.id}</span>
+                </p>
+
+                {/* Interactions */}
+                {iface.interactions && iface.interactions.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-gray-400">
+                      Interactions ({iface.interactions.length})
+                    </p>
+                    {iface.interactions.map((interaction) => (
+                      <div
+                        key={interaction.id}
+                        className="bg-gray-950 border border-gray-800 rounded p-2"
+                      >
+                        <p className="text-sm font-mono text-blue-400 mb-1">
+                          {interaction.id}
+                        </p>
+                        {interaction.description && (
+                          <p className="text-xs text-gray-500 mb-2">
+                            {interaction.description}
+                          </p>
+                        )}
+                        {interaction.parameters &&
+                          interaction.parameters.length > 0 && (
+                            <div className="mt-2">
+                              <p className="text-xs font-medium text-gray-500 mb-1">
+                                Parameters:
+                              </p>
+                              <div className="space-y-1">
+                                {interaction.parameters.map((param, idx) => (
+                                  <div
+                                    key={idx}
+                                    className="text-xs font-mono text-gray-400 flex items-center gap-2"
+                                  >
+                                    <span className="text-gray-300">
+                                      {param.name}
+                                    </span>
+                                    <span className="text-gray-600">:</span>
+                                    <span className="text-green-400">
+                                      {param.type}
+                                    </span>
+                                    {param.required && (
+                                      <span className="text-red-400 text-[0.65rem]">
+                                        required
+                                      </span>
+                                    )}
+                                    {param.description && (
+                                      <span className="text-gray-600">
+                                        // {param.description}
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -178,6 +340,15 @@ export const EditorPanel = () => {
     return (
       <DiagramEditor
         node={selectedNode as DiagramNode}
+        onUpdate={handleUpdate}
+      />
+    )
+  }
+
+  if (selectedNode.type === "component") {
+    return (
+      <ComponentEditor
+        node={selectedNode as ComponentNode}
         onUpdate={handleUpdate}
       />
     )
