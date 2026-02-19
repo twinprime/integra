@@ -5,11 +5,13 @@ import type { SystemNode } from "../store/types"
 
 // Mock system
 const createInitialSystem = (): SystemNode => ({
+  uuid: "root-uuid",
   id: "root",
   name: "Root",
   type: "system",
   components: [
     {
+      uuid: "comp1-uuid",
       id: "comp1",
       name: "Component 1",
       type: "component",
@@ -38,7 +40,7 @@ describe("diagramParser", () => {
                 cust --> buy
             `
 
-      const newSystem = parseUseCaseDiagram(content, system, "comp1")
+      const newSystem = parseUseCaseDiagram(content, system, "comp1-uuid")
       const comp = newSystem.components[0]
 
       expect(comp.actors).toHaveLength(1)
@@ -53,13 +55,14 @@ describe("diagramParser", () => {
     it("should update existing entities", () => {
       const system = createInitialSystem()
       system.components[0].actors.push({
+        uuid: "cust-uuid",
         id: "cust",
         name: "Old Name",
         type: "actor",
       })
 
       const content = `actor "New Name" as cust`
-      const newSystem = parseUseCaseDiagram(content, system, "comp1")
+      const newSystem = parseUseCaseDiagram(content, system, "comp1-uuid")
       const comp = newSystem.components[0]
 
       expect(comp.actors[0].name).toBe("New Name")
@@ -71,18 +74,18 @@ describe("diagramParser", () => {
       // ... existing test ...
       const system = createInitialSystem()
       const content = `
-                participant Alice
-                participant Bob@{"type": "actor"}
+                actor alice
+                component bob
             `
 
-      const newSystem = parseSequenceDiagram(content, system, "comp1")
+      const newSystem = parseSequenceDiagram(content, system, "comp1-uuid")
       const comp = newSystem.components[0]
 
       expect(comp.subComponents).toHaveLength(1)
-      expect(comp.subComponents[0].id).toBe("Alice")
+      expect(comp.subComponents[0].id).toBe("bob")
 
       expect(comp.actors).toHaveLength(1)
-      expect(comp.actors[0].id).toBe("Bob")
+      expect(comp.actors[0].id).toBe("alice")
     })
 
     it("should create interfaces and interactions from messages", () => {
@@ -92,7 +95,7 @@ describe("diagramParser", () => {
                 Client->>Server: getData(id)
              `
 
-      const newSystem = parseSequenceDiagram(content, system, "comp1")
+      const newSystem = parseSequenceDiagram(content, system, "comp1-uuid")
       const comp = newSystem.components[0]
 
       // Client and Server should be created as sub-components

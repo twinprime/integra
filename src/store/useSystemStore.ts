@@ -20,6 +20,7 @@ interface SystemState {
 }
 
 const initialSystem: SystemNode = {
+  uuid: "root-system-uuid",
   id: "root-system",
   name: "My System",
   type: "system",
@@ -31,13 +32,13 @@ const initialSystem: SystemNode = {
   sequenceDiagrams: [],
 }
 
-// Helper to recursively find a node
+// Helper to recursively find a node by uuid
 export const findNode = (
   nodes: Node[] | BaseNode[],
-  id: string
+  uuid: string
 ): Node | null => {
   for (const node of nodes) {
-    if (node.id === id) return node as Node
+    if (node.uuid === uuid) return node as Node
 
     const anyNode = node as any
     const children = [
@@ -50,7 +51,7 @@ export const findNode = (
     ]
 
     if (children.length > 0) {
-      const found = findNode(children, id)
+      const found = findNode(children, uuid)
       if (found) return found
     }
   }
@@ -60,10 +61,10 @@ export const findNode = (
 // Helper to recursively add a node
 const addNodeRecursive = (
   node: Node,
-  parentId: string,
+  parentUuid: string,
   newNode: Node
 ): Node => {
-  if (node.id === parentId) {
+  if (node.uuid === parentUuid) {
     if (node.type === "system") {
       const sys = node as SystemNode
       switch (newNode.type) {
@@ -136,25 +137,25 @@ const addNodeRecursive = (
     return {
       ...sys,
       components: sys.components.map(
-        (c) => addNodeRecursive(c, parentId, newNode) as ComponentNode
+        (c) => addNodeRecursive(c, parentUuid, newNode) as ComponentNode
       ),
       actors:
         sys.actors?.map(
-          (a) => addNodeRecursive(a, parentId, newNode) as ActorNode
+          (a) => addNodeRecursive(a, parentUuid, newNode) as ActorNode
         ) || [], // Safety check if existing state doesn't have it yet?
       // Actually spread will handle it if we strictly follow type but runtime state might be stale?
       // No, we reset initialSystem. But careful with existing trees if persistence was used (it's not).
       useCases:
         sys.useCases?.map(
-          (u) => addNodeRecursive(u, parentId, newNode) as UseCaseNode
+          (u) => addNodeRecursive(u, parentUuid, newNode) as UseCaseNode
         ) || [],
       useCaseDiagrams:
         sys.useCaseDiagrams?.map(
-          (d) => addNodeRecursive(d, parentId, newNode) as UseCaseDiagramNode
+          (d) => addNodeRecursive(d, parentUuid, newNode) as UseCaseDiagramNode
         ) || [],
       sequenceDiagrams:
         sys.sequenceDiagrams?.map(
-          (d) => addNodeRecursive(d, parentId, newNode) as SequenceDiagramNode
+          (d) => addNodeRecursive(d, parentUuid, newNode) as SequenceDiagramNode
         ) || [],
     }
   }
@@ -164,7 +165,7 @@ const addNodeRecursive = (
     return {
       ...comp,
       subComponents: comp.subComponents.map(
-        (c) => addNodeRecursive(c, parentId, newNode) as ComponentNode
+        (c) => addNodeRecursive(c, parentUuid, newNode) as ComponentNode
       ),
       // We don't recurse into other children for addNode strictly speaking unless they are containers?
       // Components are the only containers.
@@ -175,8 +176,8 @@ const addNodeRecursive = (
 }
 
 // Helper to recursively update a node
-const updateNodeRecursive = (node: Node, id: string, updates: any): Node => {
-  if (node.id === id) {
+const updateNodeRecursive = (node: Node, uuid: string, updates: any): Node => {
+  if (node.uuid === uuid) {
     return { ...node, ...updates }
   }
 
@@ -185,23 +186,23 @@ const updateNodeRecursive = (node: Node, id: string, updates: any): Node => {
     return {
       ...sys,
       components: sys.components.map(
-        (c) => updateNodeRecursive(c, id, updates) as ComponentNode
+        (c) => updateNodeRecursive(c, uuid, updates) as ComponentNode
       ),
       actors:
         sys.actors?.map(
-          (a) => updateNodeRecursive(a, id, updates) as ActorNode
+          (a) => updateNodeRecursive(a, uuid, updates) as ActorNode
         ) || [],
       useCases:
         sys.useCases?.map(
-          (u) => updateNodeRecursive(u, id, updates) as UseCaseNode
+          (u) => updateNodeRecursive(u, uuid, updates) as UseCaseNode
         ) || [],
       useCaseDiagrams:
         sys.useCaseDiagrams?.map(
-          (d) => updateNodeRecursive(d, id, updates) as UseCaseDiagramNode
+          (d) => updateNodeRecursive(d, uuid, updates) as UseCaseDiagramNode
         ) || [],
       sequenceDiagrams:
         sys.sequenceDiagrams?.map(
-          (d) => updateNodeRecursive(d, id, updates) as SequenceDiagramNode
+          (d) => updateNodeRecursive(d, uuid, updates) as SequenceDiagramNode
         ) || [],
     }
   }
@@ -211,19 +212,19 @@ const updateNodeRecursive = (node: Node, id: string, updates: any): Node => {
     return {
       ...comp,
       subComponents: comp.subComponents.map(
-        (c) => updateNodeRecursive(c, id, updates) as ComponentNode
+        (c) => updateNodeRecursive(c, uuid, updates) as ComponentNode
       ),
       actors: comp.actors.map(
-        (a) => updateNodeRecursive(a, id, updates) as ActorNode
+        (a) => updateNodeRecursive(a, uuid, updates) as ActorNode
       ),
       useCases: comp.useCases.map(
-        (u) => updateNodeRecursive(u, id, updates) as UseCaseNode
+        (u) => updateNodeRecursive(u, uuid, updates) as UseCaseNode
       ),
       useCaseDiagrams: comp.useCaseDiagrams.map(
-        (d) => updateNodeRecursive(d, id, updates) as UseCaseDiagramNode
+        (d) => updateNodeRecursive(d, uuid, updates) as UseCaseDiagramNode
       ),
       sequenceDiagrams: comp.sequenceDiagrams.map(
-        (d) => updateNodeRecursive(d, id, updates) as SequenceDiagramNode
+        (d) => updateNodeRecursive(d, uuid, updates) as SequenceDiagramNode
       ),
     }
   }
@@ -241,16 +242,16 @@ export const useSystemStore = create<SystemState>((set) => ({
   selectedNodeId: null,
   setSystem: (system) => set({ system }),
   selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
-  addNode: (parentId, node) =>
+  addNode: (parentUuid, node) =>
     set((state) => ({
-      system: addNodeRecursive(state.system, parentId, node) as SystemNode,
+      system: addNodeRecursive(state.system, parentUuid, node) as SystemNode,
     })),
-  updateNode: (nodeId, updates) =>
+  updateNode: (nodeUuid, updates) =>
     set((state) => {
       // 1. First apply the explicit update
       const updatedSystem = updateNodeRecursive(
         state.system,
-        nodeId,
+        nodeUuid,
         updates
       ) as SystemNode
 
@@ -260,56 +261,56 @@ export const useSystemStore = create<SystemState>((set) => ({
       // BUT we also need the parent component ID for parsing context.
 
       // Finding parent is expensive with current structure unless we store parent pointer.
-      // Let's traverse to find parent of nodeId.
+      // Let's traverse to find parent of nodeUuid.
       const findParent = (
         root: Node,
-        targetId: string
+        targetUuid: string
       ): ComponentNode | SystemNode | null => {
         if (root.type === "system") {
           const sys = root as SystemNode
           // Check direct children
           if (
-            sys.components.find((c) => c.id === targetId) ||
-            sys.actors?.find((a) => a.id === targetId) ||
-            sys.useCases?.find((u) => u.id === targetId) ||
-            sys.useCaseDiagrams?.find((d) => d.id === targetId) ||
-            sys.sequenceDiagrams?.find((d) => d.id === targetId)
+            sys.components.find((c) => c.uuid === targetUuid) ||
+            sys.actors?.find((a) => a.uuid === targetUuid) ||
+            sys.useCases?.find((u) => u.uuid === targetUuid) ||
+            sys.useCaseDiagrams?.find((d) => d.uuid === targetUuid) ||
+            sys.sequenceDiagrams?.find((d) => d.uuid === targetUuid)
           ) {
             return sys
           }
 
           for (const c of sys.components) {
-            const found = findParent(c, targetId)
+            const found = findParent(c, targetUuid)
             if (found) return found
           }
         }
         if (root.type === "component") {
           const comp = root as ComponentNode
           for (const c of comp.subComponents) {
-            if (c.id === targetId) return comp
+            if (c.uuid === targetUuid) return comp
             // ... check other children lists if we supported nested diagrams there ...
-            const found = findParent(c, targetId)
+            const found = findParent(c, targetUuid)
             if (found) return found
           }
-          if (comp.actors.find((a) => a.id === targetId)) return comp
-          if (comp.useCases.find((u) => u.id === targetId)) return comp
-          if (comp.useCaseDiagrams.find((d) => d.id === targetId)) return comp
-          if (comp.sequenceDiagrams.find((d) => d.id === targetId)) return comp
+          if (comp.actors.find((a) => a.uuid === targetUuid)) return comp
+          if (comp.useCases.find((u) => u.uuid === targetUuid)) return comp
+          if (comp.useCaseDiagrams.find((d) => d.uuid === targetUuid)) return comp
+          if (comp.sequenceDiagrams.find((d) => d.uuid === targetUuid)) return comp
         }
         return null
       }
 
       if (updates.content) {
-        const parent = findParent(updatedSystem, nodeId)
+        const parent = findParent(updatedSystem, nodeUuid)
         if (parent) {
-          const node = findNode([updatedSystem], nodeId) // Using existing helper but need to fix its signature or cast
+          const node = findNode([updatedSystem], nodeUuid) // Using existing helper but need to fix its signature or cast
           if (node) {
             if (node.type === "use-case-diagram") {
               return {
                 system: parseUseCaseDiagram(
                   updates.content,
                   updatedSystem,
-                  parent.id
+                  parent.uuid
                 ),
               }
             } else if (node.type === "sequence-diagram") {
@@ -317,7 +318,7 @@ export const useSystemStore = create<SystemState>((set) => ({
                 system: parseSequenceDiagram(
                   updates.content,
                   updatedSystem,
-                  parent.id
+                  parent.uuid
                 ),
               }
             }

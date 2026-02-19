@@ -1,7 +1,8 @@
 export type NodeType = 'system' | 'component' | 'actor' | 'use-case' | 'sequence-diagram' | 'use-case-diagram' | 'folder';
 
 export interface BaseNode {
-  id: string;
+  uuid: string; // Globally unique identifier
+  id: string; // ID used in specification
   name: string;
   type: NodeType;
   description?: string;

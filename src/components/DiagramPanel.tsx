@@ -48,11 +48,11 @@ const transformToMermaid = (content: string, type: string): string => {
     // Pattern: actor "Name" as id  OR  actor id
     mermaidContent = mermaidContent.replace(
       /^(\s*)actor\s+(?:"([^"]+)"\s+as\s+)?(\w+)/gm,
-      (match, indent, name, id) => {
+      (_match, indent, name, _id) => {
         if (name) {
-          return `${indent}participant ${id} as «actor»<br/>${name}`
+          return `${indent}participant ${_id} as «actor»<br/>${name}`
         }
-        return `${indent}participant ${id} as «actor»<br/>${id}`
+        return `${indent}participant ${_id} as «actor»<br/>${_id}`
       },
     )
 
@@ -60,11 +60,11 @@ const transformToMermaid = (content: string, type: string): string => {
     // Pattern: component "Name" as id  OR  component id
     mermaidContent = mermaidContent.replace(
       /^(\s*)component\s+(?:"([^"]+)"\s+as\s+)?(\w+)/gm,
-      (match, indent, name, id) => {
+      (_match, indent, name, _id) => {
         if (name) {
-          return `${indent}participant ${id} as «component»<br/>${name}`
+          return `${indent}participant ${_id} as «component»<br/>${name}`
         }
-        return `${indent}participant ${id} as «component»<br/>${id}`
+        return `${indent}participant ${_id} as «component»<br/>${_id}`
       },
     )
 

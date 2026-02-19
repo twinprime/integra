@@ -14,16 +14,16 @@ const SEQ_ACTOR_PATTERN = /(?:^|\n)\s*actor\s+(?:"([^"]+)"\s+as\s+)?(\w+)/gm
 const SEQ_COMPONENT_PATTERN = /(?:^|\n)\s*component\s+(?:"([^"]+)"\s+as\s+)?(\w+)/gm
 const MESSAGE_PATTERN = /(\w+)\s*->>\s*(\w+)\s*:\s*(\w+)\(([^)]*)\)/g
 
-// Helper to find a component (or system) by ID
+// Helper to find a component (or system) by UUID
 const findContainerInSystem = (
   system: SystemNode,
-  id: string
+  uuid: string
 ): ComponentNode | SystemNode | null => {
-  if (system.id === id) return system
+  if (system.uuid === uuid) return system
 
   const findRecursive = (nodes: ComponentNode[]): ComponentNode | null => {
     for (const node of nodes) {
-      if (node.id === id) return node
+      if (node.uuid === uuid) return node
       const found = findRecursive(node.subComponents)
       if (found) return found
     }
@@ -36,9 +36,9 @@ const findContainerInSystem = (
 export function parseUseCaseDiagram(
   content: string,
   system: SystemNode,
-  parentId: string
+  parentUuid: string
 ): SystemNode {
-  const parent = findContainerInSystem(system, parentId)
+  const parent = findContainerInSystem(system, parentUuid)
   if (!parent) return system
 
   // Parse Actors
@@ -47,6 +47,7 @@ export function parseUseCaseDiagram(
   while ((match = ACTOR_PATTERN.exec(content)) !== null) {
     const [_, name, id] = match
     newActors.push({
+      uuid: crypto.randomUUID(),
       id,
       name,
       type: "actor",
@@ -59,6 +60,7 @@ export function parseUseCaseDiagram(
   while ((match = USE_CASE_PATTERN.exec(content)) !== null) {
     const [_, name, id] = match
     newUseCases.push({
+      uuid: crypto.randomUUID(),
       id,
       name,
       type: "use-case",
@@ -96,7 +98,7 @@ export function parseUseCaseDiagram(
 
   // Recursive update of system tree
   const updateTree = (node: Node): Node => {
-    if (node.id === parent.id) {
+    if (node.uuid === parent.uuid) {
       return updateParent(node as ComponentNode | SystemNode)
     }
 
@@ -126,12 +128,12 @@ export function parseUseCaseDiagram(
 export function parseSequenceDiagram(
   content: string,
   system: SystemNode,
-  parentId: string
+  parentUuid: string
 ): SystemNode {
-  const parent = findContainerInSystem(system, parentId)
+  const parent = findContainerInSystem(system, parentUuid)
   if (!parent) return system
 
-  const participants: { id: string; name: string; type: string }[] = []
+  const participants: { uuid: string; id: string; name: string; type: string }[] = []
   const messages: {
     from: string
     to: string
@@ -145,8 +147,9 @@ export function parseSequenceDiagram(
   while ((match = SEQ_ACTOR_PATTERN.exec(content)) !== null) {
     const name = match[1] || match[2] // name from quotes or just the id
     const id = match[2]
-    if (!participants.find((p) => p.id === id)) {
+    if (!participants.find((p) => p.id === id.trim())) {
       participants.push({
+        uuid: crypto.randomUUID(),
         id: id.trim(),
         name: name.trim(),
         type: "actor",
@@ -159,8 +162,9 @@ export function parseSequenceDiagram(
   while ((match = SEQ_COMPONENT_PATTERN.exec(content)) !== null) {
     const name = match[1] || match[2] // name from quotes or just the id
     const id = match[2]
-    if (!participants.find((p) => p.id === id)) {
+    if (!participants.find((p) => p.id === id.trim())) {
       participants.push({
+        uuid: crypto.randomUUID(),
         id: id.trim(),
         name: name.trim(),
         type: "component",
@@ -184,9 +188,9 @@ export function parseSequenceDiagram(
   // Infer participants from messages (treat as components by default)
   messages.forEach((msg) => {
     if (!participants.find((p) => p.id === msg.from))
-      participants.push({ id: msg.from, name: msg.from, type: "component" })
+      participants.push({ uuid: crypto.randomUUID(), id: msg.from, name: msg.from, type: "component" })
     if (!participants.find((p) => p.id === msg.to))
-      participants.push({ id: msg.to, name: msg.to, type: "component" })
+      participants.push({ uuid: crypto.randomUUID(), id: msg.to, name: msg.to, type: "component" })
   })
 
   // Strategy: Calculate the NEW lists for the parent, then update tree.
@@ -206,6 +210,7 @@ export function parseSequenceDiagram(
     if (p.type === "actor") {
       if (!updatedActors.find((a) => a.id === p.id)) {
         updatedActors.push({
+          uuid: p.uuid,
           id: p.id,
           name: p.name,
           type: "actor",
@@ -215,6 +220,7 @@ export function parseSequenceDiagram(
     } else {
       if (!updatedComponents.find((c) => c.id === p.id)) {
         updatedComponents.push({
+          uuid: p.uuid,
           id: p.id,
           name: p.name,
           type: "component",
@@ -281,7 +287,7 @@ export function parseSequenceDiagram(
 
   // 4. Update the Tree
   const updateTree = (node: Node): Node => {
-    if (node.id === parent.id) {
+    if (node.uuid === parent.uuid) {
       if (node.type === "system") {
         return {
           ...node,

@@ -43,7 +43,7 @@ const TreeNode = ({ node, onContextMenu }: TreeNodeProps) => {
   const selectedNodeId = useSystemStore((state) => state.selectedNodeId)
   const selectNode = useSystemStore((state) => state.selectNode)
 
-  const isSelected = selectedNodeId === node.id
+  const isSelected = selectedNodeId === node.uuid
 
   let children: Node[] = []
   if (node.type === "system") {
@@ -74,7 +74,7 @@ const TreeNode = ({ node, onContextMenu }: TreeNodeProps) => {
   }
 
   const handleClick = () => {
-    selectNode(node.id)
+    selectNode(node.uuid)
   }
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -155,6 +155,7 @@ export const TreeView = () => {
     const id = name.toLowerCase().replace(/\s+/g, "-") + "-" + Date.now()
 
     const newNode: any = {
+      uuid: crypto.randomUUID(),
       id,
       name,
       type,
@@ -162,8 +163,8 @@ export const TreeView = () => {
       description: "",
     }
 
-    addNode(contextMenu.node.id, newNode)
-    selectNode(newNode.id)
+    addNode(contextMenu.node.uuid, newNode)
+    selectNode(newNode.uuid)
   }
 
   const getMenuItems = () => {

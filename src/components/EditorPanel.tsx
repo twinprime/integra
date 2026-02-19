@@ -15,7 +15,7 @@ const CommonEditor = ({
   useEffect(() => {
     setName(node.name || "")
     setDescription(node.description || "")
-  }, [node.id, node.name, node.description])
+  }, [node.uuid, node.name, node.description])
 
   const handleNameBlur = () => {
     if (name !== node.name && name.trim() !== "") {
@@ -87,7 +87,7 @@ const DiagramEditor = ({
   useEffect(() => {
     setName(node.name || "")
     setContent(node.content || "")
-  }, [node.id, node.name, node.content])
+  }, [node.uuid, node.name, node.content])
 
   const handleNameBlur = () => {
     if (name !== node.name && name.trim() !== "") {
@@ -168,7 +168,7 @@ export const EditorPanel = () => {
   }
 
   const handleUpdate = (updates: any) => {
-    updateNode(selectedNode.id, updates)
+    updateNode(selectedNode.uuid, updates)
   }
 
   if (
