@@ -1,55 +1,62 @@
-I want to convert this sample project into a app for editing a system model.
+I want to convert this sample project into an app for editing a system model.
 
-The system model consists of a single system which can contain one or more components. Each component can contain one or more sub-components.
+The system model consists of a root component which can contain one or more sub-components. Each component can contain one or more sub-components.
 
-Each component can contain one or more actors, use cases and sequence diagrams.
+Each component can contain one or more actors, use cases, use case diagrams, and sequence diagrams.
 
-Each component has one or more interface specification.
+Each component has zero or more interface specifications (automatically derived from sequence diagrams).
 
-Each interface specification contains attributes and interactions with parameters. Attributes of the interface include the interface name and type. Type includes kafka topic, REST, GraphQL.
+Each interface specification contains a name, type, and interactions with parameters. Interface types include: kafka, rest, graphql, or other.
 
-The editor contains three panels. The left panel shows a tree structure of the system model. The right panel shows an editor for the text specification of the object selected on the left panel. If the selected object is a use case or sequence diagram, then the bottom panel shows the mermaid diagram generated for the object. Mermaid flowchart can be used to visualize use case diagrams.
+The editor contains three panels. The left panel shows a tree structure of the system model. The middle panel shows an editor for the selected node from the left panel. The right panel shows the mermaid diagram generated for diagrams or a preview for other node types.
 
-An example of the tree structure on the left panel
+When a use case diagram or sequence diagram is selected, the middle panel shows a text editor for the diagram specification. The right panel renders the mermaid visualization.
 
-- system
-    - component 1
-        - diagrams
-            - use case diagram 1
-            - use case diagram 2
-            - sequence diagram 1
-            - sequence diagram 2
-        - entities
-            - component 2
-                - diagrams
-                    - use case diagram 1
-                    - use case diagram 2
-                    - sequence diagram 1
-                    - sequence diagram 2
-                - entities
-                    - component 3
-                    - actor 1
-                    - use case 1
-            - component 4
-    - component 5
+When a component is selected, the middle panel shows fields for name and description, and displays the automatically derived interface specifications (read-only).
 
-The specification of the following nodes in the tree structure are completely editable
-- use case diagram
-- sequence diagram
+When an actor or use case is selected, the middle panel shows fields for name and description.
 
-The specification of the following nodes in the tree structure are automatically generated from the use case and sequence diagram specification provided by the user
-- component
-- actor
+An example of the tree structure on the left panel:
 
-If an actor is mentioned in a use case, then a skeleton specification for it is generated and added to the system model.
+- Root Component
+    - Sub-component 1
+        - Use Case Diagram 1
+        - Use Case Diagram 2
+        - Sequence Diagram 1
+        - Sequence Diagram 2
+        - Sub-component 2
+            - Use Case Diagram 1
+            - Use Case Diagram 2
+            - Sequence Diagram 1
+            - Sequence Diagram 2
+            - Sub-component 3
+            - Actor 1
+            - Use Case 1
+        - Sub-component 4
+        - Actor 2
+        - Use Case 2
+    - Sub-component 5
 
-If a component is mentioned in a sequence diagram, then a skeleton specification for it is generated and added to the system model.
+Note: The system no longer has a separate "system" node. The root itself is a ComponentNode. There are also no "diagrams" or "entities" grouping folders - all children are shown directly under their parent component.
 
-If in a sequence diagram a message is sent to a component, then the message is added to the interface specification of the component.
+The specification of the following nodes in the tree structure are editable via text editor:
+- Use Case Diagram (content field)
+- Sequence Diagram (content field)
+
+The specification of the following nodes are editable via form fields:
+- Component (name, description - interfaces are auto-generated and read-only)
+- Actor (name, description)
+- Use Case (name, description)
+
+The following are automatically generated from use case and sequence diagram specifications:
+- Component nodes (when mentioned in sequence diagrams)
+- Actor nodes (when mentioned in use case diagrams or sequence diagrams)
+- Use Case nodes (when mentioned in use case diagrams)
+- Interface specifications (when messages are sent to components in sequence diagrams)
 
 # Use Case Diagram
 
-this is an example of the text specification of a use case diagram
+This is an example of the text specification of a use case diagram:
 
 ```
 actor "Exploration Leader" as leader
@@ -57,54 +64,56 @@ use case "Create an exploration" as create
 leader --> create
 ```
 
-Actor text specification should be valid yaml. This is an example.
+The syntax uses the `actor` and `use case` keywords with double-quoted names and `as` keyword for IDs.
 
-```
-id: leader
-name: Exploration Leader
-description: leader of an exploration
-```
+When an actor is selected in the tree, the editor panel shows:
+- ID (read-only label)
+- Name (editable input field)
+- Description (editable textarea)
 
-When an actor is selected on the left panel, the right panel will show the 'id' and 'name' attributes of the actor as labels, while providing a text field for editing the 'description' attribute.
-
-Use case text specification should be valid yaml. This is an example.
-
-```
-id: create
-name: Create an exploration
-description: An exploration leader creates an exploration using the system
-```
-
-When a use case is selected on the left panel, the right panel will show the 'id' and 'name' attributes of the use case as labels, while providing a text field for editing the 'description' attribute.
+When a use case is selected in the tree, the editor panel shows:
+- ID (read-only label)
+- Name (editable input field)
+- Description (editable textarea)
 
 # Sequence Diagram
 
 The sequence diagram specification follows the Mermaid sequence diagram syntax with custom participant declarations.
-Use `actor` or `component` keywords to specify the type of participants. You can also specify an id using the "as" keyword:
+Use `actor` or `component` keywords to specify the type of participants. You can specify an ID using the "as" keyword:
 
 ```
 actor "User" as user
 component "Service" as service
+user->>service: createExploration(explorationId)
 ```
 
-If the "as" part is omitted, the name itself will be used as the id.
+If the "as" part is omitted, the name itself will be used as the ID.
 
-Component text specification should be valid yaml. This is an example.
+Messages follow the format: `participant1->>participant2: methodName(param1, param2)`
 
-```
-id: ExplorationController
-name: Exploration Controller
-interactions:
-    - id: createExploration
-      description: Creates a new exploration
-      type: REST
-      parameters:
-        - name: explorationId
-          type: string
-          required: true
-          description: The id of the exploration to create
-```
+## Derived Interface Specifications
 
-The interactions are derived from messages of the format: 'id(parameter1, parameter2)'. For the above example, it should be 'createExploration(explorationId)'. 
+When a component is selected in the tree, the editor shows:
+- ID (read-only label)
+- Name (editable input field)
+- Description (editable textarea)
+- Interface Specifications (read-only, auto-generated)
 
-In the right panel, these derived attributes are shown as labels while the other attributes are provided by the user via a text field.
+Each interface specification includes:
+- Interface name (e.g., "Default")
+- Interface type (rest, kafka, graphql, other)
+- Interface ID (e.g., "iface-Service-default")
+- List of interactions derived from messages:
+  - Interaction ID (the method name from the message)
+  - Description (auto-generated)
+  - Parameters with:
+    - name (extracted from message parameters)
+    - type (defaults to "string")
+    - required (defaults to true)
+
+Example: For the message `user->>service: createExploration(explorationId)`, the system creates:
+- A "Default" interface on the "service" component
+- An interaction with ID "createExploration"
+- A parameter named "explorationId" of type "string" (required)
+
+The interface specifications are automatically updated whenever sequence diagrams are modified.
