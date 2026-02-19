@@ -141,7 +141,7 @@ const DiagramEditor = ({
           onBlur={handleContentBlur}
           placeholder={
             node.type === "sequence-diagram"
-              ? "participant Alice\nparticipant Bob\nAlice->>Bob: Hello"
+              ? 'actor "User" as user\ncomponent "Service" as service\nuser->>service: login(username)'
               : 'actor "User" as user\nuse case "Login" as login\nuser --> login'
           }
         />

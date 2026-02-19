@@ -9,9 +9,9 @@ import type {
 // Regex patterns
 const ACTOR_PATTERN = /actor\s+"([^"]+)"\s+as\s+(\w+)/g
 const USE_CASE_PATTERN = /use case\s+"([^"]+)"\s+as\s+(\w+)/g
-// Mermaid sequence patterns
-const PARTICIPANT_PATTERN =
-  /participant\s+([^@\s]+)(?:@\{"type"\s*:\s*"([^"]+)"\})?/g
+// Sequence diagram patterns - support both actor/component with "as" keyword and simple names
+const SEQ_ACTOR_PATTERN = /(?:^|\n)\s*actor\s+(?:"([^"]+)"\s+as\s+)?(\w+)/gm
+const SEQ_COMPONENT_PATTERN = /(?:^|\n)\s*component\s+(?:"([^"]+)"\s+as\s+)?(\w+)/gm
 const MESSAGE_PATTERN = /(\w+)\s*->>\s*(\w+)\s*:\s*(\w+)\(([^)]*)\)/g
 
 // Helper to find a component (or system) by ID
@@ -131,7 +131,7 @@ export function parseSequenceDiagram(
   const parent = findContainerInSystem(system, parentId)
   if (!parent) return system
 
-  const participants: { name: string; type: string }[] = []
+  const participants: { id: string; name: string; type: string }[] = []
   const messages: {
     from: string
     to: string
@@ -140,13 +140,32 @@ export function parseSequenceDiagram(
   }[] = []
 
   let match
-  // Parse Participants
-  while ((match = PARTICIPANT_PATTERN.exec(content)) !== null) {
-    const [_, name, type] = match
-    participants.push({
-      name: name.trim(),
-      type: type === "actor" ? "actor" : "component",
-    })
+  // Parse Actors
+  SEQ_ACTOR_PATTERN.lastIndex = 0
+  while ((match = SEQ_ACTOR_PATTERN.exec(content)) !== null) {
+    const name = match[1] || match[2] // name from quotes or just the id
+    const id = match[2]
+    if (!participants.find((p) => p.id === id)) {
+      participants.push({
+        id: id.trim(),
+        name: name.trim(),
+        type: "actor",
+      })
+    }
+  }
+
+  // Parse Components
+  SEQ_COMPONENT_PATTERN.lastIndex = 0
+  while ((match = SEQ_COMPONENT_PATTERN.exec(content)) !== null) {
+    const name = match[1] || match[2] // name from quotes or just the id
+    const id = match[2]
+    if (!participants.find((p) => p.id === id)) {
+      participants.push({
+        id: id.trim(),
+        name: name.trim(),
+        type: "component",
+      })
+    }
   }
 
   // Parse Messages
@@ -162,12 +181,12 @@ export function parseSequenceDiagram(
     })
   }
 
-  // Infer participants from messages
+  // Infer participants from messages (treat as components by default)
   messages.forEach((msg) => {
-    if (!participants.find((p) => p.name === msg.from))
-      participants.push({ name: msg.from, type: "component" })
-    if (!participants.find((p) => p.name === msg.to))
-      participants.push({ name: msg.to, type: "component" })
+    if (!participants.find((p) => p.id === msg.from))
+      participants.push({ id: msg.from, name: msg.from, type: "component" })
+    if (!participants.find((p) => p.id === msg.to))
+      participants.push({ id: msg.to, name: msg.to, type: "component" })
   })
 
   // Strategy: Calculate the NEW lists for the parent, then update tree.
@@ -185,18 +204,18 @@ export function parseSequenceDiagram(
 
   participants.forEach((p) => {
     if (p.type === "actor") {
-      if (!updatedActors.find((a) => a.id === p.name)) {
+      if (!updatedActors.find((a) => a.id === p.id)) {
         updatedActors.push({
-          id: p.name,
+          id: p.id,
           name: p.name,
           type: "actor",
           description: "",
         })
       }
     } else {
-      if (!updatedComponents.find((c) => c.id === p.name)) {
+      if (!updatedComponents.find((c) => c.id === p.id)) {
         updatedComponents.push({
-          id: p.name,
+          id: p.id,
           name: p.name,
           type: "component",
           description: "",

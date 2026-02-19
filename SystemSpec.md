@@ -79,12 +79,15 @@ When a use case is selected on the left panel, the right panel will show the 'id
 
 # Sequence Diagram
 
-The sequence diagram specification follows the Mermaid sequence diagram syntax.
-Participants are by default converted into components. Actors should be specified using the 'type' attribute like this 
+The sequence diagram specification follows the Mermaid sequence diagram syntax with custom participant declarations.
+Use `actor` or `component` keywords to specify the type of participants. You can also specify an id using the "as" keyword:
 
 ```
-participant Alice@{ "type" : "actor" }
+actor "User" as user
+component "Service" as service
 ```
+
+If the "as" part is omitted, the name itself will be used as the id.
 
 Component text specification should be valid yaml. This is an example.
 
