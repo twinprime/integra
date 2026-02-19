@@ -6,14 +6,13 @@ import {
   Box,
   User,
   FileText,
-  Layout,
   Activity,
   Download,
   Upload,
   Trash2,
 } from "lucide-react"
 import { useSystemStore } from "../store/useSystemStore"
-import type { Node, SystemNode, ComponentNode } from "../store/types"
+import type { Node, ComponentNode } from "../store/types"
 import { ContextMenu } from "./ContextMenu"
 import yaml from "js-yaml"
 import { isNodeOrphaned, findParentNode } from "../utils/nodeUtils"
@@ -22,13 +21,11 @@ interface TreeNodeProps {
   node: Node
   level?: number
   onContextMenu: (e: React.MouseEvent, node: Node) => void
-  parent?: SystemNode | ComponentNode
+  parent?: ComponentNode
 }
 
 const NodeIcon = ({ type }: { type: string }) => {
   switch (type) {
-    case "system":
-      return <Layout size={16} className="text-purple-500" />
     case "component":
       return <Box size={16} className="text-blue-500" />
     case "actor":
@@ -53,16 +50,7 @@ const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
   const isOrphaned = parent ? isNodeOrphaned(node, parent) : false
 
   let children: Node[] = []
-  if (node.type === "system") {
-    const sys = node as SystemNode
-    children = [
-      ...sys.components,
-      ...sys.actors,
-      ...sys.useCases,
-      ...sys.useCaseDiagrams,
-      ...sys.sequenceDiagrams,
-    ]
-  } else if (node.type === "component") {
+  if (node.type === "component") {
     const comp = node as ComponentNode
     children = [
       ...comp.subComponents,
@@ -123,7 +111,7 @@ const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
               key={child.uuid}
               node={child}
               onContextMenu={onContextMenu}
-              parent={node as SystemNode | ComponentNode}
+              parent={node as ComponentNode}
             />
           ))}
         </div>
@@ -133,7 +121,7 @@ const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
 }
 
 export const TreeView = () => {
-  const system = useSystemStore((state) => state.system)
+  const rootComponent = useSystemStore((state) => state.rootComponent)
   const setSystem = useSystemStore((state) => state.setSystem)
   const addNode = useSystemStore((state) => state.addNode)
   const selectNode = useSystemStore((state) => state.selectNode)
@@ -147,7 +135,7 @@ export const TreeView = () => {
 
   const handleSave = () => {
     try {
-      const yamlContent = yaml.dump(system, {
+      const yamlContent = yaml.dump(rootComponent, {
         indent: 2,
         noRefs: true,
         skipInvalid: true,
@@ -157,7 +145,7 @@ export const TreeView = () => {
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `${system.name.toLowerCase().replace(/\s+/g, "-")}.yaml`
+      a.download = `${rootComponent.name.toLowerCase().replace(/\s+/g, "-")}.yaml`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -178,13 +166,13 @@ export const TreeView = () => {
 
       try {
         const text = await file.text()
-        const loadedSystem = yaml.load(text) as SystemNode
+        const loadedSystem = yaml.load(text) as ComponentNode
 
         // Validate basic structure
         if (
           !loadedSystem ||
           typeof loadedSystem !== "object" ||
-          loadedSystem.type !== "system"
+          loadedSystem.type !== "component"
         ) {
           throw new Error("Invalid system file format")
         }
@@ -199,7 +187,7 @@ export const TreeView = () => {
     input.click()
   }
 
-  if (!system)
+  if (!rootComponent)
     return <div className="p-4 text-sm text-gray-500">No system defined</div>
 
   const handleContextMenu = (e: React.MouseEvent, node: Node) => {
@@ -242,7 +230,7 @@ export const TreeView = () => {
 
     const items = []
 
-    if (node.type === "system" || node.type === "component") {
+    if (node.type === "component") {
       items.push(
         {
           label: "Add Use Case Diagram",
@@ -257,7 +245,7 @@ export const TreeView = () => {
 
     // Check if node is orphaned and can be deleted
     if (node.type === "actor" || node.type === "component") {
-      const parent = findParentNode(system, node.uuid)
+      const parent = findParentNode(rootComponent, node.uuid)
       if (parent && isNodeOrphaned(node, parent)) {
         items.push({
           label: "Delete",
@@ -303,7 +291,7 @@ export const TreeView = () => {
         </div>
       </div>
       <div className="flex-1 overflow-auto pb-8">
-        <TreeNode node={system} onContextMenu={handleContextMenu} />
+        <TreeNode node={rootComponent} onContextMenu={handleContextMenu} />
         {contextMenu && (
           <ContextMenu
             x={contextMenu.x}

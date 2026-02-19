@@ -1,21 +1,17 @@
-import type { Node, SystemNode, ComponentNode } from "../store/types"
+import type { Node, ComponentNode } from "../store/types"
 
 // Check if an actor or component is referenced in any diagram
 export const isNodeOrphaned = (
   node: Node,
-  parent: SystemNode | ComponentNode
+  parent: ComponentNode
 ): boolean => {
   if (node.type !== "actor" && node.type !== "component") {
     return false
   }
 
   const allDiagrams = [
-    ...(parent.type === "system"
-      ? (parent as SystemNode).useCaseDiagrams
-      : (parent as ComponentNode).useCaseDiagrams),
-    ...(parent.type === "system"
-      ? (parent as SystemNode).sequenceDiagrams
-      : (parent as ComponentNode).sequenceDiagrams),
+    ...parent.useCaseDiagrams,
+    ...parent.sequenceDiagrams,
   ]
 
   // Check if the node's ID appears in any diagram's referencedNodeIds
@@ -30,16 +26,14 @@ export const isNodeOrphaned = (
 
 // Find the parent of a node in the system tree
 export const findParentNode = (
-  system: SystemNode,
+  rootComponent: ComponentNode,
   targetUuid: string
-): SystemNode | ComponentNode | null => {
+): ComponentNode | null => {
   const checkChildren = (
-    node: SystemNode | ComponentNode
-  ): SystemNode | ComponentNode | null => {
+    node: ComponentNode
+  ): ComponentNode | null => {
     const children = [
-      ...(node.type === "system"
-        ? (node as SystemNode).components
-        : (node as ComponentNode).subComponents),
+      ...node.subComponents,
       ...(node.actors || []),
       ...(node.useCases || []),
       ...(node.useCaseDiagrams || []),
@@ -53,12 +47,7 @@ export const findParentNode = (
     }
 
     // Recurse into components
-    const components =
-      node.type === "system"
-        ? (node as SystemNode).components
-        : (node as ComponentNode).subComponents
-
-    for (const comp of components) {
+    for (const comp of node.subComponents) {
       const found = checkChildren(comp)
       if (found) return found
     }
@@ -66,5 +55,5 @@ export const findParentNode = (
     return null
   }
 
-  return checkChildren(system)
+  return checkChildren(rootComponent)
 }

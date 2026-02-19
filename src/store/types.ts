@@ -1,4 +1,4 @@
-export type NodeType = 'system' | 'component' | 'actor' | 'use-case' | 'sequence-diagram' | 'use-case-diagram' | 'folder';
+export type NodeType = 'component' | 'actor' | 'use-case' | 'sequence-diagram' | 'use-case-diagram' | 'folder';
 
 export interface BaseNode {
   uuid: string; // Globally unique identifier
@@ -6,15 +6,6 @@ export interface BaseNode {
   name: string;
   type: NodeType;
   description?: string;
-}
-
-export interface SystemNode extends BaseNode {
-  type: 'system';
-  components: ComponentNode[];
-  actors: ActorNode[];
-  useCases: UseCaseNode[];
-  useCaseDiagrams: UseCaseDiagramNode[];
-  sequenceDiagrams: SequenceDiagramNode[];
 }
 
 export interface ComponentNode extends BaseNode {
@@ -68,5 +59,5 @@ export interface SequenceDiagramNode extends DiagramNode {
   type: 'sequence-diagram';
 }
 
-export type Node = SystemNode | ComponentNode | ActorNode | UseCaseNode | UseCaseDiagramNode | SequenceDiagramNode;
+export type Node = ComponentNode | ActorNode | UseCaseNode | UseCaseDiagramNode | SequenceDiagramNode;
 

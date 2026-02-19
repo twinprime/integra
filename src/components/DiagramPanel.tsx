@@ -79,7 +79,7 @@ const transformToMermaid = (content: string, type: string): string => {
 
 export const DiagramPanel = () => {
   const selectedNodeId = useSystemStore((state) => state.selectedNodeId)
-  const system = useSystemStore((state) => state.system)
+  const rootComponent = useSystemStore((state) => state.rootComponent)
   const elementRef = useRef<HTMLDivElement>(null)
   const [svg, setSvg] = useState<string>("")
   const [error, setError] = useState<string>("")
@@ -87,7 +87,7 @@ export const DiagramPanel = () => {
   const [showTooltip, setShowTooltip] = useState<boolean>(false)
 
   const selectedNode = selectedNodeId
-    ? findNode([system], selectedNodeId)
+    ? findNode([rootComponent], selectedNodeId)
     : null
 
   useEffect(() => {

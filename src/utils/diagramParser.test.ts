@@ -1,15 +1,15 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest"
 import { parseUseCaseDiagram, parseSequenceDiagram } from "./diagramParser"
-import type { SystemNode } from "../store/types"
+import type { ComponentNode } from "../store/types"
 
-// Mock system
-const createInitialSystem = (): SystemNode => ({
+// Mock root component
+const createInitialSystem = (): ComponentNode => ({
   uuid: "root-uuid",
   id: "root",
   name: "Root",
-  type: "system",
-  components: [
+  type: "component",
+  subComponents: [
     {
       uuid: "comp1-uuid",
       id: "comp1",
@@ -28,20 +28,21 @@ const createInitialSystem = (): SystemNode => ({
   useCases: [],
   useCaseDiagrams: [],
   sequenceDiagrams: [],
+  interfaces: [],
 })
 
 describe("diagramParser", () => {
   describe("parseUseCaseDiagram", () => {
     it("should add actors and use cases to the component", () => {
-      const system = createInitialSystem()
+      const rootComponent = createInitialSystem()
       const content = `
                 actor "Customer" as cust
                 use case "Buy Item" as buy
                 cust --> buy
             `
 
-      const newSystem = parseUseCaseDiagram(content, system, "comp1-uuid", "diagram-uuid")
-      const comp = newSystem.components[0]
+      const newSystem = parseUseCaseDiagram(content, rootComponent, "comp1-uuid", "diagram-uuid")
+      const comp = newSystem.subComponents[0]
 
       expect(comp.actors).toHaveLength(1)
       expect(comp.actors[0].id).toBe("cust")
@@ -53,8 +54,8 @@ describe("diagramParser", () => {
     })
 
     it("should update existing entities", () => {
-      const system = createInitialSystem()
-      system.components[0].actors.push({
+      const rootComponent = createInitialSystem()
+      rootComponent.subComponents[0].actors.push({
         uuid: "cust-uuid",
         id: "cust",
         name: "Old Name",
@@ -62,8 +63,8 @@ describe("diagramParser", () => {
       })
 
       const content = `actor "New Name" as cust`
-      const newSystem = parseUseCaseDiagram(content, system, "comp1-uuid", "diagram-uuid")
-      const comp = newSystem.components[0]
+      const newSystem = parseUseCaseDiagram(content, rootComponent, "comp1-uuid", "diagram-uuid")
+      const comp = newSystem.subComponents[0]
 
       expect(comp.actors[0].name).toBe("New Name")
     })
@@ -72,14 +73,14 @@ describe("diagramParser", () => {
   describe("parseSequenceDiagram", () => {
     it("should create participants as sub-components", () => {
       // ... existing test ...
-      const system = createInitialSystem()
+      const rootComponent = createInitialSystem()
       const content = `
                 actor alice
                 component bob
             `
 
-      const newSystem = parseSequenceDiagram(content, system, "comp1-uuid", "diagram-uuid")
-      const comp = newSystem.components[0]
+      const newSystem = parseSequenceDiagram(content, rootComponent, "comp1-uuid", "diagram-uuid")
+      const comp = newSystem.subComponents[0]
 
       expect(comp.subComponents).toHaveLength(1)
       expect(comp.subComponents[0].id).toBe("bob")
@@ -90,13 +91,13 @@ describe("diagramParser", () => {
 
     it("should create interfaces and interactions from messages", () => {
       // ... existing test ...
-      const system = createInitialSystem()
+      const rootComponent = createInitialSystem()
       const content = `
                 Client->>Server: getData(id)
              `
 
-      const newSystem = parseSequenceDiagram(content, system, "comp1-uuid", "diagram-uuid")
-      const comp = newSystem.components[0]
+      const newSystem = parseSequenceDiagram(content, rootComponent, "comp1-uuid", "diagram-uuid")
+      const comp = newSystem.subComponents[0]
 
       // Client and Server should be created as sub-components
       const server = comp.subComponents.find((c) => c.id === "Server")
@@ -114,16 +115,16 @@ describe("diagramParser", () => {
     })
 
     it("should process system-level diagrams", () => {
-      const system = createInitialSystem()
+      const rootComponent = createInitialSystem()
       const content = `
                  component "SysComponent" as SysComponent
              `
-      // Parse on system level
-      const newSystem = parseSequenceDiagram(content, system, "root-uuid", "diagram-uuid")
+      // Parse on root level
+      const newSystem = parseSequenceDiagram(content, rootComponent, "root-uuid", "diagram-uuid")
 
-      expect(newSystem.components).toHaveLength(2) // Initial 'comp1' + 'SysComponent'
+      expect(newSystem.subComponents).toHaveLength(2) // Initial 'comp1' + 'SysComponent'
       expect(
-        newSystem.components.find((c) => c.id === "SysComponent")
+        newSystem.subComponents.find((c) => c.id === "SysComponent")
       ).toBeDefined()
     })
   })

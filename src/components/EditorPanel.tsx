@@ -152,11 +152,11 @@ const DiagramEditor = ({
 
 export const EditorPanel = () => {
   const selectedNodeId = useSystemStore((state) => state.selectedNodeId)
-  const system = useSystemStore((state) => state.system)
+  const rootComponent = useSystemStore((state) => state.rootComponent)
   const updateNode = useSystemStore((state) => state.updateNode)
 
   const selectedNode = selectedNodeId
-    ? findNode([system], selectedNodeId)
+    ? findNode([rootComponent], selectedNodeId)
     : null
 
   if (!selectedNode) {

@@ -1,5 +1,4 @@
 import type {
-  SystemNode,
   ComponentNode,
   ActorNode,
   UseCaseNode,
@@ -16,12 +15,12 @@ const SEQ_ACTOR_PATTERN = /(?:^|\n)\s*actor\s+(?:"([^"]+)"\s+as\s+)?(\w+)/gm
 const SEQ_COMPONENT_PATTERN = /(?:^|\n)\s*component\s+(?:"([^"]+)"\s+as\s+)?(\w+)/gm
 const MESSAGE_PATTERN = /(\w+)\s*->>\s*(\w+)\s*:\s*(\w+)\(([^)]*)\)/g
 
-// Helper to find a component (or system) by UUID
+// Helper to find a component by UUID
 const findContainerInSystem = (
-  system: SystemNode,
+  rootComponent: ComponentNode,
   uuid: string
-): ComponentNode | SystemNode | null => {
-  if (system.uuid === uuid) return system
+): ComponentNode | null => {
+  if (rootComponent.uuid === uuid) return rootComponent
 
   const findRecursive = (nodes: ComponentNode[]): ComponentNode | null => {
     for (const node of nodes) {
@@ -32,17 +31,17 @@ const findContainerInSystem = (
     return null
   }
 
-  return findRecursive(system.components)
+  return findRecursive(rootComponent.subComponents)
 }
 
 export function parseUseCaseDiagram(
   content: string,
-  system: SystemNode,
+  rootComponent: ComponentNode,
   parentUuid: string,
   diagramUuid: string
-): SystemNode {
-  const parent = findContainerInSystem(system, parentUuid)
-  if (!parent) return system
+): ComponentNode {
+  const parent = findContainerInSystem(rootComponent, parentUuid)
+  if (!parent) return rootComponent
 
   const referencedNodeIds: string[] = []
 
@@ -94,19 +93,19 @@ export function parseUseCaseDiagram(
 
   // Construct new state
   const updateParent = (
-    node: ComponentNode | SystemNode
-  ): ComponentNode | SystemNode => {
+    node: ComponentNode
+  ): ComponentNode => {
     return {
       ...node,
       actors: mergeLists(node.actors || [], newActors),
       useCases: mergeLists(node.useCases || [], newUseCases),
-    } as ComponentNode | SystemNode
+    } as ComponentNode
   }
 
   // Recursive update of system tree
   const updateTree = (node: Node): Node => {
     if (node.uuid === parent.uuid) {
-      return updateParent(node as ComponentNode | SystemNode)
+      return updateParent(node as ComponentNode)
     }
 
     // Update the diagram node with referencedNodeIds
@@ -114,17 +113,6 @@ export function parseUseCaseDiagram(
       return {
         ...node,
         referencedNodeIds,
-      }
-    }
-
-    if (node.type === "system") {
-      const sys = node as SystemNode
-      return {
-        ...sys,
-        components: sys.components.map((c) => updateTree(c) as ComponentNode),
-        useCaseDiagrams: sys.useCaseDiagrams.map(
-          (d) => updateTree(d) as UseCaseDiagramNode
-        ),
       }
     }
 
@@ -143,17 +131,17 @@ export function parseUseCaseDiagram(
     return node
   }
 
-  return updateTree(system) as SystemNode
+  return updateTree(rootComponent) as ComponentNode
 }
 
 export function parseSequenceDiagram(
   content: string,
-  system: SystemNode,
+  rootComponent: ComponentNode,
   parentUuid: string,
   diagramUuid: string
-): SystemNode {
-  const parent = findContainerInSystem(system, parentUuid)
-  if (!parent) return system
+): ComponentNode {
+  const parent = findContainerInSystem(rootComponent, parentUuid)
+  if (!parent) return rootComponent
 
   const participants: { uuid: string; id: string; name: string; type: string }[] = []
   const referencedNodeIds: string[] = []
@@ -225,10 +213,7 @@ export function parseSequenceDiagram(
   // Strategy: Calculate the NEW lists for the parent, then update tree.
 
   // 1. Identify Existing Components/Actors in Parent
-  const existingComponents =
-    parent.type === "system"
-      ? (parent as SystemNode).components
-      : (parent as ComponentNode).subComponents
+  const existingComponents = parent.subComponents
   const existingActors = parent.actors || []
 
   // 2. Build Updated Lists
@@ -317,19 +302,11 @@ export function parseSequenceDiagram(
   // 4. Update the Tree
   const updateTree = (node: Node): Node => {
     if (node.uuid === parent.uuid) {
-      if (node.type === "system") {
-        return {
-          ...node,
-          components: updatedComponents,
-          actors: updatedActors,
-        } as SystemNode
-      } else {
-        return {
-          ...node,
-          subComponents: updatedComponents,
-          actors: updatedActors,
-        } as ComponentNode
-      }
+      return {
+        ...node,
+        subComponents: updatedComponents,
+        actors: updatedActors,
+      } as ComponentNode
     }
 
     // Update the diagram node with referencedNodeIds
@@ -338,18 +315,6 @@ export function parseSequenceDiagram(
         ...node,
         referencedNodeIds,
       }
-    }
-
-    if (node.type === "system") {
-      return {
-        ...node,
-        components: (node as SystemNode).components.map(
-          (c) => updateTree(c) as ComponentNode
-        ),
-        sequenceDiagrams: (node as SystemNode).sequenceDiagrams.map(
-          (d) => updateTree(d) as SequenceDiagramNode
-        ),
-      } as SystemNode
     }
 
     if (node.type === "component") {
@@ -368,5 +333,5 @@ export function parseSequenceDiagram(
     return node
   }
 
-  return updateTree(system) as SystemNode
+  return updateTree(rootComponent) as ComponentNode
 }

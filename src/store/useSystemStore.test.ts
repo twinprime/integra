@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { act, renderHook } from "@testing-library/react"
 import { useSystemStore } from "./useSystemStore"
-import type { SystemNode, ComponentNode, UseCaseDiagramNode } from "./types"
+import type { ComponentNode, UseCaseDiagramNode } from "./types"
 
 // Mock crypto.randomUUID for consistent UUIDs in tests
 const mockUUIDs = [
@@ -28,16 +28,17 @@ describe("useSystemStore", () => {
     const { result } = renderHook(() => useSystemStore())
     act(() => {
       result.current.setSystem({
-        uuid: "root-system-uuid",
-        id: "root-system",
+        uuid: "root-component-uuid",
+        id: "root-component",
         name: "My System",
-        type: "system",
-        description: "Root System Node",
-        components: [],
+        type: "component",
+        description: "Root Component Node",
+        subComponents: [],
         actors: [],
         useCases: [],
         useCaseDiagrams: [],
         sequenceDiagrams: [],
+        interfaces: [],
       })
     })
   })
@@ -60,8 +61,8 @@ describe("useSystemStore", () => {
   describe("initial state", () => {
     it("should have default initial system", () => {
       const { result } = renderHook(() => useSystemStore())
-      expect(result.current.system.name).toBe("My System")
-      expect(result.current.system.type).toBe("system")
+      expect(result.current.rootComponent.name).toBe("My System")
+      expect(result.current.rootComponent.type).toBe("component")
       expect(result.current.selectedNodeId).toBeNull()
     })
   })
@@ -108,11 +109,11 @@ describe("useSystemStore", () => {
       }
 
       act(() => {
-        result.current.addNode("root-system-uuid", newComponent)
+        result.current.addNode("root-component-uuid", newComponent)
       })
 
-      expect(result.current.system.components).toHaveLength(1)
-      expect(result.current.system.components[0].name).toBe("Component 1")
+      expect(result.current.rootComponent.subComponents).toHaveLength(1)
+      expect(result.current.rootComponent.subComponents[0].name).toBe("Component 1")
     })
 
     it("should add an actor to a component", () => {
@@ -133,7 +134,7 @@ describe("useSystemStore", () => {
       }
 
       act(() => {
-        result.current.addNode("root-system-uuid", component)
+        result.current.addNode("root-component-uuid", component)
       })
 
       const actor = {
@@ -148,8 +149,8 @@ describe("useSystemStore", () => {
         result.current.addNode("comp-uuid", actor)
       })
 
-      expect(result.current.system.components[0].actors).toHaveLength(1)
-      expect(result.current.system.components[0].actors[0].name).toBe("User")
+      expect(result.current.rootComponent.subComponents[0].actors).toHaveLength(1)
+      expect(result.current.rootComponent.subComponents[0].actors[0].name).toBe("User")
     })
   })
 
@@ -158,20 +159,20 @@ describe("useSystemStore", () => {
       const { result } = renderHook(() => useSystemStore())
       
       act(() => {
-        result.current.updateNode("root-system-uuid", { name: "Updated System" })
+        result.current.updateNode("root-component-uuid", { name: "Updated System" })
       })
 
-      expect(result.current.system.name).toBe("Updated System")
+      expect(result.current.rootComponent.name).toBe("Updated System")
     })
 
     it("should update node description", () => {
       const { result } = renderHook(() => useSystemStore())
       
       act(() => {
-        result.current.updateNode("root-system-uuid", { description: "New description" })
+        result.current.updateNode("root-component-uuid", { description: "New description" })
       })
 
-      expect(result.current.system.description).toBe("New description")
+      expect(result.current.rootComponent.description).toBe("New description")
     })
 
     it("should update diagram content", () => {
@@ -193,7 +194,7 @@ describe("useSystemStore", () => {
       }
 
       act(() => {
-        result.current.addNode("root-system-uuid", component)
+        result.current.addNode("root-component-uuid", component)
       })
 
       const diagram: UseCaseDiagramNode = {
@@ -218,7 +219,7 @@ describe("useSystemStore", () => {
       })
 
       // Verify the content was updated
-      const updatedComp = result.current.system.components[0]
+      const updatedComp = result.current.rootComponent.subComponents[0]
       const updatedDiagram = updatedComp.useCaseDiagrams[0]
       expect(updatedDiagram.content).toContain("User")
       expect(updatedDiagram.content).toContain("Login")
@@ -244,16 +245,16 @@ describe("useSystemStore", () => {
       }
 
       act(() => {
-        result.current.addNode("root-system-uuid", component)
+        result.current.addNode("root-component-uuid", component)
       })
 
-      expect(result.current.system.components).toHaveLength(1)
+      expect(result.current.rootComponent.subComponents).toHaveLength(1)
 
       act(() => {
         result.current.deleteNode("comp-uuid")
       })
 
-      expect(result.current.system.components).toHaveLength(0)
+      expect(result.current.rootComponent.subComponents).toHaveLength(0)
     })
 
     it("should delete an actor from a component", () => {
@@ -274,7 +275,7 @@ describe("useSystemStore", () => {
       }
 
       act(() => {
-        result.current.addNode("root-system-uuid", component)
+        result.current.addNode("root-component-uuid", component)
       })
 
       const actor = {
@@ -289,13 +290,13 @@ describe("useSystemStore", () => {
         result.current.addNode("comp-uuid", actor)
       })
 
-      expect(result.current.system.components[0].actors).toHaveLength(1)
+      expect(result.current.rootComponent.subComponents[0].actors).toHaveLength(1)
 
       act(() => {
         result.current.deleteNode("actor-uuid")
       })
 
-      expect(result.current.system.components[0].actors).toHaveLength(0)
+      expect(result.current.rootComponent.subComponents[0].actors).toHaveLength(0)
     })
 
     it("should clear selectedNodeId when deleting selected node", () => {
@@ -316,7 +317,7 @@ describe("useSystemStore", () => {
       }
 
       act(() => {
-        result.current.addNode("root-system-uuid", component)
+        result.current.addNode("root-component-uuid", component)
         result.current.selectNode("comp-uuid")
       })
 
@@ -334,25 +335,26 @@ describe("useSystemStore", () => {
     it("should replace the entire system", () => {
       const { result } = renderHook(() => useSystemStore())
       
-      const newSystem: SystemNode = {
+      const newSystem: ComponentNode = {
         uuid: "new-system-uuid",
         id: "new-system",
         name: "New System",
-        type: "system",
+        type: "component",
         description: "New System Description",
-        components: [],
+        subComponents: [],
         actors: [],
         useCases: [],
         useCaseDiagrams: [],
         sequenceDiagrams: [],
+        interfaces: [],
       }
 
       act(() => {
         result.current.setSystem(newSystem)
       })
 
-      expect(result.current.system.name).toBe("New System")
-      expect(result.current.system.uuid).toBe("new-system-uuid")
+      expect(result.current.rootComponent.name).toBe("New System")
+      expect(result.current.rootComponent.uuid).toBe("new-system-uuid")
     })
 
     it("should call parsers when loading system (integration with diagramParser)", () => {
@@ -363,13 +365,13 @@ describe("useSystemStore", () => {
       
       const { result } = renderHook(() => useSystemStore())
       
-      const systemWithDiagrams: SystemNode = {
-        uuid: "system-uuid",
-        id: "system",
+      const systemWithDiagrams: ComponentNode = {
+        uuid: "new-system-uuid",
+        id: "test-system",
         name: "Test System",
-        type: "system",
+        type: "component",
         description: "System with diagrams",
-        components: [
+        subComponents: [
           {
             uuid: "comp-uuid",
             id: "comp1",
@@ -398,6 +400,7 @@ describe("useSystemStore", () => {
         useCases: [],
         useCaseDiagrams: [],
         sequenceDiagrams: [],
+        interfaces: [],
       }
 
       act(() => {
@@ -405,9 +408,9 @@ describe("useSystemStore", () => {
       })
 
       // Verify the system was loaded
-      expect(result.current.system.name).toBe("Test System")
-      expect(result.current.system.components).toHaveLength(1)
-      expect(result.current.system.components[0].useCaseDiagrams).toHaveLength(1)
+      expect(result.current.rootComponent.name).toBe("Test System")
+      expect(result.current.rootComponent.subComponents).toHaveLength(1)
+      expect(result.current.rootComponent.subComponents[0].useCaseDiagrams).toHaveLength(1)
     })
 
     it("should not clear selectedNodeId when setting new system", () => {
@@ -419,17 +422,18 @@ describe("useSystemStore", () => {
 
       expect(result.current.selectedNodeId).toBe("some-node-uuid")
 
-      const newSystem: SystemNode = {
+      const newSystem: ComponentNode = {
         uuid: "new-system-uuid",
         id: "new-system",
         name: "New System",
-        type: "system",
+        type: "component",
         description: "New System",
-        components: [],
+        subComponents: [],
         actors: [],
         useCases: [],
         useCaseDiagrams: [],
         sequenceDiagrams: [],
+        interfaces: [],
       }
 
       act(() => {
