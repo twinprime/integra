@@ -60,62 +60,6 @@ export const findNode = (
   return null
 }
 
-// Helper to recursively add a node
-const addNodeRecursive = (
-  node: Node,
-  parentUuid: string,
-  newNode: Node
-): Node => {
-  if (node.uuid === parentUuid) {
-    if (node.type === "component") {
-      const comp = node as ComponentNode
-      switch (newNode.type) {
-        case "component":
-          return {
-            ...comp,
-            subComponents: [...comp.subComponents, newNode as ComponentNode],
-          }
-        case "actor":
-          return { ...comp, actors: [...comp.actors, newNode as ActorNode] }
-        case "use-case":
-          return {
-            ...comp,
-            useCases: [...comp.useCases, newNode as UseCaseNode],
-          }
-        case "use-case-diagram":
-          return {
-            ...comp,
-            useCaseDiagrams: [
-              ...comp.useCaseDiagrams,
-              newNode as UseCaseDiagramNode,
-            ],
-          }
-        case "sequence-diagram":
-          return {
-            ...comp,
-            sequenceDiagrams: [
-              ...comp.sequenceDiagrams,
-              newNode as SequenceDiagramNode,
-            ],
-          }
-      }
-    }
-  }
-
-  // Recursive step
-  if (node.type === "component") {
-    const comp = node as ComponentNode
-    return {
-      ...comp,
-      subComponents: comp.subComponents.map(
-        (c) => addNodeRecursive(c, parentUuid, newNode) as ComponentNode
-      ),
-    }
-  }
-
-  return node
-}
-
 // Helper to recursively delete a node
 const deleteNodeRecursive = (node: Node, uuid: string): Node => {
   if (node.type === "component") {
@@ -198,7 +142,42 @@ export const useSystemStore = create<SystemState>((set) => ({
   selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
   addNode: (parentUuid, node) =>
     set((state) => ({
-      rootComponent: addNodeRecursive(state.rootComponent, parentUuid, node) as ComponentNode,
+      rootComponent: upsertTree(state.rootComponent, parentUuid, (parent) => {
+        if (parent.type !== "component") return parent
+        const comp = parent as ComponentNode
+        switch (node.type) {
+          case "component":
+            return {
+              ...comp,
+              subComponents: [...comp.subComponents, node as ComponentNode],
+            }
+          case "actor":
+            return { ...comp, actors: [...comp.actors, node as ActorNode] }
+          case "use-case":
+            return {
+              ...comp,
+              useCases: [...comp.useCases, node as UseCaseNode],
+            }
+          case "use-case-diagram":
+            return {
+              ...comp,
+              useCaseDiagrams: [
+                ...comp.useCaseDiagrams,
+                node as UseCaseDiagramNode,
+              ],
+            }
+          case "sequence-diagram":
+            return {
+              ...comp,
+              sequenceDiagrams: [
+                ...comp.sequenceDiagrams,
+                node as SequenceDiagramNode,
+              ],
+            }
+          default:
+            return parent
+        }
+      }),
     })),
   updateNode: (nodeUuid, updates) =>
     set((state) => {
