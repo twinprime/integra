@@ -18,21 +18,29 @@ const createInitialSystem = (): ComponentNode => ({
       description: "Test Component",
       subComponents: [],
       actors: [],
-      useCases: [],
-      useCaseDiagrams: [],
-      sequenceDiagrams: [],
+      useCaseDiagrams: [
+        {
+          uuid: "diagram-uuid",
+          id: "diagram1",
+          name: "Diagram 1",
+          type: "use-case-diagram",
+          content: "",
+          description: "",
+          ownerComponentUuid: "comp1-uuid",
+          referencedNodeIds: [],
+          useCases: [],
+        }
+      ],
       interfaces: [],
     },
   ],
   actors: [],
-  useCases: [],
   useCaseDiagrams: [],
-  sequenceDiagrams: [],
   interfaces: [],
 })
 
 describe("parseUseCaseDiagram", () => {
-  it("should add actors and use cases to the component", () => {
+  it("should add actors to component and use cases to the diagram", () => {
     const rootComponent = createInitialSystem()
     const content = `
             actor "Customer" as cust
@@ -42,14 +50,15 @@ describe("parseUseCaseDiagram", () => {
 
     const newSystem = parseUseCaseDiagram(content, rootComponent, "comp1-uuid", "diagram-uuid")
     const comp = newSystem.subComponents[0]
+    const diagram = comp.useCaseDiagrams[0]
 
     expect(comp.actors).toHaveLength(1)
     expect(comp.actors[0].id).toBe("cust")
     expect(comp.actors[0].name).toBe("Customer")
 
-    expect(comp.useCases).toHaveLength(1)
-    expect(comp.useCases[0].id).toBe("buy")
-    expect(comp.useCases[0].name).toBe("Buy Item")
+    expect(diagram.useCases).toHaveLength(1)
+    expect(diagram.useCases[0].id).toBe("buy")
+    expect(diagram.useCases[0].name).toBe("Buy Item")
   })
 
   it("should update existing entities", () => {

@@ -49,16 +49,30 @@ export const upsertTree = (
         actors: comp.actors.map(
           (a) => updateRecursive(a) as ActorNode
         ),
-        useCases: comp.useCases.map(
-          (u) => updateRecursive(u) as UseCaseNode
-        ),
         useCaseDiagrams: comp.useCaseDiagrams.map(
           (d) => updateRecursive(d) as UseCaseDiagramNode
         ),
-        sequenceDiagrams: comp.sequenceDiagrams.map(
+      } as ComponentNode
+    }
+
+    if (node.type === "use-case-diagram") {
+      const diagram = node as UseCaseDiagramNode
+      return {
+        ...diagram,
+        useCases: diagram.useCases.map(
+          (u) => updateRecursive(u) as UseCaseNode
+        ),
+      } as UseCaseDiagramNode
+    }
+
+    if (node.type === "use-case") {
+      const useCase = node as UseCaseNode
+      return {
+        ...useCase,
+        sequenceDiagrams: useCase.sequenceDiagrams.map(
           (d) => updateRecursive(d) as SequenceDiagramNode
         ),
-      } as ComponentNode
+      } as UseCaseNode
     }
 
     return node

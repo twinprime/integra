@@ -55,10 +55,14 @@ const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
     children = [
       ...comp.subComponents,
       ...comp.actors,
-      ...comp.useCases,
       ...comp.useCaseDiagrams,
-      ...comp.sequenceDiagrams,
     ]
+  } else if (node.type === "use-case-diagram") {
+    const diagram = node as any
+    children = diagram.useCases || []
+  } else if (node.type === "use-case") {
+    const useCase = node as any
+    children = useCase.sequenceDiagrams || []
   }
 
   const hasChildren = children.length > 0
@@ -199,13 +203,18 @@ export const TreeView = () => {
     setContextMenu(null)
   }
 
-  const handleAddNode = (type: "use-case-diagram" | "sequence-diagram") => {
+  const handleAddNode = (type: "use-case-diagram" | "use-case" | "sequence-diagram") => {
     if (!contextMenu) return
 
-    const name = prompt(
-      "Enter diagram name",
-      `New ${type === "use-case-diagram" ? "Use Case" : "Sequence"} Diagram`
-    )
+    let name: string | null
+    if (type === "use-case-diagram") {
+      name = prompt("Enter use case diagram name", "New Use Case Diagram")
+    } else if (type === "use-case") {
+      name = prompt("Enter use case name", "New Use Case")
+    } else {
+      name = prompt("Enter sequence diagram name", "New Sequence Diagram")
+    }
+    
     if (!name) return
 
     const id = name.toLowerCase().replace(/\s+/g, "-") + "-" + Date.now()
@@ -220,6 +229,26 @@ export const TreeView = () => {
       referencedNodeIds: [],
     }
 
+    // Set ownerComponentUuid for diagrams
+    if (type === "use-case-diagram") {
+      // Use case diagram added to component
+      newNode.ownerComponentUuid = contextMenu.node.uuid
+      newNode.useCases = []
+    } else if (type === "use-case") {
+      // Use case added to use case diagram
+      newNode.sequenceDiagrams = []
+    } else if (type === "sequence-diagram") {
+      // Sequence diagram added to use case
+      // Find owner component by traversing up
+      const findOwnerComponent = (node: Node): string | null => {
+        const parent = findParentNode(rootComponent, node.uuid)
+        if (!parent) return null
+        if (parent.type === "component") return parent.uuid
+        return findOwnerComponent(parent)
+      }
+      newNode.ownerComponentUuid = findOwnerComponent(contextMenu.node)
+    }
+
     addNode(contextMenu.node.uuid, newNode)
     selectNode(newNode.uuid)
   }
@@ -231,22 +260,26 @@ export const TreeView = () => {
     const items = []
 
     if (node.type === "component") {
-      items.push(
-        {
-          label: "Add Use Case Diagram",
-          onClick: () => handleAddNode("use-case-diagram"),
-        },
-        {
-          label: "Add Sequence Diagram",
-          onClick: () => handleAddNode("sequence-diagram"),
-        }
-      )
+      items.push({
+        label: "Add Use Case Diagram",
+        onClick: () => handleAddNode("use-case-diagram"),
+      })
+    } else if (node.type === "use-case-diagram") {
+      items.push({
+        label: "Add Use Case",
+        onClick: () => handleAddNode("use-case"),
+      })
+    } else if (node.type === "use-case") {
+      items.push({
+        label: "Add Sequence Diagram",
+        onClick: () => handleAddNode("sequence-diagram"),
+      })
     }
 
     // Check if node is orphaned and can be deleted
     if (node.type === "actor" || node.type === "component") {
       const parent = findParentNode(rootComponent, node.uuid)
-      if (parent && isNodeOrphaned(node, parent)) {
+      if (parent && parent.type === "component" && isNodeOrphaned(node, parent)) {
         items.push({
           label: "Delete",
           onClick: () => handleDeleteNode(),

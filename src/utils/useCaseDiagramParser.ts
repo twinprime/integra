@@ -2,8 +2,9 @@ import type {
   ComponentNode,
   ActorNode,
   UseCaseNode,
+  UseCaseDiagramNode,
 } from "../store/types"
-import { findContainerInSystem, upsertTree, mergeLists } from "./diagramParserHelpers"
+import { upsertTree, mergeLists } from "./diagramParserHelpers"
 
 // Regex patterns
 const ACTOR_PATTERN = /actor\s+"([^"]+)"\s+as\s+(\w+)/g
@@ -12,12 +13,9 @@ const USE_CASE_PATTERN = /use case\s+"([^"]+)"\s+as\s+(\w+)/g
 export function parseUseCaseDiagram(
   content: string,
   rootComponent: ComponentNode,
-  parentUuid: string,
+  ownerComponentUuid: string,
   diagramUuid: string
 ): ComponentNode {
-  const parent = findContainerInSystem(rootComponent, parentUuid)
-  if (!parent) return rootComponent
-
   const referencedNodeIds: string[] = []
 
   // Parse Actors
@@ -46,24 +44,28 @@ export function parseUseCaseDiagram(
       name,
       type: "use-case",
       description: `Use Case ${name}`,
+      sequenceDiagrams: [],
     })
   }
 
-  // Update parent component with merged actors and use cases
-  let updatedRoot = upsertTree(rootComponent, parentUuid, (node) => {
+  // Update owner component with merged actors (actors stay at component level)
+  let updatedRoot = upsertTree(rootComponent, ownerComponentUuid, (node) => {
     const comp = node as ComponentNode
     return {
       ...comp,
       actors: mergeLists(comp.actors || [], newActors),
-      useCases: mergeLists(comp.useCases || [], newUseCases),
     } as ComponentNode
   })
 
-  // Update diagram with referencedNodeIds
-  updatedRoot = upsertTree(updatedRoot, diagramUuid, (node) => ({
-    ...node,
-    referencedNodeIds,
-  }))
+  // Update diagram with use cases and referencedNodeIds
+  updatedRoot = upsertTree(updatedRoot, diagramUuid, (node) => {
+    const diagram = node as UseCaseDiagramNode
+    return {
+      ...diagram,
+      useCases: mergeLists(diagram.useCases || [], newUseCases),
+      referencedNodeIds,
+    }
+  })
 
   return updatedRoot
 }

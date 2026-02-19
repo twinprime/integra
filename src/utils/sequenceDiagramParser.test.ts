@@ -18,16 +18,44 @@ const createInitialSystem = (): ComponentNode => ({
       description: "Test Component",
       subComponents: [],
       actors: [],
-      useCases: [],
-      useCaseDiagrams: [],
-      sequenceDiagrams: [],
+      useCaseDiagrams: [
+        {
+          uuid: "uc-diagram-uuid",
+          id: "uc-diagram",
+          name: "UC Diagram",
+          type: "use-case-diagram",
+          content: "",
+          description: "",
+          ownerComponentUuid: "comp1-uuid",
+          referencedNodeIds: [],
+          useCases: [
+            {
+              uuid: "use-case-uuid",
+              id: "use-case",
+              name: "Use Case",
+              type: "use-case",
+              description: "",
+              sequenceDiagrams: [
+                {
+                  uuid: "diagram-uuid",
+                  id: "diagram",
+                  name: "Sequence Diagram",
+                  type: "sequence-diagram",
+                  content: "",
+                  description: "",
+                  ownerComponentUuid: "comp1-uuid",
+                  referencedNodeIds: [],
+                }
+              ],
+            }
+          ],
+        }
+      ],
       interfaces: [],
     },
   ],
   actors: [],
-  useCases: [],
   useCaseDiagrams: [],
-  sequenceDiagrams: [],
   interfaces: [],
 })
 

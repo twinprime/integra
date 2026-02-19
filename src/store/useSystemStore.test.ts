@@ -35,9 +35,7 @@ describe("useSystemStore", () => {
         description: "Root Component Node",
         subComponents: [],
         actors: [],
-        useCases: [],
         useCaseDiagrams: [],
-        sequenceDiagrams: [],
         interfaces: [],
       })
     })
@@ -102,9 +100,7 @@ describe("useSystemStore", () => {
         description: "Test Component",
         subComponents: [],
         actors: [],
-        useCases: [],
         useCaseDiagrams: [],
-        sequenceDiagrams: [],
         interfaces: [],
       }
 
@@ -129,9 +125,7 @@ describe("useSystemStore", () => {
         description: "Test Component",
         subComponents: [],
         actors: [],
-        useCases: [],
         useCaseDiagrams: [],
-        sequenceDiagrams: [],
         interfaces: [],
       }
 
@@ -197,9 +191,7 @@ describe("useSystemStore", () => {
         description: "Test Component",
         subComponents: [],
         actors: [],
-        useCases: [],
         useCaseDiagrams: [],
-        sequenceDiagrams: [],
         interfaces: [],
       }
 
@@ -215,6 +207,8 @@ describe("useSystemStore", () => {
         description: "Test Diagram",
         content: "",
         referencedNodeIds: [],
+        ownerComponentUuid: "comp-uuid",
+        useCases: [],
       }
 
       act(() => {
@@ -248,9 +242,7 @@ describe("useSystemStore", () => {
         description: "Test Component",
         subComponents: [],
         actors: [],
-        useCases: [],
         useCaseDiagrams: [],
-        sequenceDiagrams: [],
         interfaces: [],
       }
 
@@ -278,9 +270,7 @@ describe("useSystemStore", () => {
         description: "Test Component",
         subComponents: [],
         actors: [],
-        useCases: [],
         useCaseDiagrams: [],
-        sequenceDiagrams: [],
         interfaces: [],
       }
 
@@ -324,9 +314,7 @@ describe("useSystemStore", () => {
         description: "Test Component",
         subComponents: [],
         actors: [],
-        useCases: [],
         useCaseDiagrams: [],
-        sequenceDiagrams: [],
         interfaces: [],
       }
 
@@ -357,9 +345,7 @@ describe("useSystemStore", () => {
         description: "New System Description",
         subComponents: [],
         actors: [],
-        useCases: [],
         useCaseDiagrams: [],
-        sequenceDiagrams: [],
         interfaces: [],
       }
 
@@ -394,7 +380,6 @@ describe("useSystemStore", () => {
             description: "Component with diagrams",
             subComponents: [],
             actors: [],
-            useCases: [],
             useCaseDiagrams: [
               {
                 uuid: "uc-diagram-uuid",
@@ -404,16 +389,15 @@ describe("useSystemStore", () => {
                 description: "Test Use Case Diagram",
                 content: `actor "User" as user\nuse case "Login" as login`,
                 referencedNodeIds: [],
+                ownerComponentUuid: "comp-uuid",
+                useCases: [],
               },
             ],
-            sequenceDiagrams: [],
             interfaces: [],
           },
         ],
         actors: [],
-        useCases: [],
         useCaseDiagrams: [],
-        sequenceDiagrams: [],
         interfaces: [],
       }
 
@@ -450,9 +434,7 @@ describe("useSystemStore", () => {
         description: "New System",
         subComponents: [],
         actors: [],
-        useCases: [],
         useCaseDiagrams: [],
-        sequenceDiagrams: [],
         interfaces: [],
       }
 

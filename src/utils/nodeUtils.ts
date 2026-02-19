@@ -1,4 +1,4 @@
-import type { Node, ComponentNode } from "../store/types"
+import type { Node, ComponentNode, UseCaseDiagramNode, UseCaseNode } from "../store/types"
 
 // Check if an actor or component is referenced in any diagram
 export const isNodeOrphaned = (
@@ -9,10 +9,15 @@ export const isNodeOrphaned = (
     return false
   }
 
-  const allDiagrams = [
-    ...parent.useCaseDiagrams,
-    ...parent.sequenceDiagrams,
-  ]
+  // Collect all diagrams (use case diagrams and sequence diagrams nested under use cases)
+  const allDiagrams: Array<{ referencedNodeIds?: string[] }> = []
+  
+  parent.useCaseDiagrams.forEach((ucDiagram) => {
+    allDiagrams.push(ucDiagram)
+    ucDiagram.useCases.forEach((useCase) => {
+      allDiagrams.push(...useCase.sequenceDiagrams)
+    })
+  })
 
   // Check if the node's ID appears in any diagram's referencedNodeIds
   for (const diagram of allDiagrams) {
@@ -28,32 +33,59 @@ export const isNodeOrphaned = (
 export const findParentNode = (
   rootComponent: ComponentNode,
   targetUuid: string
-): ComponentNode | null => {
-  const checkChildren = (
-    node: ComponentNode
-  ): ComponentNode | null => {
-    const children = [
-      ...node.subComponents,
-      ...(node.actors || []),
-      ...(node.useCases || []),
-      ...(node.useCaseDiagrams || []),
-      ...(node.sequenceDiagrams || []),
-    ]
+): Node | null => {
+  const searchRecursive = (
+    node: Node
+  ): Node | null => {
+    if (node.type === "component") {
+      const comp = node as ComponentNode
+      const children = [
+        ...comp.subComponents,
+        ...(comp.actors || []),
+        ...(comp.useCaseDiagrams || []),
+      ]
 
-    for (const child of children) {
-      if (child.uuid === targetUuid) {
-        return node
+      for (const child of children) {
+        if (child.uuid === targetUuid) {
+          return node
+        }
+      }
+
+      // Recurse into sub-components
+      for (const subComp of comp.subComponents) {
+        const found = searchRecursive(subComp)
+        if (found) return found
+      }
+
+      // Recurse into use case diagrams
+      for (const diagram of comp.useCaseDiagrams) {
+        const found = searchRecursive(diagram)
+        if (found) return found
       }
     }
 
-    // Recurse into components
-    for (const comp of node.subComponents) {
-      const found = checkChildren(comp)
-      if (found) return found
+    if (node.type === "use-case-diagram") {
+      const diagram = node as UseCaseDiagramNode
+      for (const useCase of diagram.useCases) {
+        if (useCase.uuid === targetUuid) {
+          return node
+        }
+        const found = searchRecursive(useCase)
+        if (found) return found
+      }
+    }
+
+    if (node.type === "use-case") {
+      const useCase = node as UseCaseNode
+      for (const seqDiagram of useCase.sequenceDiagrams) {
+        if (seqDiagram.uuid === targetUuid) {
+          return node
+        }
+      }
     }
 
     return null
   }
 
-  return checkChildren(rootComponent)
+  return searchRecursive(rootComponent)
 }

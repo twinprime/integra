@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import type { ComponentNode, Node, BaseNode, DiagramNode } from "./types"
+import type { ComponentNode, Node, BaseNode, DiagramNode, UseCaseDiagramNode } from "./types"
 
 interface SystemState {
   rootComponent: ComponentNode
@@ -12,16 +12,14 @@ interface SystemState {
 }
 
 const initialSystem: ComponentNode = {
-  uuid: "root-system-uuid",
-  id: "root-system",
+  uuid: "root-component-uuid",
+  id: "root-component",
   name: "My System",
   type: "component",
   description: "Root System Component",
   subComponents: [],
   actors: [],
-  useCases: [],
   useCaseDiagrams: [],
-  sequenceDiagrams: [],
   interfaces: [],
 }
 
@@ -35,12 +33,11 @@ export const findNode = (
 
     const anyNode = node as any
     const children = [
-      ...(anyNode.components || []),
       ...(anyNode.subComponents || []),
       ...(anyNode.actors || []),
-      ...(anyNode.useCases || []),
       ...(anyNode.useCaseDiagrams || []),
-      ...(anyNode.sequenceDiagrams || []),
+      ...(anyNode.useCases || []),        // UseCaseDiagramNode has useCases
+      ...(anyNode.sequenceDiagrams || []), // UseCaseNode has sequenceDiagrams
     ]
 
     if (children.length > 0) {
@@ -54,16 +51,36 @@ export const findNode = (
 // Helper to recursively delete a node
 const deleteNodeRecursive = (node: Node, uuid: string): Node => {
   if (node.type === "component") {
-    const comp = node
+    const comp = node as ComponentNode
     return {
       ...comp,
       subComponents: comp.subComponents
         .filter((c) => c.uuid !== uuid)
         .map((c) => deleteNodeRecursive(c, uuid) as ComponentNode),
       actors: comp.actors.filter((a) => a.uuid !== uuid),
-      useCases: comp.useCases.filter((u) => u.uuid !== uuid),
-      useCaseDiagrams: comp.useCaseDiagrams.filter((d) => d.uuid !== uuid),
-      sequenceDiagrams: comp.sequenceDiagrams.filter((d) => d.uuid !== uuid),
+      useCaseDiagrams: comp.useCaseDiagrams
+        .filter((d) => d.uuid !== uuid)
+        .map((d) => deleteNodeRecursive(d, uuid) as UseCaseDiagramNode),
+    }
+  }
+
+  if (node.type === "use-case-diagram") {
+    const diagram = node as any
+    return {
+      ...diagram,
+      useCases: (diagram.useCases || [])
+        .filter((u: any) => u.uuid !== uuid)
+        .map((u: any) => deleteNodeRecursive(u, uuid)),
+    }
+  }
+
+  if (node.type === "use-case") {
+    const useCase = node as any
+    return {
+      ...useCase,
+      sequenceDiagrams: (useCase.sequenceDiagrams || [])
+        .filter((d: any) => d.uuid !== uuid)
+        .map((d: any) => deleteNodeRecursive(d, uuid)),
     }
   }
 
@@ -80,22 +97,28 @@ export const useSystemStore = create<SystemState>((set) => ({
   setSystem: (rootComponent) =>
     set(() => {
       // Parse all diagrams in the loaded system to rebuild referencedNodeIds and entities
+      // Also ensure all diagrams have ownerComponentUuid set
       let updatedSystem = rootComponent
 
-      // Helper to collect all diagrams with their parent UUIDs
+      // Helper to collect all diagrams with their owner component UUIDs
       const collectDiagrams = (
         node: Node,
-      ): Array<{ diagram: DiagramNode; parentUuid: string }> => {
-        const diagrams: Array<{ diagram: DiagramNode; parentUuid: string }> = []
+      ): Array<{ diagram: DiagramNode; ownerComponentUuid: string }> => {
+        const diagrams: Array<{ diagram: DiagramNode; ownerComponentUuid: string }> = []
 
         if (node.type === "component") {
-          const comp = node
-          comp.useCaseDiagrams.forEach((d) =>
-            diagrams.push({ diagram: d, parentUuid: comp.uuid }),
-          )
-          comp.sequenceDiagrams.forEach((d) =>
-            diagrams.push({ diagram: d, parentUuid: comp.uuid }),
-          )
+          const comp = node as ComponentNode
+          // Use case diagrams belong to this component
+          comp.useCaseDiagrams.forEach((ucDiagram) => {
+            diagrams.push({ diagram: ucDiagram, ownerComponentUuid: comp.uuid })
+            // Collect use cases and their sequence diagrams
+            ucDiagram.useCases.forEach((useCase) => {
+              useCase.sequenceDiagrams.forEach((seqDiagram) => {
+                diagrams.push({ diagram: seqDiagram, ownerComponentUuid: comp.uuid })
+              })
+            })
+          })
+          // Recurse into sub-components
           comp.subComponents.forEach((c) =>
             diagrams.push(...collectDiagrams(c)),
           )
@@ -107,21 +130,31 @@ export const useSystemStore = create<SystemState>((set) => ({
       // Collect all diagrams
       const allDiagrams = collectDiagrams(updatedSystem)
 
+      // First ensure all diagrams have ownerComponentUuid set
+      allDiagrams.forEach(({ diagram, ownerComponentUuid }) => {
+        if (!diagram.ownerComponentUuid) {
+          updatedSystem = upsertTree(updatedSystem, diagram.uuid, (node) => ({
+            ...node,
+            ownerComponentUuid,
+          }))
+        }
+      })
+
       // Parse each diagram to rebuild referencedNodeIds
-      allDiagrams.forEach(({ diagram, parentUuid }) => {
+      allDiagrams.forEach(({ diagram, ownerComponentUuid }) => {
         if (diagram.content) {
           if (diagram.type === "use-case-diagram") {
             updatedSystem = parseUseCaseDiagram(
               diagram.content,
               updatedSystem,
-              parentUuid,
+              ownerComponentUuid,
               diagram.uuid,
             )
           } else if (diagram.type === "sequence-diagram") {
             updatedSystem = parseSequenceDiagram(
               diagram.content,
               updatedSystem,
-              parentUuid,
+              ownerComponentUuid,
               diagram.uuid,
             )
           }
@@ -134,33 +167,77 @@ export const useSystemStore = create<SystemState>((set) => ({
   addNode: (parentUuid, node) =>
     set((state) => ({
       rootComponent: upsertTree(state.rootComponent, parentUuid, (parent) => {
-        if (parent.type !== "component") return parent
-        switch (node.type) {
-          case "component":
-            return {
-              ...parent,
-              subComponents: [...parent.subComponents, node],
-            }
-          case "actor":
-            return { ...parent, actors: [...parent.actors, node] }
-          case "use-case":
-            return {
-              ...parent,
-              useCases: [...parent.useCases, node],
-            }
-          case "use-case-diagram":
-            return {
-              ...parent,
-              useCaseDiagrams: [...parent.useCaseDiagrams, node],
-            }
-          case "sequence-diagram":
-            return {
-              ...parent,
-              sequenceDiagrams: [...parent.sequenceDiagrams, node],
-            }
-          default:
-            return parent
+        // Handle adding to component
+        if (parent.type === "component") {
+          const comp = parent as ComponentNode
+          switch (node.type) {
+            case "component":
+              return {
+                ...comp,
+                subComponents: [...comp.subComponents, node as ComponentNode],
+              }
+            case "actor":
+              return { ...comp, actors: [...comp.actors, node as any] }
+            case "use-case-diagram":
+              // Set ownerComponentUuid when adding diagram
+              const ucDiagram = node as any
+              return {
+                ...comp,
+                useCaseDiagrams: [
+                  ...comp.useCaseDiagrams,
+                  { ...ucDiagram, ownerComponentUuid: comp.uuid, useCases: [] },
+                ],
+              }
+            default:
+              return parent
+          }
         }
+
+        // Handle adding to use case diagram
+        if (parent.type === "use-case-diagram") {
+          const diagram = parent as any
+          if (node.type === "use-case") {
+            return {
+              ...diagram,
+              useCases: [...(diagram.useCases || []), { ...node, sequenceDiagrams: [] }],
+            }
+          }
+          return parent
+        }
+
+        // Handle adding to use case
+        if (parent.type === "use-case") {
+          const useCase = parent as any
+          if (node.type === "sequence-diagram") {
+            // Get ownerComponentUuid from the use case diagram
+            // We need to find the diagram that contains this use case
+            const findOwnerComponent = (root: ComponentNode, targetUseCase: string): string | null => {
+              for (const diagram of root.useCaseDiagrams) {
+                if (diagram.useCases.some(uc => uc.uuid === targetUseCase)) {
+                  return diagram.ownerComponentUuid
+                }
+              }
+              for (const sub of root.subComponents) {
+                const found = findOwnerComponent(sub, targetUseCase)
+                if (found) return found
+              }
+              return null
+            }
+            
+            const ownerUuid = findOwnerComponent(state.rootComponent, useCase.uuid) || state.rootComponent.uuid
+            const seqDiagram = node as any
+            return {
+              ...useCase,
+              sequenceDiagrams: [
+                ...(useCase.sequenceDiagrams || []),
+                { ...seqDiagram, ownerComponentUuid: ownerUuid },
+              ],
+            }
+          }
+          return parent
+        }
+
+        return parent
       }),
     })),
   updateNode: (nodeUuid, updates) =>
@@ -173,45 +250,18 @@ export const useSystemStore = create<SystemState>((set) => ({
       )
 
       // 2. Check if we updated a diagram content and need to parse
-      // We need to find the node again in the NEW system to check type and content
-      // Or we can check 'updates' if it contains 'content'
-      // BUT we also need the parent component ID for parsing context.
-
-      // Finding parent is expensive with current structure unless we store parent pointer.
-      // Let's traverse to find parent of nodeUuid.
-      const findParent = (
-        root: Node,
-        targetUuid: string,
-      ): ComponentNode | null => {
-        if (root.type === "component") {
-          const comp = root
-          for (const c of comp.subComponents) {
-            if (c.uuid === targetUuid) return comp
-            // ... check other children lists if we supported nested diagrams there ...
-            const found = findParent(c, targetUuid)
-            if (found) return found
-          }
-          if (comp.actors.some((a) => a.uuid === targetUuid)) return comp
-          if (comp.useCases.some((u) => u.uuid === targetUuid)) return comp
-          if (comp.useCaseDiagrams.some((d) => d.uuid === targetUuid))
-            return comp
-          if (comp.sequenceDiagrams.some((d) => d.uuid === targetUuid))
-            return comp
-        }
-        return null
-      }
-
       if (updates.content) {
-        const parent = findParent(updatedSystem, nodeUuid)
-        if (parent) {
-          const node = findNode([updatedSystem], nodeUuid)
-          if (node) {
+        const node = findNode([updatedSystem], nodeUuid)
+        if (node && (node.type === "use-case-diagram" || node.type === "sequence-diagram")) {
+          const diagram = node as DiagramNode
+          // Use the ownerComponentUuid stored in the diagram
+          if (diagram.ownerComponentUuid) {
             if (node.type === "use-case-diagram") {
               return {
                 rootComponent: parseUseCaseDiagram(
                   updates.content,
                   updatedSystem,
-                  parent.uuid,
+                  diagram.ownerComponentUuid,
                   nodeUuid,
                 ),
               }
@@ -220,7 +270,7 @@ export const useSystemStore = create<SystemState>((set) => ({
                 rootComponent: parseSequenceDiagram(
                   updates.content,
                   updatedSystem,
-                  parent.uuid,
+                  diagram.ownerComponentUuid,
                   nodeUuid,
                 ),
               }

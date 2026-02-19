@@ -12,9 +12,7 @@ export interface ComponentNode extends BaseNode {
   type: 'component';
   subComponents: ComponentNode[];
   actors: ActorNode[];
-  useCases: UseCaseNode[];
   useCaseDiagrams: UseCaseDiagramNode[];
-  sequenceDiagrams: SequenceDiagramNode[];
   interfaces: InterfaceSpecification[];
 }
 
@@ -44,15 +42,18 @@ export interface ActorNode extends BaseNode {
 
 export interface UseCaseNode extends BaseNode {
   type: 'use-case';
+  sequenceDiagrams: SequenceDiagramNode[];
 }
 
 export interface DiagramNode extends BaseNode {
   content: string; // The text specification (mermaid or custom yaml)
   referencedNodeIds: string[]; // IDs of actors/components referenced in this diagram
+  ownerComponentUuid: string; // UUID of the component that owns this diagram (for quick lookup)
 }
 
 export interface UseCaseDiagramNode extends DiagramNode {
   type: 'use-case-diagram';
+  useCases: UseCaseNode[];
 }
 
 export interface SequenceDiagramNode extends DiagramNode {
