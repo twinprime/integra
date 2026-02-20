@@ -228,6 +228,9 @@ export const TreeView = () => {
 
   const handleContextMenu = (e: React.MouseEvent, node: Node) => {
     e.preventDefault()
+    // Compute items before showing menu; skip if nothing available
+    const items = computeMenuItems(node)
+    if (items.length === 0) return
     setContextMenu({ x: e.clientX, y: e.clientY, node })
   }
 
@@ -285,21 +288,13 @@ export const TreeView = () => {
     selectNode(newNode.uuid)
   }
 
-  const getMenuItems = () => {
-    if (!contextMenu) return []
-    const { node } = contextMenu
-
-    const items = []
+  const computeMenuItems = (node: Node) => {
+    const items: any[] = []
 
     if (node.type === "component") {
       items.push({
         label: "Add Use Case Diagram",
         onClick: () => handleAddNode("use-case-diagram"),
-      })
-    } else if (node.type === "use-case-diagram") {
-      items.push({
-        label: "Add Use Case",
-        onClick: () => handleAddNode("use-case"),
       })
     } else if (node.type === "use-case") {
       items.push({
@@ -308,7 +303,6 @@ export const TreeView = () => {
       })
     }
 
-    // Check if node is orphaned and can be deleted
     if (node.type === "actor" || node.type === "component") {
       const parent = findParentNode(rootComponent, node.uuid)
       if (parent && parent.type === "component" && isNodeOrphaned(node, parent)) {
@@ -322,6 +316,11 @@ export const TreeView = () => {
     }
 
     return items
+  }
+
+  const getMenuItems = () => {
+    if (!contextMenu) return []
+    return computeMenuItems(contextMenu.node)
   }
 
   const handleDeleteNode = () => {
