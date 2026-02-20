@@ -46,7 +46,44 @@ export const isNodeOrphaned = (
   return true
 }
 
-// Find the parent of a node in the system tree
+// Find a node by a slash-separated path of node IDs (e.g. "serviceA/mainDiagram/loginCase")
+// If the first segment matches root.id it is treated as the root; otherwise search starts from root's children.
+export const findNodeByPath = (root: ComponentNode, path: string): string | null => {
+  const segments = path.split('/').filter(Boolean)
+  if (segments.length === 0) return null
+
+  const search = (node: Node, remaining: string[]): string | null => {
+    if (remaining.length === 0) return node.uuid
+    const [next, ...rest] = remaining
+
+    if (node.type === 'component') {
+      const comp = node as ComponentNode
+      const children: Node[] = [...comp.subComponents, ...(comp.actors || []), ...(comp.useCaseDiagrams || [])]
+      for (const child of children) {
+        if (child.id === next) return search(child, rest)
+      }
+    }
+    if (node.type === 'use-case-diagram') {
+      const d = node as UseCaseDiagramNode
+      for (const uc of d.useCases) {
+        if (uc.id === next) return search(uc, rest)
+      }
+    }
+    if (node.type === 'use-case') {
+      const uc = node as UseCaseNode
+      for (const sd of uc.sequenceDiagrams) {
+        if (sd.id === next) return search(sd, rest)
+      }
+    }
+    return null
+  }
+
+  const [first, ...rest] = segments
+  if (root.id === first) return search(root, rest)
+  return search(root, segments)
+}
+
+
 export const findParentNode = (
   rootComponent: ComponentNode,
   targetUuid: string
