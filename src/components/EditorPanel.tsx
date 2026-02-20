@@ -1,10 +1,36 @@
 import { useEffect, useState } from "react"
 import { Trash2 } from "lucide-react"
+import MDEditor from "@uiw/react-md-editor"
+import "@uiw/react-md-editor/markdown-editor.css"
 import { useSystemStore, findNode } from "../store/useSystemStore"
 import type { Node, DiagramNode, ComponentNode, InterfaceSpecification, InterfaceFunction } from "../store/types"
 import { collectReferencedFunctionUuids } from "../utils/nodeUtils"
 
 const INTERFACE_TYPES = ["rest", "graphql", "kafka", "other"] as const
+
+const MarkdownEditor = ({
+  value,
+  onChange,
+  onBlur,
+  height = 100,
+  placeholder,
+}: {
+  value: string
+  onChange: (val: string) => void
+  onBlur?: () => void
+  height?: number
+  placeholder?: string
+}) => (
+  <div data-color-mode="dark">
+    <MDEditor
+      value={value}
+      onChange={(v) => onChange(v ?? "")}
+      preview="preview"
+      height={height}
+      textareaProps={{ placeholder, onBlur }}
+    />
+  </div>
+)
 
 const CommonEditor = ({
   node,
@@ -66,12 +92,12 @@ const CommonEditor = ({
         <label className="block text-sm font-medium text-gray-300 mb-2">
           Description
         </label>
-        <textarea
-          className="w-full p-2 border border-gray-700 rounded-md text-sm text-gray-100 bg-gray-900 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
-          rows={3}
+        <MarkdownEditor
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          onChange={setDescription}
           onBlur={handleDescriptionBlur}
+          height={100}
+          placeholder="Add a description..."
         />
       </div>
     </div>
@@ -196,12 +222,12 @@ const ComponentEditor = ({
         <label className="block text-sm font-medium text-gray-300 mb-2">
           Description
         </label>
-        <textarea
-          className="w-full p-2 border border-gray-700 rounded-md text-sm text-gray-100 bg-gray-900 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
-          rows={3}
+        <MarkdownEditor
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          onChange={setDescription}
           onBlur={handleDescriptionBlur}
+          height={100}
+          placeholder="Add a description..."
         />
       </div>
 
@@ -284,15 +310,14 @@ const InterfaceEditor = ({
       <p className="text-xs text-gray-500 mb-2">
         ID: <span className="font-mono">{iface.id}</span>
       </p>
-      <textarea
-        className="w-full p-1 text-xs text-gray-400 bg-gray-950 border border-gray-800 rounded mb-3 focus:outline-none focus:border-blue-400 resize-none"
-        rows={2}
-        placeholder="Description..."
+      <MarkdownEditor
         value={description}
-        onChange={(e) => setDescription(e.target.value)}
+        onChange={setDescription}
         onBlur={() => {
           if (description !== (iface.description || "")) onInterfaceUpdate({ description })
         }}
+        height={80}
+        placeholder="Description..."
       />
 
       {iface.functions && iface.functions.length > 0 && (
@@ -365,15 +390,14 @@ const FunctionEditor = ({
           </button>
         )}
       </div>
-      <textarea
-        className="w-full p-1 text-xs text-gray-400 bg-gray-900 border border-gray-800 rounded mb-2 focus:outline-none focus:border-blue-400 resize-none"
-        rows={1}
-        placeholder="Function description..."
+      <MarkdownEditor
         value={fnDescription}
-        onChange={(e) => setFnDescription(e.target.value)}
+        onChange={setFnDescription}
         onBlur={() => {
           if (fnDescription !== (fn.description || "")) onUpdate({ description: fnDescription })
         }}
+        height={70}
+        placeholder="Function description..."
       />
       {fn.parameters && fn.parameters.length > 0 && (
         <div className="mt-1">
