@@ -7,6 +7,7 @@ import {
   User,
   FileText,
   Activity,
+  Share2,
   Download,
   Upload,
   Trash2,
@@ -33,7 +34,7 @@ const NodeIcon = ({ type }: { type: string }) => {
     case "use-case":
       return <FileText size={16} className="text-orange-500" />
     case "use-case-diagram":
-      return <Activity size={16} className="text-red-500" />
+      return <Share2 size={16} className="text-purple-400" />
     case "sequence-diagram":
       return <Activity size={16} className="text-indigo-500" />
     default:
