@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react"
 import { Trash2 } from "lucide-react"
 import { useSystemStore, findNode } from "../store/useSystemStore"
-import type { Node, DiagramNode, ComponentNode, InterfaceSpecification, InterfaceFunction, SequenceDiagramNode, UseCaseDiagramNode } from "../store/types"
+import type { Node, DiagramNode, ComponentNode, InterfaceSpecification, InterfaceFunction } from "../store/types"
+import { collectReferencedFunctionUuids } from "../utils/nodeUtils"
 
 const INTERFACE_TYPES = ["rest", "graphql", "kafka", "other"] as const
 
@@ -77,23 +78,6 @@ const CommonEditor = ({
   )
 }
 
-/** Collect all referencedFunctionUuids from all sequence diagrams nested under a component */
-function collectReferencedFunctionUuids(comp: ComponentNode): Set<string> {
-  const uuids = new Set<string>()
-  const visitComp = (c: ComponentNode) => {
-    c.useCaseDiagrams.forEach((d: UseCaseDiagramNode) => {
-      d.useCases.forEach((uc) => {
-        uc.sequenceDiagrams.forEach((sd: SequenceDiagramNode) => {
-          sd.referencedFunctionUuids?.forEach((u) => uuids.add(u))
-        })
-      })
-    })
-    c.subComponents.forEach(visitComp)
-  }
-  visitComp(comp)
-  return uuids
-}
-
 const ComponentEditor = ({
   node,
   onUpdate,
@@ -123,7 +107,8 @@ const ComponentEditor = ({
     }
   }
 
-  const referencedFunctionUuids = collectReferencedFunctionUuids(node)
+  const rootComponent = useSystemStore((state) => state.rootComponent)
+  const referencedFunctionUuids = collectReferencedFunctionUuids(rootComponent)
 
   const handleInterfaceUpdate = (ifaceIdx: number, updates: Partial<InterfaceSpecification>) => {
     const newInterfaces = node.interfaces.map((iface, i) =>

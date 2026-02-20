@@ -1,4 +1,21 @@
-import type { Node, ComponentNode, UseCaseDiagramNode, UseCaseNode } from "../store/types"
+import type { Node, ComponentNode, UseCaseDiagramNode, UseCaseNode, SequenceDiagramNode } from "../store/types"
+
+// Collect all referencedFunctionUuids from every sequence diagram in the entire component tree
+export const collectReferencedFunctionUuids = (root: ComponentNode): Set<string> => {
+  const uuids = new Set<string>()
+  const visitComp = (c: ComponentNode) => {
+    c.useCaseDiagrams.forEach((d: UseCaseDiagramNode) => {
+      d.useCases.forEach((uc) => {
+        uc.sequenceDiagrams.forEach((sd: SequenceDiagramNode) => {
+          sd.referencedFunctionUuids?.forEach((u) => uuids.add(u))
+        })
+      })
+    })
+    c.subComponents.forEach(visitComp)
+  }
+  visitComp(root)
+  return uuids
+}
 
 // Check if an actor or component is referenced in any diagram
 export const isNodeOrphaned = (
