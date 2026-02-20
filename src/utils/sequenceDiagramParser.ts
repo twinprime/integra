@@ -73,7 +73,8 @@ export function parseSequenceDiagram(
     if (!id) continue
     if (fromPath) {
       const uuid = findNodeByPath(rootComponent, fromPath)
-      if (uuid && !fromParticipantUuids.includes(uuid)) fromParticipantUuids.push(uuid)
+      if (!uuid) throw new Error(`Cannot resolve actor "from" path: "${fromPath}"`)
+      if (!fromParticipantUuids.includes(uuid)) fromParticipantUuids.push(uuid)
     } else {
       parsedParticipantIds.push(id.trim())
       if (!participants.find((p) => p.id === id.trim())) {
@@ -97,7 +98,8 @@ export function parseSequenceDiagram(
     if (!id) continue
     if (fromPath) {
       const uuid = findNodeByPath(rootComponent, fromPath)
-      if (uuid && !fromParticipantUuids.includes(uuid)) fromParticipantUuids.push(uuid)
+      if (!uuid) throw new Error(`Cannot resolve component "from" path: "${fromPath}"`)
+      if (!fromParticipantUuids.includes(uuid)) fromParticipantUuids.push(uuid)
     } else {
       parsedParticipantIds.push(id.trim())
       if (!participants.find((p) => p.id === id.trim())) {

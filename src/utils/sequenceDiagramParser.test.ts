@@ -270,4 +270,20 @@ describe("parseSequenceDiagram", () => {
     const diagram = comp.useCaseDiagrams[0].useCases[0].sequenceDiagrams[0]
     expect(diagram.referencedNodeIds).toContain("root-actor-uuid")
   })
+
+  it("should throw an error when actor 'from' path cannot be resolved", () => {
+    const rootComponent = createInitialSystem()
+    const content = `actor "Ghost" from nonexistent/ghost as ghost`
+    expect(() =>
+      parseSequenceDiagram(content, rootComponent, "comp1-uuid", "diagram-uuid")
+    ).toThrow('Cannot resolve actor "from" path: "nonexistent/ghost"')
+  })
+
+  it("should throw an error when component 'from' path cannot be resolved", () => {
+    const rootComponent = createInitialSystem()
+    const content = `component "Ghost" from nonexistent/ghost as ghost`
+    expect(() =>
+      parseSequenceDiagram(content, rootComponent, "comp1-uuid", "diagram-uuid")
+    ).toThrow('Cannot resolve component "from" path: "nonexistent/ghost"')
+  })
 })

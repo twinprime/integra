@@ -113,4 +113,62 @@ describe("parseUseCaseDiagram", () => {
     expect(diagram.useCases).toHaveLength(1)
     expect(diagram.useCases[0].id).toBe("buy")
   })
+
+  it("should add components declared in use case diagrams to the owning component", () => {
+    const rootComponent = createInitialSystem()
+    const content = `
+      component "Payment Service" as paymentSvc
+      use case "Pay" as pay
+      paymentSvc --> pay
+    `
+    const newSystem = parseUseCaseDiagram(content, rootComponent, "comp1-uuid", "diagram-uuid")
+    const comp = newSystem.subComponents[0]
+    const diagram = comp.useCaseDiagrams[0]
+
+    expect(comp.subComponents.find(c => c.id === "paymentSvc")).toBeDefined()
+    expect(diagram.referencedNodeIds).toContain(
+      comp.subComponents.find(c => c.id === "paymentSvc")!.uuid
+    )
+  })
+
+  it("should reference an existing component via 'from' clause without upsert", () => {
+    const rootComponent = createInitialSystem()
+    rootComponent.subComponents.push({
+      uuid: "other-comp-uuid",
+      id: "otherComp",
+      name: "Other Comp",
+      type: "component",
+      subComponents: [],
+      actors: [],
+      useCaseDiagrams: [],
+      interfaces: [],
+    })
+
+    const content = `component "Other Comp" from root/otherComp as oc`
+    const newSystem = parseUseCaseDiagram(content, rootComponent, "comp1-uuid", "diagram-uuid")
+    const comp = newSystem.subComponents[0]
+    const diagram = comp.useCaseDiagrams[0]
+
+    // Should NOT create a new component inside comp1
+    expect(comp.subComponents.find(c => c.id === "oc")).toBeUndefined()
+
+    // Should reference the existing component
+    expect(diagram.referencedNodeIds).toContain("other-comp-uuid")
+  })
+
+  it("should throw an error when 'from' path cannot be resolved (actor)", () => {
+    const rootComponent = createInitialSystem()
+    const content = `actor "Ghost" from nonexistent/ghost as ghost`
+    expect(() =>
+      parseUseCaseDiagram(content, rootComponent, "comp1-uuid", "diagram-uuid")
+    ).toThrow('Cannot resolve actor "from" path: "nonexistent/ghost"')
+  })
+
+  it("should throw an error when 'from' path cannot be resolved (component)", () => {
+    const rootComponent = createInitialSystem()
+    const content = `component "Ghost" from nonexistent/ghost as ghost`
+    expect(() =>
+      parseUseCaseDiagram(content, rootComponent, "comp1-uuid", "diagram-uuid")
+    ).toThrow('Cannot resolve component "from" path: "nonexistent/ghost"')
+  })
 })

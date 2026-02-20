@@ -265,13 +265,18 @@ export const useSystemStore = create<SystemState>((set) => ({
           // Use the ownerComponentUuid stored in the diagram
           if (diagram.ownerComponentUuid) {
             if (node.type === "use-case-diagram") {
-              return {
-                rootComponent: parseUseCaseDiagram(
-                  updates.content,
-                  updatedSystem,
-                  diagram.ownerComponentUuid,
-                  nodeUuid,
-                ),
+              try {
+                return {
+                  rootComponent: parseUseCaseDiagram(
+                    updates.content,
+                    updatedSystem,
+                    diagram.ownerComponentUuid,
+                    nodeUuid,
+                  ),
+                  parseError: null,
+                }
+              } catch (err: any) {
+                return { parseError: err.message }
               }
             } else if (node.type === "sequence-diagram") {
               try {
