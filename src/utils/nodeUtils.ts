@@ -46,13 +46,97 @@ export const isNodeOrphaned = (
   return true
 }
 
-// Find a node by a slash-separated path of node IDs (e.g. "serviceA/mainDiagram/loginCase")
-// If the first segment matches root.id it is treated as the root; otherwise search starts from root's children.
-export const findNodeByPath = (root: ComponentNode, path: string): string | null => {
+// Find all direct children of a component that have a given id
+// Searches: actors, subComponents, useCaseDiagrams (and their use cases and sequence diagrams)
+export const findNodeInComponent = (comp: ComponentNode, nodeId: string): Node | null => {
+  for (const a of comp.actors || []) {
+    if (a.id === nodeId) return a
+  }
+  for (const c of comp.subComponents) {
+    if (c.id === nodeId) return c
+  }
+  for (const d of comp.useCaseDiagrams) {
+    if (d.id === nodeId) return d
+    for (const uc of d.useCases) {
+      if (uc.id === nodeId) return uc
+      for (const sd of uc.sequenceDiagrams) {
+        if (sd.id === nodeId) return sd
+      }
+    }
+  }
+  return null
+}
+
+// Find the nearest ancestor ComponentNode for a given node uuid
+export const findNearestComponentAncestor = (
+  root: ComponentNode,
+  targetUuid: string
+): ComponentNode | null => {
+  const search = (comp: ComponentNode): ComponentNode | null => {
+    // Check direct children
+    const directChildren: Node[] = [
+      ...(comp.actors || []),
+      ...comp.subComponents,
+      ...comp.useCaseDiagrams,
+    ]
+    if (directChildren.some((c) => c.uuid === targetUuid)) return comp
+
+    // Check use case diagrams and their children
+    for (const d of comp.useCaseDiagrams) {
+      for (const uc of d.useCases) {
+        if (uc.uuid === targetUuid) return comp
+        for (const sd of uc.sequenceDiagrams) {
+          if (sd.uuid === targetUuid) return comp
+        }
+      }
+    }
+
+    // Recurse into sub-components
+    for (const sub of comp.subComponents) {
+      const found = search(sub)
+      if (found) return found
+    }
+
+    return null
+  }
+
+  if (root.uuid === targetUuid) return root
+  return search(root)
+}
+
+// Find a node by a slash-separated path.
+// Path semantics:
+//   - Single segment + contextComponentUuid: resolve within that component, fall back to full tree
+//   - Multi-segment: each segment is a node ID at successive levels of the tree
+//     (component → subComponent/actor/diagram → useCase → sequenceDiagram)
+// Returns the UUID of the found node, or null.
+export const findNodeByPath = (
+  root: ComponentNode,
+  path: string,
+  contextComponentUuid?: string
+): string | null => {
   const segments = path.split('/').filter(Boolean)
   if (segments.length === 0) return null
 
-  const search = (node: Node, remaining: string[]): string | null => {
+  // Single segment: try to resolve within the context component first
+  if (segments.length === 1 && contextComponentUuid) {
+    const findComp = (c: ComponentNode): ComponentNode | null => {
+      if (c.uuid === contextComponentUuid) return c
+      for (const sub of c.subComponents) {
+        const found = findComp(sub)
+        if (found) return found
+      }
+      return null
+    }
+    const contextComp = findComp(root)
+    if (contextComp) {
+      const node = findNodeInComponent(contextComp, segments[0])
+      if (node) return node.uuid
+    }
+  }
+
+  // Multi-segment or fallback: traverse the tree level by level
+  const traverse = (node: Node, remaining: string[]): string | null => {
     if (remaining.length === 0) return node.uuid
     const [next, ...rest] = remaining
 
@@ -60,28 +144,29 @@ export const findNodeByPath = (root: ComponentNode, path: string): string | null
       const comp = node as ComponentNode
       const children: Node[] = [...comp.subComponents, ...(comp.actors || []), ...(comp.useCaseDiagrams || [])]
       for (const child of children) {
-        if (child.id === next) return search(child, rest)
+        if (child.id === next) return traverse(child, rest)
       }
     }
     if (node.type === 'use-case-diagram') {
       const d = node as UseCaseDiagramNode
       for (const uc of d.useCases) {
-        if (uc.id === next) return search(uc, rest)
+        if (uc.id === next) return traverse(uc, rest)
       }
     }
     if (node.type === 'use-case') {
       const uc = node as UseCaseNode
       for (const sd of uc.sequenceDiagrams) {
-        if (sd.id === next) return search(sd, rest)
+        if (sd.id === next) return traverse(sd, rest)
       }
     }
     return null
   }
 
   const [first, ...rest] = segments
-  if (root.id === first) return search(root, rest)
-  return search(root, segments)
+  if (root.id === first) return traverse(root, rest)
+  return traverse(root, segments)
 }
+
 
 
 export const findParentNode = (

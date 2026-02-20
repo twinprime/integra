@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { collectReferencedFunctionUuids } from "./nodeUtils"
+import { collectReferencedFunctionUuids, findNodeByPath, findNearestComponentAncestor } from "./nodeUtils"
 import type { ComponentNode } from "../store/types"
 
 describe("collectReferencedFunctionUuids", () => {
@@ -170,5 +170,85 @@ describe("collectReferencedFunctionUuids", () => {
 
     const result = collectReferencedFunctionUuids(rootComponent)
     expect(result.has(fnUuid)).toBe(true)
+  })
+})
+
+const buildTree = (): ComponentNode => {
+  const sub: ComponentNode = {
+    uuid: "sub-uuid", id: "sub", name: "Sub", type: "component",
+    actors: [{ uuid: "actor-uuid", id: "leader", name: "Leader", type: "actor" }],
+    subComponents: [],
+    useCaseDiagrams: [{
+      uuid: "diag-uuid", id: "diag", name: "Diag", type: "use-case-diagram",
+      content: "", description: "", ownerComponentUuid: "sub-uuid", referencedNodeIds: [],
+      useCases: [{
+        uuid: "uc-uuid", id: "login", name: "Login", type: "use-case",
+        description: "", sequenceDiagrams: [],
+      }],
+    }],
+    interfaces: [],
+  }
+  return {
+    uuid: "root-uuid", id: "root", name: "Root", type: "component",
+    actors: [], interfaces: [], subComponents: [sub], useCaseDiagrams: [],
+  }
+}
+
+describe("findNodeByPath", () => {
+  it("resolves a bare node ID within context component", () => {
+    const root = buildTree()
+    const uuid = findNodeByPath(root, "leader", "sub-uuid")
+    expect(uuid).toBe("actor-uuid")
+  })
+
+  it("does not find a node from a sibling component without full path", () => {
+    const root = buildTree()
+    // "leader" only exists in "sub", not in root
+    const uuid = findNodeByPath(root, "leader", "root-uuid")
+    expect(uuid).toBeNull()
+  })
+
+  it("resolves a multi-segment path: componentId/nodeId", () => {
+    const root = buildTree()
+    const uuid = findNodeByPath(root, "sub/leader")
+    expect(uuid).toBe("actor-uuid")
+  })
+
+  it("resolves a use case within a diagram via multi-segment path", () => {
+    const root = buildTree()
+    const uuid = findNodeByPath(root, "sub/diag/login")
+    expect(uuid).toBe("uc-uuid")
+  })
+
+  it("resolves starting from root if first segment matches root id", () => {
+    const root = buildTree()
+    const uuid = findNodeByPath(root, "root/sub/leader")
+    expect(uuid).toBe("actor-uuid")
+  })
+})
+
+describe("findNearestComponentAncestor", () => {
+  it("returns the parent component for an actor", () => {
+    const root = buildTree()
+    const comp = findNearestComponentAncestor(root, "actor-uuid")
+    expect(comp?.uuid).toBe("sub-uuid")
+  })
+
+  it("returns the parent component for a use case", () => {
+    const root = buildTree()
+    const comp = findNearestComponentAncestor(root, "uc-uuid")
+    expect(comp?.uuid).toBe("sub-uuid")
+  })
+
+  it("returns the parent for a sub-component", () => {
+    const root = buildTree()
+    const comp = findNearestComponentAncestor(root, "sub-uuid")
+    expect(comp?.uuid).toBe("root-uuid")
+  })
+
+  it("returns root itself when root uuid is the target", () => {
+    const root = buildTree()
+    const comp = findNearestComponentAncestor(root, "root-uuid")
+    expect(comp?.uuid).toBe("root-uuid")
   })
 })

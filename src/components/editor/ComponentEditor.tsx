@@ -8,9 +8,11 @@ import { InterfaceEditor } from "./InterfaceEditor"
 export const ComponentEditor = ({
   node,
   onUpdate,
+  contextComponentUuid,
 }: {
   node: ComponentNode
   onUpdate: (updates: any) => void
+  contextComponentUuid?: string
 }) => {
   const [name, setName] = useState(node.name || "")
   const [description, setDescription] = useState(node.description || "")
@@ -129,6 +131,7 @@ export const ComponentEditor = ({
           onBlur={handleDescriptionBlur}
           height={100}
           placeholder="Add a description..."
+          contextComponentUuid={contextComponentUuid}
         />
       </div>
 
@@ -153,6 +156,7 @@ export const ComponentEditor = ({
                 onParamDescriptionUpdate={(fnIdx, paramIdx, desc) =>
                   handleParamDescriptionUpdate(ifaceIdx, fnIdx, paramIdx, desc)
                 }
+                contextComponentUuid={contextComponentUuid}
               />
             ))}
           </div>

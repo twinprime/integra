@@ -9,6 +9,7 @@ export const FunctionEditor = ({
   onUpdate,
   onDelete,
   onParamDescriptionUpdate,
+  contextComponentUuid,
 }: {
   fn: InterfaceFunction
   fnIdx: number
@@ -16,6 +17,7 @@ export const FunctionEditor = ({
   onUpdate: (updates: Partial<InterfaceFunction>) => void
   onDelete: () => void
   onParamDescriptionUpdate: (paramIdx: number, desc: string) => void
+  contextComponentUuid?: string
 }) => {
   const [fnId, setFnId] = useState(fn.id)
   const [fnDescription, setFnDescription] = useState(fn.description || "")
@@ -54,6 +56,7 @@ export const FunctionEditor = ({
         }}
         height={70}
         placeholder="Function description..."
+        contextComponentUuid={contextComponentUuid}
       />
       {fn.parameters && fn.parameters.length > 0 && (
         <div className="mt-1">

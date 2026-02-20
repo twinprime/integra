@@ -4,7 +4,15 @@ import { useSystemStore } from "../../store/useSystemStore"
 import { findNodeByPath } from "../../utils/nodeUtils"
 
 // Renders markdown links as node-navigation links when href is a relative node path
-const NodeLink = ({ href, children }: { href?: string; children?: React.ReactNode }) => {
+const NodeLink = ({
+  href,
+  children,
+  contextComponentUuid,
+}: {
+  href?: string
+  children?: React.ReactNode
+  contextComponentUuid?: string
+}) => {
   const rootComponent = useSystemStore((state) => state.rootComponent)
   const selectNode = useSystemStore((state) => state.selectNode)
   const isNodeLink = !!href && !href.includes("://") && !href.startsWith("#") && !href.startsWith("/")
@@ -13,7 +21,7 @@ const NodeLink = ({ href, children }: { href?: string; children?: React.ReactNod
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault()
-    const uuid = findNodeByPath(rootComponent, href!)
+    const uuid = findNodeByPath(rootComponent, href!, contextComponentUuid)
     if (uuid) selectNode(uuid)
   }
 
@@ -35,21 +43,28 @@ export const MarkdownEditor = ({
   onBlur,
   height = 100,
   placeholder,
+  contextComponentUuid,
 }: {
   value: string
   onChange: (val: string) => void
   onBlur?: () => void
   height?: number
   placeholder?: string
-}) => (
-  <div data-color-mode="dark">
-    <MDEditor
-      value={value}
-      onChange={(v) => onChange(v ?? "")}
-      preview="preview"
-      height={height}
-      textareaProps={{ placeholder, onBlur }}
-      previewOptions={{ components: { a: NodeLink as any } }}
-    />
-  </div>
-)
+  contextComponentUuid?: string
+}) => {
+  const NodeLinkWithContext = ({ href, children }: { href?: string; children?: React.ReactNode }) => (
+    <NodeLink href={href} contextComponentUuid={contextComponentUuid}>{children}</NodeLink>
+  )
+  return (
+    <div data-color-mode="dark">
+      <MDEditor
+        value={value}
+        onChange={(v) => onChange(v ?? "")}
+        preview="preview"
+        height={height}
+        textareaProps={{ placeholder, onBlur }}
+        previewOptions={{ components: { a: NodeLinkWithContext as any } }}
+      />
+    </div>
+  )
+}

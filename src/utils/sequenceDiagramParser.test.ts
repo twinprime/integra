@@ -244,4 +244,30 @@ describe("parseSequenceDiagram", () => {
       newSystem.subComponents.find((c) => c.id === "SysComponent")
     ).toBeDefined()
   })
+
+  it("should reference an existing actor from another component using 'from' clause", () => {
+    const rootComponent = createInitialSystem()
+    // Add an existing actor in root
+    rootComponent.actors.push({
+      uuid: "root-actor-uuid",
+      id: "admin",
+      name: "Admin",
+      type: "actor",
+    })
+
+    const content = `
+      actor "Admin" from root/admin as admin
+      component "Service" as svc
+      admin->>svc: ServiceAPI:doThing(id: number)
+    `
+    const newSystem = parseSequenceDiagram(content, rootComponent, "comp1-uuid", "diagram-uuid")
+    const comp = newSystem.subComponents[0]
+
+    // "admin" should NOT be created in comp1
+    expect(comp.actors.filter(a => a.id === "admin")).toHaveLength(0)
+
+    // The diagram should reference the existing actor UUID from the root
+    const diagram = comp.useCaseDiagrams[0].useCases[0].sequenceDiagrams[0]
+    expect(diagram.referencedNodeIds).toContain("root-actor-uuid")
+  })
 })

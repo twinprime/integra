@@ -83,4 +83,34 @@ describe("parseUseCaseDiagram", () => {
 
     expect(comp.actors[0].name).toBe("New Name")
   })
+
+  it("should reference an existing actor from another component using 'from' clause", () => {
+    const rootComponent = createInitialSystem()
+    // Add an actor in the root component that will be referenced via "from"
+    rootComponent.actors.push({
+      uuid: "root-actor-uuid",
+      id: "admin",
+      name: "Admin",
+      type: "actor",
+    })
+
+    const content = `
+      actor "Admin" from root/admin as admin
+      use case "Buy Item" as buy
+      admin --> buy
+    `
+    const newSystem = parseUseCaseDiagram(content, rootComponent, "comp1-uuid", "diagram-uuid")
+    const comp = newSystem.subComponents[0]
+    const diagram = comp.useCaseDiagrams[0]
+
+    // "admin" should NOT be added to comp1 (it's a cross-component reference)
+    expect(comp.actors.filter(a => a.id === "admin")).toHaveLength(0)
+
+    // The diagram should reference the existing actor's UUID
+    expect(diagram.referencedNodeIds).toContain("root-actor-uuid")
+
+    // The use case should still be created normally
+    expect(diagram.useCases).toHaveLength(1)
+    expect(diagram.useCases[0].id).toBe("buy")
+  })
 })

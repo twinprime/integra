@@ -1,5 +1,6 @@
 import { useSystemStore, findNode } from "../store/useSystemStore"
 import type { DiagramNode, ComponentNode } from "../store/types"
+import { findNearestComponentAncestor } from "../utils/nodeUtils"
 import { CommonEditor } from "./editor/CommonEditor"
 import { ComponentEditor } from "./editor/ComponentEditor"
 import { DiagramEditor } from "./editor/DiagramEditor"
@@ -25,6 +26,11 @@ export const EditorPanel = () => {
     updateNode(selectedNode.uuid, updates)
   }
 
+  const contextComponentUuid =
+    selectedNode.type === "component"
+      ? selectedNode.uuid
+      : (findNearestComponentAncestor(rootComponent, selectedNode.uuid)?.uuid ?? rootComponent.uuid)
+
   if (
     selectedNode.type === "use-case-diagram" ||
     selectedNode.type === "sequence-diagram"
@@ -42,9 +48,10 @@ export const EditorPanel = () => {
       <ComponentEditor
         node={selectedNode as ComponentNode}
         onUpdate={handleUpdate}
+        contextComponentUuid={contextComponentUuid}
       />
     )
   }
 
-  return <CommonEditor node={selectedNode} onUpdate={handleUpdate} />
+  return <CommonEditor node={selectedNode} onUpdate={handleUpdate} contextComponentUuid={contextComponentUuid} />
 }

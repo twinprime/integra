@@ -5,9 +5,11 @@ import { MarkdownEditor } from "./MarkdownEditor"
 export const CommonEditor = ({
   node,
   onUpdate,
+  contextComponentUuid,
 }: {
   node: Node
   onUpdate: (updates: any) => void
+  contextComponentUuid?: string
 }) => {
   const [name, setName] = useState(node.name || "")
   const [description, setDescription] = useState(node.description || "")
@@ -68,6 +70,7 @@ export const CommonEditor = ({
           onBlur={handleDescriptionBlur}
           height={100}
           placeholder="Add a description..."
+          contextComponentUuid={contextComponentUuid}
         />
       </div>
     </div>

@@ -1,10 +1,12 @@
 import type { ComponentNode, InterfaceSpecification, Parameter } from "../store/types"
 import { upsertTree } from "./diagramParserHelpers"
+import { findNodeByPath } from "./nodeUtils"
 
 // Regex patterns
-const SEQ_ACTOR_PATTERN = /(?:^|\n)\s*actor\s+(?:"([^"]+)"\s+as\s+)?(\w+)/gm
-const SEQ_COMPONENT_PATTERN =
-  /(?:^|\n)\s*component\s+(?:"([^"]+)"\s+as\s+)?(\w+)/gm
+// actor "Name" [from <path>] as <id>  OR  actor <id>
+const SEQ_ACTOR_PATTERN = /(?:^|\n)\s*actor\s+(?:"([^"]+)"\s+(?:from\s+([\w\-/]+)\s+)?as\s+(\w+)|(\w+))/gm
+// component "Name" [from <path>] as <id>  OR  component <id>
+const SEQ_COMPONENT_PATTERN = /(?:^|\n)\s*component\s+(?:"([^"]+)"\s+(?:from\s+([\w\-/]+)\s+)?as\s+(\w+)|(\w+))/gm
 // New format: sender->>receiver: InterfaceId:functionId(param: type, param2: type2?)
 const MESSAGE_PATTERN = /(\w+)\s*->>\s*(\w+)\s*:\s*(\w+):(\w+)\(([^)]*)\)/g
 
@@ -50,6 +52,8 @@ export function parseSequenceDiagram(
     type: string
   }[] = []
   const parsedParticipantIds: string[] = []
+  // UUIDs resolved from "from" clause references (no upsert)
+  const fromParticipantUuids: string[] = []
   const messages: {
     from: string
     to: string
@@ -60,34 +64,50 @@ export function parseSequenceDiagram(
 
   let match
   // Parse Actors
+  // Groups: [1]=name, [2]=fromPath, [3]=id (named), [4]=id (bare)
   SEQ_ACTOR_PATTERN.lastIndex = 0
   while ((match = SEQ_ACTOR_PATTERN.exec(content)) !== null) {
-    const name = match[1] || match[2]
-    const id = match[2]
-    parsedParticipantIds.push(id.trim())
-    if (!participants.find((p) => p.id === id.trim())) {
-      participants.push({
-        uuid: crypto.randomUUID(),
-        id: id.trim(),
-        name: name.trim(),
-        type: "actor",
-      })
+    const name = match[1] || match[4]
+    const fromPath = match[2]
+    const id = match[3] || match[4]
+    if (!id) continue
+    if (fromPath) {
+      const uuid = findNodeByPath(rootComponent, fromPath)
+      if (uuid && !fromParticipantUuids.includes(uuid)) fromParticipantUuids.push(uuid)
+    } else {
+      parsedParticipantIds.push(id.trim())
+      if (!participants.find((p) => p.id === id.trim())) {
+        participants.push({
+          uuid: crypto.randomUUID(),
+          id: id.trim(),
+          name: (name || id).trim(),
+          type: "actor",
+        })
+      }
     }
   }
 
   // Parse Components
+  // Groups: [1]=name, [2]=fromPath, [3]=id (named), [4]=id (bare)
   SEQ_COMPONENT_PATTERN.lastIndex = 0
   while ((match = SEQ_COMPONENT_PATTERN.exec(content)) !== null) {
-    const name = match[1] || match[2]
-    const id = match[2]
-    parsedParticipantIds.push(id.trim())
-    if (!participants.find((p) => p.id === id.trim())) {
-      participants.push({
-        uuid: crypto.randomUUID(),
-        id: id.trim(),
-        name: name.trim(),
-        type: "component",
-      })
+    const name = match[1] || match[4]
+    const fromPath = match[2]
+    const id = match[3] || match[4]
+    if (!id) continue
+    if (fromPath) {
+      const uuid = findNodeByPath(rootComponent, fromPath)
+      if (uuid && !fromParticipantUuids.includes(uuid)) fromParticipantUuids.push(uuid)
+    } else {
+      parsedParticipantIds.push(id.trim())
+      if (!participants.find((p) => p.id === id.trim())) {
+        participants.push({
+          uuid: crypto.randomUUID(),
+          id: id.trim(),
+          name: (name || id).trim(),
+          type: "component",
+        })
+      }
     }
   }
 
@@ -231,7 +251,7 @@ export function parseSequenceDiagram(
     return null
   })(updatedRoot)
 
-  const referencedNodeIds: string[] = []
+  const referencedNodeIds: string[] = [...fromParticipantUuids]
   if (ownerComp) {
     parsedParticipantIds.forEach((id) => {
       const actor = ownerComp.actors?.find((a) => a.id === id)

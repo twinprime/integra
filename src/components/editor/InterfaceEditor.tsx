@@ -12,6 +12,7 @@ export const InterfaceEditor = ({
   onFunctionUpdate,
   onDeleteFunction,
   onParamDescriptionUpdate,
+  contextComponentUuid,
 }: {
   iface: InterfaceSpecification
   ifaceIdx: number
@@ -20,6 +21,7 @@ export const InterfaceEditor = ({
   onFunctionUpdate: (fnIdx: number, updates: Partial<InterfaceFunction>) => void
   onDeleteFunction: (fnIdx: number) => void
   onParamDescriptionUpdate: (fnIdx: number, paramIdx: number, desc: string) => void
+  contextComponentUuid?: string
 }) => {
   const [name, setName] = useState(iface.name)
   const [description, setDescription] = useState(iface.description || "")
@@ -61,6 +63,7 @@ export const InterfaceEditor = ({
         }}
         height={80}
         placeholder="Description..."
+        contextComponentUuid={contextComponentUuid}
       />
 
       {iface.functions && iface.functions.length > 0 && (
@@ -81,6 +84,7 @@ export const InterfaceEditor = ({
                 onParamDescriptionUpdate={(paramIdx, desc) =>
                   onParamDescriptionUpdate(fnIdx, paramIdx, desc)
                 }
+                contextComponentUuid={contextComponentUuid}
               />
             )
           })}
