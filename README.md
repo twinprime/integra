@@ -25,7 +25,9 @@ Each use case contains:
 
 Each component has zero or more **interface specifications** (automatically derived from sequence diagrams within its nested use cases).
 
-Each interface specification contains a name, type, and interactions with parameters. Interface types include: `kafka`, `rest`, `graphql`, or `other`.
+Each interface specification has a UUID, ID, name, description, type, and a list of functions. Interface types include: `kafka`, `rest`, `graphql`, or `other`.
+
+Each interface function has a UUID, ID, description, and a list of parameters. Each parameter has a name, type (defaults to `any`), and required flag.
 
 ### Hierarchy Rules
 
@@ -73,8 +75,8 @@ The editor contains three panels:
 - Use Case Diagram
 - Sequence Diagram
 
-**Form fields:**
-- Component (name, description - interfaces are auto-generated and read-only)
+**Form fields (with markdown description editor):**
+- Component (name, description, interface specifications — name, type, description and functions are editable)
 - Actor (name, description)
 - Use Case (name, description)
 
@@ -84,7 +86,11 @@ The following are automatically generated from diagram specifications:
 - **Component nodes** (when mentioned in sequence diagrams - added to the owning component)
 - **Actor nodes** (when mentioned in use case or sequence diagrams - added to the owning component)
 - **Use Case nodes** (when mentioned in use case diagrams - added to the diagram itself)
-- **Interface specifications** (when messages are sent to components in sequence diagrams - added to the owning component)
+- **Interface specifications** (when messages are sent to components in sequence diagrams — added to the receiving component; functions are tracked with UUIDs and unreferenced functions are highlighted in the editor)
+
+### Orphan Detection
+
+Actors and components that are not referenced by any diagram's `referencedNodeIds` are considered **orphaned** and can be deleted from the tree view. A delete button appears inline on hover for orphaned nodes (and always for diagrams and use cases).
 
 ## Use Case Diagrams
 
@@ -112,51 +118,66 @@ Sequence diagrams are nested under use cases and define interactions between act
 
 ### Syntax
 
-The sequence diagram specification follows the Mermaid sequence diagram syntax with custom participant declarations.
-Use `actor` or `component` keywords to specify the type of participants. You can specify an ID using the "as" keyword:
+### Syntax
 
 ```
 actor "User" as user
 component "Service" as service
-user->>service: createExploration(explorationId)
+user->>service: ExplorationsAPI:createExploration(id: number, name: string?)
 ```
 
-If the "as" part is omitted, the name itself will be used as the ID.
+Messages follow the format: `sender->>receiver: InterfaceId:functionId(param: type, param2: type?)`
 
-Messages follow the format: `participant1->>participant2: methodName(param1, param2)`
+- `InterfaceId` is the interface ID on the receiving component
+- `functionId` is the function ID within that interface
+- Parameter types default to `any` if omitted
+- Appending `?` to a type marks the parameter as optional (e.g. `string?`)
+
+If no interface prefix is given, the message is silently ignored (no interface is created).
+
+### Kafka Ownership
+
+For `kafka`-type interfaces, the **sender** owns the interface (not the receiver). This reflects the publish/subscribe model where the producer defines the message contract.
+
+### Parameter Compatibility
+
+If a function already exists with a different parameter signature, parsing fails with an error message shown in the diagram panel. The system state is not updated until the conflict is resolved.
 
 ### Parsing Behavior
 
 When the diagram is parsed:
 - Actors and components are added to the component that owns the diagram (via `ownerComponentUuid`)
-- Interface specifications are generated on the receiving components
+- Interface specifications are generated on the receiving component (or sender for kafka)
+- `referencedNodeIds` on the diagram stores the UUIDs of all referenced actors/components
+- `referencedFunctionUuids` on the diagram stores the UUIDs of all interface functions used
 
 ## Derived Interface Specifications
 
-When a component is selected in the tree, the editor shows:
-- ID (read-only label)
-- Name (editable input field)
-- Description (editable textarea)
-- Interface Specifications (read-only, auto-generated)
+When a component is selected in the tree, the editor shows its interface specifications. Each interface can be edited:
+- **Name** — editable inline
+- **Type** — dropdown (`rest`, `kafka`, `graphql`, `other`)
+- **Description** — markdown editor
 
-Each interface specification includes:
-- Interface name (e.g., "Default")
-- Interface type (rest, kafka, graphql, other)
-- Interface ID (e.g., "iface-Service-default")
-- List of interactions derived from messages:
-  - Interaction ID (the method name from the message)
-  - Description (auto-generated)
-  - Parameters with:
-    - name (extracted from message parameters)
-    - type (defaults to "string")
-    - required (defaults to true)
+Each function within an interface shows:
+- **ID** — editable inline (used in sequence diagram messages)
+- **Description** — markdown editor
+- **Parameters** — read-only (name, type, required/optional badge, editable description)
+- Functions not referenced by any sequence diagram are shown with **strikethrough** and a delete button
 
-**Example:** For the message `user->>service: createExploration(explorationId)`, the system creates:
-- A "Default" interface on the "service" component
-- An interaction with ID "createExploration"
-- A parameter named "explorationId" of type "string" (required)
+**Example:** For the message `user->>service: ExplorationsAPI:createExploration(id: number)`, the system creates:
+- An `ExplorationsAPI` interface on the `service` component
+- A function with ID `createExploration`
+- A parameter named `id` of type `number` (required)
 
-The interface specifications are automatically updated whenever sequence diagrams are modified.
+## Markdown Descriptions
+
+All description fields (on components, actors, use cases, interfaces, and functions) use a markdown editor with syntax highlighting. In preview mode, you can write links to other nodes using their relative path:
+
+```markdown
+See also [Service A](serviceA) or [Login Flow](serviceA/mainDiagram/loginCase)
+```
+
+Clicking a node link in preview mode navigates to that node in the tree. The path is composed of node IDs separated by `/`. Regular URLs and anchor links (`#`) behave normally.
 
 ## Tech Stack
 
@@ -164,6 +185,10 @@ This project is built with:
 - **React** 19.2 - A JavaScript library for building user interfaces
 - **TypeScript** 5.9 - Typed superset of JavaScript
 - **Vite** 7.2 - Next generation frontend tooling
+- **Zustand** - Lightweight state management
+- **Mermaid** - Diagram rendering from text
+- **@uiw/react-md-editor** - Markdown editor with syntax highlighting and preview
+- **Tailwind CSS** - Utility-first CSS framework
 - **ESLint** 9.39 - Pluggable linting utility for JavaScript and TypeScript
 - **Vitest** 4.0 - Blazing fast unit test framework
 
