@@ -17,13 +17,16 @@ export interface ComponentNode extends BaseNode {
 }
 
 export interface InterfaceSpecification {
+  uuid: string;
   id: string;
   name: string;
+  description?: string;
   type: 'kafka' | 'rest' | 'graphql' | 'other';
-  interactions: Interaction[];
+  functions: InterfaceFunction[];
 }
 
-export interface Interaction {
+export interface InterfaceFunction {
+  uuid: string;
   id: string;
   description?: string;
   parameters: Parameter[];
@@ -58,6 +61,7 @@ export interface UseCaseDiagramNode extends DiagramNode {
 
 export interface SequenceDiagramNode extends DiagramNode {
   type: 'sequence-diagram';
+  referencedFunctionUuids: string[];
 }
 
 export type Node = ComponentNode | ActorNode | UseCaseNode | UseCaseDiagramNode | SequenceDiagramNode;

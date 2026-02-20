@@ -1,9 +1,11 @@
+// FULL CONTENT OF: src/utils/sequenceDiagramParser.test.ts
+// Apply with: cp session-state/files/sequenceDiagramParser.test.ts src/utils/sequenceDiagramParser.test.ts
+// ---------------------------------------------------------------
 // @vitest-environment node
 import { describe, it, expect } from "vitest"
 import { parseSequenceDiagram } from "./sequenceDiagramParser"
 import type { ComponentNode } from "../store/types"
 
-// Mock root component
 const createInitialSystem = (): ComponentNode => ({
   uuid: "root-uuid",
   id: "root",
@@ -45,6 +47,7 @@ const createInitialSystem = (): ComponentNode => ({
                   description: "",
                   ownerComponentUuid: "comp1-uuid",
                   referencedNodeIds: [],
+                  referencedFunctionUuids: [],
                 }
               ],
             }
@@ -77,28 +80,149 @@ describe("parseSequenceDiagram", () => {
     expect(comp.actors[0].id).toBe("alice")
   })
 
-  it("should create interfaces and interactions from messages", () => {
+  it("should create interface and function from new-format message", () => {
     const rootComponent = createInitialSystem()
     const content = `
-            Client->>Server: getData(id)
-         `
+            component client
+            component service
+            client->>service: ExplorationsAPI:createExploration(id: number)
+        `
 
     const newSystem = parseSequenceDiagram(content, rootComponent, "comp1-uuid", "diagram-uuid")
     const comp = newSystem.subComponents[0]
+    const service = comp.subComponents.find((c) => c.id === "service")
+    expect(service).toBeDefined()
 
-    // Client and Server should be created as sub-components
-    const server = comp.subComponents.find((c) => c.id === "Server")
-    expect(server).toBeDefined()
+    expect(service!.interfaces).toHaveLength(1)
+    const iface = service!.interfaces[0]
+    expect(iface.id).toBe("ExplorationsAPI")
+    expect(iface.type).toBe("rest")
 
-    expect(server?.interfaces).toHaveLength(1)
-    const iface = server?.interfaces[0]
-    expect(iface?.name).toBe("Default")
+    expect(iface.functions).toHaveLength(1)
+    const fn = iface.functions[0]
+    expect(fn.id).toBe("createExploration")
+    expect(fn.parameters).toHaveLength(1)
+    expect(fn.parameters[0].name).toBe("id")
+    expect(fn.parameters[0].type).toBe("number")
+    expect(fn.parameters[0].required).toBe(true)
+  })
 
-    expect(iface?.interactions).toHaveLength(1)
-    const interaction = iface?.interactions[0]
-    expect(interaction?.id).toBe("getData")
-    expect(interaction?.parameters).toHaveLength(1)
-    expect(interaction?.parameters[0].name).toBe("id")
+  it("should parse optional parameters (type?)", () => {
+    const rootComponent = createInitialSystem()
+    const content = `
+            component client
+            component service
+            client->>service: MyAPI:doSomething(name: string, flag: boolean?)
+        `
+
+    const newSystem = parseSequenceDiagram(content, rootComponent, "comp1-uuid", "diagram-uuid")
+    const comp = newSystem.subComponents[0]
+    const service = comp.subComponents.find((c) => c.id === "service")
+    const fn = service!.interfaces[0].functions[0]
+
+    expect(fn.parameters[0]).toMatchObject({ name: "name", type: "string", required: true })
+    expect(fn.parameters[1]).toMatchObject({ name: "flag", type: "boolean", required: false })
+  })
+
+  it("should throw on parameter mismatch for existing function", () => {
+    const rootComponent = createInitialSystem()
+    const first = parseSequenceDiagram(
+      `component a\ncomponent b\na->>b: API:fn(x: number)`,
+      rootComponent,
+      "comp1-uuid",
+      "diagram-uuid"
+    )
+
+    expect(() =>
+      parseSequenceDiagram(
+        `component a\ncomponent b\na->>b: API:fn(x: string)`,
+        first,
+        "comp1-uuid",
+        "diagram-uuid"
+      )
+    ).toThrow(/Parameter mismatch.*fn.*API/)
+  })
+
+  it("should assign interface to sender for kafka type", () => {
+    const rootComponent = createInitialSystem()
+    // First create an interface with kafka type manually
+    const systemWithKafka: ComponentNode = {
+      ...rootComponent,
+      subComponents: [
+        {
+          ...(rootComponent.subComponents[0]),
+          subComponents: [
+            {
+              uuid: "producer-uuid",
+              id: "producer",
+              name: "producer",
+              type: "component",
+              subComponents: [],
+              actors: [],
+              useCaseDiagrams: [],
+              interfaces: [
+                {
+                  uuid: "iface-uuid",
+                  id: "TopicEvents",
+                  name: "TopicEvents",
+                  type: "kafka",
+                  functions: [],
+                }
+              ],
+            },
+            {
+              uuid: "consumer-uuid",
+              id: "consumer",
+              name: "consumer",
+              type: "component",
+              subComponents: [],
+              actors: [],
+              useCaseDiagrams: [],
+              interfaces: [],
+            },
+          ],
+        }
+      ],
+    }
+
+    const content = `
+            component producer
+            component consumer
+            producer->>consumer: TopicEvents:userCreated(userId: string)
+        `
+
+    const newSystem = parseSequenceDiagram(content, systemWithKafka, "comp1-uuid", "diagram-uuid")
+    const comp = newSystem.subComponents[0]
+    const producer = comp.subComponents.find((c) => c.id === "producer")
+    const consumer = comp.subComponents.find((c) => c.id === "consumer")
+
+    // kafka: sender (producer) owns the interface
+    const producerIface = producer!.interfaces.find((i) => i.id === "TopicEvents")
+    expect(producerIface).toBeDefined()
+    expect(producerIface!.functions).toHaveLength(1)
+    expect(producerIface!.functions[0].id).toBe("userCreated")
+
+    // consumer should NOT have the interface
+    const consumerIface = consumer!.interfaces?.find((i) => i.id === "TopicEvents")
+    expect(consumerIface).toBeUndefined()
+  })
+
+  it("should record referencedFunctionUuids on the diagram", () => {
+    const rootComponent = createInitialSystem()
+    const content = `
+            component a
+            component b
+            a->>b: MyAPI:myFn(x: number)
+        `
+
+    const newSystem = parseSequenceDiagram(content, rootComponent, "comp1-uuid", "diagram-uuid")
+    const comp = newSystem.subComponents[0]
+    const b = comp.subComponents.find((c) => c.id === "b")
+    const fn = b!.interfaces[0].functions[0]
+
+    // Find the diagram
+    const diagram = comp.useCaseDiagrams[0].useCases[0].sequenceDiagrams[0]
+    expect(diagram.referencedFunctionUuids).toContain(fn.uuid)
   })
 
   it("should process system-level diagrams", () => {
@@ -106,7 +230,6 @@ describe("parseSequenceDiagram", () => {
     const content = `
              component "SysComponent" as SysComponent
          `
-    // Parse on root level
     const newSystem = parseSequenceDiagram(content, rootComponent, "root-uuid", "diagram-uuid")
 
     expect(newSystem.subComponents).toHaveLength(2) // Initial 'comp1' + 'SysComponent'

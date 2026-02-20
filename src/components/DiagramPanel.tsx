@@ -85,6 +85,7 @@ export const DiagramPanel = () => {
   const [error, setError] = useState<string>("")
   const [errorDetails, setErrorDetails] = useState<string>("")
   const [showTooltip, setShowTooltip] = useState<boolean>(false)
+  const parseError = useSystemStore((state) => state.parseError)
 
   const selectedNode = selectedNodeId
     ? findNode([rootComponent], selectedNodeId)
@@ -154,16 +155,16 @@ export const DiagramPanel = () => {
 
   return (
     <div className="w-full h-full flex flex-col">
-      {error && (
+      {(parseError || error) && (
         <div
           className="relative text-red-500 p-2 text-sm cursor-help"
           onMouseEnter={() => setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
         >
-          {error}
+          {parseError || error}
           {showTooltip && (
             <div className="absolute left-0 top-full mt-1 bg-gray-800 text-white text-xs p-2 rounded shadow-lg z-10 max-w-md whitespace-pre-wrap">
-              {errorDetails}
+              {parseError || errorDetails}
             </div>
           )}
         </div>

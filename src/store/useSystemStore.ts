@@ -4,11 +4,13 @@ import type { ComponentNode, Node, BaseNode, DiagramNode, UseCaseDiagramNode } f
 interface SystemState {
   rootComponent: ComponentNode
   selectedNodeId: string | null
+  parseError: string | null
   setSystem: (rootComponent: ComponentNode) => void
   selectNode: (nodeId: string | null) => void
   updateNode: (nodeId: string, updates: Partial<BaseNode> | any) => void
   addNode: (parentId: string, node: Node) => void
   deleteNode: (nodeId: string) => void
+  clearParseError: () => void
 }
 
 const initialSystem: ComponentNode = {
@@ -94,6 +96,8 @@ import { upsertTree } from "../utils/diagramParserHelpers"
 export const useSystemStore = create<SystemState>((set) => ({
   rootComponent: initialSystem,
   selectedNodeId: null,
+  parseError: null,
+  clearParseError: () => set({ parseError: null }),
   setSystem: (rootComponent) =>
     set(() => {
       // Parse all diagrams in the loaded system to rebuild referencedNodeIds and entities
@@ -151,12 +155,16 @@ export const useSystemStore = create<SystemState>((set) => ({
               diagram.uuid,
             )
           } else if (diagram.type === "sequence-diagram") {
-            updatedSystem = parseSequenceDiagram(
-              diagram.content,
-              updatedSystem,
-              ownerComponentUuid,
-              diagram.uuid,
-            )
+            try {
+              updatedSystem = parseSequenceDiagram(
+                diagram.content,
+                updatedSystem,
+                ownerComponentUuid,
+                diagram.uuid,
+              )
+            } catch {
+              // skip invalid diagrams on load
+            }
           }
         }
       })
@@ -230,7 +238,7 @@ export const useSystemStore = create<SystemState>((set) => ({
               ...useCase,
               sequenceDiagrams: [
                 ...(useCase.sequenceDiagrams || []),
-                { ...seqDiagram, ownerComponentUuid: ownerUuid },
+                { ...seqDiagram, ownerComponentUuid: ownerUuid, referencedFunctionUuids: [] },
               ],
             }
           }
@@ -266,13 +274,18 @@ export const useSystemStore = create<SystemState>((set) => ({
                 ),
               }
             } else if (node.type === "sequence-diagram") {
-              return {
-                rootComponent: parseSequenceDiagram(
-                  updates.content,
-                  updatedSystem,
-                  diagram.ownerComponentUuid,
-                  nodeUuid,
-                ),
+              try {
+                return {
+                  rootComponent: parseSequenceDiagram(
+                    updates.content,
+                    updatedSystem,
+                    diagram.ownerComponentUuid,
+                    nodeUuid,
+                  ),
+                  parseError: null,
+                }
+              } catch (err: any) {
+                return { parseError: err.message }
               }
             }
           }
