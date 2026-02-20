@@ -43,11 +43,25 @@ const NodeIcon = ({ type }: { type: string }) => {
 
 const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
   const [expanded, setExpanded] = useState(true)
+  const [hovered, setHovered] = useState(false)
   const selectedNodeId = useSystemStore((state) => state.selectedNodeId)
   const selectNode = useSystemStore((state) => state.selectNode)
+  const deleteNode = useSystemStore((state) => state.deleteNode)
+  const rootComponent = useSystemStore((state) => state.rootComponent)
 
   const isSelected = selectedNodeId === node.uuid
   const isOrphaned = parent ? isNodeOrphaned(node, parent) : false
+
+  // Determine whether a delete button should be shown
+  const isDeletable = (() => {
+    if (node.uuid === rootComponent.uuid) return false
+    if (node.type === "actor" || node.type === "component") {
+      const nodeParent = parent ?? findParentNode(rootComponent, node.uuid) as ComponentNode | null
+      return nodeParent?.type === "component" && isNodeOrphaned(node, nodeParent)
+    }
+    // use-case-diagrams, use-cases, sequence-diagrams are always deletable
+    return true
+  })()
 
   let children: Node[] = []
   if (node.type === "component") {
@@ -80,6 +94,13 @@ const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
     onContextMenu(e, node)
   }
 
+  const handleDelete = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (confirm(`Are you sure you want to delete "${node.name}"?`)) {
+      deleteNode(node.uuid)
+    }
+  }
+
   return (
     <div className="pl-4">
       <div
@@ -88,6 +109,8 @@ const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
         }`}
         onClick={handleClick}
         onContextMenu={handleContextMenu}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
       >
         <div
           className="w-4 h-4 flex items-center justify-center mr-1 text-gray-500 hover:text-gray-400"
@@ -106,6 +129,15 @@ const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
         >
           {node.name}
         </div>
+        {isDeletable && hovered && (
+          <button
+            className="ml-1 p-0.5 rounded text-gray-500 hover:text-red-400 hover:bg-red-900/20 transition-colors"
+            title={`Delete "${node.name}"`}
+            onClick={handleDelete}
+          >
+            <Trash2 size={12} />
+          </button>
+        )}
       </div>
 
       {hasChildren && expanded && (
