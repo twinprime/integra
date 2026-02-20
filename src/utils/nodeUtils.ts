@@ -38,7 +38,7 @@ export const isNodeOrphaned = (
 
   // Check if the node's ID appears in any diagram's referencedNodeIds
   for (const diagram of allDiagrams) {
-    if (diagram.referencedNodeIds && diagram.referencedNodeIds.includes(node.id)) {
+    if (diagram.referencedNodeIds && diagram.referencedNodeIds.includes(node.uuid)) {
       return false
     }
   }

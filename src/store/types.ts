@@ -50,7 +50,7 @@ export interface UseCaseNode extends BaseNode {
 
 export interface DiagramNode extends BaseNode {
   content: string; // The text specification (mermaid or custom yaml)
-  referencedNodeIds: string[]; // IDs of actors/components referenced in this diagram
+  referencedNodeIds: string[]; // UUIDs of actors/components referenced in this diagram
   ownerComponentUuid: string; // UUID of the component that owns this diagram (for quick lookup)
 }
 

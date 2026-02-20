@@ -411,10 +411,11 @@ describe("useSystemStore", () => {
       expect(
         result.current.rootComponent.subComponents[0].useCaseDiagrams,
       ).toHaveLength(1)
+      // referencedNodeIds now stores UUIDs (assigned by crypto.randomUUID during parsing)
       expect(
         result.current.rootComponent.subComponents[0].useCaseDiagrams[0]
           .referencedNodeIds,
-      ).toEqual(["user", "login"])
+      ).toEqual(expect.arrayContaining([expect.stringMatching(/^test-uuid-\d+$/)]))
     })
 
     it("should not clear selectedNodeId when setting new system", () => {

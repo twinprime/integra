@@ -78,6 +78,13 @@ describe("parseSequenceDiagram", () => {
 
     expect(comp.actors).toHaveLength(1)
     expect(comp.actors[0].id).toBe("alice")
+
+    // referencedNodeIds should contain UUIDs, not string ids
+    const diagram = comp.useCaseDiagrams[0].useCases[0].sequenceDiagrams[0]
+    expect(diagram.referencedNodeIds).toContain(comp.actors[0].uuid)
+    expect(diagram.referencedNodeIds).toContain(comp.subComponents[0].uuid)
+    expect(diagram.referencedNodeIds).not.toContain("alice")
+    expect(diagram.referencedNodeIds).not.toContain("bob")
   })
 
   it("should create interface and function from new-format message", () => {

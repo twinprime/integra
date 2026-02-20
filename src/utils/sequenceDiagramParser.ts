@@ -49,7 +49,7 @@ export function parseSequenceDiagram(
     name: string
     type: string
   }[] = []
-  const referencedNodeIds: string[] = []
+  const parsedParticipantIds: string[] = []
   const messages: {
     from: string
     to: string
@@ -64,7 +64,7 @@ export function parseSequenceDiagram(
   while ((match = SEQ_ACTOR_PATTERN.exec(content)) !== null) {
     const name = match[1] || match[2]
     const id = match[2]
-    referencedNodeIds.push(id.trim())
+    parsedParticipantIds.push(id.trim())
     if (!participants.find((p) => p.id === id.trim())) {
       participants.push({
         uuid: crypto.randomUUID(),
@@ -80,7 +80,7 @@ export function parseSequenceDiagram(
   while ((match = SEQ_COMPONENT_PATTERN.exec(content)) !== null) {
     const name = match[1] || match[2]
     const id = match[2]
-    referencedNodeIds.push(id.trim())
+    parsedParticipantIds.push(id.trim())
     if (!participants.find((p) => p.id === id.trim())) {
       participants.push({
         uuid: crypto.randomUUID(),
@@ -220,6 +220,26 @@ export function parseSequenceDiagram(
       actors: updatedActors,
     } as ComponentNode
   })
+
+  // Resolve participant ids to uuids using the updated tree
+  const ownerComp = (function findComp(c: ComponentNode): ComponentNode | null {
+    if (c.uuid === ownerComponentUuid) return c
+    for (const sub of c.subComponents) {
+      const found = findComp(sub)
+      if (found) return found
+    }
+    return null
+  })(updatedRoot)
+
+  const referencedNodeIds: string[] = []
+  if (ownerComp) {
+    parsedParticipantIds.forEach((id) => {
+      const actor = ownerComp.actors?.find((a) => a.id === id)
+      if (actor) { referencedNodeIds.push(actor.uuid); return }
+      const comp = ownerComp.subComponents?.find((c) => c.id === id)
+      if (comp) referencedNodeIds.push(comp.uuid)
+    })
+  }
 
   // Collect referencedFunctionUuids from all messages
   const referencedFunctionUuids: string[] = []

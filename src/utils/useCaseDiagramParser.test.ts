@@ -59,6 +59,13 @@ describe("parseUseCaseDiagram", () => {
     expect(diagram.useCases).toHaveLength(1)
     expect(diagram.useCases[0].id).toBe("buy")
     expect(diagram.useCases[0].name).toBe("Buy Item")
+
+    // referencedNodeIds should contain the UUIDs of actor and use case, not their string ids
+    expect(diagram.referencedNodeIds).toHaveLength(2)
+    expect(diagram.referencedNodeIds).toContain(comp.actors[0].uuid)
+    expect(diagram.referencedNodeIds).toContain(diagram.useCases[0].uuid)
+    expect(diagram.referencedNodeIds).not.toContain("cust")
+    expect(diagram.referencedNodeIds).not.toContain("buy")
   })
 
   it("should update existing entities", () => {

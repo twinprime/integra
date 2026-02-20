@@ -16,14 +16,15 @@ export function parseUseCaseDiagram(
   ownerComponentUuid: string,
   diagramUuid: string
 ): ComponentNode {
-  const referencedNodeIds: string[] = []
+  const parsedActorIds: string[] = []
+  const parsedUseCaseIds: string[] = []
 
   // Parse Actors
   const newActors: ActorNode[] = []
   let match
   while ((match = ACTOR_PATTERN.exec(content)) !== null) {
     const [_, name, id] = match
-    referencedNodeIds.push(id)
+    parsedActorIds.push(id)
     newActors.push({
       uuid: crypto.randomUUID(),
       id,
@@ -37,7 +38,7 @@ export function parseUseCaseDiagram(
   const newUseCases: UseCaseNode[] = []
   while ((match = USE_CASE_PATTERN.exec(content)) !== null) {
     const [_, name, id] = match
-    referencedNodeIds.push(id)
+    parsedUseCaseIds.push(id)
     newUseCases.push({
       uuid: crypto.randomUUID(),
       id,
@@ -57,12 +58,30 @@ export function parseUseCaseDiagram(
     } as ComponentNode
   })
 
-  // Update diagram with use cases and referencedNodeIds
+  // Resolve parsed ids to uuids using the updated tree
+  const ownerComp = updatedRoot.subComponents.find((c) => c.uuid === ownerComponentUuid)
+    ?? (updatedRoot.uuid === ownerComponentUuid ? updatedRoot : null)
+
+  const referencedNodeIds: string[] = []
+  if (ownerComp) {
+    parsedActorIds.forEach((id) => {
+      const actor = ownerComp.actors?.find((a) => a.id === id)
+      if (actor) referencedNodeIds.push(actor.uuid)
+    })
+  }
+
+  // Update diagram with use cases and referencedNodeIds (UUIDs)
   updatedRoot = upsertTree(updatedRoot, diagramUuid, (node) => {
     const diagram = node as UseCaseDiagramNode
+    const mergedUseCases = mergeLists(diagram.useCases || [], newUseCases)
+    // Resolve use case ids to uuids
+    parsedUseCaseIds.forEach((id) => {
+      const uc = mergedUseCases.find((u) => u.id === id)
+      if (uc && !referencedNodeIds.includes(uc.uuid)) referencedNodeIds.push(uc.uuid)
+    })
     return {
       ...diagram,
-      useCases: mergeLists(diagram.useCases || [], newUseCases),
+      useCases: mergedUseCases,
       referencedNodeIds,
     }
   })
