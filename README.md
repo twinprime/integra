@@ -104,12 +104,25 @@ use case "Create an exploration" as create
 leader --> create
 ```
 
-The syntax uses the `actor` and `use case` keywords with double-quoted names and `as` keyword for IDs.
+The syntax uses the `actor` and `use case` keywords with double-quoted names and `as` keyword for IDs. Node IDs are **scoped to the owning component** — the same ID can be reused in different components.
+
+### Cross-Component References
+
+To reference a node defined in another component, use the `from` clause:
+
+```
+actor "Exploration Leader" from root-component/leader as leader
+use case "Login" from auth/loginDiagram/login as login
+```
+
+The `from` path follows the node tree: component IDs separated by `/`, with the final segment being the node ID. When `from` is used:
+- No new node is created in the current component
+- The existing node's UUID is added to `referencedNodeIds`
 
 ### Parsing Behavior
 
 When the diagram is parsed:
-- Actors are added to the component that owns the diagram
+- Actors are added to the component that owns the diagram (unless `from` is used)
 - Use cases are added to the use case diagram itself (and can contain sequence diagrams)
 
 ## Sequence Diagrams
@@ -118,13 +131,20 @@ Sequence diagrams are nested under use cases and define interactions between act
 
 ### Syntax
 
-### Syntax
-
 ```
 actor "User" as user
 component "Service" as service
 user->>service: ExplorationsAPI:createExploration(id: number, name: string?)
 ```
+
+To reference a participant from another component, use the `from` clause:
+
+```
+actor "Admin" from root/admin as admin
+component "PaymentService" from payments/paymentSvc as paymentSvc
+```
+
+Node IDs are **scoped to the owning component**. The `from` path resolves the existing node without creating a new one.
 
 Messages follow the format: `sender->>receiver: InterfaceId:functionId(param: type, param2: type?)`
 
@@ -146,9 +166,9 @@ If a function already exists with a different parameter signature, parsing fails
 ### Parsing Behavior
 
 When the diagram is parsed:
-- Actors and components are added to the component that owns the diagram (via `ownerComponentUuid`)
+- Actors and components are added to the owning component (unless `from` is used)
 - Interface specifications are generated on the receiving component (or sender for kafka)
-- `referencedNodeIds` on the diagram stores the UUIDs of all referenced actors/components
+- `referencedNodeIds` on the diagram stores the UUIDs of all referenced actors/components, including cross-component references via `from`
 - `referencedFunctionUuids` on the diagram stores the UUIDs of all interface functions used
 
 ## Derived Interface Specifications
@@ -171,13 +191,19 @@ Each function within an interface shows:
 
 ## Markdown Descriptions
 
-All description fields (on components, actors, use cases, interfaces, and functions) use a markdown editor with syntax highlighting. In preview mode, you can write links to other nodes using their relative path:
+All description fields (on components, actors, use cases, interfaces, and functions) use a markdown editor with syntax highlighting. In preview mode, you can write links to other nodes using their path.
 
+**Same-component link** (bare node ID — resolves within the current component):
 ```markdown
-See also [Service A](serviceA) or [Login Flow](serviceA/mainDiagram/loginCase)
+See also [Login Flow](loginFlow)
 ```
 
-Clicking a node link in preview mode navigates to that node in the tree. The path is composed of node IDs separated by `/`. Regular URLs and anchor links (`#`) behave normally.
+**Cross-component link** (slash-separated path through the tree):
+```markdown
+See also [Service A](serviceA) or [Login Use Case](serviceA/mainDiagram/loginCase)
+```
+
+Clicking a node link in preview mode navigates to that node in the tree. Regular URLs and anchor links (`#`) behave normally.
 
 ## Tech Stack
 
