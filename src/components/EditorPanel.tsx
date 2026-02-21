@@ -1,5 +1,5 @@
 import { useSystemStore, findNode } from "../store/useSystemStore"
-import type { DiagramNode, ComponentNode } from "../store/types"
+import type { DiagramNode } from "../store/types"
 import { findNearestComponentAncestor } from "../utils/nodeUtils"
 import { CommonEditor } from "./editor/CommonEditor"
 import { ComponentEditor } from "./editor/ComponentEditor"
@@ -22,7 +22,7 @@ export const EditorPanel = () => {
     )
   }
 
-  const handleUpdate = (updates: any) => {
+  const handleUpdate = (updates: Record<string, unknown>) => {
     updateNode(selectedNode.uuid, updates)
   }
 
@@ -46,7 +46,7 @@ export const EditorPanel = () => {
   if (selectedNode.type === "component") {
     return (
       <ComponentEditor
-        node={selectedNode as ComponentNode}
+        node={selectedNode}
         onUpdate={handleUpdate}
         contextComponentUuid={contextComponentUuid}
       />
