@@ -14,14 +14,13 @@ import {
   RotateCcw,
 } from "lucide-react"
 import { useSystemStore } from "../store/useSystemStore"
-import type { Node, ComponentNode } from "../store/types"
+import type { Node, ComponentNode, UseCaseDiagramNode, UseCaseNode, SequenceDiagramNode } from "../store/types"
 import { ContextMenu } from "./ContextMenu"
 import yaml from "js-yaml"
 import { isNodeOrphaned, findParentNode } from "../utils/nodeUtils"
 
 interface TreeNodeProps {
   node: Node
-  level?: number
   onContextMenu: (e: React.MouseEvent, node: Node) => void
   parent?: ComponentNode
 }
@@ -67,18 +66,15 @@ const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
 
   let children: Node[] = []
   if (node.type === "component") {
-    const comp = node as ComponentNode
     children = [
-      ...comp.subComponents,
-      ...comp.actors,
-      ...comp.useCaseDiagrams,
+      ...node.subComponents,
+      ...node.actors,
+      ...node.useCaseDiagrams,
     ]
   } else if (node.type === "use-case-diagram") {
-    const diagram = node as any
-    children = diagram.useCases || []
+    children = node.useCases
   } else if (node.type === "use-case") {
-    const useCase = node as any
-    children = useCase.sequenceDiagrams || []
+    children = node.sequenceDiagrams
   }
 
   const hasChildren = children.length > 0
@@ -106,21 +102,27 @@ const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
   return (
     <div className="pl-4">
       <div
+        role="treeitem"
+        aria-selected={isSelected}
+        tabIndex={0}
         className={`flex items-center py-1 px-2 cursor-pointer rounded select-none text-[0.9rem] text-gray-300 hover:bg-gray-800 ${
           isSelected ? "bg-sky-900/50 text-sky-300" : ""
         }`}
         onClick={handleClick}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleClick() }}
         onContextMenu={handleContextMenu}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        <div
-          className="w-4 h-4 flex items-center justify-center mr-1 text-gray-500 hover:text-gray-400"
+        <button
+          tabIndex={-1}
+          aria-label={expanded ? "Collapse" : "Expand"}
+          className="w-4 h-4 flex items-center justify-center mr-1 text-gray-500 hover:text-gray-400 bg-transparent border-0 p-0 cursor-pointer"
           onClick={hasChildren ? handleToggle : undefined}
         >
           {hasChildren &&
             (expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
-        </div>
+        </button>
         <div className="mr-2 w-4 h-4">
           <NodeIcon type={node.type} />
         </div>
@@ -193,10 +195,10 @@ export const TreeView = () => {
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `${rootComponent.name.toLowerCase().replace(/\s+/g, "-")}.yaml`
+      a.download = `${rootComponent.name.toLowerCase().replaceAll(/\s+/g, "-")}.yaml`
       document.body.appendChild(a)
       a.click()
-      document.body.removeChild(a)
+      a.remove()
       URL.revokeObjectURL(url)
       markSaved(yamlContent)
     } catch (error) {
@@ -274,44 +276,46 @@ export const TreeView = () => {
     
     if (!name) return
 
-    const id = name.toLowerCase().replace(/\s+/g, "-") + "-" + Date.now()
+    const id = name.toLowerCase().replaceAll(/\s+/g, "-") + "-" + Date.now()
+    const uuid = crypto.randomUUID()
 
-    const newNode: any = {
-      uuid: crypto.randomUUID(),
-      id,
-      name,
-      type,
-      content: "",
-      description: "",
-      referencedNodeIds: [],
+    const findOwnerComponent = (node: Node): string | null => {
+      const nodeParent = findParentNode(rootComponent, node.uuid)
+      if (!nodeParent) return null
+      if (nodeParent.type === "component") return nodeParent.uuid
+      return findOwnerComponent(nodeParent)
     }
 
-    // Set ownerComponentUuid for diagrams
+    let newNode: Node
     if (type === "use-case-diagram") {
-      // Use case diagram added to component
-      newNode.ownerComponentUuid = contextMenu.node.uuid
-      newNode.useCases = []
+      newNode = {
+        uuid, id, name, type,
+        content: "", description: "", referencedNodeIds: [],
+        ownerComponentUuid: contextMenu.node.uuid,
+        useCases: [],
+      } satisfies UseCaseDiagramNode
     } else if (type === "use-case") {
-      // Use case added to use case diagram
-      newNode.sequenceDiagrams = []
-    } else if (type === "sequence-diagram") {
-      // Sequence diagram added to use case
-      // Find owner component by traversing up
-      const findOwnerComponent = (node: Node): string | null => {
-        const parent = findParentNode(rootComponent, node.uuid)
-        if (!parent) return null
-        if (parent.type === "component") return parent.uuid
-        return findOwnerComponent(parent)
-      }
-      newNode.ownerComponentUuid = findOwnerComponent(contextMenu.node)
+      newNode = {
+        uuid, id, name, type,
+        description: "",
+        sequenceDiagrams: [],
+      } satisfies UseCaseNode
+    } else {
+      newNode = {
+        uuid, id, name, type,
+        content: "", description: "", referencedNodeIds: [], referencedFunctionUuids: [],
+        ownerComponentUuid: findOwnerComponent(contextMenu.node) ?? "",
+      } satisfies SequenceDiagramNode
     }
 
     addNode(contextMenu.node.uuid, newNode)
-    selectNode(newNode.uuid)
+    selectNode(uuid)
   }
 
-  const computeMenuItems = (node: Node) => {
-    const items: any[] = []
+  type MenuItem = { label: string; onClick: () => void; icon?: React.ReactNode; className?: string }
+
+  const computeMenuItems = (node: Node): MenuItem[] => {
+    const items: MenuItem[] = []
 
     if (node.type === "component") {
       items.push({
@@ -326,8 +330,8 @@ export const TreeView = () => {
     }
 
     if (node.type === "actor" || node.type === "component") {
-      const parent = findParentNode(rootComponent, node.uuid)
-      if (parent && parent.type === "component" && isNodeOrphaned(node, parent)) {
+      const nodeParent = findParentNode(rootComponent, node.uuid)
+      if (nodeParent?.type === "component" && isNodeOrphaned(node, nodeParent)) {
         items.push({
           label: "Delete",
           onClick: () => handleDeleteNode(),

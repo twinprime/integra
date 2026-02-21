@@ -15,6 +15,9 @@ After completing any coding task or feature implementation, you must consistentl
 4. **Documentation Update**:
    - If the changes affect high level design, public APIs, component interfaces, or user-facing features, update the relevant documentation (e.g., README.md).
    - Minimize comments in code, but ensure that any complex logic is well-documented in the code itself. For high-level design changes, update the architecture documentation or diagrams in README.md as needed.
+5. **Code Quality Check**:
+   - Review sonarqube and eslint issues and fix them if the changes are not too complex.
+     If not, prompt the user with the plan to fix and ask for confirmation before proceeding.
 
 ### TypeScript React Refactoring Checklist
 
