@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   ChevronRight,
   ChevronDown,
@@ -11,6 +11,7 @@ import {
   Download,
   Upload,
   Trash2,
+  RotateCcw,
 } from "lucide-react"
 import { useSystemStore } from "../store/useSystemStore"
 import type { Node, ComponentNode } from "../store/types"
@@ -163,6 +164,9 @@ export const TreeView = () => {
   const addNode = useSystemStore((state) => state.addNode)
   const selectNode = useSystemStore((state) => state.selectNode)
   const deleteNode = useSystemStore((state) => state.deleteNode)
+  const savedSnapshot = useSystemStore((state) => state.savedSnapshot)
+  const markSaved = useSystemStore((state) => state.markSaved)
+  const clearSystem = useSystemStore((state) => state.clearSystem)
 
   const [contextMenu, setContextMenu] = useState<{
     x: number
@@ -170,13 +174,20 @@ export const TreeView = () => {
     node: Node
   } | null>(null)
 
+  const serializeYaml = (comp: ComponentNode) =>
+    yaml.dump(comp, { indent: 2, noRefs: true, skipInvalid: true })
+
+  const hasUnsavedChanges =
+    savedSnapshot !== null && serializeYaml(rootComponent) !== savedSnapshot
+
+  // Mark initial (persisted) state as clean on first mount
+  useEffect(() => {
+    markSaved(serializeYaml(rootComponent))
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSave = () => {
     try {
-      const yamlContent = yaml.dump(rootComponent, {
-        indent: 2,
-        noRefs: true,
-        skipInvalid: true,
-      })
+      const yamlContent = serializeYaml(rootComponent)
 
       const blob = new Blob([yamlContent], { type: "text/yaml" })
       const url = URL.createObjectURL(blob)
@@ -187,6 +198,7 @@ export const TreeView = () => {
       a.click()
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
+      markSaved(yamlContent)
     } catch (error) {
       console.error("Failed to save system:", error)
       alert("Failed to save system: " + (error as Error).message)
@@ -194,6 +206,9 @@ export const TreeView = () => {
   }
 
   const handleLoad = () => {
+    if (hasUnsavedChanges) {
+      if (!confirm("You have unsaved changes. Loading a new file will discard them. Continue?")) return
+    }
     const input = document.createElement("input")
     input.type = "file"
     input.accept = ".yaml,.yml"
@@ -205,7 +220,6 @@ export const TreeView = () => {
         const text = await file.text()
         const loadedSystem = yaml.load(text) as ComponentNode
 
-        // Validate basic structure
         if (
           !loadedSystem ||
           typeof loadedSystem !== "object" ||
@@ -214,14 +228,21 @@ export const TreeView = () => {
           throw new Error("Invalid system file format")
         }
 
-        // setSystem will parse all diagrams to rebuild referencedNodeIds
         setSystem(loadedSystem)
+        markSaved(serializeYaml(loadedSystem))
       } catch (error) {
         console.error("Failed to load system:", error)
         alert("Failed to load system: " + (error as Error).message)
       }
     }
     input.click()
+  }
+
+  const handleClear = () => {
+    if (hasUnsavedChanges) {
+      if (!confirm("You have unsaved changes. Clearing will discard them. Continue?")) return
+    }
+    clearSystem()
   }
 
   if (!rootComponent)
@@ -337,7 +358,12 @@ export const TreeView = () => {
   return (
     <>
       <div className="p-4 border-b border-gray-800 font-semibold text-gray-300 bg-gray-800/50 backdrop-blur-sm flex items-center justify-between">
-        <span>System Explorer</span>
+        <span className="flex items-center gap-2">
+          System Explorer
+          {hasUnsavedChanges && (
+            <span className="text-xs font-normal text-yellow-500" title="Unsaved changes">●</span>
+          )}
+        </span>
         <div className="flex gap-1">
           <button
             onClick={handleSave}
@@ -352,6 +378,13 @@ export const TreeView = () => {
             title="Load system from YAML file"
           >
             <Upload size={16} />
+          </button>
+          <button
+            onClick={handleClear}
+            className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-red-400 transition-colors"
+            title="Clear system"
+          >
+            <RotateCcw size={16} />
           </button>
         </div>
       </div>

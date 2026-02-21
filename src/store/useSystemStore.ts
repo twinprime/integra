@@ -1,16 +1,20 @@
 import { create } from "zustand"
+import { persist } from "zustand/middleware"
 import type { ComponentNode, Node, BaseNode, DiagramNode, UseCaseDiagramNode } from "./types"
 
 interface SystemState {
   rootComponent: ComponentNode
   selectedNodeId: string | null
   parseError: string | null
+  savedSnapshot: string | null
   setSystem: (rootComponent: ComponentNode) => void
   selectNode: (nodeId: string | null) => void
   updateNode: (nodeId: string, updates: Partial<BaseNode> | any) => void
   addNode: (parentId: string, node: Node) => void
   deleteNode: (nodeId: string) => void
   clearParseError: () => void
+  markSaved: (snapshot: string) => void
+  clearSystem: () => void
 }
 
 const initialSystem: ComponentNode = {
@@ -93,11 +97,16 @@ import { parseUseCaseDiagram } from "../utils/useCaseDiagramParser"
 import { parseSequenceDiagram } from "../utils/sequenceDiagramParser"
 import { upsertTree } from "../utils/diagramParserHelpers"
 
-export const useSystemStore = create<SystemState>((set) => ({
+export const useSystemStore = create<SystemState>()(
+  persist(
+    (set) => ({
   rootComponent: initialSystem,
   selectedNodeId: null,
   parseError: null,
+  savedSnapshot: null,
   clearParseError: () => set({ parseError: null }),
+  markSaved: (snapshot) => set({ savedSnapshot: snapshot }),
+  clearSystem: () => set({ rootComponent: initialSystem, selectedNodeId: null, savedSnapshot: null }),
   setSystem: (rootComponent) =>
     set(() => {
       // Parse all diagrams in the loaded system to rebuild referencedNodeIds and entities
@@ -312,4 +321,9 @@ export const useSystemStore = create<SystemState>((set) => ({
         selectedNodeId: newSelectedId,
       }
     }),
-}))
+  }),
+  {
+    name: "integra-system",
+    partialize: (state) => ({ rootComponent: state.rootComponent }),
+  }
+))
