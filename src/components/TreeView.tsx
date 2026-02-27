@@ -51,14 +51,14 @@ const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
   const rootComponent = useSystemStore((state) => state.rootComponent)
 
   const isSelected = selectedNodeId === node.uuid
-  const isOrphaned = parent ? isNodeOrphaned(node, parent) : false
+  const isOrphaned = parent ? isNodeOrphaned(node, rootComponent) : false
 
   // Determine whether a delete button should be shown
   const isDeletable = (() => {
     if (node.uuid === rootComponent.uuid) return false
     if (node.type === "actor" || node.type === "component") {
       const nodeParent = parent ?? findParentNode(rootComponent, node.uuid) as ComponentNode | null
-      return nodeParent?.type === "component" && isNodeOrphaned(node, nodeParent)
+      return nodeParent?.type === "component" && isNodeOrphaned(node, rootComponent)
     }
     if (node.type === "use-case") {
       return !isUseCaseReferenced(rootComponent, node.uuid)
@@ -359,7 +359,7 @@ export const TreeView = () => {
 
     if (node.type === "actor" || node.type === "component") {
       const nodeParent = findParentNode(rootComponent, node.uuid)
-      if (nodeParent?.type === "component" && isNodeOrphaned(node, nodeParent)) {
+      if (nodeParent?.type === "component" && isNodeOrphaned(node, rootComponent)) {
         items.push({
           label: "Delete",
           onClick: () => handleDeleteNode(),

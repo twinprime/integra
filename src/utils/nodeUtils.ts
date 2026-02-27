@@ -29,33 +29,15 @@ export const isUseCaseReferenced = (root: ComponentNode, useCaseUuid: string): b
   return check(root)
 }
 
-// Check if an actor or component is referenced in any diagram
+// Check if an actor or component is referenced in any diagram across the entire tree
 export const isNodeOrphaned = (
   node: Node,
-  parent: ComponentNode
+  root: ComponentNode
 ): boolean => {
   if (node.type !== "actor" && node.type !== "component") {
     return false
   }
-
-  // Collect all diagrams (use case diagrams and sequence diagrams nested under use cases)
-  const allDiagrams: Array<{ referencedNodeIds?: string[] }> = []
-  
-  parent.useCaseDiagrams.forEach((ucDiagram) => {
-    allDiagrams.push(ucDiagram)
-    ucDiagram.useCases.forEach((useCase) => {
-      allDiagrams.push(...useCase.sequenceDiagrams)
-    })
-  })
-
-  // Check if the node's ID appears in any diagram's referencedNodeIds
-  for (const diagram of allDiagrams) {
-    if (diagram.referencedNodeIds && diagram.referencedNodeIds.includes(node.uuid)) {
-      return false
-    }
-  }
-
-  return true
+  return !isUseCaseReferenced(root, node.uuid)
 }
 
 // Find all direct children of a component that have a given id
