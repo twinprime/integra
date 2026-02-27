@@ -17,7 +17,7 @@ import { useSystemStore } from "../store/useSystemStore"
 import type { Node, ComponentNode, UseCaseDiagramNode, UseCaseNode, SequenceDiagramNode } from "../store/types"
 import { ContextMenu } from "./ContextMenu"
 import yaml from "js-yaml"
-import { isNodeOrphaned, findParentNode } from "../utils/nodeUtils"
+import { isNodeOrphaned, isUseCaseReferenced, findParentNode } from "../utils/nodeUtils"
 
 interface TreeNodeProps {
   node: Node
@@ -60,7 +60,10 @@ const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
       const nodeParent = parent ?? findParentNode(rootComponent, node.uuid) as ComponentNode | null
       return nodeParent?.type === "component" && isNodeOrphaned(node, nodeParent)
     }
-    // use-case-diagrams, use-cases, sequence-diagrams are always deletable
+    if (node.type === "use-case") {
+      return !isUseCaseReferenced(rootComponent, node.uuid)
+    }
+    // use-case-diagrams, sequence-diagrams are always deletable
     return true
   })()
 

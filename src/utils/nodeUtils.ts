@@ -17,6 +17,18 @@ export const collectReferencedFunctionUuids = (root: ComponentNode): Set<string>
   return uuids
 }
 
+// Check if a use case UUID is referenced in any sequence diagram across the entire tree
+export const isUseCaseReferenced = (root: ComponentNode, useCaseUuid: string): boolean => {
+  const check = (comp: ComponentNode): boolean => {
+    for (const ucDiag of comp.useCaseDiagrams)
+      for (const uc of ucDiag.useCases)
+        for (const seq of uc.sequenceDiagrams)
+          if (seq.referencedNodeIds.includes(useCaseUuid)) return true
+    return comp.subComponents.some(check)
+  }
+  return check(root)
+}
+
 // Check if an actor or component is referenced in any diagram
 export const isNodeOrphaned = (
   node: Node,
