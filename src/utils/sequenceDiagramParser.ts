@@ -443,6 +443,20 @@ export function parseSequenceDiagram(
     useCaseMessages.push({ from: match[1], to: match[2], useCaseId: match[3] })
   }
 
+  // If any component participant has the same id as the owner component, treat it as
+  // a self-reference: don't create a new subComponent, just record the owner's uuid.
+  const ownerCompBefore = findComponentByUuid(rootComponent, ownerComponentUuid)
+  if (ownerCompBefore) {
+    const selfIdx = parseState.participants.findIndex(
+      (p) => p.type === "component" && p.id === ownerCompBefore.id,
+    )
+    if (selfIdx !== -1) {
+      parseState.participants.splice(selfIdx, 1)
+      if (!parseState.fromParticipantUuids.includes(ownerCompBefore.uuid))
+        parseState.fromParticipantUuids.push(ownerCompBefore.uuid)
+    }
+  }
+
   let updatedRoot = upsertTree(rootComponent, ownerComponentUuid, (node) =>
     applyParticipantsToComponent(
       node as ComponentNode,
@@ -461,7 +475,9 @@ export function parseSequenceDiagram(
   // Resolve use-case message references into referencedNodeIds
   if (ownerComp) {
     for (const msg of useCaseMessages) {
-      const receiverComp = ownerComp.subComponents.find((c) => c.id === msg.to)
+      const receiverComp =
+        ownerComp.subComponents.find((c) => c.id === msg.to) ??
+        (ownerComp.id === msg.to ? ownerComp : undefined)
       if (!receiverComp) continue
       const ucUuid = findUseCaseInComponent(receiverComp, msg.useCaseId)
       if (ucUuid && !referencedNodeIds.includes(ucUuid)) referencedNodeIds.push(ucUuid)

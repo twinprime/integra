@@ -620,3 +620,97 @@ describe("parseSequenceDiagram — UseCase message references", () => {
     expect(loginRefs).toHaveLength(1)
   })
 })
+
+describe("parseSequenceDiagram — self-referencing owner component", () => {
+  const createSystem = (): ComponentNode => ({
+    uuid: "root-uuid",
+    id: "root",
+    name: "Root",
+    type: "component",
+    subComponents: [
+      {
+        uuid: "svc-uuid",
+        id: "svc",
+        name: "Service",
+        type: "component",
+        description: "",
+        subComponents: [],
+        actors: [{ uuid: "user-uuid", id: "user", name: "User", type: "actor" }],
+        useCaseDiagrams: [
+          {
+            uuid: "uc-diag-uuid",
+            id: "uc-diag",
+            name: "UC Diagram",
+            type: "use-case-diagram",
+            content: "",
+            description: "",
+            ownerComponentUuid: "svc-uuid",
+            referencedNodeIds: [],
+            useCases: [
+              {
+                uuid: "login-uuid",
+                id: "login",
+                name: "Login",
+                type: "use-case",
+                description: "",
+                sequenceDiagrams: [
+                  {
+                    uuid: "seq-uuid",
+                    id: "seq",
+                    name: "Seq",
+                    type: "sequence-diagram",
+                    content: "",
+                    description: "",
+                    ownerComponentUuid: "svc-uuid",
+                    referencedNodeIds: [],
+                    referencedFunctionUuids: [],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        interfaces: [],
+      },
+    ],
+    actors: [],
+    useCaseDiagrams: [],
+    interfaces: [],
+  })
+
+  it("does not create a new subComponent when component id matches owner", () => {
+    const root = createSystem()
+    const content = `
+      actor "User" as user
+      component "Service" as svc
+      user->>svc: UseCase:login
+    `
+    const result = parseSequenceDiagram(content, root, "svc-uuid", "seq-uuid")
+    const svc = result.subComponents[0]
+    // svc should not have a child named "svc"
+    expect(svc.subComponents.find((c) => c.id === "svc")).toBeUndefined()
+  })
+
+  it("includes owner uuid in referencedNodeIds when self-referenced", () => {
+    const root = createSystem()
+    const content = `
+      actor "User" as user
+      component "Service" as svc
+    `
+    const result = parseSequenceDiagram(content, root, "svc-uuid", "seq-uuid")
+    const seq = result.subComponents[0].useCaseDiagrams[0].useCases[0].sequenceDiagrams[0]
+    expect(seq.referencedNodeIds).toContain("svc-uuid")
+  })
+
+  it("resolves UseCase:ucId when the receiver is the owner component (self-receiver)", () => {
+    const root = createSystem()
+    const content = `
+      actor "User" as user
+      component "Service" as svc
+      user->>svc: UseCase:login
+    `
+    const result = parseSequenceDiagram(content, root, "svc-uuid", "seq-uuid")
+    const seq = result.subComponents[0].useCaseDiagrams[0].useCases[0].sequenceDiagrams[0]
+    expect(seq.referencedNodeIds).toContain("login-uuid")
+  })
+})

@@ -31,6 +31,7 @@ function resolveInOwner(
   ownerComp: ComponentNode,
   id: string,
 ): string | undefined {
+  if (ownerComp.id === id) return ownerComp.uuid
   return (
     ownerComp.actors?.find((a) => a.id === id)?.uuid ??
     ownerComp.subComponents?.find((c) => c.id === id)?.uuid ??
