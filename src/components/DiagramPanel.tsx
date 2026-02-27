@@ -87,6 +87,7 @@ export const DiagramPanel = () => {
   const [svg, setSvg] = useState<string>("")
   const [error, setError] = useState<string>("")
   const [errorDetails, setErrorDetails] = useState<string>("")
+  const [mermaidSource, setMermaidSource] = useState<string>("")
   const [showTooltip, setShowTooltip] = useState<boolean>(false)
   const parseError = useSystemStore((state) => state.parseError)
 
@@ -118,20 +119,18 @@ export const DiagramPanel = () => {
       }
 
       try {
-        // Determine if valid mermaid code
-        // We generate a unique ID for the SVG
         const id = `mermaid-${Date.now()}`
         const mermaidContent = transformToMermaid(
           diagramNode.content,
           diagramNode.type,
         )
-        console.log("Transformed Mermaid Content:\n", mermaidContent)
+        setMermaidSource(mermaidContent)
         const { svg } = await mermaid.render(id, mermaidContent)
         setSvg(svg)
         setError("")
+        setMermaidSource("")
       } catch (err: unknown) {
         console.error("Mermaid rendering error:", err)
-        // Mermaid creates an error element in the DOM by default, we might handle it gracefully
         setError("Invalid Diagram Syntax")
         setErrorDetails(err instanceof Error ? err.message : String(err))
         setSvg("")
@@ -175,12 +174,20 @@ export const DiagramPanel = () => {
           )}
         </button>
       )}
-      <div
-        ref={elementRef}
-        className="flex-1 overflow-auto flex justify-center items-start pt-4 bg-white rounded-lg"
-        dangerouslySetInnerHTML={{ __html: svg }}
-        style={{ minHeight: "100px" }}
-      />
+      {svg ? (
+        <div
+          ref={elementRef}
+          className="flex-1 overflow-auto flex justify-center items-start pt-4 bg-white rounded-lg"
+          dangerouslySetInnerHTML={{ __html: svg }}
+          style={{ minHeight: "100px" }}
+        />
+      ) : (error && mermaidSource) ? (
+        <pre className="flex-1 overflow-auto p-4 text-xs text-gray-300 bg-gray-900 rounded-lg whitespace-pre-wrap font-mono">
+          {mermaidSource}
+        </pre>
+      ) : (
+        <div ref={elementRef} className="flex-1" style={{ minHeight: "100px" }} />
+      )}
     </div>
   )
 }
