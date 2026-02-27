@@ -713,4 +713,16 @@ describe("parseSequenceDiagram — self-referencing owner component", () => {
     const seq = result.subComponents[0].useCaseDiagrams[0].useCases[0].sequenceDiagrams[0]
     expect(seq.referencedNodeIds).toContain("login-uuid")
   })
+
+  it("derives interface on owner when owner is message receiver (self-ref)", () => {
+    const root = createSystem()
+    const content = `
+      actor "User" as user
+      component "Service" as svc
+      user->>svc: ExplorationsAPI:create(id: number)
+    `
+    const result = parseSequenceDiagram(content, root, "svc-uuid", "seq-uuid")
+    const svc = result.subComponents[0]
+    expect(svc.interfaces?.find((i) => i.id === "ExplorationsAPI")).toBeDefined()
+  })
 })
