@@ -19,13 +19,22 @@ export const DiagramEditor = ({
   const [isEditing, setIsEditing] = useState(!node.content)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
+  const historyRef = useRef<string[]>([node.content || ""])
+  const historyIndexRef = useRef(0)
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { rootComponent, applyFunctionUpdates } = useSystemStore()
   const seqDiagrams = getSequenceDiagrams(rootComponent)
 
-  // Reset edit mode when switching to a different node
+  // Reset edit mode and history when switching to a different node
   useEffect(() => {
     setIsEditing(!node.content)
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+      debounceTimerRef.current = null
+    }
+    historyRef.current = [node.content || ""]
+    historyIndexRef.current = 0
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node.uuid])
 
@@ -44,6 +53,43 @@ export const DiagramEditor = ({
       onUpdate({ name: name.trim() })
     } else if (name.trim() === "") {
       setName(node.name)
+    }
+  }
+
+  const handleContentChange = (newValue: string) => {
+    setContent(newValue)
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
+    debounceTimerRef.current = setTimeout(() => {
+      const truncated = historyRef.current.slice(0, historyIndexRef.current + 1)
+      truncated.push(newValue)
+      historyRef.current = truncated
+      historyIndexRef.current = truncated.length - 1
+      debounceTimerRef.current = null
+    }, 500)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const ctrlOrCmd = e.metaKey || e.ctrlKey
+    if (ctrlOrCmd && e.key === "z" && !e.shiftKey) {
+      e.preventDefault()
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+        debounceTimerRef.current = null
+      }
+      if (historyIndexRef.current > 0) {
+        historyIndexRef.current--
+        setContent(historyRef.current[historyIndexRef.current])
+      }
+    } else if (ctrlOrCmd && ((e.key === "z" && e.shiftKey) || e.key === "y")) {
+      e.preventDefault()
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+        debounceTimerRef.current = null
+      }
+      if (historyIndexRef.current < historyRef.current.length - 1) {
+        historyIndexRef.current++
+        setContent(historyRef.current[historyIndexRef.current])
+      }
     }
   }
 
@@ -137,8 +183,9 @@ export const DiagramEditor = ({
               ref={textareaRef}
               className={`absolute inset-0 w-full h-full p-2 text-[0.85rem] font-mono leading-relaxed bg-transparent resize-none focus:outline-none selection:bg-blue-500/30 ${content ? "text-transparent caret-white" : "text-gray-400"}`}
               value={content}
-              onChange={(e) => setContent(e.target.value)}
+              onChange={(e) => handleContentChange(e.target.value)}
               onBlur={handleContentBlur}
+              onKeyDown={handleKeyDown}
               onScroll={(e) => {
                 if (backdropRef.current) {
                   backdropRef.current.scrollTop = e.currentTarget.scrollTop
