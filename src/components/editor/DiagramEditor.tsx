@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { DiagramNode } from "../../store/types"
 import { useSystemStore, getSequenceDiagrams, type FunctionDecision } from "../../store/useSystemStore"
 import { analyzeSequenceDiagramChanges, type FunctionMatch } from "../../utils/sequenceDiagramParser"
 import { FunctionUpdateDialog } from "../FunctionUpdateDialog"
+import { DiagramSpecPreview } from "./DiagramSpecPreview"
 
 export const DiagramEditor = ({
   node,
@@ -15,14 +16,28 @@ export const DiagramEditor = ({
   const [content, setContent] = useState(node.content || "")
   const [pendingContent, setPendingContent] = useState<string | null>(null)
   const [functionMatches, setFunctionMatches] = useState<FunctionMatch[]>([])
+  const [isEditing, setIsEditing] = useState(!node.content)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const backdropRef = useRef<HTMLDivElement>(null)
 
   const { rootComponent, applyFunctionUpdates } = useSystemStore()
   const seqDiagrams = getSequenceDiagrams(rootComponent)
+
+  // Reset edit mode when switching to a different node
+  useEffect(() => {
+    setIsEditing(!node.content)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node.uuid])
 
   useEffect(() => {
     setName(node.name || "")
     setContent(node.content || "")
   }, [node.uuid, node.name, node.content])
+
+  // Auto-focus textarea when entering edit mode
+  useEffect(() => {
+    if (isEditing) textareaRef.current?.focus()
+  }, [isEditing])
 
   const handleNameBlur = () => {
     if (name !== node.name && name.trim() !== "") {
@@ -33,6 +48,7 @@ export const DiagramEditor = ({
   }
 
   const handleContentBlur = () => {
+    setIsEditing(false)
     if (content === node.content) return
 
     if (node.type === "sequence-diagram") {
@@ -104,17 +120,48 @@ export const DiagramEditor = ({
         <label className="block text-sm font-medium text-gray-300 mb-2">
           Specification
         </label>
-        <textarea
-          className="w-full p-2 border border-gray-700 rounded-md text-[0.85rem] font-mono text-gray-100 resize-y min-h-[200px] flex-1 bg-gray-950 leading-relaxed focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
-          value={content}
-          onChange={(e) => setContent(e.target.value)}
-          onBlur={handleContentBlur}
-          placeholder={
-            node.type === "sequence-diagram"
-              ? 'actor "User" as user\ncomponent "Service" as service\nuser->>service: ExplorationsAPI:createExploration(id: number)'
-              : 'actor "User" as user\nuse case "Login" as login\nuser --> login'
-          }
-        />
+        {isEditing ? (
+          <div className="relative flex-1 min-h-[200px] bg-gray-950 border border-blue-400 rounded-md overflow-hidden">
+            {/* Colored backdrop — non-interactive highlight layer */}
+            <div ref={backdropRef} className="absolute inset-0 overflow-hidden pointer-events-none">
+              <DiagramSpecPreview
+                content={content}
+                rootComponent={rootComponent}
+                ownerComponentUuid={node.ownerComponentUuid}
+                diagramType={node.type as "sequence-diagram" | "use-case-diagram"}
+                mode="backdrop"
+              />
+            </div>
+            {/* Transparent textarea on top captures all input */}
+            <textarea
+              ref={textareaRef}
+              className={`absolute inset-0 w-full h-full p-2 text-[0.85rem] font-mono leading-relaxed bg-transparent resize-none focus:outline-none selection:bg-blue-500/30 ${content ? "text-transparent caret-white" : "text-gray-400"}`}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              onBlur={handleContentBlur}
+              onScroll={(e) => {
+                if (backdropRef.current) {
+                  backdropRef.current.scrollTop = e.currentTarget.scrollTop
+                  backdropRef.current.scrollLeft = e.currentTarget.scrollLeft
+                }
+              }}
+              spellCheck={false}
+              placeholder={
+                node.type === "sequence-diagram"
+                  ? 'actor "User" as user\ncomponent "Service" as service\nuser->>service: ExplorationsAPI:createExploration(id: number)'
+                  : 'actor "User" as user\nuse case "Login" as login\nuser --> login'
+              }
+            />
+          </div>
+        ) : (
+          <DiagramSpecPreview
+            content={content}
+            rootComponent={rootComponent}
+            ownerComponentUuid={node.ownerComponentUuid}
+            diagramType={node.type as "sequence-diagram" | "use-case-diagram"}
+            onClick={() => setIsEditing(true)}
+          />
+        )}
       </div>
     </div>
   )
