@@ -46,6 +46,7 @@ export const EditorPanel = () => {
   if (selectedNode.type === "component") {
     return (
       <ComponentEditor
+        key={selectedNode.uuid}
         node={selectedNode}
         onUpdate={handleUpdate}
         contextComponentUuid={contextComponentUuid}
@@ -53,5 +54,5 @@ export const EditorPanel = () => {
     )
   }
 
-  return <CommonEditor node={selectedNode} onUpdate={handleUpdate} contextComponentUuid={contextComponentUuid} />
+  return <CommonEditor key={selectedNode.uuid} node={selectedNode} onUpdate={handleUpdate} contextComponentUuid={contextComponentUuid} />
 }

@@ -17,7 +17,7 @@ export const ContextMenu = ({ x, y, onClose, items }: ContextMenuProps) => {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (ref.current && !ref.current.contains(event.target as any)) {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
         onClose()
       }
     }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Trash2, Link } from "lucide-react"
 import type { InterfaceFunction } from "../../store/types"
 import { MarkdownEditor } from "./MarkdownEditor"
@@ -28,12 +28,6 @@ export const FunctionEditor = ({
   const referencingDiagrams = getSequenceDiagrams(rootComponent).filter((d) =>
     d.referencedFunctionUuids.includes(fn.uuid),
   )
-
-  useEffect(() => {
-    setFnId(fn.id)
-    setFnDescription(fn.description || "")
-    setShowDiagrams(false)
-  }, [fn.uuid, fn.id, fn.description])
 
   return (
     <div className="bg-gray-950 border border-gray-800 rounded p-2">

@@ -14,7 +14,8 @@ const SEQ_COMPONENT_NAMED =
   /^\s*component\s+"([^"]+)"\s+(?:from\s+([\w/-]+)\s+)?as\s+(\w+)/
 const SEQ_COMPONENT_BARE = /^\s*component\s+(\w+)/
 // New format: sender->>receiver: InterfaceId:functionId(param: type, param2: type2?)
-const MESSAGE_PATTERN = /(\w+)\s*->>\s*(\w+)\s*:\s*(\w+):(\w+)\(([^)]*)\)/g
+// Negative lookahead excludes UseCase: prefix (reserved for use-case message references)
+const MESSAGE_PATTERN = /(\w+)\s*->>\s*(\w+)\s*:\s*(?!UseCase:)(\w+):(\w+)\(([^)]*)\)/g
 // Use-case reference: sender->>receiver: UseCase:useCaseId
 const USE_CASE_MESSAGE_PATTERN = /(\w+)\s*->>\s*(\w+)\s*:\s*UseCase:(\w+)/g
 

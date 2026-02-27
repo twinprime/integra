@@ -63,7 +63,7 @@ export const MarkdownEditor = ({
         preview="preview"
         height={height}
         textareaProps={{ placeholder, onBlur }}
-        previewOptions={{ components: { a: NodeLinkWithContext as any } }}
+        previewOptions={{ components: { a: NodeLinkWithContext as React.ComponentType<React.HTMLProps<HTMLAnchorElement>> } }}
       />
     </div>
   )

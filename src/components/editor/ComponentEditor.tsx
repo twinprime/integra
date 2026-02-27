@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import type { ComponentNode, InterfaceSpecification, InterfaceFunction } from "../../store/types"
 import { useSystemStore } from "../../store/useSystemStore"
 import { collectReferencedFunctionUuids } from "../../utils/nodeUtils"
@@ -11,16 +11,11 @@ export const ComponentEditor = ({
   contextComponentUuid,
 }: {
   node: ComponentNode
-  onUpdate: (updates: any) => void
+  onUpdate: (updates: Partial<ComponentNode>) => void
   contextComponentUuid?: string
 }) => {
   const [name, setName] = useState(node.name || "")
   const [description, setDescription] = useState(node.description || "")
-
-  useEffect(() => {
-    setName(node.name || "")
-    setDescription(node.description || "")
-  }, [node.uuid, node.name, node.description])
 
   const handleNameBlur = () => {
     if (name !== node.name && name.trim() !== "") {

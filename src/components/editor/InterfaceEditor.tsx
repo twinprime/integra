@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import type { InterfaceSpecification, InterfaceFunction } from "../../store/types"
 import { MarkdownEditor } from "./MarkdownEditor"
 import { FunctionEditor } from "./FunctionEditor"
@@ -26,11 +26,6 @@ export const InterfaceEditor = ({
   const [name, setName] = useState(iface.name)
   const [description, setDescription] = useState(iface.description || "")
 
-  useEffect(() => {
-    setName(iface.name)
-    setDescription(iface.description || "")
-  }, [iface.uuid, iface.name, iface.description])
-
   return (
     <div className="border border-gray-700 rounded-md bg-gray-900/50 p-3">
       <div className="flex items-center gap-2 mb-2">
@@ -45,7 +40,7 @@ export const InterfaceEditor = ({
         <select
           className="text-xs text-gray-400 bg-gray-800 border border-gray-700 rounded px-2 py-0.5 focus:outline-none focus:border-blue-400"
           value={iface.type}
-          onChange={(e) => onInterfaceUpdate({ type: e.target.value as any })}
+          onChange={(e) => onInterfaceUpdate({ type: e.target.value as InterfaceSpecification['type'] })}
         >
           {INTERFACE_TYPES.map((t) => (
             <option key={t} value={t}>{t}</option>

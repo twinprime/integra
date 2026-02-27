@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import type { Node } from "../../store/types"
 import { MarkdownEditor } from "./MarkdownEditor"
 
@@ -8,16 +8,11 @@ export const CommonEditor = ({
   contextComponentUuid,
 }: {
   node: Node
-  onUpdate: (updates: any) => void
+  onUpdate: (updates: Partial<Node>) => void
   contextComponentUuid?: string
 }) => {
   const [name, setName] = useState(node.name || "")
   const [description, setDescription] = useState(node.description || "")
-
-  useEffect(() => {
-    setName(node.name || "")
-    setDescription(node.description || "")
-  }, [node.uuid, node.name, node.description])
 
   const handleNameBlur = () => {
     if (name !== node.name && name.trim() !== "") {
