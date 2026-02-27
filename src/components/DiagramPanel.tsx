@@ -49,7 +49,7 @@ const transformToMermaid = (content: string, type: string): string => {
 
     // Transform actor declarations to participant with stereotype
     // Pattern: actor "Name" as id  OR  actor id
-    mermaidContent = mermaidContent.replace(
+    mermaidContent = mermaidContent.replaceAll(
       /^(\s*)actor\s+(?:"([^"]+)"\s+as\s+)?(\w+)/gm,
       (_match, indent, name, _id) => {
         if (name) {
@@ -61,7 +61,7 @@ const transformToMermaid = (content: string, type: string): string => {
 
     // Transform component declarations to participant with stereotype
     // Pattern: component "Name" as id  OR  component id
-    mermaidContent = mermaidContent.replace(
+    mermaidContent = mermaidContent.replaceAll(
       /^(\s*)component\s+(?:"([^"]+)"\s+as\s+)?(\w+)/gm,
       (_match, indent, name, _id) => {
         if (name) {
@@ -129,11 +129,11 @@ export const DiagramPanel = () => {
         const { svg } = await mermaid.render(id, mermaidContent)
         setSvg(svg)
         setError("")
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Mermaid rendering error:", err)
         // Mermaid creates an error element in the DOM by default, we might handle it gracefully
         setError("Invalid Diagram Syntax")
-        setErrorDetails(err?.message || err?.toString() || "Unknown error")
+        setErrorDetails(err instanceof Error ? err.message : String(err))
         setSvg("")
       }
     }
@@ -159,10 +159,13 @@ export const DiagramPanel = () => {
   return (
     <div className="w-full h-full flex flex-col">
       {(parseError || error) && (
-        <div
-          className="relative text-red-500 p-2 text-sm cursor-help"
+        <button
+          type="button"
+          className="relative w-full text-left text-red-500 p-2 text-sm cursor-help bg-transparent border-0"
           onMouseEnter={() => setShowTooltip(true)}
           onMouseLeave={() => setShowTooltip(false)}
+          onFocus={() => setShowTooltip(true)}
+          onBlur={() => setShowTooltip(false)}
         >
           {parseError || error}
           {showTooltip && (
@@ -170,7 +173,7 @@ export const DiagramPanel = () => {
               {parseError || errorDetails}
             </div>
           )}
-        </div>
+        </button>
       )}
       <div
         ref={elementRef}

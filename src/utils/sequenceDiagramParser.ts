@@ -196,6 +196,25 @@ type ParseState = {
   fromParticipantUuids: string[]
 }
 
+function addParticipantIfNew(
+  state: ParseState,
+  id: string,
+  name: string,
+  type: "actor" | "component",
+): void {
+  const trimmedId = id.trim()
+  state.parsedParticipantIds.push(trimmedId)
+  if (!state.participants.some((p) => p.id === trimmedId)) {
+    state.participants.push({ uuid: crypto.randomUUID(), id: trimmedId, name: name.trim(), type })
+  }
+}
+
+function resolveFromPath(state: ParseState, rootComponent: ComponentNode, fromPath: string, type: string): void {
+  const uuid = findNodeByPath(rootComponent, fromPath)
+  if (!uuid) throw new Error(`Cannot resolve ${type} "from" path: "${fromPath}"`)
+  if (!state.fromParticipantUuids.includes(uuid)) state.fromParticipantUuids.push(uuid)
+}
+
 function parseParticipantLine(
   line: string,
   rootComponent: ComponentNode,
@@ -209,36 +228,15 @@ function parseParticipantLine(
   if (named) {
     const [, name, fromPath, id] = named
     if (fromPath) {
-      const uuid = findNodeByPath(rootComponent, fromPath)
-      if (!uuid)
-        throw new Error(`Cannot resolve ${type} "from" path: "${fromPath}"`)
-      if (!state.fromParticipantUuids.includes(uuid))
-        state.fromParticipantUuids.push(uuid)
+      resolveFromPath(state, rootComponent, fromPath, type)
     } else {
-      state.parsedParticipantIds.push(id.trim())
-      if (!state.participants.some((p) => p.id === id.trim())) {
-        state.participants.push({
-          uuid: crypto.randomUUID(),
-          id: id.trim(),
-          name: name.trim(),
-          type,
-        })
-      }
+      addParticipantIfNew(state, id, name, type)
     }
     return
   }
   const bare = barePattern.exec(line)
   if (bare) {
-    const id = bare[1]
-    state.parsedParticipantIds.push(id.trim())
-    if (!state.participants.some((p) => p.id === id.trim())) {
-      state.participants.push({
-        uuid: crypto.randomUUID(),
-        id: id.trim(),
-        name: id.trim(),
-        type,
-      })
-    }
+    addParticipantIfNew(state, bare[1], bare[1], type)
   }
 }
 

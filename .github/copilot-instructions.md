@@ -7,7 +7,8 @@ After completing any coding task or feature implementation, you must consistentl
    - Analyze the changed files for cyclomatic complexity and readability.
    - No files should be much more than 500 lines. If any file exceeds this, identify the specific areas of complexity.
    - If complexity can be reduced, propose a specific refactor plan (e.g., extracting methods, refactor component roles and responsibilities).
-   - Review relevant refactoring checklist provided below.
+   - Review relevant refactoring checklist provided below in the "TypeScript React Refactoring Checklist" section.
+   - Provide a plan for refactoring if necessary, and ask for confirmation before proceeding with the refactor.
 3. **Test Coverage Audit**:
    - Review existing unit tests against the new changes.
    - Identify missing edge cases or logic paths that require additional test coverage.
