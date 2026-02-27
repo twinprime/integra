@@ -253,7 +253,7 @@ export function DiagramSpecPreview({
         tabIndex={0}
         className="w-full p-2 border border-dashed border-gray-700 rounded-md text-sm text-gray-400 cursor-text min-h-[200px] flex-1 flex items-center justify-center italic hover:border-gray-600"
         onClick={onClick}
-        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick?.() }}
+        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick?.() } }}
         aria-label="Click to edit specification"
       >
         Click to edit specification…
@@ -283,7 +283,7 @@ export function DiagramSpecPreview({
       tabIndex={0}
       className="w-full p-2 border border-gray-700 rounded-md text-[0.85rem] font-mono leading-relaxed bg-gray-950 cursor-text min-h-[200px] flex-1 overflow-auto focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
       onClick={onClick}
-      onKeyDown={(e) => { if (e.key === "Enter") onClick?.() }}
+      onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); onClick?.() } }}
       aria-label="Diagram specification — click to edit"
     >
       {rows.map((tokens, i) => (

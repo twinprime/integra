@@ -10,7 +10,7 @@ export const DiagramEditor = ({
   onUpdate,
 }: {
   node: DiagramNode
-  onUpdate: (updates: any) => void
+  onUpdate: (updates: Partial<DiagramNode>) => void
 }) => {
   const [name, setName] = useState(node.name || "")
   const [content, setContent] = useState(node.content || "")
