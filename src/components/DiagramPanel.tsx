@@ -27,11 +27,14 @@ const transformToMermaid = (content: string, type: string): string => {
 
       const actorMatch = /^actor\s+"([^"]+)"\s+as\s+(\w+)/.exec(trimmed)
       const useCaseMatch = /^use case\s+"([^"]+)"\s+as\s+(\w+)/.exec(trimmed)
+      const componentMatch = /^component\s+"([^"]+)"\s+as\s+(\w+)/.exec(trimmed)
 
       if (actorMatch) {
         mermaidContent += `    ${actorMatch[2]}["${actorMatch[1]}"]\n`
       } else if (useCaseMatch) {
         mermaidContent += `    ${useCaseMatch[2]}(("${useCaseMatch[1]}"))\n`
+      } else if (componentMatch) {
+        mermaidContent += `    ${componentMatch[2]}["${componentMatch[1]}"]\n`
       } else {
         // Assume it's a relationship or comment
         mermaidContent += `    ${trimmed}\n`
