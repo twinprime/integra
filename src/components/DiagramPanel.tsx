@@ -47,10 +47,16 @@ const transformToMermaid = (content: string, type: string): string => {
   if (type === "sequence-diagram") {
     let mermaidContent = content
 
+    // Strip optional "from <path>" between quoted name and "as" before transforming
+    mermaidContent = mermaidContent.replaceAll(
+      /^(\s*(?:actor|component)\s+"[^"]+"\s+)from\s+\S+\s+/gm,
+      "$1",
+    )
+
     // Transform actor declarations to participant with stereotype
     // Pattern: actor "Name" as id  OR  actor id
     mermaidContent = mermaidContent.replaceAll(
-      /^(\s*)actor\s+(?:"([^"]+)"\s+(?:from\s+\S+\s+)?as\s+)?(\w+)/gm,
+      /^(\s*)actor\s+(?:"([^"]+)"\s+as\s+)?(\w+)/gm,
       (_match, indent, name, _id) => {
         if (name) {
           return `${indent}participant ${_id} as «actor»<br/>${name}`
@@ -62,7 +68,7 @@ const transformToMermaid = (content: string, type: string): string => {
     // Transform component declarations to participant with stereotype
     // Pattern: component "Name" as id  OR  component id
     mermaidContent = mermaidContent.replaceAll(
-      /^(\s*)component\s+(?:"([^"]+)"\s+(?:from\s+\S+\s+)?as\s+)?(\w+)/gm,
+      /^(\s*)component\s+(?:"([^"]+)"\s+as\s+)?(\w+)/gm,
       (_match, indent, name, _id) => {
         if (name) {
           return `${indent}participant ${_id} as «component»<br/>${name}`
@@ -150,6 +156,27 @@ export const DiagramPanel = () => {
   // Actually we need to depend on content changes.
   // The store updates the node object, so `selectedNode` reference changes on update.
 
+  const renderDiagramArea = () => {
+    if (svg) {
+      return (
+        <div
+          ref={elementRef}
+          className="flex-1 overflow-auto flex justify-center items-start pt-4 bg-white rounded-lg"
+          dangerouslySetInnerHTML={{ __html: svg }}
+          style={{ minHeight: "100px" }}
+        />
+      )
+    }
+    if (error && mermaidSource) {
+      return (
+        <pre className="flex-1 overflow-auto p-4 text-xs text-gray-300 bg-gray-900 rounded-lg whitespace-pre-wrap font-mono">
+          {mermaidSource}
+        </pre>
+      )
+    }
+    return <div ref={elementRef} className="flex-1" style={{ minHeight: "100px" }} />
+  }
+
   if (
     !selectedNode ||
     (selectedNode.type !== "use-case-diagram" &&
@@ -181,20 +208,7 @@ export const DiagramPanel = () => {
           )}
         </button>
       )}
-      {svg ? (
-        <div
-          ref={elementRef}
-          className="flex-1 overflow-auto flex justify-center items-start pt-4 bg-white rounded-lg"
-          dangerouslySetInnerHTML={{ __html: svg }}
-          style={{ minHeight: "100px" }}
-        />
-      ) : (error && mermaidSource) ? (
-        <pre className="flex-1 overflow-auto p-4 text-xs text-gray-300 bg-gray-900 rounded-lg whitespace-pre-wrap font-mono">
-          {mermaidSource}
-        </pre>
-      ) : (
-        <div ref={elementRef} className="flex-1" style={{ minHeight: "100px" }} />
-      )}
+      {renderDiagramArea()}
     </div>
   )
 }
