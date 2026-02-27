@@ -160,8 +160,9 @@ export function useAutoComplete(
       return { suggestions: [], anchorLine: lineIdx };
     }
 
+    const partialLower = partial.toLowerCase();
     const matchingKeywords = KEYWORDS.filter(
-      k => k.startsWith(partial.toLowerCase()) && k !== partial.toLowerCase()
+      k => k.startsWith(partialLower) && k !== partialLower
     );
     if (matchingKeywords.length > 0) {
       const replaceFrom = cursorPos - partial.length;

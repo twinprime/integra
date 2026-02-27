@@ -9,11 +9,14 @@ export function findNode(root: ComponentNode, uuid: string): ComponentNode | nul
   return null;
 }
 
-export function findNearestComponentAncestor(
+// Internal sentinel to distinguish "not found" from "found but no ancestor"
+const NOT_FOUND = Symbol('NOT_FOUND');
+
+function findAncestorHelper(
   root: ComponentNode,
   uuid: string,
-  ancestors: ComponentNode[] = []
-): ComponentNode | null {
+  ancestors: ComponentNode[]
+): ComponentNode | null | typeof NOT_FOUND {
   if (root.uuid === uuid) {
     for (let i = ancestors.length - 1; i >= 0; i--) {
       if (ancestors[i].type === 'component' || ancestors[i].type === 'root') {
@@ -23,11 +26,18 @@ export function findNearestComponentAncestor(
     return null;
   }
   for (const child of root.children) {
-    if (findNode(child, uuid) !== null) {
-      return findNearestComponentAncestor(child, uuid, [...ancestors, root]);
-    }
+    const result = findAncestorHelper(child, uuid, [...ancestors, root]);
+    if (result !== NOT_FOUND) return result;
   }
-  return null;
+  return NOT_FOUND;
+}
+
+export function findNearestComponentAncestor(
+  root: ComponentNode,
+  uuid: string
+): ComponentNode | null {
+  const result = findAncestorHelper(root, uuid, []);
+  return result === NOT_FOUND ? null : result;
 }
 
 export function isUseCaseReferenced(

@@ -7,16 +7,16 @@ interface Props {
   node: ComponentNode;
 }
 
-let mermaidInitialized = false;
+const mermaidState = { initialized: false };
 
 function initMermaid() {
-  if (!mermaidInitialized) {
+  if (!mermaidState.initialized) {
     mermaid.initialize({
       startOnLoad: false,
       theme: 'default',
       securityLevel: 'loose',
     });
-    mermaidInitialized = true;
+    mermaidState.initialized = true;
   }
 }
 
