@@ -305,7 +305,7 @@ function applyParticipantsToComponent(
   participants: ParticipantEntry[],
   messages: MessageEntry[],
 ): ComponentNode {
-  let updatedComponents = [...comp.subComponents]
+  const subComponents = [...comp.subComponents]
   const updatedActors = [...(comp.actors || [])]
 
   participants.forEach((p) => {
@@ -319,8 +319,8 @@ function applyParticipantsToComponent(
           description: "",
         })
       }
-    } else if (!updatedComponents.some((c) => c.id === p.id)) {
-      updatedComponents.push({
+    } else if (!subComponents.some((c) => c.id === p.id)) {
+      subComponents.push({
         uuid: p.uuid,
         id: p.id,
         name: p.name,
@@ -334,13 +334,17 @@ function applyParticipantsToComponent(
     }
   })
 
+  // Prepend owner so messages where the owner is sender/receiver correctly
+  // derive interfaces on it (self-reference scenario)
+  let workingComponents: ComponentNode[] = [comp, ...subComponents]
   for (const msg of messages) {
-    updatedComponents = applyMessageToComponents(updatedComponents, msg)
+    workingComponents = applyMessageToComponents(workingComponents, msg)
   }
+  const [updatedOwner, ...updatedSubComponents] = workingComponents
 
   return {
-    ...comp,
-    subComponents: updatedComponents,
+    ...updatedOwner,
+    subComponents: updatedSubComponents,
     actors: updatedActors,
   }
 }

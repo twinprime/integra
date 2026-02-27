@@ -91,6 +91,13 @@ export const DiagramPanel = () => {
   const [showTooltip, setShowTooltip] = useState<boolean>(false)
   const parseError = useSystemStore((state) => state.parseError)
 
+  const clearDiagram = () => {
+    setSvg("")
+    setError("")
+    setErrorDetails("")
+    setMermaidSource("")
+  }
+
   const selectedNode = selectedNodeId
     ? findNode([rootComponent], selectedNodeId)
     : null
@@ -98,7 +105,7 @@ export const DiagramPanel = () => {
   useEffect(() => {
     const renderDiagram = async () => {
       if (!selectedNode) {
-        setSvg("")
+        clearDiagram()
         return
       }
 
@@ -107,14 +114,14 @@ export const DiagramPanel = () => {
         selectedNode.type === "sequence-diagram"
 
       if (!isDiagram) {
-        setSvg("") // Or maybe show something specific for other nodes if needed
+        clearDiagram()
         return
       }
 
       const diagramNode = selectedNode as DiagramNode
 
       if (!diagramNode.content || diagramNode.content.trim() === "") {
-        setSvg("")
+        clearDiagram()
         return
       }
 
