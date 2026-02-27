@@ -126,10 +126,10 @@ function tokenizeLine(
       seg(indent, ""),
       seg(keyword, "text-purple-400"),
       seg(name, "text-yellow-300"),
-      ...(fromClause ? [seg(fromClause, "text-gray-600")] : []),
-      seg(asKw, "text-gray-600"),
+      ...(fromClause ? [seg(fromClause, "text-gray-400")] : []),
+      seg(asKw, "text-gray-400"),
       seg(id, "text-blue-400", uuid),
-      seg(rest, "text-gray-500"),
+      seg(rest, "text-gray-300"),
     ]
   }
 
@@ -144,7 +144,7 @@ function tokenizeLine(
         seg(keyword, "text-purple-400"),
         seg(space, ""),
         seg(id, "text-blue-400", uuid),
-        seg(rest, "text-gray-500"),
+        seg(rest, "text-gray-300"),
       ]
     }
 
@@ -155,16 +155,16 @@ function tokenizeLine(
       return [
         seg(indent, ""),
         seg(sender, "text-blue-400", participantMap.get(sender)),
-        seg(arrow, "text-gray-600"),
+        seg(arrow, "text-gray-400"),
         seg(receiver, "text-blue-400", participantMap.get(receiver)),
-        seg(colon, "text-gray-600"),
+        seg(colon, "text-gray-400"),
         seg(
           `${ifaceId}:${fnId}`,
           "text-green-400",
           findComponentByInterfaceId(root, ifaceId),
         ),
-        seg(params, "text-gray-500"),
-        seg(rest, "text-gray-500"),
+        seg(params, "text-gray-300"),
+        seg(rest, "text-gray-300"),
       ]
     }
   }
@@ -177,14 +177,14 @@ function tokenizeLine(
       return [
         seg(indent, ""),
         seg(from, "text-blue-400", participantMap.get(from)),
-        seg(arrow, "text-gray-600"),
+        seg(arrow, "text-gray-400"),
         seg(to, "text-blue-400", participantMap.get(to)),
-        seg(rest, "text-gray-500"),
+        seg(rest, "text-gray-300"),
       ]
     }
   }
 
-  return [seg(line, "text-gray-500")]
+  return [seg(line, "text-gray-300")]
 }
 
 // ─── component ────────────────────────────────────────────────────────────────
@@ -251,7 +251,7 @@ export function DiagramSpecPreview({
       <div
         role="button"
         tabIndex={0}
-        className="w-full p-2 border border-dashed border-gray-700 rounded-md text-sm text-gray-600 cursor-text min-h-[200px] flex-1 flex items-center justify-center italic hover:border-gray-600"
+        className="w-full p-2 border border-dashed border-gray-700 rounded-md text-sm text-gray-400 cursor-text min-h-[200px] flex-1 flex items-center justify-center italic hover:border-gray-600"
         onClick={onClick}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onClick?.() }}
         aria-label="Click to edit specification"
