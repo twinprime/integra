@@ -29,7 +29,7 @@ describe("useSystemStore", () => {
     act(() => {
       result.current.setSystem({
         uuid: "root-component-uuid",
-        id: "root-component",
+        id: "root",
         name: "My System",
         type: "component",
         description: "Root Component Node",
@@ -515,7 +515,7 @@ describe("useSystemStore", () => {
 
     const buildSharedFunctionSystem = (): ComponentNode => ({
       uuid: "root-component-uuid",
-      id: "root-component",
+      id: "root",
       name: "My System",
       type: "component",
       description: "Root",

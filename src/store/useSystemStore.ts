@@ -31,7 +31,7 @@ interface SystemState {
 
 const initialSystem: ComponentNode = {
   uuid: "root-component-uuid",
-  id: "root-component",
+  id: "root",
   name: "My System",
   type: "component",
   description: "Root System Component",

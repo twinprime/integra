@@ -25,9 +25,9 @@ const transformToMermaid = (content: string, type: string): string => {
       const trimmed = line.trim()
       if (!trimmed) return
 
-      const actorMatch = /^actor\s+"([^"]+)"\s+as\s+(\w+)/.exec(trimmed)
-      const useCaseMatch = /^use case\s+"([^"]+)"\s+as\s+(\w+)/.exec(trimmed)
-      const componentMatch = /^component\s+"([^"]+)"\s+as\s+(\w+)/.exec(trimmed)
+      const actorMatch = /^actor\s+"([^"]+)"\s+(?:from\s+\S+\s+)?as\s+(\w+)/.exec(trimmed)
+      const useCaseMatch = /^use case\s+"([^"]+)"\s+(?:from\s+\S+\s+)?as\s+(\w+)/.exec(trimmed)
+      const componentMatch = /^component\s+"([^"]+)"\s+(?:from\s+\S+\s+)?as\s+(\w+)/.exec(trimmed)
 
       if (actorMatch) {
         mermaidContent += `    ${actorMatch[2]}["${actorMatch[1]}"]\n`
@@ -50,7 +50,7 @@ const transformToMermaid = (content: string, type: string): string => {
     // Transform actor declarations to participant with stereotype
     // Pattern: actor "Name" as id  OR  actor id
     mermaidContent = mermaidContent.replaceAll(
-      /^(\s*)actor\s+(?:"([^"]+)"\s+as\s+)?(\w+)/gm,
+      /^(\s*)actor\s+(?:"([^"]+)"\s+(?:from\s+\S+\s+)?as\s+)?(\w+)/gm,
       (_match, indent, name, _id) => {
         if (name) {
           return `${indent}participant ${_id} as «actor»<br/>${name}`
@@ -62,7 +62,7 @@ const transformToMermaid = (content: string, type: string): string => {
     // Transform component declarations to participant with stereotype
     // Pattern: component "Name" as id  OR  component id
     mermaidContent = mermaidContent.replaceAll(
-      /^(\s*)component\s+(?:"([^"]+)"\s+as\s+)?(\w+)/gm,
+      /^(\s*)component\s+(?:"([^"]+)"\s+(?:from\s+\S+\s+)?as\s+)?(\w+)/gm,
       (_match, indent, name, _id) => {
         if (name) {
           return `${indent}participant ${_id} as «component»<br/>${name}`
