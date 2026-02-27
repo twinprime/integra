@@ -1,279 +1,225 @@
-# integra
+# Integra
 
-A visual editor for system engineering models using Mermaid diagrams.
+A visual editor for system engineering models using diagram specifications.
 
-## Overview
+---
 
-Integra is an interactive system modeling tool that allows you to define and visualize software architectures through use case diagrams and sequence diagrams. The tool automatically derives interface specifications from your sequence diagrams and maintains a hierarchical component structure.
+## For Users
 
-## System Model
+### Quick Start
 
-The system model consists of a root component which can contain one or more sub-components. Each component can contain one or more sub-components.
-
-### Component Structure
-
-Each component can contain:
-- **Actors** (automatically created from use case and sequence diagrams)
-- **Use Case Diagrams** (contain use cases)
-- **Sub-components**
-
-Each use case diagram contains:
-- **Use Cases** (automatically created from the diagram specification)
-
-Each use case contains:
-- **Sequence Diagrams**
-
-Each component has zero or more **interface specifications** (automatically derived from sequence diagrams within its nested use cases).
-
-Each interface specification has a UUID, ID, name, description, type, and a list of functions. Interface types include: `kafka`, `rest`, `graphql`, or `other`.
-
-Each interface function has a UUID, ID, description, and a list of parameters. Each parameter has a name, type (defaults to `any`), and required flag.
-
-### Hierarchy Rules
-
-- Use cases can only exist under use case diagrams
-- Sequence diagrams can only exist under use cases
-- Actors remain at the component level (not nested under diagrams)
-- Interface specifications remain at the component level (derived from all sequence diagrams within the component's hierarchy)
-
-**Note:** All diagrams have an `ownerComponentUuid` field that references the component they logically belong to, regardless of nesting depth.
-
-### Example Tree Structure
-
-```
-- Root Component
-    - Sub-component 1
-        - Actor 1 (auto-generated from diagrams)
-        - Use Case Diagram 1
-            - Use Case 1 (auto-generated from diagram)
-                - Sequence Diagram 1
-                - Sequence Diagram 2
-            - Use Case 2
-                - Sequence Diagram 3
-        - Use Case Diagram 2
-            - Use Case 3
-        - Sub-component 2
-            - Actor 2
-            - Use Case Diagram 3
-                - Use Case 4
-                    - Sequence Diagram 4
-            - Sub-component 3
-        - Sub-component 4
-    - Sub-component 5
-```
-
-## Editor Interface
-
-The editor contains three panels:
-- **Left Panel:** Tree structure of the system model
-- **Middle Panel:** Editor for the selected node (text editor for diagrams, form fields for other nodes)
-- **Right Panel:** Mermaid diagram visualization or preview
-
-### Editable Nodes
-
-**Text editor (content field):**
-- Use Case Diagram
-- Sequence Diagram
-
-**Form fields (with markdown description editor):**
-- Component (name, description, interface specifications — name, type, description and functions are editable)
-- Actor (name, description)
-- Use Case (name, description)
-
-### Auto-Generated Nodes
-
-The following are automatically generated from diagram specifications:
-- **Component nodes** (when mentioned in sequence diagrams - added to the owning component)
-- **Actor nodes** (when mentioned in use case or sequence diagrams - added to the owning component)
-- **Use Case nodes** (when mentioned in use case diagrams - added to the diagram itself)
-- **Interface specifications** (when messages are sent to components in sequence diagrams — added to the receiving component; functions are tracked with UUIDs and unreferenced functions are highlighted in the editor)
-
-### Orphan Detection
-
-Actors and components that are not referenced by any diagram's `referencedNodeIds` are considered **orphaned** and can be deleted from the tree view. A delete button appears inline on hover for orphaned nodes (and always for diagrams and use cases).
-
-## Use Case Diagrams
-
-Use case diagrams contain use cases and their relationships with actors.
-
-### Syntax
-
-```
-actor "Exploration Leader" as leader
-use case "Create an exploration" as create
-leader --> create
-```
-
-The syntax uses the `actor` and `use case` keywords with double-quoted names and `as` keyword for IDs. Node IDs are **scoped to the owning component** — the same ID can be reused in different components.
-
-### Cross-Component References
-
-To reference a node defined in another component, use the `from` clause:
-
-```
-actor "Exploration Leader" from root-component/leader as leader
-use case "Login" from auth/loginDiagram/login as login
-```
-
-The `from` path follows the node tree: component IDs separated by `/`, with the final segment being the node ID. When `from` is used:
-- No new node is created in the current component
-- The existing node's UUID is added to `referencedNodeIds`
-
-### Parsing Behavior
-
-When the diagram is parsed:
-- Actors are added to the component that owns the diagram (unless `from` is used)
-- Use cases are added to the use case diagram itself (and can contain sequence diagrams)
-
-## Sequence Diagrams
-
-Sequence diagrams are nested under use cases and define interactions between actors and components.
-
-### Syntax
-
-```
-actor "User" as user
-component "Service" as service
-user->>service: ExplorationsAPI:createExploration(id: number, name: string?)
-```
-
-To reference a participant from another component, use the `from` clause:
-
-```
-actor "Admin" from root/admin as admin
-component "PaymentService" from payments/paymentSvc as paymentSvc
-```
-
-Node IDs are **scoped to the owning component**. The `from` path resolves the existing node without creating a new one.
-
-Messages follow the format: `sender->>receiver: InterfaceId:functionId(param: type, param2: type?)`
-
-- `InterfaceId` is the interface ID on the receiving component
-- `functionId` is the function ID within that interface
-- Parameter types default to `any` if omitted
-- Appending `?` to a type marks the parameter as optional (e.g. `string?`)
-
-If no interface prefix is given, the message is silently ignored (no interface is created).
-
-### Kafka Ownership
-
-For `kafka`-type interfaces, the **sender** owns the interface (not the receiver). This reflects the publish/subscribe model where the producer defines the message contract.
-
-### Parameter Compatibility
-
-If a function already exists with a different parameter signature, parsing fails with an error message shown in the diagram panel. The system state is not updated until the conflict is resolved.
-
-### Parsing Behavior
-
-When the diagram is parsed:
-- Actors and components are added to the owning component (unless `from` is used)
-- Interface specifications are generated on the receiving component (or sender for kafka)
-- `referencedNodeIds` on the diagram stores the UUIDs of all referenced actors/components, including cross-component references via `from`
-- `referencedFunctionUuids` on the diagram stores the UUIDs of all interface functions used
-
-## Derived Interface Specifications
-
-When a component is selected in the tree, the editor shows its interface specifications. Each interface can be edited:
-- **Name** — editable inline
-- **Type** — dropdown (`rest`, `kafka`, `graphql`, `other`)
-- **Description** — markdown editor
-
-Each function within an interface shows:
-- **ID** — editable inline (used in sequence diagram messages)
-- **Description** — markdown editor
-- **Parameters** — read-only (name, type, required/optional badge, editable description)
-- Functions not referenced by any sequence diagram are shown with **strikethrough** and a delete button
-
-**Example:** For the message `user->>service: ExplorationsAPI:createExploration(id: number)`, the system creates:
-- An `ExplorationsAPI` interface on the `service` component
-- A function with ID `createExploration`
-- A parameter named `id` of type `number` (required)
-
-## Markdown Descriptions
-
-All description fields (on components, actors, use cases, interfaces, and functions) use a markdown editor with syntax highlighting. In preview mode, you can write links to other nodes using their path.
-
-**Same-component link** (bare node ID — resolves within the current component):
-```markdown
-See also [Login Flow](loginFlow)
-```
-
-**Cross-component link** (slash-separated path through the tree):
-```markdown
-See also [Service A](serviceA) or [Login Use Case](serviceA/mainDiagram/loginCase)
-```
-
-Clicking a node link in preview mode navigates to that node in the tree. Regular URLs and anchor links (`#`) behave normally.
-
-## Tech Stack
-
-This project is built with:
-- **React** 19.2 - A JavaScript library for building user interfaces
-- **TypeScript** 5.9 - Typed superset of JavaScript
-- **Vite** 7.2 - Next generation frontend tooling
-- **Zustand** - Lightweight state management
-- **Mermaid** - Diagram rendering from text
-- **@uiw/react-md-editor** - Markdown editor with syntax highlighting and preview
-- **Tailwind CSS** - Utility-first CSS framework
-- **ESLint** 9.39 - Pluggable linting utility for JavaScript and TypeScript
-- **Vitest** 4.0 - Blazing fast unit test framework
-
-## Getting Started
-
-### Install dependencies
+#### 1. Install and run
 
 ```bash
 npm install
-```
-
-### Development
-
-Run the development server:
-
-```bash
 npm run dev
 ```
 
-### Build
+Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-Build for production:
+#### 2. Build your system model
 
-```bash
-npm run build
+The left panel shows your **system tree**. Start by renaming the root component, then add sub-components, use case diagrams, and sequence diagrams using the **+** buttons on each node.
+
+#### 3. Write diagram specifications
+
+Select a diagram node to open its specification editor. Type your spec in the text area — the right panel renders the diagram in real time. Syntax is highlighted as you type.
+
+#### 4. Explore the derived model
+
+As you write sequence diagrams, Integra automatically derives:
+- **Actors and components** added to the owning component
+- **Interface specifications** (with typed functions and parameters) on the receiving component
+- **Use cases** listed under their use case diagram
+
+Navigate the tree to inspect generated nodes. Orphaned nodes (no longer referenced by any diagram) show a delete button on hover.
+
+---
+
+### Diagram Specifications
+
+#### Use Case Diagram
+
+Declare actors, use cases, and their relationships.
+
+```
+actor "Customer" as customer
+actor "Admin" from root/admin as admin
+
+use case "Browse Catalogue" as browse
+use case "Place Order" as order
+use case "Manage Products" as manage
+
+customer --> browse
+customer --> order
+admin --> manage
 ```
 
-### Lint
+| Keyword | Purpose |
+|---|---|
+| `actor "Name" as id` | Declare an actor |
+| `use case "Name" as id` | Declare a use case |
+| `from path/to/node` | Reference an existing node instead of creating a new one |
+| `A --> B` | Relationship arrow (rendered as-is by Mermaid) |
 
-Run ESLint:
+**Node IDs are scoped to the owning component.** The same ID can be reused in different components.
 
-```bash
-npm run lint
+---
+
+#### Sequence Diagram
+
+Declare participants and message interactions.
+
+```
+actor "Customer" as customer
+component "Order Service" as orderSvc
+component "Payment Service" from payments/paymentSvc as paymentSvc
+
+customer->>orderSvc: OrdersAPI:placeOrder(orderId: string, amount: number)
+orderSvc->>paymentSvc: PaymentsAPI:charge(orderId: string, amount: number, currency: string?)
+orderSvc->>customer: UseCase:orderConfirmed
 ```
 
-### Test
+| Syntax | Purpose |
+|---|---|
+| `actor "Name" as id` | Declare an actor participant |
+| `component "Name" as id` | Declare a component participant |
+| `from path/to/node` | Reference an existing node (no new node created) |
+| `sender->>receiver: Interface:function(param: type)` | Function call message — derives interface on receiver |
+| `sender->>receiver: UseCase:useCaseId` | Use case reference — links to an existing use case on the receiver |
 
-Run tests:
+**Function call message format:** `sender->>receiver: InterfaceId:functionId(param: type, param2: type?)`
+- Parameter types default to `any` if omitted
+- Append `?` to mark a parameter as optional (e.g. `name: string?`)
+- For `kafka`-type interfaces, the **sender** owns the interface
 
-```bash
-npm test
+**Self-reference:** A `component` participant with the same ID as the owning component is treated as a self-reference — no child component is created.
+
+---
+
+### Cross-Component References
+
+Use the `from` clause to reference nodes defined in other parts of the tree. The path is a `/`-separated list of component IDs with the node ID last:
+
+```
+actor "Global Admin" from root/admin as admin
+component "Auth Service" from services/auth as auth
 ```
 
-Run tests once (CI mode):
+When `from` is used, no new node is created — the existing node's UUID is recorded in `referencedNodeIds`. The node cannot be deleted while this reference exists.
 
-```bash
-npm run test:run
+---
+
+### Markdown Descriptions
+
+All description fields support Markdown. In preview mode, write links to other nodes using their tree path:
+
+```markdown
+See also [Login Flow](loginFlow)                          <!-- same component, bare id -->
+See also [Auth Service](services/auth)                    <!-- cross-component path -->
+See also [Login Use Case](services/auth/mainDiag/login)   <!-- deep path -->
 ```
 
-Run tests with UI:
+Clicking a node link navigates to that node in the tree.
 
-```bash
-npm run test:ui
+---
+
+## For Developers
+
+### System Requirements
+
+Integra is a single-page web application that allows users to model software systems hierarchically. The core requirements are:
+
+1. **Hierarchical component model** — a tree of components, each with actors, sub-components, use case diagrams, and interface specifications
+2. **Use case diagrams** — text-specified diagrams that declare actors and use cases, with relationship arrows rendered via Mermaid
+3. **Sequence diagrams** — text-specified interaction diagrams that automatically derive typed interface specifications on components
+4. **Derived interfaces** — interface functions (with typed parameters) are extracted from sequence diagram messages and stored on the receiving component
+5. **Cross-component references** — participants can reference nodes in other components via a `from path` clause; referenced nodes cannot be deleted while the reference exists
+6. **Self-referencing** — a sequence diagram can declare a participant with the same id as its owning component (treated as a self-reference, not a new child)
+7. **Use case references in messages** — sequence diagram messages can reference use cases on a component via `UseCase:ucId`; referenced use cases cannot be deleted
+8. **Function update flow** — when a function signature changes, the user is prompted to update all affected sequence diagrams or add an overload
+9. **Orphan detection** — actors and components not referenced by any diagram are deletable; otherwise the delete button is hidden
+10. **Syntax highlighting** — the diagram specification editor highlights known tokens (keywords, participants, interfaces, functions, use case references) in real time using a backdrop technique
+11. **Navigation** — highlighted tokens in the specification editor are clickable and navigate to the corresponding node in the tree
+12. **Persistence** — system state is persisted to `localStorage` and restored on page load; a clear button resets to the initial state
+
+---
+
+### Design Overview
+
+#### Node Types
+
+| Type | Parent | Auto-created? | Contains |
+|---|---|---|---|
+| `component` | `component` | Yes (from seq diagram) | actors, subComponents, useCaseDiagrams, interfaces |
+| `actor` | `component` | Yes (from diagrams) | — |
+| `use-case-diagram` | `component` | No | useCases |
+| `use-case` | `use-case-diagram` | Yes (from UC diagram) | sequenceDiagrams |
+| `sequence-diagram` | `use-case` | No | — |
+
+#### Key Fields on `DiagramNode`
+
+- `ownerComponentUuid` — the component that logically owns the diagram (set when created)
+- `referencedNodeIds` — UUIDs of all actors/components/use-cases referenced in the diagram spec
+- `referencedFunctionUuids` — UUIDs of all interface functions referenced in the diagram spec
+
+#### Data Flow
+
+```
+User types spec
+     │
+     ▼
+updateNode(diagramUuid, { content })
+     │
+     ├─► parseUseCaseDiagram()    (for use-case-diagram)
+     │         └─► upsertTree() — adds actors, use cases to owning component
+     │
+     └─► parseSequenceDiagram()   (for sequence-diagram)
+               ├─► applyParticipantsToComponent() — adds actors/components
+               ├─► applyMessageToComponents() — derives interface functions
+               └─► upsertTree() — stores referencedNodeIds, referencedFunctionUuids
 ```
 
-### Preview
+#### Interface Derivation
 
-Preview production build:
+Each `sender->>receiver: InterfaceId:functionId(...)` message:
+1. Finds or creates an `InterfaceSpecification` with `id = InterfaceId` on the receiver (or sender for `kafka`)
+2. Finds or creates a function with `id = functionId` and the parsed parameter list
+3. If a function with the same id already exists with a **different** parameter count or types, the user is prompted via a dialog to update all affected diagrams or add as overload
+
+#### Deletion Guards
+
+- **Actors / components**: deletable only when `isNodeOrphaned()` returns `true` — i.e., the node's UUID appears in no `referencedNodeIds` anywhere in the full tree
+- **Use cases**: deletable only when `isUseCaseReferenced()` returns `false` — same full-tree search
+- `isNodeOrphaned` delegates to `isUseCaseReferenced` for a unified implementation
+
+#### Syntax Highlighting (Backdrop Technique)
+
+The spec editor overlays a transparent `<textarea>` on top of a non-interactive `DiagramSpecPreview` (mode `"backdrop"`). The textarea uses `text-transparent caret-white` so the coloured tokens from the backdrop show through. An `onScroll` handler keeps the two layers in sync.
+
+#### Tech Stack
+
+| Tool | Version | Role |
+|---|---|---|
+| React | 19 | UI |
+| TypeScript | 5.9 | Type safety |
+| Vite | 7 | Build tooling |
+| Zustand | — | State management |
+| Mermaid | — | Diagram rendering |
+| Tailwind CSS | — | Styling |
+| @uiw/react-md-editor | — | Markdown description fields |
+| Vitest | 4 | Unit tests |
+| ESLint | 9 | Linting |
+
+#### Scripts
 
 ```bash
-npm run preview
+npm run dev        # Development server
+npm run build      # Production build
+npm run preview    # Preview production build
+npm run lint       # Run ESLint
+npm test           # Run tests in watch mode
+npm run test:run   # Run tests once (CI)
+npm run test:ui    # Run tests with Vitest UI
 ```
+
