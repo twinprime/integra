@@ -160,6 +160,8 @@ const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
   )
 }
 
+const YAML_FILE_TYPES = [{ description: "YAML files", accept: { "text/yaml": [".yaml", ".yml"] } }]
+
 export const TreeView = () => {
   const rootComponent = useSystemStore((state) => state.rootComponent)
   const setSystem = useSystemStore((state) => state.setSystem)
@@ -169,6 +171,8 @@ export const TreeView = () => {
   const savedSnapshot = useSystemStore((state) => state.savedSnapshot)
   const markSaved = useSystemStore((state) => state.markSaved)
   const clearSystem = useSystemStore((state) => state.clearSystem)
+
+  const [fileHandle, setFileHandle] = useState<FileSystemFileHandle | null>(null)
 
   const [contextMenu, setContextMenu] = useState<{
     x: number
@@ -187,57 +191,78 @@ export const TreeView = () => {
     markSaved(serializeYaml(rootComponent))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSave = () => {
+  const handleSave = async () => {
     try {
       const yamlContent = serializeYaml(rootComponent)
+      const suggestedName = `${rootComponent.name.toLowerCase().replaceAll(/\s+/g, "-")}.yaml`
 
-      const blob = new Blob([yamlContent], { type: "text/yaml" })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `${rootComponent.name.toLowerCase().replaceAll(/\s+/g, "-")}.yaml`
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
+      if ("showSaveFilePicker" in window) {
+        const handle = fileHandle ?? await window.showSaveFilePicker({ types: YAML_FILE_TYPES, suggestedName })
+        const writable = await handle.createWritable()
+        await writable.write(yamlContent)
+        await writable.close()
+        setFileHandle(handle)
+      } else {
+        // Fallback for browsers without File System Access API
+        const blob = new Blob([yamlContent], { type: "text/yaml" })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = suggestedName
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        URL.revokeObjectURL(url)
+      }
       markSaved(yamlContent)
     } catch (error) {
-      console.error("Failed to save system:", error)
-      alert("Failed to save system: " + (error as Error).message)
+      if ((error as DOMException).name !== "AbortError") {
+        console.error("Failed to save system:", error)
+        alert("Failed to save system: " + (error as Error).message)
+      }
     }
   }
 
-  const handleLoad = () => {
+  const handleLoad = async () => {
     if (hasUnsavedChanges) {
       if (!confirm("You have unsaved changes. Loading a new file will discard them. Continue?")) return
     }
-    const input = document.createElement("input")
-    input.type = "file"
-    input.accept = ".yaml,.yml"
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0]
-      if (!file) return
 
-      try {
-        const text = await file.text()
-        const loadedSystem = yaml.load(text) as ComponentNode
+    try {
+      let text: string
 
-        if (
-          !loadedSystem ||
-          typeof loadedSystem !== "object" ||
-          loadedSystem.type !== "component"
-        ) {
-          throw new Error("Invalid system file format")
-        }
+      if ("showOpenFilePicker" in window) {
+        const [handle] = await window.showOpenFilePicker({ types: YAML_FILE_TYPES, multiple: false })
+        const file = await handle.getFile()
+        text = await file.text()
+        setFileHandle(handle)
+      } else {
+        // Fallback for browsers without File System Access API
+        text = await new Promise<string>((resolve, reject) => {
+          const input = document.createElement("input")
+          input.type = "file"
+          input.accept = ".yaml,.yml"
+          input.onchange = async (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0]
+            if (!file) { reject(new Error("No file selected")); return }
+            resolve(await file.text())
+          }
+          input.click()
+        })
+      }
 
-        setSystem(loadedSystem)
-        markSaved(serializeYaml(loadedSystem))
-      } catch (error) {
+      const loadedSystem = yaml.load(text) as ComponentNode
+      if (!loadedSystem || typeof loadedSystem !== "object" || loadedSystem.type !== "component") {
+        throw new Error("Invalid system file format")
+      }
+      setSystem(loadedSystem)
+      markSaved(serializeYaml(loadedSystem))
+    } catch (error) {
+      if ((error as DOMException).name !== "AbortError") {
         console.error("Failed to load system:", error)
         alert("Failed to load system: " + (error as Error).message)
       }
     }
-    input.click()
   }
 
   const handleClear = () => {
