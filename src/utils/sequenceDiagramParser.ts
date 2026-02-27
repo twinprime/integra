@@ -65,21 +65,47 @@ function paramsMatch(a: Parameter[], b: Parameter[]): boolean {
   )
 }
 
+export function paramsToString(params: Parameter[]): string {
+  return params
+    .map((p) => `${p.name}: ${p.type}${p.required ? "" : "?"}`)
+    .join(", ")
+}
+
+export type FunctionMatch = {
+  kind: "compatible" | "incompatible"
+  interfaceId: string
+  functionId: string
+  functionUuid: string
+  oldParams: Parameter[]
+  newParams: Parameter[]
+  /** UUIDs of sequence diagrams (excluding current) that reference this function */
+  affectedDiagramUuids: string[]
+}
+
+function findFunctionInTree(
+  root: ComponentNode,
+  interfaceId: string,
+  functionId: string,
+): { uuid: string; parameters: Parameter[] } | null {
+  const iface = root.interfaces?.find((i) => i.id === interfaceId)
+  if (iface) {
+    const fn = iface.functions.find((f) => f.id === functionId)
+    if (fn) return { uuid: fn.uuid, parameters: fn.parameters }
+  }
+  for (const sub of root.subComponents) {
+    const found = findFunctionInTree(sub, interfaceId, functionId)
+    if (found) return found
+  }
+  return null
+}
+
 function findFunctionUuidInTree(
   root: ComponentNode,
   interfaceId: string,
   functionId: string,
 ): string | null {
-  const iface = root.interfaces?.find((i) => i.id === interfaceId)
-  if (iface) {
-    const fn = iface.functions.find((f) => f.id === functionId)
-    if (fn) return fn.uuid
-  }
-  for (const sub of root.subComponents) {
-    const found = findFunctionUuidInTree(sub, interfaceId, functionId)
-    if (found) return found
-  }
-  return null
+  const found = findFunctionInTree(root, interfaceId, functionId)
+  return found ? found.uuid : null
 }
 
 function resolveOwnerIndex(
@@ -145,31 +171,29 @@ function applyMessageToComponents(
     ...interfaces[ifaceIndex],
     functions: [...interfaces[ifaceIndex].functions],
   }
-  const existingFnIdx = iface.functions.findIndex(
-    (f) => f.id === msg.functionId,
-  )
   const newParams = parseParameters(msg.params)
+  const exactMatchIdx = iface.functions.findIndex(
+    (f) => f.id === msg.functionId && paramsMatch(f.parameters, newParams),
+  )
 
-  if (existingFnIdx === -1) {
-    iface.functions.push({
-      uuid: crypto.randomUUID(),
-      id: msg.functionId,
-      parameters: newParams,
-    })
-  } else {
-    const existingFn = iface.functions[existingFnIdx]
-    if (!paramsMatch(existingFn.parameters, newParams)) {
-      const existingStr = existingFn.parameters
-        .map((p) => `${p.name}: ${p.type}${p.required ? "" : "?"}`)
-        .join(", ")
-      const newStr = newParams
-        .map((p) => `${p.name}: ${p.type}${p.required ? "" : "?"}`)
-        .join(", ")
+  if (exactMatchIdx === -1) {
+    const sameIdSameCount = iface.functions.find(
+      (f) =>
+        f.id === msg.functionId && f.parameters.length === newParams.length,
+    )
+    if (sameIdSameCount) {
+      const existingStr = paramsToString(sameIdSameCount.parameters)
+      const newStr = paramsToString(newParams)
       throw new Error(
         `Parameter mismatch for function "${msg.functionId}" in interface "${msg.interfaceId}": ` +
           `existing (${existingStr}) vs new (${newStr})`,
       )
     }
+    iface.functions.push({
+      uuid: crypto.randomUUID(),
+      id: msg.functionId,
+      parameters: newParams,
+    })
   }
 
   interfaces[ifaceIndex] = iface
@@ -302,6 +326,68 @@ function applyParticipantsToComponent(
     subComponents: updatedComponents,
     actors: updatedActors,
   }
+}
+
+export function analyzeSequenceDiagramChanges(
+  content: string,
+  rootComponent: ComponentNode,
+  diagramUuid: string,
+  allSeqDiagrams: Array<{ uuid: string; referencedFunctionUuids: string[] }>,
+): FunctionMatch[] {
+  const otherRefs = new Set(
+    allSeqDiagrams
+      .filter((d) => d.uuid !== diagramUuid)
+      .flatMap((d) => d.referencedFunctionUuids),
+  )
+
+  MESSAGE_PATTERN.lastIndex = 0
+  const matches: FunctionMatch[] = []
+  const seen = new Set<string>()
+  let match
+
+  while ((match = MESSAGE_PATTERN.exec(content)) !== null) {
+    const interfaceId = match[3]
+    const functionId = match[4]
+    const rawParams = match[5]
+    const key = `${interfaceId}:${functionId}`
+
+    if (seen.has(key)) continue
+    seen.add(key)
+
+    const newParams = parseParameters(rawParams)
+    const existing = findFunctionInTree(rootComponent, interfaceId, functionId)
+
+    if (!existing) continue
+    if (paramsMatch(existing.parameters, newParams)) continue
+
+    const kind =
+      existing.parameters.length === newParams.length
+        ? "incompatible"
+        : "compatible"
+
+    const affectedDiagramUuids = allSeqDiagrams
+      .filter(
+        (d) =>
+          d.uuid !== diagramUuid &&
+          d.referencedFunctionUuids.includes(existing.uuid),
+      )
+      .map((d) => d.uuid)
+
+    // Incompatible + exclusively owned: handled silently by stripExclusiveFunctionContributions
+    if (kind === "incompatible" && !otherRefs.has(existing.uuid)) continue
+
+    matches.push({
+      kind,
+      interfaceId,
+      functionId,
+      functionUuid: existing.uuid,
+      oldParams: existing.parameters,
+      newParams,
+      affectedDiagramUuids,
+    })
+  }
+
+  return matches
 }
 
 export function parseSequenceDiagram(

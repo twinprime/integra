@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react"
 import type { DiagramNode } from "../../store/types"
+import { useSystemStore, getSequenceDiagrams, type FunctionDecision } from "../../store/useSystemStore"
+import { analyzeSequenceDiagramChanges, type FunctionMatch } from "../../utils/sequenceDiagramParser"
+import { FunctionUpdateDialog } from "../FunctionUpdateDialog"
 
 export const DiagramEditor = ({
   node,
@@ -10,6 +13,11 @@ export const DiagramEditor = ({
 }) => {
   const [name, setName] = useState(node.name || "")
   const [content, setContent] = useState(node.content || "")
+  const [pendingContent, setPendingContent] = useState<string | null>(null)
+  const [functionMatches, setFunctionMatches] = useState<FunctionMatch[]>([])
+
+  const { rootComponent, applyFunctionUpdates } = useSystemStore()
+  const seqDiagrams = getSequenceDiagrams(rootComponent)
 
   useEffect(() => {
     setName(node.name || "")
@@ -25,13 +33,48 @@ export const DiagramEditor = ({
   }
 
   const handleContentBlur = () => {
-    if (content !== node.content) {
-      onUpdate({ content })
+    if (content === node.content) return
+
+    if (node.type === "sequence-diagram") {
+      const matches = analyzeSequenceDiagramChanges(
+        content,
+        rootComponent,
+        node.uuid,
+        seqDiagrams,
+      )
+      if (matches.length > 0) {
+        setPendingContent(content)
+        setFunctionMatches(matches)
+        return
+      }
     }
+
+    onUpdate({ content })
+  }
+
+  const handleDialogResolve = (decisions: FunctionDecision[]): void => {
+    const saved = pendingContent!
+    setPendingContent(null)
+    setFunctionMatches([])
+    applyFunctionUpdates(decisions, node.uuid, saved)
+  }
+
+  const handleDialogCancel = (): void => {
+    setContent(node.content || "")
+    setPendingContent(null)
+    setFunctionMatches([])
   }
 
   return (
     <div className="p-4 h-full flex flex-col">
+      {pendingContent !== null && functionMatches.length > 0 && (
+        <FunctionUpdateDialog
+          matches={functionMatches}
+          seqDiagrams={seqDiagrams}
+          onResolve={handleDialogResolve}
+          onCancel={handleDialogCancel}
+        />
+      )}
       <div className="mb-6 border-b border-gray-800 pb-4">
         <h2 className="text-xl font-semibold text-gray-100 flex items-center gap-2">
           {node.name}

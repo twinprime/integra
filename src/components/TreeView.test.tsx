@@ -42,13 +42,13 @@ function makeWritable() {
 
 function makeFileHandle(content: string) {
   const writable = makeWritable()
-  const handle: FileSystemFileHandle = {
+  const handle = {
     kind: "file",
     name: "test.yaml",
     // jsdom File doesn't support .text(); use a plain mock instead
     getFile: vi.fn().mockResolvedValue({ text: () => Promise.resolve(content) }),
     createWritable: vi.fn().mockResolvedValue(writable),
-  }
+  } as unknown as FileSystemFileHandle
   return { handle, writable }
 }
 
