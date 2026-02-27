@@ -3,8 +3,8 @@
 // ---------------------------------------------------------------
 // @vitest-environment node
 import { describe, it, expect } from "vitest"
-import { parseSequenceDiagram } from "./sequenceDiagramParser"
-import type { ComponentNode } from "../store/types"
+import { parseSequenceDiagram, analyzeSequenceDiagramChanges, paramsToString } from "./sequenceDiagramParser"
+import type { ComponentNode, Parameter } from "../store/types"
 
 const createInitialSystem = (): ComponentNode => ({
   uuid: "root-uuid",
@@ -285,5 +285,204 @@ describe("parseSequenceDiagram", () => {
     expect(() =>
       parseSequenceDiagram(content, rootComponent, "comp1-uuid", "diagram-uuid")
     ).toThrow('Cannot resolve component "from" path: "nonexistent/ghost"')
+  })
+
+  it("should allow a second call on the same function id with different param count (overload)", () => {
+    const system1 = parseSequenceDiagram(
+      `component a\ncomponent b\na->>b: API:fn(id: number)`,
+      createInitialSystem(),
+      "comp1-uuid",
+      "diagram-uuid",
+    )
+    // Different param count → treated as a new overload, no error
+    const system2 = parseSequenceDiagram(
+      `component a\ncomponent b\na->>b: API:fn(id: number, name: string)`,
+      system1,
+      "comp1-uuid",
+      "diagram-uuid",
+    )
+    const b = system2.subComponents[0].subComponents.find((c) => c.id === "b")
+    expect(b!.interfaces[0].functions).toHaveLength(2)
+    expect(b!.interfaces[0].functions[0].parameters).toHaveLength(1)
+    expect(b!.interfaces[0].functions[1].parameters).toHaveLength(2)
+  })
+})
+
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+function buildSystemWithFunction(
+  params: Parameter[],
+  fnUuid = "fn-uuid",
+): ComponentNode {
+  return {
+    uuid: "root-uuid",
+    id: "root",
+    name: "Root",
+    type: "component",
+    subComponents: [
+      {
+        uuid: "comp1-uuid",
+        id: "comp1",
+        name: "Comp 1",
+        type: "component",
+        subComponents: [],
+        actors: [],
+        useCaseDiagrams: [],
+        interfaces: [
+          {
+            uuid: "api-iface-uuid",
+            id: "API",
+            name: "API",
+            type: "rest",
+            functions: [{ uuid: fnUuid, id: "fn", parameters: params }],
+          },
+        ],
+      },
+    ],
+    actors: [],
+    useCaseDiagrams: [],
+    interfaces: [],
+  }
+}
+
+// ─── paramsToString ───────────────────────────────────────────────────────────
+
+describe("paramsToString", () => {
+  it("converts required and optional params to string", () => {
+    expect(
+      paramsToString([
+        { name: "id", type: "number", required: true },
+        { name: "flag", type: "boolean", required: false },
+      ]),
+    ).toBe("id: number, flag: boolean?")
+  })
+
+  it("returns empty string for no params", () => {
+    expect(paramsToString([])).toBe("")
+  })
+})
+
+// ─── analyzeSequenceDiagramChanges ───────────────────────────────────────────
+
+describe("analyzeSequenceDiagramChanges", () => {
+  const FN_UUID = "fn-uuid"
+  const CURRENT = "current-diag"
+  const OTHER = "other-diag"
+
+  const sharedDiags = [
+    { uuid: CURRENT, name: "Current", referencedFunctionUuids: [FN_UUID] },
+    { uuid: OTHER, name: "Other", referencedFunctionUuids: [FN_UUID] },
+  ]
+  const exclusiveDiags = [
+    { uuid: CURRENT, name: "Current", referencedFunctionUuids: [FN_UUID] },
+  ]
+
+  it("returns empty when function is brand new (not in system)", () => {
+    const system = buildSystemWithFunction(
+      [{ name: "id", type: "number", required: true }],
+      FN_UUID,
+    )
+    const matches = analyzeSequenceDiagramChanges(
+      "component a\ncomponent b\na->>b: OTHER_API:newFn(x: string)",
+      system,
+      CURRENT,
+      sharedDiags,
+    )
+    expect(matches).toHaveLength(0)
+  })
+
+  it("returns empty when params are identical", () => {
+    const system = buildSystemWithFunction(
+      [{ name: "id", type: "number", required: true }],
+      FN_UUID,
+    )
+    const matches = analyzeSequenceDiagramChanges(
+      "component a\ncomponent b\na->>b: API:fn(id: number)",
+      system,
+      CURRENT,
+      sharedDiags,
+    )
+    expect(matches).toHaveLength(0)
+  })
+
+  it("returns compatible match (different count) when function is shared", () => {
+    const system = buildSystemWithFunction(
+      [{ name: "id", type: "number", required: true }],
+      FN_UUID,
+    )
+    const matches = analyzeSequenceDiagramChanges(
+      "component a\ncomponent b\na->>b: API:fn(id: number, name: string)",
+      system,
+      CURRENT,
+      sharedDiags,
+    )
+    expect(matches).toHaveLength(1)
+    expect(matches[0].kind).toBe("compatible")
+    expect(matches[0].functionId).toBe("fn")
+    expect(matches[0].oldParams).toHaveLength(1)
+    expect(matches[0].newParams).toHaveLength(2)
+    expect(matches[0].affectedDiagramUuids).toEqual([OTHER])
+  })
+
+  it("returns compatible match even when function is exclusively owned", () => {
+    const system = buildSystemWithFunction(
+      [{ name: "id", type: "number", required: true }],
+      FN_UUID,
+    )
+    const matches = analyzeSequenceDiagramChanges(
+      "component a\ncomponent b\na->>b: API:fn(id: number, name: string)",
+      system,
+      CURRENT,
+      exclusiveDiags,
+    )
+    expect(matches).toHaveLength(1)
+    expect(matches[0].kind).toBe("compatible")
+    expect(matches[0].affectedDiagramUuids).toHaveLength(0)
+  })
+
+  it("returns incompatible match (same count, diff types) when function is shared", () => {
+    const system = buildSystemWithFunction(
+      [{ name: "id", type: "number", required: true }],
+      FN_UUID,
+    )
+    const matches = analyzeSequenceDiagramChanges(
+      "component a\ncomponent b\na->>b: API:fn(id: string)",
+      system,
+      CURRENT,
+      sharedDiags,
+    )
+    expect(matches).toHaveLength(1)
+    expect(matches[0].kind).toBe("incompatible")
+    expect(matches[0].oldParams[0].type).toBe("number")
+    expect(matches[0].newParams[0].type).toBe("string")
+    expect(matches[0].affectedDiagramUuids).toEqual([OTHER])
+  })
+
+  it("skips incompatible match when function is exclusively owned", () => {
+    const system = buildSystemWithFunction(
+      [{ name: "id", type: "number", required: true }],
+      FN_UUID,
+    )
+    const matches = analyzeSequenceDiagramChanges(
+      "component a\ncomponent b\na->>b: API:fn(id: string)",
+      system,
+      CURRENT,
+      exclusiveDiags,
+    )
+    expect(matches).toHaveLength(0)
+  })
+
+  it("deduplicates multiple calls to the same function in content", () => {
+    const system = buildSystemWithFunction(
+      [{ name: "id", type: "number", required: true }],
+      FN_UUID,
+    )
+    const matches = analyzeSequenceDiagramChanges(
+      "component a\ncomponent b\na->>b: API:fn(id: string)\na->>b: API:fn(id: string)",
+      system,
+      CURRENT,
+      sharedDiags,
+    )
+    expect(matches).toHaveLength(1)
   })
 })

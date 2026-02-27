@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { act, renderHook } from "@testing-library/react"
-import { useSystemStore } from "./useSystemStore"
+import { useSystemStore, type FunctionDecision } from "./useSystemStore"
 import type { ComponentNode, UseCaseDiagramNode } from "./types"
 
 // Mock crypto.randomUUID for consistent UUIDs in tests
@@ -505,6 +505,207 @@ describe("useSystemStore", () => {
       expect(fnAfter.parameters).toHaveLength(2)
       expect(fnAfter.parameters[0].name).toBe("x")
       expect(fnAfter.parameters[1].name).toBe("y")
+    })
+  })
+
+  describe("applyFunctionUpdates", () => {
+    const FN_UUID = "shared-fn-uuid"
+    const CURRENT_DIAG = "current-diag-uuid"
+    const OTHER_DIAG = "other-diag-uuid"
+
+    const buildSharedFunctionSystem = (): ComponentNode => ({
+      uuid: "root-component-uuid",
+      id: "root-component",
+      name: "My System",
+      type: "component",
+      description: "Root",
+      subComponents: [
+        {
+          uuid: "comp-uuid",
+          id: "comp1",
+          name: "Comp",
+          type: "component",
+          subComponents: [],
+          actors: [],
+          interfaces: [
+            {
+              uuid: "api-iface-uuid",
+              id: "API",
+              name: "API",
+              type: "rest",
+              functions: [
+                {
+                  uuid: FN_UUID,
+                  id: "fn",
+                  parameters: [{ name: "id", type: "number", required: true }],
+                },
+              ],
+            },
+          ],
+          useCaseDiagrams: [
+            {
+              uuid: "uc-diag-uuid",
+              id: "ucd",
+              name: "UC",
+              type: "use-case-diagram",
+              content: "",
+              ownerComponentUuid: "comp-uuid",
+              referencedNodeIds: [],
+              useCases: [
+                {
+                  uuid: "uc-uuid",
+                  id: "uc1",
+                  name: "UC",
+                  type: "use-case",
+                  sequenceDiagrams: [
+                    {
+                      uuid: CURRENT_DIAG,
+                      id: "seq1",
+                      name: "Current Diagram",
+                      type: "sequence-diagram",
+                      content: "",
+                      ownerComponentUuid: "comp-uuid",
+                      referencedNodeIds: [],
+                      referencedFunctionUuids: [FN_UUID],
+                    },
+                    {
+                      uuid: OTHER_DIAG,
+                      id: "seq2",
+                      name: "Other Diagram",
+                      type: "sequence-diagram",
+                      content: "component a\ncomponent b\na->>b: API:fn(id: number)",
+                      ownerComponentUuid: "comp-uuid",
+                      referencedNodeIds: [],
+                      referencedFunctionUuids: [FN_UUID],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      actors: [],
+      useCaseDiagrams: [],
+      interfaces: [],
+    })
+
+    it("update-all updates function params and text-substitutes in affected diagrams", () => {
+      const { result } = renderHook(() => useSystemStore())
+
+      act(() => {
+        useSystemStore.setState({ rootComponent: buildSharedFunctionSystem() })
+      })
+
+      const decision: FunctionDecision = {
+        kind: "incompatible",
+        action: "update-all",
+        interfaceId: "API",
+        functionId: "fn",
+        functionUuid: FN_UUID,
+        oldParams: [{ name: "id", type: "number", required: true }],
+        newParams: [{ name: "id", type: "string", required: true }],
+        affectedDiagramUuids: [OTHER_DIAG],
+      }
+
+      act(() => {
+        result.current.applyFunctionUpdates(
+          [decision],
+          CURRENT_DIAG,
+          "component a\ncomponent b\na->>b: API:fn(id: string)",
+        )
+      })
+
+      const comp = result.current.rootComponent.subComponents[0]
+      const fn = comp.interfaces[0].functions.find((f) => f.uuid === FN_UUID)
+      expect(fn?.parameters[0].type).toBe("string")
+
+      const otherDiag = comp.useCaseDiagrams[0].useCases[0].sequenceDiagrams.find(
+        (d) => d.uuid === OTHER_DIAG,
+      )
+      expect(otherDiag?.content).toContain("API:fn(id: string)")
+      expect(otherDiag?.content).not.toContain("API:fn(id: number)")
+      expect(result.current.parseError).toBeNull()
+    })
+
+    it("add-new adds a new function entry alongside the existing one", () => {
+      const { result } = renderHook(() => useSystemStore())
+
+      act(() => {
+        useSystemStore.setState({ rootComponent: buildSharedFunctionSystem() })
+      })
+
+      const decision: FunctionDecision = {
+        kind: "compatible",
+        action: "add-new",
+        interfaceId: "API",
+        functionId: "fn",
+        functionUuid: FN_UUID,
+        oldParams: [{ name: "id", type: "number", required: true }],
+        newParams: [
+          { name: "id", type: "number", required: true },
+          { name: "name", type: "string", required: true },
+        ],
+        affectedDiagramUuids: [],
+      }
+
+      act(() => {
+        result.current.applyFunctionUpdates(
+          [decision],
+          CURRENT_DIAG,
+          "component a\ncomponent b\na->>b: API:fn(id: number, name: string)",
+        )
+      })
+
+      const comp = result.current.rootComponent.subComponents[0]
+      const fns = comp.interfaces[0].functions
+      // Old function still present with original params
+      const oldFn = fns.find((f) => f.uuid === FN_UUID)
+      expect(oldFn?.parameters).toHaveLength(1)
+      // New function added with 2 params
+      const newFn = fns.find((f) => f.uuid !== FN_UUID && f.id === "fn")
+      expect(newFn?.parameters).toHaveLength(2)
+      expect(result.current.parseError).toBeNull()
+    })
+
+    it("update-existing updates function params without touching other diagrams' content", () => {
+      const { result } = renderHook(() => useSystemStore())
+
+      act(() => {
+        useSystemStore.setState({ rootComponent: buildSharedFunctionSystem() })
+      })
+
+      const decision: FunctionDecision = {
+        kind: "compatible",
+        action: "update-existing",
+        interfaceId: "API",
+        functionId: "fn",
+        functionUuid: FN_UUID,
+        oldParams: [{ name: "id", type: "number", required: true }],
+        newParams: [
+          { name: "id", type: "number", required: true },
+          { name: "name", type: "string", required: true },
+        ],
+        affectedDiagramUuids: [OTHER_DIAG],
+      }
+
+      act(() => {
+        result.current.applyFunctionUpdates(
+          [decision],
+          CURRENT_DIAG,
+          "component a\ncomponent b\na->>b: API:fn(id: number, name: string)",
+        )
+      })
+
+      const comp = result.current.rootComponent.subComponents[0]
+      const fn = comp.interfaces[0].functions.find((f) => f.uuid === FN_UUID)
+      expect(fn?.parameters).toHaveLength(2)
+
+      const otherDiag = comp.useCaseDiagrams[0].useCases[0].sequenceDiagrams.find(
+        (d) => d.uuid === OTHER_DIAG,
+      )
+      expect(otherDiag?.content).toContain("API:fn(id: number, name: string)")
+      expect(result.current.parseError).toBeNull()
     })
   })
 })
