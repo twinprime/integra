@@ -447,5 +447,64 @@ describe("useSystemStore", () => {
       // The caller (e.g., TreeView handleLoad) is responsible for clearing it if needed
       expect(result.current.selectedNodeId).toBe("some-node-uuid")
     })
+    it("should allow updating function parameters in a sequence diagram when it is the only reference", () => {
+      const { result } = renderHook(() => useSystemStore())
+
+      // Build: root → comp → ucDiagram → useCase → seqDiagram
+      const comp: ComponentNode = {
+        uuid: "comp-uuid", id: "comp1", name: "Comp", type: "component",
+        description: "", subComponents: [], actors: [], useCaseDiagrams: [], interfaces: [],
+      }
+      act(() => { result.current.addNode("root-component-uuid", comp) })
+
+      act(() => {
+        result.current.addNode("comp-uuid", {
+          uuid: "uc-diag-uuid", id: "ucd1", name: "UC Diag", type: "use-case-diagram",
+          description: "", content: "", referencedNodeIds: [], ownerComponentUuid: "comp-uuid", useCases: [],
+        })
+      })
+      act(() => {
+        result.current.addNode("uc-diag-uuid", {
+          uuid: "uc-uuid", id: "uc1", name: "Use Case", type: "use-case",
+          description: "", sequenceDiagrams: [],
+        })
+      })
+      act(() => {
+        result.current.addNode("uc-uuid", {
+          uuid: "seq-uuid", id: "seq1", name: "Seq Diag", type: "sequence-diagram",
+          description: "", content: "", referencedNodeIds: [], referencedFunctionUuids: [],
+          ownerComponentUuid: "comp-uuid",
+        })
+      })
+
+      // First parse: define fn(x: string)
+      act(() => {
+        result.current.updateNode("seq-uuid", {
+          content: `component "Comp" as comp\ncomp->>comp: myInterface:doWork(x: string)`,
+        })
+      })
+      expect(result.current.parseError).toBeNull()
+
+      const fnBefore = result.current.rootComponent.subComponents[0]
+        .subComponents[0]?.interfaces[0]?.functions[0]
+      expect(fnBefore).toBeDefined()
+      expect(fnBefore.parameters).toHaveLength(1)
+      expect(fnBefore.parameters[0].name).toBe("x")
+
+      // Second parse: update same fn to fn(x: string, y: number) — should not error
+      act(() => {
+        result.current.updateNode("seq-uuid", {
+          content: `component "Comp" as comp\ncomp->>comp: myInterface:doWork(x: string, y: number)`,
+        })
+      })
+      expect(result.current.parseError).toBeNull()
+
+      const fnAfter = result.current.rootComponent.subComponents[0]
+        .subComponents[0]?.interfaces[0]?.functions[0]
+      expect(fnAfter).toBeDefined()
+      expect(fnAfter.parameters).toHaveLength(2)
+      expect(fnAfter.parameters[0].name).toBe("x")
+      expect(fnAfter.parameters[1].name).toBe("y")
+    })
   })
 })

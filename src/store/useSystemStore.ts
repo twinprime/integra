@@ -162,6 +162,41 @@ function findOwnerComponentUuid(root: ComponentNode, useCaseUuid: string): strin
   return null
 }
 
+function removeInterfaceFunctions(comp: ComponentNode, uuidsToRemove: Set<string>): ComponentNode {
+  if (uuidsToRemove.size === 0) return comp
+  return {
+    ...comp,
+    interfaces: comp.interfaces.map((iface) => ({
+      ...iface,
+      functions: iface.functions.filter((f) => !uuidsToRemove.has(f.uuid)),
+    })),
+    subComponents: comp.subComponents.map((sub) => removeInterfaceFunctions(sub, uuidsToRemove)),
+  }
+}
+
+function stripExclusiveFunctionContributions(system: ComponentNode, diagramUuid: string): ComponentNode {
+  const allDiagrams = collectAllDiagrams(system)
+
+  const otherRefs = new Set<string>()
+  for (const { diagram } of allDiagrams) {
+    if (diagram.uuid !== diagramUuid && diagram.type === "sequence-diagram") {
+      for (const uuid of (diagram as SequenceDiagramNode).referencedFunctionUuids) {
+        otherRefs.add(uuid)
+      }
+    }
+  }
+
+  const thisDiagram = allDiagrams.find(({ diagram }) => diagram.uuid === diagramUuid)
+  if (!thisDiagram || thisDiagram.diagram.type !== "sequence-diagram") return system
+
+  const toRemove = new Set(
+    (thisDiagram.diagram as SequenceDiagramNode).referencedFunctionUuids.filter(
+      (uuid) => !otherRefs.has(uuid),
+    ),
+  )
+  return removeInterfaceFunctions(system, toRemove)
+}
+
 function tryReparseContent(
   content: string,
   system: ComponentNode,
@@ -179,8 +214,9 @@ function tryReparseContent(
         parseError: null,
       }
     }
+    const cleanedSystem = stripExclusiveFunctionContributions(system, nodeUuid)
     return {
-      rootComponent: parseSequenceDiagram(content, system, node.ownerComponentUuid, nodeUuid),
+      rootComponent: parseSequenceDiagram(content, cleanedSystem, node.ownerComponentUuid, nodeUuid),
       parseError: null,
     }
   } catch (err) {
