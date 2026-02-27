@@ -486,3 +486,137 @@ describe("analyzeSequenceDiagramChanges", () => {
     expect(matches).toHaveLength(1)
   })
 })
+
+describe("parseSequenceDiagram — UseCase message references", () => {
+  const createSystemWithUseCase = (): ComponentNode => ({
+    uuid: "root-uuid",
+    id: "root",
+    name: "Root",
+    type: "component",
+    subComponents: [
+      {
+        uuid: "owner-uuid",
+        id: "owner",
+        name: "Owner",
+        type: "component",
+        description: "",
+        subComponents: [
+          {
+            uuid: "svc-uuid",
+            id: "svc",
+            name: "Service",
+            type: "component",
+            description: "",
+            subComponents: [],
+            actors: [],
+            useCaseDiagrams: [
+              {
+                uuid: "uc-diag-uuid",
+                id: "uc-diag",
+                name: "UC Diagram",
+                type: "use-case-diagram",
+                content: "",
+                description: "",
+                ownerComponentUuid: "svc-uuid",
+                referencedNodeIds: [],
+                useCases: [
+                  {
+                    uuid: "login-uuid",
+                    id: "login",
+                    name: "Login",
+                    type: "use-case",
+                    description: "",
+                    sequenceDiagrams: [],
+                  },
+                ],
+              },
+            ],
+            interfaces: [],
+          },
+        ],
+        actors: [{ uuid: "user-uuid", id: "user", name: "User", type: "actor" }],
+        useCaseDiagrams: [
+          {
+            uuid: "owner-uc-diag-uuid",
+            id: "owner-uc-diag",
+            name: "Owner UC Diagram",
+            type: "use-case-diagram",
+            content: "",
+            description: "",
+            ownerComponentUuid: "owner-uuid",
+            referencedNodeIds: [],
+            useCases: [
+              {
+                uuid: "owner-uc-uuid",
+                id: "owner-uc",
+                name: "Owner UC",
+                type: "use-case",
+                description: "",
+                sequenceDiagrams: [
+                  {
+                    uuid: "seq-uuid",
+                    id: "seq",
+                    name: "Sequence",
+                    type: "sequence-diagram",
+                    content: "",
+                    description: "",
+                    ownerComponentUuid: "owner-uuid",
+                    referencedNodeIds: [],
+                    referencedFunctionUuids: [],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        interfaces: [],
+      },
+    ],
+    actors: [],
+    useCaseDiagrams: [],
+    interfaces: [],
+  })
+
+  it("resolves UseCase:ucId to the use case UUID in referencedNodeIds", () => {
+    const root = createSystemWithUseCase()
+    const content = `
+      actor "User" as user
+      component "Service" as svc
+      user->>svc: UseCase:login
+    `
+    const result = parseSequenceDiagram(content, root, "owner-uuid", "seq-uuid")
+    const owner = result.subComponents[0]
+    const seq = owner.useCaseDiagrams[0].useCases[0].sequenceDiagrams[0]
+    expect(seq.referencedNodeIds).toContain("login-uuid")
+  })
+
+  it("skips unresolvable use case ids gracefully (no error, no uuid added)", () => {
+    const root = createSystemWithUseCase()
+    const content = `
+      actor "User" as user
+      component "Service" as svc
+      user->>svc: UseCase:nonexistent
+    `
+    const result = parseSequenceDiagram(content, root, "owner-uuid", "seq-uuid")
+    const owner = result.subComponents[0]
+    const seq = owner.useCaseDiagrams[0].useCases[0].sequenceDiagrams[0]
+    expect(seq.referencedNodeIds).not.toContain("login-uuid")
+    // Should not throw and still resolve participant references
+    expect(seq.referencedNodeIds).toContain("user-uuid")
+  })
+
+  it("deduplicates multiple UseCase references to the same use case", () => {
+    const root = createSystemWithUseCase()
+    const content = `
+      actor "User" as user
+      component "Service" as svc
+      user->>svc: UseCase:login
+      user->>svc: UseCase:login
+    `
+    const result = parseSequenceDiagram(content, root, "owner-uuid", "seq-uuid")
+    const owner = result.subComponents[0]
+    const seq = owner.useCaseDiagrams[0].useCases[0].sequenceDiagrams[0]
+    const loginRefs = seq.referencedNodeIds.filter((id) => id === "login-uuid")
+    expect(loginRefs).toHaveLength(1)
+  })
+})

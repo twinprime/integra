@@ -39,6 +39,15 @@ function parsePattern<T>(
   return { items, fromUuids, ids }
 }
 
+function findOwnerInTree(root: ComponentNode, uuid: string): ComponentNode | null {
+  if (root.uuid === uuid) return root
+  for (const sub of root.subComponents) {
+    const found = findOwnerInTree(sub, uuid)
+    if (found) return found
+  }
+  return null
+}
+
 export function parseUseCaseDiagram(
   content: string,
   rootComponent: ComponentNode,
@@ -55,6 +64,21 @@ export function parseUseCaseDiagram(
     (id, name) => ({ uuid: crypto.randomUUID(), id, name, type: "use-case", description: `Use Case ${name}`, sequenceDiagrams: [] }),
   )
 
+  // Validate use case ID uniqueness within the component (across all diagrams)
+  const ownerBefore = findOwnerInTree(rootComponent, ownerComponentUuid)
+  if (ownerBefore) {
+    for (const diagram of ownerBefore.useCaseDiagrams) {
+      if (diagram.uuid === diagramUuid) continue
+      for (const item of useCases.items) {
+        if (diagram.useCases.some((uc) => uc.id === item.id)) {
+          throw new Error(
+            `Use case id "${item.id}" already exists in another diagram of this component`,
+          )
+        }
+      }
+    }
+  }
+
   // Update owner component with merged actors and sub-components
   let updatedRoot = upsertTree(rootComponent, ownerComponentUuid, (node) => {
     const comp = node as ComponentNode
@@ -66,15 +90,7 @@ export function parseUseCaseDiagram(
   })
 
   // Resolve parsed ids → uuids in the updated tree
-  const findOwnerComp = (c: ComponentNode): ComponentNode | null => {
-    if (c.uuid === ownerComponentUuid) return c
-    for (const sub of c.subComponents) {
-      const found = findOwnerComp(sub)
-      if (found) return found
-    }
-    return null
-  }
-  const ownerComp = findOwnerComp(updatedRoot)
+  const ownerComp = findOwnerInTree(updatedRoot, ownerComponentUuid)
 
   const referencedNodeIds: string[] = [...actors.fromUuids, ...components.fromUuids, ...useCases.fromUuids]
   if (ownerComp) {

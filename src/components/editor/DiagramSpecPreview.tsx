@@ -76,6 +76,9 @@ const RX_PART_BARE = /^(\s*)(actor|component)(\s+)(\w+)(.*)/
 // Sequence message: sender->>receiver: InterfaceId:functionId(params)
 const RX_SEQ_MSG =
   /^(\s*)(\w+)(\s*->>\s*)(\w+)(\s*:\s*)(\w+):(\w+)(\([^)]*\))(.*)/
+// Sequence use-case message: sender->>receiver: UseCase:ucId
+const RX_SEQ_UC_MSG =
+  /^(\s*)(\w+)(\s*->>\s*)(\w+)(\s*:\s*)(UseCase):(\w+)(.*)/
 // Use-case relation: id --> id  /  id -->> id
 const RX_UC_REL = /^(\s*)(\w+)(\s+--?>>?\s+)(\w+)(.*)/
 
@@ -144,6 +147,32 @@ function tokenizeLine(
         seg(keyword, "text-purple-400"),
         seg(space, ""),
         seg(id, "text-blue-400", uuid),
+        seg(rest, "text-gray-300"),
+      ]
+    }
+
+    // Use-case message: sender->>receiver: UseCase:ucId (check before RX_SEQ_MSG)
+    const ucMsg = RX_SEQ_UC_MSG.exec(line)
+    if (ucMsg) {
+      const [, indent, sender, arrow, receiver, colon, , ucId, rest] = ucMsg
+      const receiverCompUuid = participantMap.get(receiver)
+      let ucUuid: string | undefined
+      if (receiverCompUuid) {
+        const receiverComp = findOwnerComponent(root, receiverCompUuid)
+        if (receiverComp) {
+          for (const d of receiverComp.useCaseDiagrams) {
+            const uc = d.useCases.find((u) => u.id === ucId)
+            if (uc) { ucUuid = uc.uuid; break }
+          }
+        }
+      }
+      return [
+        seg(indent, ""),
+        seg(sender, "text-blue-400", participantMap.get(sender)),
+        seg(arrow, "text-gray-400"),
+        seg(receiver, "text-blue-400", participantMap.get(receiver)),
+        seg(colon, "text-gray-400"),
+        seg(`UseCase:${ucId}`, "text-green-400", ucUuid),
         seg(rest, "text-gray-300"),
       ]
     }

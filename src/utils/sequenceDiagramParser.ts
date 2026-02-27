@@ -15,6 +15,8 @@ const SEQ_COMPONENT_NAMED =
 const SEQ_COMPONENT_BARE = /^\s*component\s+(\w+)/
 // New format: sender->>receiver: InterfaceId:functionId(param: type, param2: type2?)
 const MESSAGE_PATTERN = /(\w+)\s*->>\s*(\w+)\s*:\s*(\w+):(\w+)\(([^)]*)\)/g
+// Use-case reference: sender->>receiver: UseCase:useCaseId
+const USE_CASE_MESSAGE_PATTERN = /(\w+)\s*->>\s*(\w+)\s*:\s*UseCase:(\w+)/g
 
 // Which side of the message owns the interface
 const INTERFACE_TYPE_OWNER: Record<string, "sender" | "receiver"> = {
@@ -37,6 +39,12 @@ type MessageEntry = {
   interfaceId: string
   functionId: string
   params: string
+}
+
+type UseCaseMessageEntry = {
+  from: string
+  to: string
+  useCaseId: string
 }
 
 function parseParameters(rawParams: string): Parameter[] {
@@ -212,6 +220,14 @@ function findComponentByUuid(
     if (found) return found
   }
   return null
+}
+
+function findUseCaseInComponent(comp: ComponentNode, useCaseId: string): string | undefined {
+  for (const d of comp.useCaseDiagrams) {
+    const uc = d.useCases.find((u) => u.id === useCaseId)
+    if (uc) return uc.uuid
+  }
+  return undefined
 }
 
 type ParseState = {
@@ -402,6 +418,7 @@ export function parseSequenceDiagram(
     fromParticipantUuids: [],
   }
   const messages: MessageEntry[] = []
+  const useCaseMessages: UseCaseMessageEntry[] = []
 
   for (const line of content.split("\n")) {
     parseParticipantLine(line, rootComponent, "actor", parseState)
@@ -420,6 +437,11 @@ export function parseSequenceDiagram(
     })
   }
 
+  USE_CASE_MESSAGE_PATTERN.lastIndex = 0
+  while ((match = USE_CASE_MESSAGE_PATTERN.exec(content)) !== null) {
+    useCaseMessages.push({ from: match[1], to: match[2], useCaseId: match[3] })
+  }
+
   let updatedRoot = upsertTree(rootComponent, ownerComponentUuid, (node) =>
     applyParticipantsToComponent(
       node as ComponentNode,
@@ -434,6 +456,16 @@ export function parseSequenceDiagram(
     parseState.parsedParticipantIds,
     parseState.fromParticipantUuids,
   )
+
+  // Resolve use-case message references into referencedNodeIds
+  if (ownerComp) {
+    for (const msg of useCaseMessages) {
+      const receiverComp = ownerComp.subComponents.find((c) => c.id === msg.to)
+      if (!receiverComp) continue
+      const ucUuid = findUseCaseInComponent(receiverComp, msg.useCaseId)
+      if (ucUuid && !referencedNodeIds.includes(ucUuid)) referencedNodeIds.push(ucUuid)
+    }
+  }
 
   const referencedFunctionUuids: string[] = []
   for (const msg of messages) {
