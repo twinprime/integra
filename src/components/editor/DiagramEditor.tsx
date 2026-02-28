@@ -1,9 +1,13 @@
-import { useEffect, useRef, useState } from "react"
-import type { DiagramNode } from "../../store/types"
+import { useEffect, useMemo, useRef, useState } from "react"
+import type { ComponentNode, DiagramNode } from "../../store/types"
 import { useSystemStore, getSequenceDiagrams, type FunctionDecision } from "../../store/useSystemStore"
 import { analyzeSequenceDiagramChanges, type FunctionMatch } from "../../utils/sequenceDiagramParser"
 import { FunctionUpdateDialog } from "../FunctionUpdateDialog"
 import { DiagramSpecPreview } from "./DiagramSpecPreview"
+import { useAutoComplete, type Suggestion } from "./useAutoComplete"
+
+const LINE_HEIGHT = 22
+const TEXTAREA_PADDING = 8
 
 export const DiagramEditor = ({
   node,
@@ -14,6 +18,8 @@ export const DiagramEditor = ({
 }) => {
   const [name, setName] = useState(node.name || "")
   const [content, setContent] = useState(node.content || "")
+  const [cursorPos, setCursorPos] = useState(0)
+  const [scrollTop, setScrollTop] = useState(0)
   const [pendingContent, setPendingContent] = useState<string | null>(null)
   const [functionMatches, setFunctionMatches] = useState<FunctionMatch[]>([])
   const [isEditing, setIsEditing] = useState(!node.content)
@@ -25,6 +31,26 @@ export const DiagramEditor = ({
 
   const { rootComponent, applyFunctionUpdates } = useSystemStore()
   const seqDiagrams = getSequenceDiagrams(rootComponent)
+
+  const ownerComp = useMemo((): ComponentNode | null => {
+    const walk = (c: ComponentNode): ComponentNode | null => {
+      if (c.uuid === node.ownerComponentUuid) return c
+      for (const sub of c.subComponents) {
+        const found = walk(sub)
+        if (found) return found
+      }
+      return null
+    }
+    return walk(rootComponent)
+  }, [rootComponent, node.ownerComponentUuid])
+
+  const { suggestions, selectedIndex, setSelectedIndex, anchorLine, dismiss, triggerNow } = useAutoComplete(
+    content,
+    cursorPos,
+    node.type as "sequence-diagram" | "use-case-diagram",
+    ownerComp,
+    rootComponent,
+  )
 
   // Reset edit mode and history when switching to a different node
   useEffect(() => {
@@ -68,7 +94,51 @@ export const DiagramEditor = ({
     }, 500)
   }
 
+  const acceptSuggestion = (suggestion: Suggestion) => {
+    const before = content.slice(0, suggestion.replaceFrom)
+    const after = content.slice(cursorPos)
+    const newContent = before + suggestion.insertText + after
+    const newCursor = suggestion.replaceFrom + suggestion.insertText.length
+    handleContentChange(newContent)
+    dismiss()
+    requestAnimationFrame(() => {
+      textareaRef.current?.setSelectionRange(newCursor, newCursor)
+      setCursorPos(newCursor)
+    })
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Autocomplete navigation takes priority when dropdown is visible
+    if (suggestions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault()
+        setSelectedIndex((selectedIndex + 1) % suggestions.length)
+        return
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault()
+        setSelectedIndex((selectedIndex - 1 + suggestions.length) % suggestions.length)
+        return
+      }
+      if (e.key === "Tab" || e.key === "Enter") {
+        e.preventDefault()
+        acceptSuggestion(suggestions[selectedIndex])
+        return
+      }
+      if (e.key === "Escape") {
+        e.preventDefault()
+        dismiss()
+        return
+      }
+    }
+
+    // Tab with no suggestions: trigger autocomplete immediately
+    if (e.key === "Tab") {
+      e.preventDefault()
+      triggerNow()
+      return
+    }
+
     const ctrlOrCmd = e.metaKey || e.ctrlKey
     if (ctrlOrCmd && e.key === "z" && !e.shiftKey) {
       e.preventDefault()
@@ -183,10 +253,15 @@ export const DiagramEditor = ({
               ref={textareaRef}
               className={`absolute inset-0 w-full h-full p-2 text-[0.85rem] font-mono leading-relaxed bg-transparent resize-none focus:outline-none selection:bg-blue-500/30 ${content ? "text-transparent caret-white" : "text-gray-400"}`}
               value={content}
-              onChange={(e) => handleContentChange(e.target.value)}
+              onChange={(e) => {
+                handleContentChange(e.target.value)
+                setCursorPos(e.target.selectionStart ?? 0)
+              }}
               onBlur={handleContentBlur}
               onKeyDown={handleKeyDown}
+              onSelect={(e) => setCursorPos(e.currentTarget.selectionStart ?? 0)}
               onScroll={(e) => {
+                setScrollTop(e.currentTarget.scrollTop)
                 if (backdropRef.current) {
                   backdropRef.current.scrollTop = e.currentTarget.scrollTop
                   backdropRef.current.scrollLeft = e.currentTarget.scrollLeft
@@ -199,6 +274,33 @@ export const DiagramEditor = ({
                   : 'actor "User" as user\nuse case "Login" as login\nuser --> login'
               }
             />
+            {/* Autocomplete dropdown */}
+            {suggestions.length > 0 && (
+              <div
+                className="absolute z-10 bg-gray-800 border border-gray-600 rounded shadow-lg overflow-y-auto max-h-40"
+                style={{
+                  top: (anchorLine + 1) * LINE_HEIGHT + TEXTAREA_PADDING - scrollTop,
+                  left: TEXTAREA_PADDING,
+                }}
+              >
+                {suggestions.map((s, i) => (
+                  <div
+                    key={i}
+                    className={`px-3 py-1 text-xs font-mono cursor-pointer whitespace-nowrap ${
+                      i === selectedIndex
+                        ? "bg-blue-600 text-white"
+                        : "text-gray-200 hover:bg-gray-700"
+                    }`}
+                    onMouseDown={(e) => {
+                      e.preventDefault()
+                      acceptSuggestion(s)
+                    }}
+                  >
+                    {s.label}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           <DiagramSpecPreview

@@ -257,6 +257,7 @@ describe("isUseCaseReferenced", () => {
   const makeSeqDiag = (referencedNodeIds: string[]) => ({
     uuid: "seq-uuid", id: "seq", name: "Seq", type: "sequence-diagram" as const,
     content: "", description: "", ownerComponentUuid: "sub-uuid", referencedNodeIds,
+    referencedFunctionUuids: [],
   })
 
   it("returns false when no sequence diagrams reference the use case", () => {
