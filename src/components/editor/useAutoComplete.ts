@@ -48,6 +48,8 @@ type Context =
   | { type: 'keyword'; keywords: string[]; partial: string; replaceFrom: number; anchorLine: number }
   | { type: 'entity-name'; keyword: 'actor' | 'component' | 'use case'; partial: string; replaceFrom: number; anchorLine: number }
   | { type: 'function-ref'; receiverId: string; partial: string; replaceFrom: number; anchorLine: number }
+  | { type: 'seq-receiver'; partial: string; replaceFrom: number; anchorLine: number }
+  | { type: 'uc-link-target'; partial: string; replaceFrom: number; anchorLine: number }
   | { type: 'declared-entity'; partial: string; replaceFrom: number; anchorLine: number }
 
 function detectContext(content: string, cursorPos: number, diagramType: DiagramType): Context | null {
@@ -63,6 +65,32 @@ function detectContext(content: string, cursorPos: number, diagramType: DiagramT
       return {
         type: 'function-ref',
         receiverId: msgMatch[2],
+        partial,
+        replaceFrom: cursorPos - partial.length,
+        anchorLine,
+      }
+    }
+
+    // Receiver suggestion: sender->> with partial receiver (no colon yet)
+    const receiverMatch = /^(\w+)->>([\w]*)$/.exec(currentLine)
+    if (receiverMatch) {
+      const partial = receiverMatch[2]
+      return {
+        type: 'seq-receiver',
+        partial,
+        replaceFrom: cursorPos - partial.length,
+        anchorLine,
+      }
+    }
+  }
+
+  // Use-case link target: entityId --> partial  or  entityId -->> partial
+  if (diagramType === 'use-case-diagram') {
+    const linkMatch = /^(\w+)\s+--?>>?\s+([\w]*)$/.exec(currentLine)
+    if (linkMatch) {
+      const partial = linkMatch[2]
+      return {
+        type: 'uc-link-target',
         partial,
         replaceFrom: cursorPos - partial.length,
         anchorLine,
@@ -200,6 +228,12 @@ function buildSuggestions(
       }
     }
     return suggs
+  }
+
+  if (ctx.type === 'seq-receiver' || ctx.type === 'uc-link-target') {
+    return parseDeclaredIds(content)
+      .filter(id => !ctx.partial || id.toLowerCase().startsWith(ctx.partial.toLowerCase()))
+      .map(id => ({ label: id, insertText: id, replaceFrom: ctx.replaceFrom }))
   }
 
   if (ctx.type === 'declared-entity') {
