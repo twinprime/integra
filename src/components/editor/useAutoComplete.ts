@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { ComponentNode } from '../../store/types'
-import { paramsToString } from '../../utils/sequenceDiagramParser'
+import { useEffect, useMemo, useState } from "react"
+import type { ComponentNode } from "../../store/types"
+import { paramsToString } from "../../utils/sequenceDiagramParser"
 
 export type Suggestion = {
   label: string
@@ -8,10 +8,10 @@ export type Suggestion = {
   replaceFrom: number
 }
 
-type DiagramType = 'sequence-diagram' | 'use-case-diagram'
+type DiagramType = "sequence-diagram" | "use-case-diagram"
 
-const UC_KEYWORDS = ['actor', 'component', 'use case']
-const SEQ_KEYWORDS = ['actor', 'component']
+const UC_KEYWORDS = ["actor", "component", "use case"]
+const SEQ_KEYWORDS = ["actor", "component"]
 
 function parseDeclaredIds(content: string): string[] {
   const ids: string[] = []
@@ -35,7 +35,10 @@ function collectAllComponents(root: ComponentNode): ComponentNode[] {
   return result
 }
 
-function findComponentByIdInTree(root: ComponentNode, id: string): ComponentNode | null {
+function findComponentByIdInTree(
+  root: ComponentNode,
+  id: string,
+): ComponentNode | null {
   if (root.id === id) return root
   for (const sub of root.subComponents) {
     const found = findComponentByIdInTree(sub, id)
@@ -45,25 +48,62 @@ function findComponentByIdInTree(root: ComponentNode, id: string): ComponentNode
 }
 
 type Context =
-  | { type: 'keyword'; keywords: string[]; partial: string; replaceFrom: number; anchorLine: number }
-  | { type: 'entity-name'; keyword: 'actor' | 'component' | 'use case'; partial: string; replaceFrom: number; anchorLine: number }
-  | { type: 'function-ref'; receiverId: string; partial: string; replaceFrom: number; anchorLine: number }
-  | { type: 'seq-receiver'; partial: string; replaceFrom: number; anchorLine: number }
-  | { type: 'uc-link-target'; partial: string; replaceFrom: number; anchorLine: number }
-  | { type: 'declared-entity'; partial: string; replaceFrom: number; anchorLine: number }
+  | {
+      type: "keyword"
+      keywords: string[]
+      partial: string
+      replaceFrom: number
+      anchorLine: number
+    }
+  | {
+      type: "entity-name"
+      keyword: "actor" | "component" | "use case"
+      partial: string
+      replaceFrom: number
+      anchorLine: number
+    }
+  | {
+      type: "function-ref"
+      receiverId: string
+      partial: string
+      replaceFrom: number
+      anchorLine: number
+    }
+  | {
+      type: "seq-receiver"
+      partial: string
+      replaceFrom: number
+      anchorLine: number
+    }
+  | {
+      type: "uc-link-target"
+      partial: string
+      replaceFrom: number
+      anchorLine: number
+    }
+  | {
+      type: "declared-entity"
+      partial: string
+      replaceFrom: number
+      anchorLine: number
+    }
 
-function detectContext(content: string, cursorPos: number, diagramType: DiagramType): Context | null {
-  const lineStart = content.lastIndexOf('\n', cursorPos - 1) + 1
+function detectContext(
+  content: string,
+  cursorPos: number,
+  diagramType: DiagramType,
+): Context | null {
+  const lineStart = content.lastIndexOf("\n", cursorPos - 1) + 1
   const currentLine = content.slice(lineStart, cursorPos)
-  const anchorLine = content.slice(0, cursorPos).split('\n').length - 1
+  const anchorLine = content.slice(0, cursorPos).split("\n").length - 1
 
   // Function reference: sender->>receiver: partial (sequence diagrams only)
-  if (diagramType === 'sequence-diagram') {
-    const msgMatch = /^(\w+)->>([\w]+):\s*(\S*)$/.exec(currentLine)
+  if (diagramType === "sequence-diagram") {
+    const msgMatch = /^(\w+)\s*->>\s*(\w+):\s*(\S*)$/.exec(currentLine)
     if (msgMatch) {
       const partial = msgMatch[3]
       return {
-        type: 'function-ref',
+        type: "function-ref",
         receiverId: msgMatch[2],
         partial,
         replaceFrom: cursorPos - partial.length,
@@ -72,11 +112,11 @@ function detectContext(content: string, cursorPos: number, diagramType: DiagramT
     }
 
     // Receiver suggestion: sender->> with partial receiver (no colon yet)
-    const receiverMatch = /^(\w+)->>([\w]*)$/.exec(currentLine)
+    const receiverMatch = /^(\w+)\s*->>\s*(\w*)$/.exec(currentLine)
     if (receiverMatch) {
       const partial = receiverMatch[2]
       return {
-        type: 'seq-receiver',
+        type: "seq-receiver",
         partial,
         replaceFrom: cursorPos - partial.length,
         anchorLine,
@@ -85,12 +125,12 @@ function detectContext(content: string, cursorPos: number, diagramType: DiagramT
   }
 
   // Use-case link target: entityId --> partial  or  entityId -->> partial
-  if (diagramType === 'use-case-diagram') {
-    const linkMatch = /^(\w+)\s+--?>>?\s+([\w]*)$/.exec(currentLine)
+  if (diagramType === "use-case-diagram") {
+    const linkMatch = /^(\w+)\s*--?>>?\s*([\w]*)$/.exec(currentLine)
     if (linkMatch) {
       const partial = linkMatch[2]
       return {
-        type: 'uc-link-target',
+        type: "uc-link-target",
         partial,
         replaceFrom: cursorPos - partial.length,
         anchorLine,
@@ -99,13 +139,14 @@ function detectContext(content: string, cursorPos: number, diagramType: DiagramT
   }
 
   // Entity name after keyword (keyword must be followed by exactly one space)
-  const keywords = diagramType === 'use-case-diagram' ? UC_KEYWORDS : SEQ_KEYWORDS
+  const keywords =
+    diagramType === "use-case-diagram" ? UC_KEYWORDS : SEQ_KEYWORDS
   for (const kw of keywords) {
-    if (currentLine.startsWith(kw + ' ')) {
+    if (currentLine.startsWith(kw + " ")) {
       const partial = currentLine.slice(kw.length + 1)
       return {
-        type: 'entity-name',
-        keyword: kw as 'actor' | 'component' | 'use case',
+        type: "entity-name",
+        keyword: kw as "actor" | "component" | "use case",
         partial,
         replaceFrom: lineStart + kw.length + 1,
         anchorLine,
@@ -115,14 +156,27 @@ function detectContext(content: string, cursorPos: number, diagramType: DiagramT
 
   // Keyword prefix at line start
   const partial = currentLine
-  const matchingKeywords = keywords.filter(k => k.startsWith(partial) && k !== partial)
+  const matchingKeywords = keywords.filter(
+    (k) => k.startsWith(partial) && k !== partial,
+  )
   if (partial.length > 0 && matchingKeywords.length > 0) {
-    return { type: 'keyword', keywords: matchingKeywords, partial, replaceFrom: lineStart, anchorLine }
+    return {
+      type: "keyword",
+      keywords: matchingKeywords,
+      partial,
+      replaceFrom: lineStart,
+      anchorLine,
+    }
   }
 
   // Declared entity IDs (empty line or word-only partial)
   if (partial.length === 0 || /^\w+$/.test(partial)) {
-    return { type: 'declared-entity', partial, replaceFrom: lineStart, anchorLine }
+    return {
+      type: "declared-entity",
+      partial,
+      replaceFrom: lineStart,
+      anchorLine,
+    }
   }
 
   return null
@@ -138,19 +192,19 @@ function buildSuggestions(
   const matchLower = (text: string, partial: string) =>
     !partial || text.toLowerCase().includes(partial.toLowerCase())
 
-  if (ctx.type === 'keyword') {
-    return ctx.keywords.map(kw => ({
+  if (ctx.type === "keyword") {
+    return ctx.keywords.map((kw) => ({
       label: kw,
-      insertText: kw + ' ',
+      insertText: kw + " ",
       replaceFrom: ctx.replaceFrom,
     }))
   }
 
-  if (ctx.type === 'entity-name') {
+  if (ctx.type === "entity-name") {
     const suggs: Suggestion[] = []
     const allComps = collectAllComponents(rootComponent)
 
-    if (ctx.keyword === 'actor') {
+    if (ctx.keyword === "actor") {
       const localSuggs: Suggestion[] = []
       const externalSuggs: Suggestion[] = []
       for (const comp of allComps) {
@@ -161,7 +215,9 @@ function buildSuggestions(
             : `"${actor.name}" from ${comp.id}/${actor.id} as ${actor.id}`
           if (matchLower(insertText, ctx.partial)) {
             const entry = {
-              label: isOwner ? `${actor.name} (local)` : `${actor.name} (from ${comp.name})`,
+              label: isOwner
+                ? `${actor.name} (local)`
+                : `${actor.name} (from ${comp.name})`,
               insertText,
               replaceFrom: ctx.replaceFrom,
             }
@@ -171,12 +227,14 @@ function buildSuggestions(
         }
       }
       return [...localSuggs, ...externalSuggs]
-    } else if (ctx.keyword === 'component') {
+    } else if (ctx.keyword === "component") {
       const localSuggs: Suggestion[] = []
       const externalSuggs: Suggestion[] = []
       for (const comp of allComps) {
         const isOwner = comp.uuid === ownerComp.uuid
-        const isDirectChild = ownerComp.subComponents.some(s => s.uuid === comp.uuid)
+        const isDirectChild = ownerComp.subComponents.some(
+          (s) => s.uuid === comp.uuid,
+        )
         let insertText: string
         let label: string
         if (isOwner) {
@@ -196,12 +254,19 @@ function buildSuggestions(
         }
       }
       return [...localSuggs, ...externalSuggs]
-    } else if (ctx.keyword === 'use case' && diagramType === 'use-case-diagram') {
+    } else if (
+      ctx.keyword === "use case" &&
+      diagramType === "use-case-diagram"
+    ) {
       for (const ucDiag of ownerComp.useCaseDiagrams) {
         for (const uc of ucDiag.useCases) {
           const insertText = `"${uc.name}" as ${uc.id}`
           if (matchLower(insertText, ctx.partial)) {
-            suggs.push({ label: uc.name, insertText, replaceFrom: ctx.replaceFrom })
+            suggs.push({
+              label: uc.name,
+              insertText,
+              replaceFrom: ctx.replaceFrom,
+            })
           }
         }
       }
@@ -210,13 +275,15 @@ function buildSuggestions(
     return suggs
   }
 
-  if (ctx.type === 'function-ref') {
+  if (ctx.type === "function-ref") {
     let receiverComp: ComponentNode | null = null
     if (ownerComp.id === ctx.receiverId) {
       receiverComp = ownerComp
     } else {
-      receiverComp = ownerComp.subComponents.find(c => c.id === ctx.receiverId) ?? null
-      if (!receiverComp) receiverComp = findComponentByIdInTree(rootComponent, ctx.receiverId)
+      receiverComp =
+        ownerComp.subComponents.find((c) => c.id === ctx.receiverId) ?? null
+      if (!receiverComp)
+        receiverComp = findComponentByIdInTree(rootComponent, ctx.receiverId)
     }
     if (!receiverComp) return []
 
@@ -225,7 +292,11 @@ function buildSuggestions(
       for (const fn of iface.functions) {
         const insertText = `${iface.id}:${fn.id}(${paramsToString(fn.parameters)})`
         if (matchLower(insertText, ctx.partial)) {
-          suggs.push({ label: insertText, insertText, replaceFrom: ctx.replaceFrom })
+          suggs.push({
+            label: insertText,
+            insertText,
+            replaceFrom: ctx.replaceFrom,
+          })
         }
       }
     }
@@ -233,23 +304,43 @@ function buildSuggestions(
       for (const uc of ucDiag.useCases) {
         const insertText = `UseCase:${uc.id}`
         if (matchLower(insertText, ctx.partial)) {
-          suggs.push({ label: `${insertText} (${uc.name})`, insertText, replaceFrom: ctx.replaceFrom })
+          suggs.push({
+            label: `${insertText} (${uc.name})`,
+            insertText,
+            replaceFrom: ctx.replaceFrom,
+          })
         }
       }
     }
     return suggs
   }
 
-  if (ctx.type === 'seq-receiver' || ctx.type === 'uc-link-target') {
+  if (ctx.type === "seq-receiver" || ctx.type === "uc-link-target") {
     return parseDeclaredIds(content)
-      .filter(id => !ctx.partial || id.toLowerCase().startsWith(ctx.partial.toLowerCase()))
-      .map(id => ({ label: id, insertText: id, replaceFrom: ctx.replaceFrom }))
+      .filter(
+        (id) =>
+          !ctx.partial ||
+          id.toLowerCase().startsWith(ctx.partial.toLowerCase()),
+      )
+      .map((id) => ({
+        label: id,
+        insertText: id,
+        replaceFrom: ctx.replaceFrom,
+      }))
   }
 
-  if (ctx.type === 'declared-entity') {
+  if (ctx.type === "declared-entity") {
     return parseDeclaredIds(content)
-      .filter(id => !ctx.partial || id.toLowerCase().startsWith(ctx.partial.toLowerCase()))
-      .map(id => ({ label: id, insertText: id, replaceFrom: ctx.replaceFrom }))
+      .filter(
+        (id) =>
+          !ctx.partial ||
+          id.toLowerCase().startsWith(ctx.partial.toLowerCase()),
+      )
+      .map((id) => ({
+        label: id,
+        insertText: id,
+        replaceFrom: ctx.replaceFrom,
+      }))
   }
 
   return []
@@ -273,8 +364,12 @@ export const useAutoComplete = (
 } => {
   const [selectedIndex, setSelectedIndex] = useState(0)
   // Track which content snapshot last triggered/dismissed — derived booleans need no setState in effects
-  const [triggeredForContent, setTriggeredForContent] = useState<string | null>(null)
-  const [dismissedAtContent, setDismissedAtContent] = useState<string | null>(null)
+  const [triggeredForContent, setTriggeredForContent] = useState<string | null>(
+    null,
+  )
+  const [dismissedAtContent, setDismissedAtContent] = useState<string | null>(
+    null,
+  )
 
   const triggered = triggeredForContent === content
   const dismissed = dismissedAtContent === content
@@ -295,10 +390,24 @@ export const useAutoComplete = (
     const ctx = detectContext(content, cursorPos, diagramType)
     if (!ctx) return { suggestions: [] as Suggestion[], anchorLine: 0 }
     return {
-      suggestions: buildSuggestions(ctx, content, ownerComp, rootComponent, diagramType),
+      suggestions: buildSuggestions(
+        ctx,
+        content,
+        ownerComp,
+        rootComponent,
+        diagramType,
+      ),
       anchorLine: ctx.anchorLine,
     }
-  }, [content, cursorPos, diagramType, ownerComp, rootComponent, triggered, dismissed])
+  }, [
+    content,
+    cursorPos,
+    diagramType,
+    ownerComp,
+    rootComponent,
+    triggered,
+    dismissed,
+  ])
 
   const triggerNow = () => {
     setDismissedAtContent(null)
@@ -308,10 +417,12 @@ export const useAutoComplete = (
 
   return {
     ...result,
-    selectedIndex: Math.min(selectedIndex, Math.max(0, result.suggestions.length - 1)),
+    selectedIndex: Math.min(
+      selectedIndex,
+      Math.max(0, result.suggestions.length - 1),
+    ),
     setSelectedIndex,
     dismiss: () => setDismissedAtContent(content),
     triggerNow,
   }
 }
-
