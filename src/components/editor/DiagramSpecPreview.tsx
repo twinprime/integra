@@ -80,6 +80,10 @@ const RX_SEQ_MSG =
 // Sequence use-case message: sender->>receiver: UseCase:ucId
 const RX_SEQ_UC_MSG =
   /^(\s*)(\w+)(\s*->>\s*)(\w+)(\s*:\s*)(UseCase):(\w+)(.*)/
+// Sequence message with any description: sender->>receiver: anything
+const RX_SEQ_MSG_ANY = /^(\s*)(\w+)(\s*->>\s*)(\w+)(\s*:\s*)(.*)/
+// Sequence bare arrow (no colon yet, mid-edit): sender->>receiver
+const RX_SEQ_MSG_BARE = /^(\s*)(\w+)(\s*->>\s*)(\w+)(.*)/
 // Use-case relation: id --> id  /  id -->> id
 const RX_UC_REL = /^(\s*)(\w+)(\s+--?>>?\s+)(\w+)(.*)/
 
@@ -194,6 +198,33 @@ function tokenizeLine(
           findComponentByInterfaceId(root, ifaceId),
         ),
         seg(params, "text-gray-300"),
+        seg(rest, "text-gray-300"),
+      ]
+    }
+
+    // Generic message: sender->>receiver: arbitrary text
+    const msgAny = RX_SEQ_MSG_ANY.exec(line)
+    if (msgAny) {
+      const [, indent, sender, arrow, receiver, colon, description] = msgAny
+      return [
+        seg(indent, ""),
+        seg(sender, "text-blue-400", participantMap.get(sender)),
+        seg(arrow, "text-gray-400"),
+        seg(receiver, "text-blue-400", participantMap.get(receiver)),
+        seg(colon, "text-gray-400"),
+        seg(description, "text-orange-300"),
+      ]
+    }
+
+    // Bare arrow (mid-edit, no colon yet): sender->>receiver
+    const msgBare = RX_SEQ_MSG_BARE.exec(line)
+    if (msgBare) {
+      const [, indent, sender, arrow, receiver, rest] = msgBare
+      return [
+        seg(indent, ""),
+        seg(sender, "text-blue-400", participantMap.get(sender)),
+        seg(arrow, "text-gray-400"),
+        seg(receiver, "text-blue-400", participantMap.get(receiver)),
         seg(rest, "text-gray-300"),
       ]
     }
