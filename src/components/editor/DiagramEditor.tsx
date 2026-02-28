@@ -139,6 +139,13 @@ export const DiagramEditor = ({
       return
     }
 
+    // Shift+Enter: save/parse without leaving edit mode
+    if (e.key === "Enter" && e.shiftKey) {
+      e.preventDefault()
+      saveContent(false)
+      return
+    }
+
     const ctrlOrCmd = e.metaKey || e.ctrlKey
     if (ctrlOrCmd && e.key === "z" && !e.shiftKey) {
       e.preventDefault()
@@ -163,8 +170,8 @@ export const DiagramEditor = ({
     }
   }
 
-  const handleContentBlur = () => {
-    setIsEditing(false)
+  const saveContent = (exitEdit: boolean) => {
+    if (exitEdit) setIsEditing(false)
     if (content === node.content) return
 
     if (node.type === "sequence-diagram") {
@@ -183,6 +190,8 @@ export const DiagramEditor = ({
 
     onUpdate({ content })
   }
+
+  const handleContentBlur = () => saveContent(true)
 
   const handleDialogResolve = (decisions: FunctionDecision[]): void => {
     const saved = pendingContent!
