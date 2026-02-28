@@ -12,6 +12,8 @@ import {
   Upload,
   Trash2,
   RotateCcw,
+  Undo2,
+  Redo2,
 } from "lucide-react"
 import { useSystemStore } from "../store/useSystemStore"
 import type { Node, ComponentNode, UseCaseDiagramNode, UseCaseNode, SequenceDiagramNode } from "../store/types"
@@ -174,6 +176,10 @@ export const TreeView = () => {
   const savedSnapshot = useSystemStore((state) => state.savedSnapshot)
   const markSaved = useSystemStore((state) => state.markSaved)
   const clearSystem = useSystemStore((state) => state.clearSystem)
+  const undo = useSystemStore((state) => state.undo)
+  const redo = useSystemStore((state) => state.redo)
+  const canUndo = useSystemStore((state) => state.past.length > 0)
+  const canRedo = useSystemStore((state) => state.future.length > 0)
 
   const [fileHandle, setFileHandle] = useState<FileSystemFileHandle | null>(null)
 
@@ -193,6 +199,17 @@ export const TreeView = () => {
   useEffect(() => {
     markSaved(serializeYaml(rootComponent))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return
+      const mod = e.metaKey || e.ctrlKey
+      if (mod && !e.shiftKey && e.key === "z") { e.preventDefault(); undo() }
+      if (mod && e.shiftKey && e.key === "z") { e.preventDefault(); redo() }
+    }
+    document.addEventListener("keydown", onKeyDown)
+    return () => document.removeEventListener("keydown", onKeyDown)
+  }, [undo, redo])
 
   const handleSave = async () => {
     try {
@@ -397,6 +414,22 @@ export const TreeView = () => {
           )}
         </span>
         <div className="flex gap-1">
+          <button
+            onClick={undo}
+            disabled={!canUndo}
+            className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Undo (Cmd+Z)"
+          >
+            <Undo2 size={16} />
+          </button>
+          <button
+            onClick={redo}
+            disabled={!canRedo}
+            className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Redo (Cmd+Shift+Z)"
+          >
+            <Redo2 size={16} />
+          </button>
           <button
             onClick={handleSave}
             className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-gray-200 transition-colors"

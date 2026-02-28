@@ -14,6 +14,8 @@ interface SystemState {
   selectedNodeId: string | null
   parseError: string | null
   savedSnapshot: string | null
+  past: ComponentNode[]
+  future: ComponentNode[]
   setSystem: (rootComponent: ComponentNode) => void
   selectNode: (nodeId: string | null) => void
   updateNode: (nodeId: string, updates: Record<string, unknown>) => void
@@ -22,6 +24,8 @@ interface SystemState {
   clearParseError: () => void
   markSaved: (snapshot: string) => void
   clearSystem: () => void
+  undo: () => void
+  redo: () => void
   applyFunctionUpdates: (
     decisions: FunctionDecision[],
     currentDiagramUuid: string,
@@ -320,6 +324,12 @@ function tryReparseContent(
   }
 }
 
+const HISTORY_LIMIT = 50
+
+function pushPast(past: ComponentNode[], current: ComponentNode): ComponentNode[] {
+  return [...past.slice(-(HISTORY_LIMIT - 1)), current]
+}
+
 export const useSystemStore = create<SystemState>()(
   persist(
     (set) => ({
@@ -327,16 +337,49 @@ export const useSystemStore = create<SystemState>()(
   selectedNodeId: null,
   parseError: null,
   savedSnapshot: null,
+  past: [],
+  future: [],
   clearParseError: () => set({ parseError: null }),
   markSaved: (snapshot) => set({ savedSnapshot: snapshot }),
-  clearSystem: () => set({ rootComponent: initialSystem, selectedNodeId: null, savedSnapshot: null }),
+  clearSystem: () =>
+    set((state) => ({
+      past: pushPast(state.past, state.rootComponent),
+      future: [],
+      rootComponent: initialSystem,
+      selectedNodeId: null,
+      savedSnapshot: null,
+    })),
   setSystem: (rootComponent) =>
-    set(() => ({
+    set((state) => ({
+      past: pushPast(state.past, state.rootComponent),
+      future: [],
       rootComponent: rebuildSystemDiagrams(rootComponent),
     })),
+  undo: () =>
+    set((state) => {
+      if (!state.past.length) return {}
+      const prev = state.past[state.past.length - 1]
+      return {
+        rootComponent: prev,
+        past: state.past.slice(0, -1),
+        future: [state.rootComponent, ...state.future],
+      }
+    }),
+  redo: () =>
+    set((state) => {
+      if (!state.future.length) return {}
+      const next = state.future[0]
+      return {
+        rootComponent: next,
+        past: pushPast(state.past, state.rootComponent),
+        future: state.future.slice(1),
+      }
+    }),
   selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
   addNode: (parentUuid, node) =>
     set((state) => ({
+      past: pushPast(state.past, state.rootComponent),
+      future: [],
       rootComponent: upsertTree(state.rootComponent, parentUuid, (parent) => {
         if (parent.type === "component") {
           switch (node.type) {
@@ -391,14 +434,17 @@ export const useSystemStore = create<SystemState>()(
   updateNode: (nodeUuid, updates) =>
     set((state) => {
       const updatedSystem = upsertTree(state.rootComponent, nodeUuid, (node) => ({ ...node, ...updates } as Node))
-      if (!updates.content) return { rootComponent: updatedSystem }
-      return tryReparseContent(updates.content as string, updatedSystem, nodeUuid)
+      const historyPush = { past: pushPast(state.past, state.rootComponent), future: [] }
+      if (!updates.content) return { ...historyPush, rootComponent: updatedSystem }
+      return { ...historyPush, ...tryReparseContent(updates.content as string, updatedSystem, nodeUuid) }
     }),
   deleteNode: (nodeUuid) =>
     set((state) => {
       const newSelectedId =
         state.selectedNodeId === nodeUuid ? null : state.selectedNodeId
       return {
+        past: pushPast(state.past, state.rootComponent),
+        future: [],
         rootComponent: deleteNodeRecursive(
           state.rootComponent,
           nodeUuid,
@@ -443,11 +489,11 @@ export const useSystemStore = create<SystemState>()(
         currentDiagramUuid,
         (node) => ({ ...node, content: currentDiagramContent }),
       )
-      return tryReparseContent(
-        currentDiagramContent,
-        updatedWithContent,
-        currentDiagramUuid,
-      )
+      return {
+        past: pushPast(state.past, state.rootComponent),
+        future: [],
+        ...tryReparseContent(currentDiagramContent, updatedWithContent, currentDiagramUuid),
+      }
     }),
   }),
   {
