@@ -151,6 +151,8 @@ function buildSuggestions(
     const allComps = collectAllComponents(rootComponent)
 
     if (ctx.keyword === 'actor') {
+      const localSuggs: Suggestion[] = []
+      const externalSuggs: Suggestion[] = []
       for (const comp of allComps) {
         const isOwner = comp.uuid === ownerComp.uuid
         for (const actor of comp.actors) {
@@ -158,15 +160,20 @@ function buildSuggestions(
             ? `"${actor.name}" as ${actor.id}`
             : `"${actor.name}" from ${comp.id}/${actor.id} as ${actor.id}`
           if (matchLower(insertText, ctx.partial)) {
-            suggs.push({
+            const entry = {
               label: isOwner ? `${actor.name} (local)` : `${actor.name} (from ${comp.name})`,
               insertText,
               replaceFrom: ctx.replaceFrom,
-            })
+            }
+            if (isOwner) localSuggs.push(entry)
+            else externalSuggs.push(entry)
           }
         }
       }
+      return [...localSuggs, ...externalSuggs]
     } else if (ctx.keyword === 'component') {
+      const localSuggs: Suggestion[] = []
+      const externalSuggs: Suggestion[] = []
       for (const comp of allComps) {
         const isOwner = comp.uuid === ownerComp.uuid
         const isDirectChild = ownerComp.subComponents.some(s => s.uuid === comp.uuid)
@@ -183,9 +190,12 @@ function buildSuggestions(
           label = `${comp.name} (from tree)`
         }
         if (matchLower(insertText, ctx.partial)) {
-          suggs.push({ label, insertText, replaceFrom: ctx.replaceFrom })
+          const entry = { label, insertText, replaceFrom: ctx.replaceFrom }
+          if (isOwner || isDirectChild) localSuggs.push(entry)
+          else externalSuggs.push(entry)
         }
       }
+      return [...localSuggs, ...externalSuggs]
     } else if (ctx.keyword === 'use case' && diagramType === 'use-case-diagram') {
       for (const ucDiag of ownerComp.useCaseDiagrams) {
         for (const uc of ucDiag.useCases) {

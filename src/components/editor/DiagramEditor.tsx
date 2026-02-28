@@ -8,6 +8,7 @@ import { useAutoComplete, type Suggestion } from "./useAutoComplete"
 
 const LINE_HEIGHT = 22
 const TEXTAREA_PADDING = 8
+const DROPDOWN_MAX_HEIGHT = 160
 
 export const DiagramEditor = ({
   node,
@@ -25,6 +26,7 @@ export const DiagramEditor = ({
   const [isEditing, setIsEditing] = useState(!node.content)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const backdropRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const historyRef = useRef<string[]>([node.content || ""])
   const historyIndexRef = useRef(0)
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -246,7 +248,7 @@ export const DiagramEditor = ({
           Specification
         </label>
         {isEditing ? (
-          <div className="relative flex-1 min-h-[200px] bg-gray-950 border border-blue-400 rounded-md overflow-hidden">
+          <div ref={containerRef} className="relative flex-1 min-h-[200px] bg-gray-950 border border-blue-400 rounded-md overflow-hidden">
             {/* Colored backdrop — non-interactive highlight layer */}
             <div ref={backdropRef} className="absolute inset-0 overflow-hidden pointer-events-none">
               <DiagramSpecPreview
@@ -284,32 +286,37 @@ export const DiagramEditor = ({
               }
             />
             {/* Autocomplete dropdown */}
-            {suggestions.length > 0 && (
-              <div
-                className="absolute z-10 bg-gray-800 border border-gray-600 rounded shadow-lg overflow-y-auto max-h-40"
-                style={{
-                  top: (anchorLine + 1) * LINE_HEIGHT + TEXTAREA_PADDING - scrollTop,
-                  left: TEXTAREA_PADDING,
-                }}
-              >
-                {suggestions.map((s, i) => (
-                  <div
-                    key={i}
-                    className={`px-3 py-1 text-xs font-mono cursor-pointer whitespace-nowrap ${
-                      i === selectedIndex
-                        ? "bg-blue-600 text-white"
-                        : "text-gray-200 hover:bg-gray-700"
-                    }`}
-                    onMouseDown={(e) => {
-                      e.preventDefault()
-                      acceptSuggestion(s)
-                    }}
-                  >
-                    {s.label}
-                  </div>
-                ))}
-              </div>
-            )}
+            {suggestions.length > 0 && (() => {
+              const lineBottom = (anchorLine + 1) * LINE_HEIGHT + TEXTAREA_PADDING - scrollTop
+              const containerHeight = containerRef.current?.clientHeight ?? 0
+              const showAbove = containerHeight > 0 && containerHeight - lineBottom < DROPDOWN_MAX_HEIGHT
+              const top = showAbove
+                ? Math.max(0, anchorLine * LINE_HEIGHT + TEXTAREA_PADDING - scrollTop - DROPDOWN_MAX_HEIGHT)
+                : lineBottom
+              return (
+                <div
+                  className="absolute z-10 bg-gray-800 border border-gray-600 rounded shadow-lg overflow-y-auto max-h-40"
+                  style={{ top, left: TEXTAREA_PADDING }}
+                >
+                  {suggestions.map((s, i) => (
+                    <div
+                      key={i}
+                      className={`px-3 py-1 text-xs font-mono cursor-pointer whitespace-nowrap ${
+                        i === selectedIndex
+                          ? "bg-blue-600 text-white"
+                          : "text-gray-200 hover:bg-gray-700"
+                      }`}
+                      onMouseDown={(e) => {
+                        e.preventDefault()
+                        acceptSuggestion(s)
+                      }}
+                    >
+                      {s.label}
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
           </div>
         ) : (
           <DiagramSpecPreview
