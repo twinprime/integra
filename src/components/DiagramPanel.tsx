@@ -77,6 +77,9 @@ const transformToMermaid = (content: string, type: string): string => {
       },
     )
 
+    // Replace UseCase:id:message → message (label override); UseCase:id alone stays as-is
+    mermaidContent = mermaidContent.replaceAll(/UseCase:\w+:([^\n]+)/g, "$1")
+
     if (!mermaidContent.trim().startsWith("sequenceDiagram")) {
       return "sequenceDiagram\n" + mermaidContent
     }
