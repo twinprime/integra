@@ -46,7 +46,7 @@ export const DiagramEditor = ({
     return walk(rootComponent)
   }, [rootComponent, node.ownerComponentUuid])
 
-  const { suggestions, selectedIndex, setSelectedIndex, anchorLine, dismiss, triggerNow } = useAutoComplete(
+  const { suggestions, selectedIndex, setSelectedIndex, anchorLine, dismiss, triggerNow, reset } = useAutoComplete(
     content,
     cursorPos,
     node.type as "sequence-diagram" | "use-case-diagram",
@@ -271,6 +271,10 @@ export const DiagramEditor = ({
               onBlur={handleContentBlur}
               onKeyDown={handleKeyDown}
               onSelect={(e) => setCursorPos(e.currentTarget.selectionStart ?? 0)}
+              onFocus={(e) => {
+                setCursorPos(e.currentTarget.selectionStart ?? 0)
+                reset()
+              }}
               onScroll={(e) => {
                 setScrollTop(e.currentTarget.scrollTop)
                 if (backdropRef.current) {
@@ -287,16 +291,17 @@ export const DiagramEditor = ({
             />
             {/* Autocomplete dropdown */}
             {suggestions.length > 0 && (() => {
-              const lineBottom = (anchorLine + 1) * LINE_HEIGHT + TEXTAREA_PADDING - scrollTop
+              const lineTop = anchorLine * LINE_HEIGHT + TEXTAREA_PADDING - scrollTop
+              const lineBottom = lineTop + LINE_HEIGHT
               const containerHeight = containerRef.current?.clientHeight ?? 0
               const showAbove = containerHeight > 0 && containerHeight - lineBottom < DROPDOWN_MAX_HEIGHT
-              const top = showAbove
-                ? Math.max(0, anchorLine * LINE_HEIGHT + TEXTAREA_PADDING - scrollTop - DROPDOWN_MAX_HEIGHT)
-                : lineBottom
+              const posStyle = showAbove
+                ? { bottom: Math.max(0, containerHeight - lineTop), left: TEXTAREA_PADDING }
+                : { top: lineBottom, left: TEXTAREA_PADDING }
               return (
                 <div
                   className="absolute z-10 bg-gray-800 border border-gray-600 rounded shadow-lg overflow-y-auto max-h-40"
-                  style={{ top, left: TEXTAREA_PADDING }}
+                  style={posStyle}
                 >
                   {suggestions.map((s, i) => (
                     <div

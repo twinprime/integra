@@ -361,6 +361,7 @@ export const useAutoComplete = (
   anchorLine: number
   dismiss: () => void
   triggerNow: () => void
+  reset: () => void
 } => {
   const [selectedIndex, setSelectedIndex] = useState(0)
   // Track which content snapshot last triggered/dismissed — derived booleans need no setState in effects
@@ -415,6 +416,11 @@ export const useAutoComplete = (
     setSelectedIndex(0)
   }
 
+  const reset = () => {
+    setTriggeredForContent(null)
+    setDismissedAtContent(null)
+  }
+
   return {
     ...result,
     selectedIndex: Math.min(
@@ -424,5 +430,6 @@ export const useAutoComplete = (
     setSelectedIndex,
     dismiss: () => setDismissedAtContent(content),
     triggerNow,
+    reset,
   }
 }
