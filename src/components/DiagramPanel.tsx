@@ -77,6 +77,10 @@ const transformToMermaid = (content: string, type: string): string => {
       },
     )
 
+    // Replace UseCase:id:message → message (optional label override for Mermaid).
+    // Bare UseCase:id (no second colon) is passed through as-is — Mermaid renders it as a plain label.
+    mermaidContent = mermaidContent.replaceAll(/UseCase:\w+:([^\n]+)/g, "$1")
+
     if (!mermaidContent.trim().startsWith("sequenceDiagram")) {
       return "sequenceDiagram\n" + mermaidContent
     }

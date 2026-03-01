@@ -77,9 +77,9 @@ const RX_PART_BARE = /^(\s*)(actor|component)(\s+)(\w+)(.*)/
 // Sequence message: sender->>receiver: InterfaceId:functionId(params)
 const RX_SEQ_MSG =
   /^(\s*)(\w+)(\s*->>\s*)(\w+)(\s*:\s*)(\w+):(\w+)(\([^)]*\))(.*)/
-// Sequence use-case message: sender->>receiver: UseCase:ucId
+// Sequence use-case message: sender->>receiver: UseCase:ucId[:message]
 const RX_SEQ_UC_MSG =
-  /^(\s*)(\w+)(\s*->>\s*)(\w+)(\s*:\s*)(UseCase):(\w+)(.*)/
+  /^(\s*)(\w+)(\s*->>\s*)(\w+)(\s*:\s*)(UseCase):(\w+)(:([^\n]*))?/
 // Sequence message with any description: sender->>receiver: anything
 const RX_SEQ_MSG_ANY = /^(\s*)(\w+)(\s*->>\s*)(\w+)(\s*:\s*)(.*)/
 // Sequence bare arrow (no colon yet, mid-edit): sender->>receiver
@@ -156,10 +156,10 @@ function tokenizeLine(
       ]
     }
 
-    // Use-case message: sender->>receiver: UseCase:ucId (check before RX_SEQ_MSG)
+    // Use-case message: sender->>receiver: UseCase:ucId[:message] (check before RX_SEQ_MSG)
     const ucMsg = RX_SEQ_UC_MSG.exec(line)
     if (ucMsg) {
-      const [, indent, sender, arrow, receiver, colon, , ucId, rest] = ucMsg
+      const [, indent, sender, arrow, receiver, colon, , ucId, colonMsg, msgLabel] = ucMsg
       const receiverCompUuid = participantMap.get(receiver)
       let ucUuid: string | undefined
       if (receiverCompUuid) {
@@ -178,7 +178,9 @@ function tokenizeLine(
         seg(receiver, "text-blue-400", participantMap.get(receiver)),
         seg(colon, "text-gray-400"),
         seg(`UseCase:${ucId}`, "text-green-400", ucUuid),
-        seg(rest, "text-gray-300"),
+        ...(colonMsg && msgLabel
+          ? [seg(":", "text-gray-400"), seg(msgLabel, "text-orange-300")]
+          : []),
       ]
     }
 
