@@ -1,6 +1,6 @@
 import type { ComponentNode } from "../../store/types"
 import { useSystemStore, findNode } from "../../store/useSystemStore"
-import { resolveInOwner, resolveParticipant } from "../../utils/diagramResolvers"
+import { resolveInOwner, resolveParticipant, findComponentByInterfaceId } from "../../utils/diagramResolvers"
 
 type Seg = { text: string; cls: string; uuid?: string }
 const seg = (text: string, cls: string, uuid?: string): Seg => ({ text, cls, uuid })
@@ -13,18 +13,6 @@ function findOwnerComponent(
 ): ComponentNode | null {
   const node = findNode([root], uuid)
   return node?.type === "component" ? (node as ComponentNode) : null
-}
-
-function findComponentByInterfaceId(
-  root: ComponentNode,
-  ifaceId: string,
-): string | undefined {
-  if (root.interfaces?.some((i) => i.id === ifaceId)) return root.uuid
-  for (const sub of root.subComponents) {
-    const found = findComponentByInterfaceId(sub, ifaceId)
-    if (found) return found
-  }
-  return undefined
 }
 
 

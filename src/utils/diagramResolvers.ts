@@ -38,3 +38,15 @@ export function resolveParticipant(
   }
   return resolveInOwner(ownerComp, id)
 }
+
+export function findComponentByInterfaceId(
+  root: ComponentNode,
+  ifaceId: string,
+): string | undefined {
+  if (root.interfaces?.some((i) => i.id === ifaceId)) return root.uuid
+  for (const sub of root.subComponents) {
+    const found = findComponentByInterfaceId(sub, ifaceId)
+    if (found) return found
+  }
+  return undefined
+}
