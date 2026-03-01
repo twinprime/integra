@@ -1,7 +1,15 @@
 import { useEffect, useRef, useState } from "react"
 import mermaid from "mermaid"
 import { useSystemStore, findNode } from "../store/useSystemStore"
-import type { DiagramNode } from "../store/types"
+import type { ComponentNode, DiagramNode } from "../store/types"
+import { resolveInOwner, resolveParticipant } from "../utils/diagramResolvers"
+
+declare global {
+  interface Window {
+    __integraNavigate?: (id: string) => void
+    __integraIdMap?: Record<string, string>
+  }
+}
 
 mermaid.initialize({
   startOnLoad: false,
@@ -9,7 +17,70 @@ mermaid.initialize({
   securityLevel: "loose",
 })
 
-const transformToMermaid = (content: string, type: string): string => {
+// ─── regex patterns (mirrors DiagramSpecPreview) ─────────────────────────────
+
+const RX_PART_NAMED =
+  /^(\s*)(actor|component|use\s+case)(\s+"[^"]*")(\s+from\s+([\w/-]+))?(\s+as\s+)(\w+)/
+
+const RX_PART_BARE = /^(\s*)(actor|component)(\s+)(\w+)/
+
+// ─── click helpers ────────────────────────────────────────────────────────────
+
+function buildClickDirectives(idToUuid: Record<string, string>): string {
+  return Object.keys(idToUuid)
+    .map((id) => `click ${id} __integraNavigate`)
+    .join("\n")
+}
+
+function buildIdToUuidMap(
+  content: string,
+  type: string,
+  ownerComp: ComponentNode | null,
+  root: ComponentNode,
+): Record<string, string> {
+  const map: Record<string, string> = {}
+  if (!ownerComp) return map
+
+  const lines = content.split("\n")
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed) continue
+
+    if (type === "sequence-diagram") {
+      const named = RX_PART_NAMED.exec(trimmed)
+      if (named) {
+        const keyword = named[2]
+        const fromPath = named[5]
+        const id = named[7]
+        const uuid = resolveParticipant(keyword, id, fromPath, root, ownerComp)
+        if (uuid) map[id] = uuid
+        continue
+      }
+      const bare = RX_PART_BARE.exec(trimmed)
+      if (bare) {
+        const id = bare[4]
+        const uuid = resolveInOwner(ownerComp, id)
+        if (uuid) map[id] = uuid
+      }
+    } else if (type === "use-case-diagram") {
+      const named = RX_PART_NAMED.exec(trimmed)
+      if (named) {
+        const keyword = named[2]
+        const fromPath = named[5]
+        const id = named[7]
+        const uuid = resolveParticipant(keyword, id, fromPath, root, ownerComp)
+        if (uuid) map[id] = uuid
+      }
+    }
+  }
+  return map
+}
+
+const transformToMermaid = (
+  content: string,
+  type: string,
+  idToUuid: Record<string, string> = {},
+): string => {
   if (type === "use-case-diagram") {
     if (
       content.trim().startsWith("graph") ||
@@ -40,6 +111,9 @@ const transformToMermaid = (content: string, type: string): string => {
         mermaidContent += `    ${trimmed}\n`
       }
     })
+
+    // Append click directives for resolved nodes
+    mermaidContent += buildClickDirectives(idToUuid)
 
     return mermaidContent
   }
@@ -80,6 +154,10 @@ const transformToMermaid = (content: string, type: string): string => {
     // Replace UseCase:id:message → message (label override); UseCase:id alone stays as-is
     mermaidContent = mermaidContent.replaceAll(/UseCase:\w+:([^\n]+)/g, "$1")
 
+    // Append click directives for resolved participants
+    const clicks = buildClickDirectives(idToUuid)
+    if (clicks) mermaidContent += "\n" + clicks
+
     if (!mermaidContent.trim().startsWith("sequenceDiagram")) {
       return "sequenceDiagram\n" + mermaidContent
     }
@@ -92,6 +170,7 @@ const transformToMermaid = (content: string, type: string): string => {
 export const DiagramPanel = () => {
   const selectedNodeId = useSystemStore((state) => state.selectedNodeId)
   const rootComponent = useSystemStore((state) => state.rootComponent)
+  const selectNode = useSystemStore((state) => state.selectNode)
   const elementRef = useRef<HTMLDivElement>(null)
   const [svg, setSvg] = useState<string>("")
   const [error, setError] = useState<string>("")
@@ -136,9 +215,18 @@ export const DiagramPanel = () => {
 
       try {
         const id = `mermaid-${Date.now()}`
+        const ownerNode = findNode([rootComponent], diagramNode.ownerComponentUuid)
+        const ownerComp = ownerNode?.type === "component" ? (ownerNode as ComponentNode) : null
+        const idToUuid = buildIdToUuidMap(diagramNode.content, diagramNode.type, ownerComp, rootComponent)
+        window.__integraIdMap = idToUuid
+        window.__integraNavigate = (nodeId: string) => {
+          const uuid = window.__integraIdMap?.[nodeId]
+          if (uuid) selectNode(uuid)
+        }
         const mermaidContent = transformToMermaid(
           diagramNode.content,
           diagramNode.type,
+          idToUuid,
         )
         setMermaidSource(mermaidContent)
         const { svg } = await mermaid.render(id, mermaidContent)
