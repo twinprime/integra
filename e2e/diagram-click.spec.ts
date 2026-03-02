@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { UUIDS, makeLocalStorageValue } from "./fixtures/sample-system"
+import { makeLocalStorageValue } from "./fixtures/sample-system"
 
 const diagram = () => '[data-testid="diagram-svg-container"]'
 

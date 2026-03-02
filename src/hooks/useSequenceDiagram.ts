@@ -21,6 +21,48 @@ const RX_SEQ_MSG =
 const RX_SEQ_UC_MSG =
   /^(\s*)(\w+)(\s*->>\s*)(\w+)(\s*:\s*)(UseCase):(\w+)(:([^\n]*))?/
 
+function buildParticipantUuidMap(
+  content: string,
+  ownerComp: ComponentNode,
+  root: ComponentNode,
+): Map<string, string> {
+  const uuids = new Map<string, string>()
+  for (const line of content.split("\n")) {
+    const t = line.trim()
+    const named = RX_PART_NAMED.exec(t)
+    if (named) {
+      const uuid = resolveParticipant(named[2], named[7], named[5], root, ownerComp)
+      if (uuid) uuids.set(named[7], uuid)
+      continue
+    }
+    const bare = RX_PART_BARE.exec(t)
+    if (bare) {
+      const uuid = resolveInOwner(ownerComp, bare[4])
+      if (uuid) uuids.set(bare[4], uuid)
+    }
+  }
+  return uuids
+}
+
+function resolveUcMsgEntry(
+  ucMsg: RegExpExecArray,
+  participantUuids: Map<string, string>,
+  root: ComponentNode,
+): { label: string; uuid: string } | null {
+  const [, , , , receiver, , , ucId, , msgLabel] = ucMsg
+  const receiverNode = findNode([root], participantUuids.get(receiver) ?? "")
+  if (receiverNode?.type !== "component") return null
+  const receiverComp = receiverNode as ComponentNode
+  for (const d of receiverComp.useCaseDiagrams) {
+    const uc = d.useCases?.find((u) => u.id === ucId)
+    if (uc) {
+      const label = msgLabel ? `${msgLabel.trim()}[UseCase:${ucId}]` : `UseCase:${ucId}`
+      return { label, uuid: uc.uuid }
+    }
+  }
+  return null
+}
+
 function buildMessageLabelUuidMap(
   content: string,
   ownerComp: ComponentNode | null,
@@ -29,56 +71,39 @@ function buildMessageLabelUuidMap(
   const map: Record<string, string> = {}
   if (!ownerComp) return map
 
-  // Build participant → uuid map for receiver lookups
-  const participantUuids = new Map<string, string>()
-  for (const line of content.split("\n")) {
-    const t = line.trim()
-    const named = RX_PART_NAMED.exec(t)
-    if (named) {
-      const uuid = resolveParticipant(named[2], named[7], named[5], root, ownerComp)
-      if (uuid) participantUuids.set(named[7], uuid)
-      continue
-    }
-    const bare = RX_PART_BARE.exec(t)
-    if (bare) {
-      const uuid = resolveInOwner(ownerComp, bare[4])
-      if (uuid) participantUuids.set(bare[4], uuid)
-    }
-  }
+  const participantUuids = buildParticipantUuidMap(content, ownerComp, root)
 
   for (const line of content.split("\n")) {
     const t = line.trim()
     const ucMsg = RX_SEQ_UC_MSG.exec(t)
     if (ucMsg) {
-      const [, , , , receiver, , , ucId, , msgLabel] = ucMsg
-      const receiverCompNode = findNode([root], participantUuids.get(receiver) ?? "")
-      if (receiverCompNode?.type === "component") {
-        const receiverComp = receiverCompNode as ComponentNode
-        for (const d of receiverComp.useCaseDiagrams) {
-          const uc = d.useCases?.find((u) => u.id === ucId)
-          if (uc) {
-            const label = msgLabel
-              ? `${msgLabel.trim()}[UseCase:${ucId}]`
-              : `UseCase:${ucId}`
-            if (!map[label]) map[label] = uc.uuid
-            break
-          }
-        }
-      }
+      const entry = resolveUcMsgEntry(ucMsg, participantUuids, root)
+      if (entry && !map[entry.label]) map[entry.label] = entry.uuid
       continue
     }
     const msg = RX_SEQ_MSG.exec(t)
     if (msg) {
       const [, , , , , , ifaceId, fnId, params] = msg
       const uuid = findComponentByInterfaceId(root, ifaceId)
-      if (uuid) {
-        const label = `${ifaceId}:${fnId}${params}`
-        if (!map[label]) map[label] = uuid
-      }
+      const label = `${ifaceId}:${fnId}${params}`
+      if (uuid && !map[label]) map[label] = uuid
     }
   }
 
   return map
+}
+
+function findActorRect(target: Element, container: Element): Element | null {
+  if (target.classList?.contains("actor-top") || target.classList?.contains("actor-bottom")) {
+    return target
+  }
+  let el: Element | null = target.parentElement
+  while (el && el !== container) {
+    const r = el.querySelector("rect.actor-top, rect.actor-bottom")
+    if (r) return r
+    el = el.parentElement
+  }
+  return null
 }
 
 function transformSequenceDiagram(content: string): string {
@@ -150,35 +175,17 @@ export function useSequenceDiagram(diagramNode: DiagramNode | null) {
     // Message label click (function ref or use-case ref)
     const msgText = target.closest("text.messageText")
     if (msgText) {
-      const label = msgText.textContent?.trim() ?? ""
-      const uuid = messageLabelUuidsRef.current[label]
-      if (uuid) {
-        selectNode(uuid)
-        return
-      }
+      const uuid = messageLabelUuidsRef.current[msgText.textContent?.trim() ?? ""]
+      if (uuid) { selectNode(uuid); return }
     }
 
-    // Actor box click: walk up ancestors to find the rect with the participant name
-    let actorRect: Element | null = null
-    if (target.classList?.contains("actor-top") || target.classList?.contains("actor-bottom")) {
-      actorRect = target
-    } else {
-      let el: Element | null = target.parentElement
-      while (el && el !== elementRef.current) {
-        const r = el.querySelector("rect.actor-top, rect.actor-bottom")
-        if (r) {
-          actorRect = r
-          break
-        }
-        el = el.parentElement
-      }
+    // Actor box click: use participant name attribute for UUID lookup
+    const actorRect = findActorRect(target, elementRef.current)
+    const participantId = actorRect?.getAttribute("name")
+    if (participantId) {
+      const uuid = participantIdMapRef.current[participantId]
+      if (uuid) selectNode(uuid)
     }
-    if (!actorRect) return
-
-    const participantId = actorRect.getAttribute("name")
-    if (!participantId) return
-    const uuid = participantIdMapRef.current[participantId]
-    if (uuid) selectNode(uuid)
   }
 
   return { svg, error, errorDetails, mermaidSource, elementRef, handleSequenceClick }
