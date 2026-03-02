@@ -260,8 +260,10 @@ export const DiagramPanel = () => {
   const rootComponent = useSystemStore((state) => state.rootComponent)
   const selectNode = useSystemStore((state) => state.selectNode)
   const elementRef = useRef<HTMLDivElement>(null)
+  const participantIdMapRef = useRef<Record<string, string>>({})
   const participantUuidsRef = useRef<string[]>([])
   const messageLabelUuidsRef = useRef<Record<string, string>>({})
+  const bindFunctionsRef = useRef<((el: Element) => void) | undefined>(undefined)
   const [svg, setSvg] = useState<string>("")
   const [error, setError] = useState<string>("")
   const [errorDetails, setErrorDetails] = useState<string>("")
@@ -318,6 +320,7 @@ export const DiagramPanel = () => {
           rootComponent,
         )
         participantUuidsRef.current = orderedUuids
+        participantIdMapRef.current = idToUuid
         messageLabelUuidsRef.current = buildMessageLabelUuidMap(
           diagramNode.content, ownerComp, rootComponent,
         )
@@ -332,7 +335,8 @@ export const DiagramPanel = () => {
           idToUuid,
         )
         setMermaidSource(mermaidContent)
-        let { svg } = await mermaid.render(id, mermaidContent)
+        const { svg, bindFunctions } = await mermaid.render(id, mermaidContent)
+        bindFunctionsRef.current = bindFunctions
 
         setSvg(svg)
         setError("")
@@ -354,7 +358,13 @@ export const DiagramPanel = () => {
   // DOM-delegation fallback: add cursor:pointer to actor box groups and navigable message labels.
   // Remove this effect when CLICK_DIRECTIVE_TYPES includes "sequence-diagram".
   useEffect(() => {
-    if (!svg || !elementRef.current || CLICK_DIRECTIVE_TYPES.has(selectedNode?.type ?? "")) return
+    if (!svg || !elementRef.current) return
+
+    // Bind Mermaid click handlers for diagram types that support the click directive
+    if (CLICK_DIRECTIVE_TYPES.has(selectedNode?.type ?? "")) {
+      bindFunctionsRef.current?.(elementRef.current)
+      return
+    }
     // Actor boxes: style the parent <g> so both rect and text label show pointer
     elementRef.current.querySelectorAll("rect.actor-top, rect.actor-bottom").forEach((rect) => {
       const g = rect.parentElement
@@ -384,23 +394,27 @@ export const DiagramPanel = () => {
       if (uuid) { selectNode(uuid); return }
     }
 
-    // Actor box click: direct on rect, or on text label inside actor group
+    // Actor box click: walk up ancestors to find a group containing an actor rect
     let actorRect: Element | null = null
     if (target.classList?.contains("actor-top") || target.classList?.contains("actor-bottom")) {
       actorRect = target
     } else {
-      const g = target.closest("g")
-      if (g) actorRect = g.querySelector(":scope > rect.actor-top, :scope > rect.actor-bottom")
+      // Walk up: text labels may be inside nested label <g> groups
+      let el: Element | null = target.parentElement
+      while (el && el !== elementRef.current) {
+        const r = el.querySelector("rect.actor-top, rect.actor-bottom")
+        if (r) { actorRect = r; break }
+        el = el.parentElement
+      }
     }
     if (!actorRect) return
 
-    // Map to participant index: actor-top rects appear in declaration order (left→right)
-    const topRects = Array.from(elementRef.current.querySelectorAll("rect.actor-top"))
-    const clickedX = actorRect.getAttribute("x")
-    const idx = topRects.findIndex((r) => r.getAttribute("x") === clickedX)
-    if (idx < 0) return
+    // Use the rect's `name` attribute (Mermaid sets it to the participant alias)
+    // to look up the UUID directly — avoids fragile DOM-order index mapping
+    const participantId = actorRect.getAttribute("name")
+    if (!participantId) return
 
-    const uuid = participantUuidsRef.current[idx]
+    const uuid = participantIdMapRef.current[participantId]
     if (uuid) selectNode(uuid)
   }
 
@@ -411,6 +425,7 @@ export const DiagramPanel = () => {
       return (
         <div
           ref={elementRef}
+          data-testid="diagram-svg-container"
           className="flex-1 overflow-auto flex justify-center items-start pt-4 bg-white rounded-lg"
           dangerouslySetInnerHTML={{ __html: svg }}
           style={{ minHeight: "100px" }}
