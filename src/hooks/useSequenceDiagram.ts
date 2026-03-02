@@ -52,8 +52,7 @@ function resolveUcMsgEntry(
   const [, , , , receiver, , , ucId, , msgLabel] = ucMsg
   const receiverNode = findNode([root], participantUuids.get(receiver) ?? "")
   if (receiverNode?.type !== "component") return null
-  const receiverComp = receiverNode as ComponentNode
-  for (const d of receiverComp.useCaseDiagrams) {
+  for (const d of receiverNode.useCaseDiagrams) {
     const uc = d.useCases?.find((u) => u.id === ucId)
     if (uc) {
       const label = msgLabel ? `${msgLabel.trim()}[UseCase:${ucId}]` : `UseCase:${ucId}`
@@ -157,7 +156,7 @@ export function useSequenceDiagram(diagramNode: DiagramNode | null) {
     if (!svg || !elementRef.current) return
     elementRef.current.querySelectorAll("rect.actor-top, rect.actor-bottom").forEach((rect) => {
       const g = rect.parentElement
-      if (g) (g as HTMLElement).style.cursor = "pointer"
+      if (g) g.style.cursor = "pointer"
     })
     const labelMap = messageLabelUuidsRef.current
     elementRef.current.querySelectorAll<SVGTextElement>("text.messageText").forEach((el) => {

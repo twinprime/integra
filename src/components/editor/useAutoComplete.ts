@@ -126,7 +126,7 @@ function detectContext(
 
   // Use-case link target: entityId --> partial  or  entityId -->> partial
   if (diagramType === "use-case-diagram") {
-    const linkMatch = /^(\w+)\s*--?>>?\s*([\w]*)$/.exec(currentLine)
+    const linkMatch = /^(\w+)\s*--?>>?\s*(\w*)$/.exec(currentLine)
     if (linkMatch) {
       const partial = linkMatch[2]
       return {
@@ -182,6 +182,165 @@ function detectContext(
   return null
 }
 
+function matchLower(text: string, partial: string): boolean {
+  return !partial || text.toLowerCase().includes(partial.toLowerCase())
+}
+
+function resolveActorEntry(
+  comp: ComponentNode,
+  actor: { name: string; id: string },
+  isOwner: boolean,
+  ctx: Extract<Context, { type: "entity-name" }>,
+): Suggestion | null {
+  const insertText = isOwner
+    ? `"${actor.name}" as ${actor.id}`
+    : `"${actor.name}" from ${comp.id}/${actor.id} as ${actor.id}`
+  if (!matchLower(insertText, ctx.partial)) return null
+  return {
+    label: isOwner ? `${actor.name} (local)` : `${actor.name} (from ${comp.name})`,
+    insertText,
+    replaceFrom: ctx.replaceFrom,
+  }
+}
+
+function buildActorSuggestions(
+  ctx: Extract<Context, { type: "entity-name" }>,
+  allComps: ComponentNode[],
+  ownerComp: ComponentNode,
+): Suggestion[] {
+  const localSuggs: Suggestion[] = []
+  const externalSuggs: Suggestion[] = []
+  for (const comp of allComps) {
+    const isOwner = comp.uuid === ownerComp.uuid
+    for (const actor of comp.actors) {
+      const entry = resolveActorEntry(comp, actor, isOwner, ctx)
+      if (!entry) continue
+      if (isOwner) localSuggs.push(entry)
+      else externalSuggs.push(entry)
+    }
+  }
+  return [...localSuggs, ...externalSuggs]
+}
+
+function componentSuggestionText(
+  comp: ComponentNode,
+  isOwner: boolean,
+  isDirectChild: boolean,
+): { label: string; insertText: string } {
+  if (isOwner) {
+    return { label: `${comp.name} (self)`, insertText: `"${comp.name}" as ${comp.id}` }
+  }
+  if (isDirectChild) {
+    return { label: `${comp.name} (local)`, insertText: `"${comp.name}" as ${comp.id}` }
+  }
+  return {
+    label: `${comp.name} (from tree)`,
+    insertText: `"${comp.name}" from ${comp.id} as ${comp.id}`,
+  }
+}
+
+function buildComponentSuggestions(
+  ctx: Extract<Context, { type: "entity-name" }>,
+  allComps: ComponentNode[],
+  ownerComp: ComponentNode,
+): Suggestion[] {
+  const directChildUuids = new Set(ownerComp.subComponents.map((s) => s.uuid))
+  const localSuggs: Suggestion[] = []
+  const externalSuggs: Suggestion[] = []
+  for (const comp of allComps) {
+    const isOwner = comp.uuid === ownerComp.uuid
+    const isDirectChild = directChildUuids.has(comp.uuid)
+    const { label, insertText } = componentSuggestionText(comp, isOwner, isDirectChild)
+    if (!matchLower(insertText, ctx.partial)) continue
+    const entry = { label, insertText, replaceFrom: ctx.replaceFrom }
+    const bucket = isOwner || isDirectChild ? localSuggs : externalSuggs
+    bucket.push(entry)
+  }
+  return [...localSuggs, ...externalSuggs]
+}
+
+function buildUseCaseSuggestions(
+  ctx: Extract<Context, { type: "entity-name" }>,
+  ownerComp: ComponentNode,
+): Suggestion[] {
+  const suggs: Suggestion[] = []
+  for (const ucDiag of ownerComp.useCaseDiagrams) {
+    for (const uc of ucDiag.useCases) {
+      const insertText = `"${uc.name}" as ${uc.id}`
+      if (matchLower(insertText, ctx.partial)) {
+        suggs.push({ label: uc.name, insertText, replaceFrom: ctx.replaceFrom })
+      }
+    }
+  }
+  return suggs
+}
+
+function buildEntityNameSuggestions(
+  ctx: Extract<Context, { type: "entity-name" }>,
+  ownerComp: ComponentNode,
+  rootComponent: ComponentNode,
+  diagramType: DiagramType,
+): Suggestion[] {
+  const allComps = collectAllComponents(rootComponent)
+  if (ctx.keyword === "actor") return buildActorSuggestions(ctx, allComps, ownerComp)
+  if (ctx.keyword === "component") return buildComponentSuggestions(ctx, allComps, ownerComp)
+  if (ctx.keyword === "use case" && diagramType === "use-case-diagram") {
+    return buildUseCaseSuggestions(ctx, ownerComp)
+  }
+  return []
+}
+
+function resolveReceiverComp(
+  ctx: Extract<Context, { type: "function-ref" }>,
+  ownerComp: ComponentNode,
+  rootComponent: ComponentNode,
+): ComponentNode | null {
+  if (ownerComp.id === ctx.receiverId) return ownerComp
+  const fromSubs = ownerComp.subComponents.find((c) => c.id === ctx.receiverId) ?? null
+  return fromSubs ?? findComponentByIdInTree(rootComponent, ctx.receiverId)
+}
+
+function buildFunctionRefSuggestions(
+  ctx: Extract<Context, { type: "function-ref" }>,
+  ownerComp: ComponentNode,
+  rootComponent: ComponentNode,
+): Suggestion[] {
+  const receiverComp = resolveReceiverComp(ctx, ownerComp, rootComponent)
+  if (!receiverComp) return []
+
+  const suggs: Suggestion[] = []
+  for (const iface of receiverComp.interfaces) {
+    for (const fn of iface.functions) {
+      const insertText = `${iface.id}:${fn.id}(${paramsToString(fn.parameters)})`
+      if (matchLower(insertText, ctx.partial)) {
+        suggs.push({ label: insertText, insertText, replaceFrom: ctx.replaceFrom })
+      }
+    }
+  }
+  for (const ucDiag of receiverComp.useCaseDiagrams) {
+    for (const uc of ucDiag.useCases) {
+      const insertText = `UseCase:${uc.id}`
+      if (matchLower(insertText, ctx.partial)) {
+        suggs.push({
+          label: `${insertText} (${uc.name})`,
+          insertText,
+          replaceFrom: ctx.replaceFrom,
+        })
+      }
+    }
+  }
+  return suggs
+}
+
+function buildDeclaredIdSuggestions(
+  ctx: Context & { partial: string; replaceFrom: number },
+  content: string,
+): Suggestion[] {
+  return parseDeclaredIds(content)
+    .filter((id) => !ctx.partial || id.toLowerCase().startsWith(ctx.partial.toLowerCase()))
+    .map((id) => ({ label: id, insertText: id, replaceFrom: ctx.replaceFrom }))
+}
+
 function buildSuggestions(
   ctx: Context,
   content: string,
@@ -189,9 +348,6 @@ function buildSuggestions(
   rootComponent: ComponentNode,
   diagramType: DiagramType,
 ): Suggestion[] {
-  const matchLower = (text: string, partial: string) =>
-    !partial || text.toLowerCase().includes(partial.toLowerCase())
-
   if (ctx.type === "keyword") {
     return ctx.keywords.map((kw) => ({
       label: kw,
@@ -199,150 +355,19 @@ function buildSuggestions(
       replaceFrom: ctx.replaceFrom,
     }))
   }
-
   if (ctx.type === "entity-name") {
-    const suggs: Suggestion[] = []
-    const allComps = collectAllComponents(rootComponent)
-
-    if (ctx.keyword === "actor") {
-      const localSuggs: Suggestion[] = []
-      const externalSuggs: Suggestion[] = []
-      for (const comp of allComps) {
-        const isOwner = comp.uuid === ownerComp.uuid
-        for (const actor of comp.actors) {
-          const insertText = isOwner
-            ? `"${actor.name}" as ${actor.id}`
-            : `"${actor.name}" from ${comp.id}/${actor.id} as ${actor.id}`
-          if (matchLower(insertText, ctx.partial)) {
-            const entry = {
-              label: isOwner
-                ? `${actor.name} (local)`
-                : `${actor.name} (from ${comp.name})`,
-              insertText,
-              replaceFrom: ctx.replaceFrom,
-            }
-            if (isOwner) localSuggs.push(entry)
-            else externalSuggs.push(entry)
-          }
-        }
-      }
-      return [...localSuggs, ...externalSuggs]
-    } else if (ctx.keyword === "component") {
-      const localSuggs: Suggestion[] = []
-      const externalSuggs: Suggestion[] = []
-      for (const comp of allComps) {
-        const isOwner = comp.uuid === ownerComp.uuid
-        const isDirectChild = ownerComp.subComponents.some(
-          (s) => s.uuid === comp.uuid,
-        )
-        let insertText: string
-        let label: string
-        if (isOwner) {
-          insertText = `"${comp.name}" as ${comp.id}`
-          label = `${comp.name} (self)`
-        } else if (isDirectChild) {
-          insertText = `"${comp.name}" as ${comp.id}`
-          label = `${comp.name} (local)`
-        } else {
-          insertText = `"${comp.name}" from ${comp.id} as ${comp.id}`
-          label = `${comp.name} (from tree)`
-        }
-        if (matchLower(insertText, ctx.partial)) {
-          const entry = { label, insertText, replaceFrom: ctx.replaceFrom }
-          if (isOwner || isDirectChild) localSuggs.push(entry)
-          else externalSuggs.push(entry)
-        }
-      }
-      return [...localSuggs, ...externalSuggs]
-    } else if (
-      ctx.keyword === "use case" &&
-      diagramType === "use-case-diagram"
-    ) {
-      for (const ucDiag of ownerComp.useCaseDiagrams) {
-        for (const uc of ucDiag.useCases) {
-          const insertText = `"${uc.name}" as ${uc.id}`
-          if (matchLower(insertText, ctx.partial)) {
-            suggs.push({
-              label: uc.name,
-              insertText,
-              replaceFrom: ctx.replaceFrom,
-            })
-          }
-        }
-      }
-    }
-
-    return suggs
+    return buildEntityNameSuggestions(ctx, ownerComp, rootComponent, diagramType)
   }
-
   if (ctx.type === "function-ref") {
-    let receiverComp: ComponentNode | null = null
-    if (ownerComp.id === ctx.receiverId) {
-      receiverComp = ownerComp
-    } else {
-      receiverComp =
-        ownerComp.subComponents.find((c) => c.id === ctx.receiverId) ?? null
-      if (!receiverComp)
-        receiverComp = findComponentByIdInTree(rootComponent, ctx.receiverId)
-    }
-    if (!receiverComp) return []
-
-    const suggs: Suggestion[] = []
-    for (const iface of receiverComp.interfaces) {
-      for (const fn of iface.functions) {
-        const insertText = `${iface.id}:${fn.id}(${paramsToString(fn.parameters)})`
-        if (matchLower(insertText, ctx.partial)) {
-          suggs.push({
-            label: insertText,
-            insertText,
-            replaceFrom: ctx.replaceFrom,
-          })
-        }
-      }
-    }
-    for (const ucDiag of receiverComp.useCaseDiagrams) {
-      for (const uc of ucDiag.useCases) {
-        const insertText = `UseCase:${uc.id}`
-        if (matchLower(insertText, ctx.partial)) {
-          suggs.push({
-            label: `${insertText} (${uc.name})`,
-            insertText,
-            replaceFrom: ctx.replaceFrom,
-          })
-        }
-      }
-    }
-    return suggs
+    return buildFunctionRefSuggestions(ctx, ownerComp, rootComponent)
   }
-
-  if (ctx.type === "seq-receiver" || ctx.type === "uc-link-target") {
-    return parseDeclaredIds(content)
-      .filter(
-        (id) =>
-          !ctx.partial ||
-          id.toLowerCase().startsWith(ctx.partial.toLowerCase()),
-      )
-      .map((id) => ({
-        label: id,
-        insertText: id,
-        replaceFrom: ctx.replaceFrom,
-      }))
+  if (
+    ctx.type === "seq-receiver" ||
+    ctx.type === "uc-link-target" ||
+    ctx.type === "declared-entity"
+  ) {
+    return buildDeclaredIdSuggestions(ctx, content)
   }
-
-  if (ctx.type === "declared-entity") {
-    return parseDeclaredIds(content)
-      .filter(
-        (id) =>
-          !ctx.partial ||
-          id.toLowerCase().startsWith(ctx.partial.toLowerCase()),
-      )
-      .map((id) => ({
-        label: id,
-        insertText: id,
-        replaceFrom: ctx.replaceFrom,
-      }))
-  }
-
   return []
 }
 

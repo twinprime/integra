@@ -11,7 +11,9 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "coverage": "NODE_OPTIONS=\"--max-old-space-size=8192\" vitest-coverage.sh",
+    "sonar": "vite-sonar-scan.sh"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.18",
