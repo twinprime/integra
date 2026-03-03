@@ -55,7 +55,7 @@ export const CommonEditor = ({
         />
       </div>
 
-      <div className="mb-4">
+      <div className="flex-1 flex flex-col min-h-0">
         <label className="block text-sm font-medium text-gray-300 mb-2">
           Description
         </label>
@@ -63,7 +63,8 @@ export const CommonEditor = ({
           value={description}
           onChange={setDescription}
           onBlur={handleDescriptionBlur}
-          height={100}
+          height="100%"
+          className="flex-1 min-h-0"
           placeholder="Add a description..."
           contextComponentUuid={contextComponentUuid}
         />

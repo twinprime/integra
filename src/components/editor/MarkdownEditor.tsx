@@ -44,19 +44,21 @@ export const MarkdownEditor = ({
   height = 100,
   placeholder,
   contextComponentUuid,
+  className,
 }: {
   value: string
   onChange: (val: string) => void
   onBlur?: () => void
-  height?: number
+  height?: number | string
   placeholder?: string
   contextComponentUuid?: string
+  className?: string
 }) => {
   const NodeLinkWithContext = ({ href, children }: { href?: string; children?: React.ReactNode }) => (
     <NodeLink href={href} contextComponentUuid={contextComponentUuid}>{children}</NodeLink>
   )
   return (
-    <div data-color-mode="dark">
+    <div data-color-mode="dark" className={`[&_.w-md-editor-preview]:overflow-y-auto${className ? ` ${className}` : ""}`}>
       <MDEditor
         value={value}
         onChange={(v) => onChange(v ?? "")}
