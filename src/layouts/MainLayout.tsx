@@ -19,7 +19,7 @@ export function MainLayout({
   const topPanelRef = useRef<ImperativePanelHandle>(null)
   const bottomPanelRef = useRef<ImperativePanelHandle>(null)
 
-  type HLayout = "default" | "left-collapsed" | "right-collapsed"
+  type HLayout = "default" | "left-collapsed"
   type VLayout = "default" | "top-collapsed" | "bottom-collapsed"
   const [hLayout, setHLayout] = useState<HLayout>("default")
   const [vLayout, setVLayout] = useState<VLayout>("default")
@@ -31,16 +31,6 @@ export function MainLayout({
     } else {
       leftPanelRef.current?.collapse()
       setHLayout("left-collapsed")
-    }
-  }
-
-  function handleExpandLeft() {
-    if (hLayout === "right-collapsed") {
-      rightPanelRef.current?.expand()
-      setHLayout("default")
-    } else {
-      rightPanelRef.current?.collapse()
-      setHLayout("right-collapsed")
     }
   }
 
@@ -89,18 +79,11 @@ export function MainLayout({
 
         <PanelResizeHandle className="relative w-2 bg-transparent hover:bg-blue-600 transition-colors flex flex-col items-center justify-center gap-1">
           <button
-            onClick={handleExpandLeft}
-            className="z-10 flex items-center justify-center w-4 h-4 rounded bg-gray-700 hover:bg-blue-600 text-gray-300 hover:text-white transition-colors"
-            title={hLayout === "right-collapsed" ? "Restore panels" : "Expand left panel"}
-          >
-            {hLayout === "right-collapsed" ? <ChevronRight size={10} /> : <ChevronLeft size={10} />}
-          </button>
-          <button
             onClick={handleExpandRight}
             className="z-10 flex items-center justify-center w-4 h-4 rounded bg-gray-700 hover:bg-blue-600 text-gray-300 hover:text-white transition-colors"
             title={hLayout === "left-collapsed" ? "Restore panels" : "Expand right panel"}
           >
-            {hLayout === "left-collapsed" ? <ChevronLeft size={10} /> : <ChevronRight size={10} />}
+            {hLayout === "left-collapsed" ? <ChevronRight size={10} /> : <ChevronLeft size={10} />}
           </button>
         </PanelResizeHandle>
 
@@ -119,20 +102,24 @@ export function MainLayout({
             {hasDiagram && (
               <>
                 <PanelResizeHandle className="relative h-2 bg-gray-800 hover:bg-blue-600 transition-colors flex flex-row items-center justify-center gap-1">
-                  <button
-                    onClick={handleExpandBottom}
-                    className="z-10 flex items-center justify-center w-4 h-4 rounded bg-gray-700 hover:bg-blue-600 text-gray-300 hover:text-white transition-colors"
-                    title={vLayout === "top-collapsed" ? "Restore panels" : "Expand bottom panel"}
-                  >
-                    {vLayout === "top-collapsed" ? <ChevronDown size={10} /> : <ChevronUp size={10} />}
-                  </button>
-                  <button
-                    onClick={handleExpandTop}
-                    className="z-10 flex items-center justify-center w-4 h-4 rounded bg-gray-700 hover:bg-blue-600 text-gray-300 hover:text-white transition-colors"
-                    title={vLayout === "bottom-collapsed" ? "Restore panels" : "Expand top panel"}
-                  >
-                    {vLayout === "bottom-collapsed" ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
-                  </button>
+                  {vLayout !== "bottom-collapsed" && (
+                    <button
+                      onClick={handleExpandBottom}
+                      className="z-10 flex items-center justify-center w-4 h-4 rounded bg-gray-700 hover:bg-blue-600 text-gray-300 hover:text-white transition-colors"
+                      title={vLayout === "top-collapsed" ? "Restore panels" : "Expand bottom panel"}
+                    >
+                      {vLayout === "top-collapsed" ? <ChevronDown size={10} /> : <ChevronUp size={10} />}
+                    </button>
+                  )}
+                  {vLayout !== "top-collapsed" && (
+                    <button
+                      onClick={handleExpandTop}
+                      className="z-10 flex items-center justify-center w-4 h-4 rounded bg-gray-700 hover:bg-blue-600 text-gray-300 hover:text-white transition-colors"
+                      title={vLayout === "bottom-collapsed" ? "Restore panels" : "Expand top panel"}
+                    >
+                      {vLayout === "bottom-collapsed" ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+                    </button>
+                  )}
                 </PanelResizeHandle>
 
                 <Panel
