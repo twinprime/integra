@@ -243,7 +243,7 @@ export const DiagramEditor = ({
         />
       </div>
 
-      <div className="mb-4 flex-1 flex flex-col">
+      <div className="mb-4 flex-1 flex flex-col min-h-0">
         <label className="block text-sm font-medium text-gray-300 mb-2">
           Specification
         </label>
