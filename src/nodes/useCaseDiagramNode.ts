@@ -6,6 +6,7 @@ import type {
 } from "../store/types"
 import { applyIdRenameInUseCase, findParentInUseCase } from "./useCaseNode"
 import { updateDescriptionRefs, updateContentRefs } from "../utils/renameNodeId"
+import type { NodeHandler } from "./nodeHandler"
 
 export type DiagramRef = { diagram: DiagramNode; ownerComponentUuid: string }
 
@@ -75,4 +76,27 @@ export const findParentInUcDiag = (diagram: UseCaseDiagramNode, targetUuid: stri
     if (found) return found
   }
   return null
+}
+
+export const ucDiagHandler: NodeHandler = {
+  getChildren: (node) => getUcDiagChildren(node as UseCaseDiagramNode),
+  deleteChild: (node, uuid) => deleteFromUcDiag(node as UseCaseDiagramNode, uuid),
+  upsertChild: (node, _uuid, updater) => {
+    const ucd = node as UseCaseDiagramNode
+    return { ...ucd, useCases: ucd.useCases.map((uc) => updater(uc) as UseCaseNode) }
+  },
+  getChildById: (node, id) => getChildById(node as UseCaseDiagramNode, id),
+  addToComponent: (comp, node) => ({
+    ...comp,
+    useCaseDiagrams: [
+      ...comp.useCaseDiagrams,
+      { ...(node as UseCaseDiagramNode), ownerComponentUuid: comp.uuid, useCases: [] },
+    ],
+  }),
+  addChild: (node, child) => {
+    const ucd = node as UseCaseDiagramNode
+    if (child.type !== "use-case") return ucd
+    const uc = child as UseCaseNode
+    return { ...ucd, useCases: [...ucd.useCases, { ...uc, sequenceDiagrams: [] }] }
+  },
 }

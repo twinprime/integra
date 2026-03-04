@@ -1,10 +1,12 @@
 /**
  * nodeTree.ts — generic tree operations that dispatch to per-type node modules.
  *
- * This is the functional equivalent of polymorphic dispatch: each function
- * switches on `node.type` and delegates to the appropriate per-type module.
- * Adding a new node type only requires updating this file and the relevant
- * per-type module.
+ * All node-type dispatch goes through `nodeHandlers`. Adding a new node type requires:
+ * 1. Creating src/nodes/<type>Node.ts and exporting a NodeHandler
+ * 2. Adding one entry to `nodeHandlers` below
+ *
+ * TypeScript enforces completeness: `Record<Node['type'], NodeHandler>` is non-partial,
+ * so omitting a type is a compile error.
  */
 import type {
   ComponentNode,
@@ -15,42 +17,48 @@ import type {
   ActorNode,
 } from "../store/types"
 import {
-  getComponentChildren,
-  deleteFromComponent,
-  upsertInComponent,
   collectDiagramsFromComponent,
   findIdInComponent,
   getSiblingIdsInComponent,
   findContainerComponentByUuid,
   findOwnerComponentUuidInComp,
-  getChildById as getChildByIdInComp,
   findCompByUuid,
   findParentInComponent,
+  componentHandler,
 } from "./componentNode"
-import {
-  getUcDiagChildren,
-  deleteFromUcDiag,
-  upsertInUcDiag,
-  getChildById as getChildByIdInUcDiag,
-} from "./useCaseDiagramNode"
-import {
-  getUseCaseChildren,
-  deleteFromUseCase,
-  upsertInUseCase,
-  getChildById as getChildByIdInUseCase,
-} from "./useCaseNode"
+import { ucDiagHandler } from "./useCaseDiagramNode"
+import { useCaseHandler } from "./useCaseNode"
+import type { NodeHandler } from "./nodeHandler"
 import type { DiagramRef } from "./useCaseDiagramNode"
+
+// ─── Handler registry ─────────────────────────────────────────────────────────
+
+const noopLeafHandler: NodeHandler = {
+  getChildren: () => [],
+  deleteChild: (node) => node,
+  upsertChild: (node) => node,
+  getChildById: () => null,
+  addToComponent: (comp) => comp,
+  addChild: (node) => node,
+}
+
+const actorHandler: NodeHandler = {
+  ...noopLeafHandler,
+  addToComponent: (comp, node) => ({ ...comp, actors: [...comp.actors, node as ActorNode] }),
+}
+
+const nodeHandlers: Record<Node["type"], NodeHandler> = {
+  component: componentHandler,
+  "use-case-diagram": ucDiagHandler,
+  "use-case": useCaseHandler,
+  actor: actorHandler,
+  "sequence-diagram": noopLeafHandler,
+}
 
 // ─── Children ────────────────────────────────────────────────────────────────
 
-export const getNodeChildren = (node: Node): Node[] => {
-  switch (node.type) {
-    case "component": return getComponentChildren(node)
-    case "use-case-diagram": return getUcDiagChildren(node)
-    case "use-case": return getUseCaseChildren(node)
-    default: return []
-  }
-}
+export const getNodeChildren = (node: Node): Node[] =>
+  nodeHandlers[node.type].getChildren(node)
 
 // ─── Find ─────────────────────────────────────────────────────────────────────
 
@@ -72,18 +80,8 @@ export const findIdByUuid = (root: ComponentNode, uuid: string): string | null =
 
 // ─── Delete ───────────────────────────────────────────────────────────────────
 
-export const deleteNodeFromTree = (node: Node, uuid: string): Node => {
-  switch (node.type) {
-    case "component":
-      return deleteFromComponent(node, uuid)
-    case "use-case-diagram":
-      return deleteFromUcDiag(node as UseCaseDiagramNode, uuid)
-    case "use-case":
-      return deleteFromUseCase(node as UseCaseNode, uuid)
-    default:
-      return node
-  }
-}
+export const deleteNodeFromTree = (node: Node, uuid: string): Node =>
+  nodeHandlers[node.type].deleteChild(node, uuid)
 
 // ─── Upsert ───────────────────────────────────────────────────────────────────
 
@@ -98,18 +96,21 @@ export const upsertNodeInTree = (
 ): ComponentNode => {
   const updateRecursive = (node: Node): Node => {
     if (node.uuid === targetUuid) return updater(node)
-    switch (node.type) {
-      case "component":
-        return upsertInComponent(node, targetUuid, updateRecursive)
-      case "use-case-diagram":
-        return upsertInUcDiag(node as UseCaseDiagramNode, targetUuid, updateRecursive)
-      case "use-case":
-        return upsertInUseCase(node as UseCaseNode, targetUuid, updateRecursive)
-      default:
-        return node
-    }
+    return nodeHandlers[node.type].upsertChild(node, targetUuid, updateRecursive)
   }
   return updateRecursive(root) as ComponentNode
+}
+
+// ─── Add child ────────────────────────────────────────────────────────────────
+
+/**
+ * Append child to parent. For component parents, dispatches on child.type
+ * (double dispatch) so each child handler knows which array it belongs in.
+ */
+export const addChildToNode = (parent: Node, child: Node, ownerCompUuid: string): Node => {
+  if (parent.type === "component")
+    return nodeHandlers[child.type].addToComponent(parent as ComponentNode, child, ownerCompUuid)
+  return nodeHandlers[parent.type].addChild(parent, child, ownerCompUuid)
 }
 
 // ─── Collect diagrams ─────────────────────────────────────────────────────────
@@ -143,23 +144,8 @@ export const findContainerInSystem = (
 export const traversePath = (node: Node, remaining: string[]): string | null => {
   if (remaining.length === 0) return node.uuid
   const [next, ...rest] = remaining
-
-  switch (node.type) {
-    case "component": {
-      const child = getChildByIdInComp(node, next)
-      return child ? traversePath(child, rest) : null
-    }
-    case "use-case-diagram": {
-      const child = getChildByIdInUcDiag(node, next)
-      return child ? traversePath(child, rest) : null
-    }
-    case "use-case": {
-      const child = getChildByIdInUseCase(node, next)
-      return child ? traversePath(child, rest) : null
-    }
-    default:
-      return null
-  }
+  const child = nodeHandlers[node.type].getChildById(node, next)
+  return child ? traversePath(child, rest) : null
 }
 
 // ─── Parent lookup ────────────────────────────────────────────────────────────
@@ -190,5 +176,5 @@ export const mergeLists = <T extends { id: string; name: string }>(
 }
 
 // Re-export types for convenience
-export type { DiagramRef }
+export type { DiagramRef, NodeHandler }
 export type { ComponentNode, Node, UseCaseDiagramNode, UseCaseNode, SequenceDiagramNode, ActorNode }

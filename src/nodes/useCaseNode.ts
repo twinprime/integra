@@ -1,6 +1,7 @@
 import type { UseCaseNode, SequenceDiagramNode, Node } from "../store/types"
 import { applyIdRenameInSeqDiag } from "./sequenceDiagramNode"
 import { updateDescriptionRefs } from "../utils/renameNodeId"
+import type { NodeHandler } from "./nodeHandler"
 
 export const getUseCaseChildren = (uc: UseCaseNode): SequenceDiagramNode[] =>
   uc.sequenceDiagrams
@@ -51,4 +52,27 @@ export const getChildById = (uc: UseCaseNode, id: string): SequenceDiagramNode |
 export const findParentInUseCase = (useCase: UseCaseNode, targetUuid: string): Node | null => {
   if (useCase.sequenceDiagrams.some((sd) => sd.uuid === targetUuid)) return useCase
   return null
+}
+
+export const useCaseHandler: NodeHandler = {
+  getChildren: (node) => getUseCaseChildren(node as UseCaseNode),
+  deleteChild: (node, uuid) => deleteFromUseCase(node as UseCaseNode, uuid),
+  upsertChild: (node, _uuid, updater) => {
+    const uc = node as UseCaseNode
+    return { ...uc, sequenceDiagrams: uc.sequenceDiagrams.map((sd) => updater(sd) as SequenceDiagramNode) }
+  },
+  getChildById: (node, id) => getChildById(node as UseCaseNode, id),
+  addToComponent: (comp) => comp,
+  addChild: (node, child, ownerCompUuid) => {
+    const uc = node as UseCaseNode
+    if (child.type !== "sequence-diagram") return uc
+    const sd = child as SequenceDiagramNode
+    return {
+      ...uc,
+      sequenceDiagrams: [
+        ...uc.sequenceDiagrams,
+        { ...sd, ownerComponentUuid: ownerCompUuid, referencedFunctionUuids: [] },
+      ],
+    }
+  },
 }

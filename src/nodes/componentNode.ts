@@ -15,6 +15,7 @@ import {
 } from "./useCaseDiagramNode"
 import { applyIdRenameInInterface, findIdInInterface } from "./interfaceNode"
 import { updateDescriptionRefs } from "../utils/renameNodeId"
+import type { NodeHandler } from "./nodeHandler"
 
 export const getComponentChildren = (comp: ComponentNode): Node[] => [
   ...comp.subComponents,
@@ -270,3 +271,23 @@ export const removeInterfaceFromComponent = (
 
 // Type alias re-exported for callers
 export type { InterfaceSpecification }
+
+export const componentHandler: NodeHandler = {
+  getChildren: (node) => getComponentChildren(node as ComponentNode),
+  deleteChild: (node, uuid) => deleteFromComponent(node as ComponentNode, uuid),
+  upsertChild: (node, _uuid, updater) => {
+    const comp = node as ComponentNode
+    return {
+      ...comp,
+      subComponents: comp.subComponents.map((c) => updater(c) as ComponentNode),
+      actors: comp.actors.map((a) => updater(a) as ActorNode),
+      useCaseDiagrams: comp.useCaseDiagrams.map((d) => updater(d) as UseCaseDiagramNode),
+    }
+  },
+  getChildById: (node, id) => getChildById(node as ComponentNode, id),
+  addToComponent: (comp, node) => ({
+    ...comp,
+    subComponents: [...comp.subComponents, node as ComponentNode],
+  }),
+  addChild: (node) => node,
+}

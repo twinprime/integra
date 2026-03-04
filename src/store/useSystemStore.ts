@@ -3,7 +3,6 @@ import { persist } from "zustand/middleware"
 import type { ComponentNode, Node, SequenceDiagramNode } from "./types"
 import { parseUseCaseDiagram } from "../utils/useCaseDiagramParser"
 import { parseSequenceDiagram, type FunctionMatch } from "../utils/sequenceDiagramParser"
-import { upsertTree } from "../utils/diagramParserHelpers"
 import { applyIdRename } from "../utils/renameNodeId"
 import {
   findNodeByUuid,
@@ -11,6 +10,8 @@ import {
   collectAllDiagrams,
   findOwnerComponentUuid,
   findIdByUuid,
+  upsertNodeInTree,
+  addChildToNode,
 } from "../nodes/nodeTree"
 import {
   updateFunctionParams,
@@ -83,7 +84,7 @@ function rebuildSystemDiagrams(system: ComponentNode): ComponentNode {
 
   allDiagrams.forEach(({ diagram, ownerComponentUuid }) => {
     if (!diagram.ownerComponentUuid) {
-      updatedSystem = upsertTree(updatedSystem, diagram.uuid, (node) => ({
+      updatedSystem = upsertNodeInTree(updatedSystem, diagram.uuid, (node) => ({
         ...node,
         ownerComponentUuid,
       }))
@@ -220,63 +221,19 @@ export const useSystemStore = create<SystemState>()(
     }),
   selectNode: (nodeId) => set({ selectedNodeId: nodeId }),
   addNode: (parentUuid, node) =>
-    set((state) => ({
-      past: pushPast(state.past, state.rootComponent),
-      future: [],
-      rootComponent: upsertTree(state.rootComponent, parentUuid, (parent) => {
-        if (parent.type === "component") {
-          switch (node.type) {
-            case "component":
-              return {
-                ...parent,
-                subComponents: [...parent.subComponents, node],
-              }
-            case "actor":
-              return { ...parent, actors: [...parent.actors, node] }
-            case "use-case-diagram": {
-              return {
-                ...parent,
-                useCaseDiagrams: [
-                  ...parent.useCaseDiagrams,
-                  { ...node, ownerComponentUuid: parent.uuid, useCases: [] },
-                ],
-              }
-            }
-            default:
-              return parent
-          }
-        }
-
-        if (parent.type === "use-case-diagram") {
-          if (node.type === "use-case") {
-            return {
-              ...parent,
-              useCases: [...parent.useCases, { ...node, sequenceDiagrams: [] }],
-            }
-          }
-          return parent
-        }
-
-        if (parent.type === "use-case") {
-          if (node.type === "sequence-diagram") {
-            const ownerUuid = findOwnerComponentUuid(state.rootComponent, parent.uuid) ?? state.rootComponent.uuid
-            return {
-              ...parent,
-              sequenceDiagrams: [
-                ...parent.sequenceDiagrams,
-                { ...node, ownerComponentUuid: ownerUuid, referencedFunctionUuids: [] },
-              ],
-            }
-          }
-          return parent
-        }
-
-        return parent
-      }),
-    })),
+    set((state) => {
+      const ownerUuid = findOwnerComponentUuid(state.rootComponent, parentUuid) ?? state.rootComponent.uuid
+      return {
+        past: pushPast(state.past, state.rootComponent),
+        future: [],
+        rootComponent: upsertNodeInTree(state.rootComponent, parentUuid, (parent) =>
+          addChildToNode(parent, node, ownerUuid)
+        ),
+      }
+    }),
   updateNode: (nodeUuid, updates) =>
     set((state) => {
-      const updatedSystem = upsertTree(state.rootComponent, nodeUuid, (node) => ({ ...node, ...updates } as Node))
+      const updatedSystem = upsertNodeInTree(state.rootComponent, nodeUuid, (node) => ({ ...node, ...updates } as Node))
       const historyPush = { past: pushPast(state.past, state.rootComponent), future: [] }
       if (!updates.content) return { ...historyPush, rootComponent: updatedSystem }
       return { ...historyPush, ...tryReparseContent(updates.content as string, updatedSystem, nodeUuid) }
@@ -310,7 +267,7 @@ export const useSystemStore = create<SystemState>()(
         } else {
           system = updateFunctionParams(system, d.functionUuid, d.newParams)
           for (const diagUuid of d.affectedDiagramUuids) {
-            system = upsertTree(system, diagUuid, (node) => {
+            system = upsertNodeInTree(system, diagUuid, (node) => {
               const diagramNode = node as SequenceDiagramNode
               if (!diagramNode.content) return diagramNode
               return {
@@ -327,7 +284,7 @@ export const useSystemStore = create<SystemState>()(
         }
       }
 
-      const updatedWithContent = upsertTree(
+      const updatedWithContent = upsertNodeInTree(
         system,
         currentDiagramUuid,
         (node) => ({ ...node, content: currentDiagramContent }),

@@ -3,7 +3,7 @@ import type {
   InterfaceSpecification,
   Parameter,
 } from "../store/types"
-import { upsertTree } from "./diagramParserHelpers"
+import { upsertNodeInTree } from "../nodes/nodeTree"
 import { findNodeByPath } from "./nodeUtils"
 
 // Regex patterns - two simpler patterns per entity type, matched per line (no 'g' flag)
@@ -461,7 +461,7 @@ export function parseSequenceDiagram(
     }
   }
 
-  let updatedRoot = upsertTree(rootComponent, ownerComponentUuid, (node) =>
+  let updatedRoot = upsertNodeInTree(rootComponent, ownerComponentUuid, (node) =>
     applyParticipantsToComponent(
       node as ComponentNode,
       parseState.participants,
@@ -499,7 +499,7 @@ export function parseSequenceDiagram(
       referencedFunctionUuids.push(fnUuid)
   }
 
-  updatedRoot = upsertTree(updatedRoot, diagramUuid, (node) => ({
+  updatedRoot = upsertNodeInTree(updatedRoot, diagramUuid, (node) => ({
     ...node,
     referencedNodeIds,
     referencedFunctionUuids,

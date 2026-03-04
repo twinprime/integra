@@ -4,7 +4,7 @@ import type {
   UseCaseNode,
   UseCaseDiagramNode,
 } from "../store/types"
-import { upsertTree, mergeLists } from "./diagramParserHelpers"
+import { upsertNodeInTree, mergeLists } from "../nodes/nodeTree"
 import { findNodeByPath } from "./nodeUtils"
 
 // Regex patterns — optional "from <path>" clause between name and "as"
@@ -80,7 +80,7 @@ export function parseUseCaseDiagram(
   }
 
   // Update owner component with merged actors and sub-components
-  let updatedRoot = upsertTree(rootComponent, ownerComponentUuid, (node) => {
+  let updatedRoot = upsertNodeInTree(rootComponent, ownerComponentUuid, (node) => {
     const comp = node as ComponentNode
     return {
       ...comp,
@@ -105,7 +105,7 @@ export function parseUseCaseDiagram(
   }
 
   // Update diagram with use cases and referencedNodeIds
-  updatedRoot = upsertTree(updatedRoot, diagramUuid, (node) => {
+  updatedRoot = upsertNodeInTree(updatedRoot, diagramUuid, (node) => {
     const diagram = node as UseCaseDiagramNode
     const mergedUseCases = mergeLists(diagram.useCases || [], useCases.items)
     useCases.ids.forEach((id) => {
