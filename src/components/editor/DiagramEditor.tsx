@@ -311,14 +311,12 @@ export const DiagramEditor = ({
                 <div
                   className="absolute z-10 bg-gray-800 border border-gray-600 rounded shadow-lg overflow-y-auto max-h-40"
                   style={posStyle}
-                  role="listbox"
                 >
                   {suggestions.map((s, i) => (
-                    <div
+                    <button
                       key={s.label}
-                      role="option"
-                      aria-selected={i === selectedIndex}
-                      className={`px-3 py-1 text-xs font-mono cursor-pointer whitespace-nowrap ${
+                      type="button"
+                      className={`block w-full text-left px-3 py-1 text-xs font-mono cursor-pointer whitespace-nowrap ${
                         i === selectedIndex
                           ? "bg-blue-600 text-white"
                           : "text-gray-200 hover:bg-gray-700"
@@ -329,7 +327,7 @@ export const DiagramEditor = ({
                       }}
                     >
                       {s.label}
-                    </div>
+                    </button>
                   ))}
                 </div>
               )
