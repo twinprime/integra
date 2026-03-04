@@ -176,6 +176,51 @@ describe("sequence diagram parser — label escapes", () => {
   })
 })
 
+describe("sequence diagram parser — multi-word participants", () => {
+  it("parses a message with multi-word receiver", () => {
+    const { ast, lexErrors, parseErrors } = parse("fts --> Output Topics: Initial AIP data")
+    expect(lexErrors).toHaveLength(0)
+    expect(parseErrors).toHaveLength(0)
+    expect(ast.messages[0]).toMatchObject({ from: "fts", to: "Output Topics", label: "Initial AIP data" })
+  })
+
+  it("parses a message with multi-word sender", () => {
+    const { ast } = parse("Output Topics --> fts: ack")
+    expect(ast.messages[0]).toMatchObject({ from: "Output Topics", to: "fts" })
+  })
+
+  it("parses a note over with multi-word participant", () => {
+    const { ast, parseErrors } = parse("note over fts,Output Topics: if custom AIP set is used")
+    expect(parseErrors).toHaveLength(0)
+    expect(ast.notes[0].position).toMatchObject({
+      kind: "over",
+      participants: ["fts", "Output Topics"],
+    })
+    expect(ast.notes[0].text).toBe("if custom AIP set is used")
+  })
+
+  it("parses note right of with multi-word participant", () => {
+    const { ast, parseErrors } = parse("note right of Output Topics: note text")
+    expect(parseErrors).toHaveLength(0)
+    expect(ast.notes[0].position).toMatchObject({ kind: "side", side: "right", participant: "Output Topics" })
+  })
+
+  it("parses the full user example", () => {
+    const input = `actor sim_leader
+component fts
+sim_leader --> fts: view running simulations
+fts --> Output Topics: Initial AIP data (separate topics)
+note over fts,Output Topics: if custom AIP set is used`
+    const { ast, lexErrors, parseErrors } = parse(input)
+    expect(lexErrors).toHaveLength(0)
+    expect(parseErrors).toHaveLength(0)
+    expect(ast.declarations).toHaveLength(2)
+    expect(ast.messages).toHaveLength(2)
+    expect(ast.messages[1]).toMatchObject({ from: "fts", to: "Output Topics" })
+    expect(ast.notes[0].position).toMatchObject({ kind: "over", participants: ["fts", "Output Topics"] })
+  })
+})
+
 describe("sequence diagram parser — edge cases", () => {
   it("handles leading blank lines", () => {
     const { ast, parseErrors } = parse("\n\nactor user")

@@ -15,6 +15,11 @@ function escapeLabel(text: string): string {
   return text.replace(/\n/g, "<br/>")
 }
 
+/** Mermaid participant IDs cannot contain spaces — replace with underscores. */
+function sanitizeMermaidId(id: string): string {
+  return id.replace(/\s+/g, "_")
+}
+
 function resolveParticipantUuid(
   path: string[],
   ownerComp: ComponentNode,
@@ -41,27 +46,30 @@ export function generateSequenceMermaidFromAst(
   // ─── Participant lines ───────────────────────────────────────────────────────
   let mermaidContent = "sequenceDiagram\n"
   for (const decl of ast.declarations) {
+    const mermaidId = sanitizeMermaidId(decl.id)
     if (ownerComp) {
       const uuid = resolveParticipantUuid(decl.path, ownerComp, root)
-      if (uuid) idToUuid[decl.id] = uuid
+      if (uuid) idToUuid[mermaidId] = uuid
     }
     const stereotype = decl.entityType === "actor" ? "«actor»" : "«component»"
     const displayName = decl.alias ?? decl.path[decl.path.length - 1]
-    mermaidContent += `participant ${decl.id} as ${stereotype}<br/>${displayName}\n`
+    mermaidContent += `participant ${mermaidId} as ${stereotype}<br/>${displayName}\n`
   }
 
   // ─── Message lines ───────────────────────────────────────────────────────────
   for (const msg of ast.messages) {
+    const fromId = sanitizeMermaidId(msg.from)
+    const toId = sanitizeMermaidId(msg.to)
     if (msg.functionRef) {
       const { interfaceId, functionId, rawParams } = msg.functionRef
       const mermaidLabel = `${interfaceId}:${functionId}(${rawParams})`
       const compUuid = findComponentByInterfaceId(root, interfaceId)
       if (compUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = compUuid
-      mermaidContent += `${msg.from}->>${msg.to}: ${mermaidLabel}\n`
+      mermaidContent += `${fromId}->>${toId}: ${mermaidLabel}\n`
     } else if (msg.label) {
-      mermaidContent += `${msg.from}->>${msg.to}: ${escapeLabel(msg.label)}\n`
+      mermaidContent += `${fromId}->>${toId}: ${escapeLabel(msg.label)}\n`
     } else {
-      mermaidContent += `${msg.from}->>${msg.to}\n`
+      mermaidContent += `${fromId}->>${toId}\n`
     }
   }
 
@@ -69,12 +77,12 @@ export function generateSequenceMermaidFromAst(
   for (const note of ast.notes) {
     const text = escapeLabel(note.text)
     if (note.position.kind === "side") {
-      mermaidContent += `note ${note.position.side} of ${note.position.participant}: ${text}\n`
+      mermaidContent += `note ${note.position.side} of ${sanitizeMermaidId(note.position.participant)}: ${text}\n`
     } else {
       const [p1, p2] = note.position.participants
       mermaidContent += p2
-        ? `note over ${p1}, ${p2}: ${text}\n`
-        : `note over ${p1}: ${text}\n`
+        ? `note over ${sanitizeMermaidId(p1)}, ${sanitizeMermaidId(p2)}: ${text}\n`
+        : `note over ${sanitizeMermaidId(p1)}: ${text}\n`
     }
   }
 

@@ -70,6 +70,13 @@ export class SequenceDiagramParser extends CstParser {
     })
   })
 
+  // ─── Participant reference (one or more space-separated words) ───────────────
+
+  participantRef = this.RULE("participantRef", () => {
+    this.CONSUME(Identifier)
+    this.MANY(() => this.CONSUME2(Identifier))
+  })
+
   // ─── Note ───────────────────────────────────────────────────────────────────
 
   seqNote = this.RULE("seqNote", () => {
@@ -89,16 +96,16 @@ export class SequenceDiagramParser extends CstParser {
             { ALT: () => this.CONSUME(Left) },
           ])
           this.CONSUME(Of)
-          this.CONSUME(Identifier)
+          this.SUBRULE(this.participantRef)
         },
       },
       {
         ALT: () => {
           this.CONSUME(Over)
-          this.CONSUME2(Identifier)
+          this.SUBRULE2(this.participantRef)
           this.OPTION(() => {
             this.CONSUME(Comma)
-            this.CONSUME3(Identifier)
+            this.SUBRULE3(this.participantRef)
           })
         },
       },
@@ -108,9 +115,9 @@ export class SequenceDiagramParser extends CstParser {
   // ─── Message ─────────────────────────────────────────────────────────────────
 
   seqMessage = this.RULE("seqMessage", () => {
-    this.CONSUME(Identifier)
+    this.SUBRULE(this.participantRef)
     this.CONSUME(Arrow)
-    this.CONSUME2(Identifier)
+    this.SUBRULE2(this.participantRef)
     this.OPTION(() => {
       this.CONSUME(SeqColon)
       // After SeqColon the lexer switches to text_mode — FunctionRef or LabelText

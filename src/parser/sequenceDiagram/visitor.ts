@@ -86,6 +86,10 @@ class SequenceDiagramVisitor extends BaseVisitor {
     return (ctx.Identifier ?? []).map((t) => t.image)
   }
 
+  participantRef(ctx: Record<string, { image: string }[]>): string {
+    return (ctx.Identifier ?? []).map((t) => t.image).join(" ")
+  }
+
   seqNote(ctx: Record<string, { image: string }[]>): SeqNote {
     const position = this.visit(ctx.seqNotePosition as never) as SeqNote["position"]
     // NoteText is aliased to LabelText in the new lexer
@@ -93,22 +97,26 @@ class SequenceDiagramVisitor extends BaseVisitor {
     return { position, text: rawText.replace(/\\n/g, "\n") }
   }
 
-  seqNotePosition(ctx: Record<string, { image: string }[]>): SeqNote["position"] {
+  seqNotePosition(ctx: Record<string, unknown[]>): SeqNote["position"] {
     if (ctx.Over) {
-      const ids = (ctx.Identifier ?? []).map((t) => t.image)
-      return { kind: "over", participants: [ids[0], ids[1] ?? null] }
+      const [p1Ref, p2Ref] = ctx.participantRef as never[]
+      const p1 = this.visit(p1Ref) as string
+      const p2 = p2Ref != null ? (this.visit(p2Ref) as string) : null
+      return { kind: "over", participants: [p1, p2] }
     }
-    const side = ctx.Right ? "right" : "left"
-    return { kind: "side", side, participant: ctx.Identifier?.[0]?.image ?? "" }
+    const [pRef] = ctx.participantRef as never[]
+    const participant = this.visit(pRef) as string
+    const side = (ctx.Right ?? []).length > 0 ? "right" : "left"
+    return { kind: "side", side, participant }
   }
 
-  seqMessage(ctx: Record<string, { image: string }[]>): SeqMessage {
-    const ids = (ctx.Identifier ?? []).map((t) => t.image)
-    const from = ids[0] ?? ""
-    const to = ids[1] ?? ""
+  seqMessage(ctx: Record<string, unknown[]>): SeqMessage {
+    const [fromRef, toRef] = ctx.participantRef as never[]
+    const from = this.visit(fromRef) as string
+    const to = this.visit(toRef) as string
 
-    if (ctx.FunctionRef) {
-      const raw = ctx.FunctionRef[0].image
+    if ((ctx.FunctionRef ?? []).length > 0) {
+      const raw = (ctx.FunctionRef as { image: string }[])[0].image
       // Parse: InterfaceId:FunctionId(rawParams)
       const match = raw.match(/^([A-Za-z_]\w*):([A-Za-z_]\w*)\(([^)]*)\)$/)
       if (match) {
@@ -120,7 +128,7 @@ class SequenceDiagramVisitor extends BaseVisitor {
       }
     }
 
-    const rawLabel = ctx.LabelText?.[0]?.image ?? null
+    const rawLabel = (ctx.LabelText as { image: string }[] | undefined)?.[0]?.image ?? null
     return {
       from, to,
       functionRef: null,
