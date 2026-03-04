@@ -231,10 +231,11 @@ export const DiagramEditor = ({
       </div>
 
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-300 mb-2">
+        <label htmlFor="diagram-name-input" className="block text-sm font-medium text-gray-300 mb-2">
           Name
         </label>
         <input
+          id="diagram-name-input"
           className="w-full p-2 border border-gray-700 rounded-md text-sm text-gray-100 bg-gray-900 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
           type="text"
           value={name}
@@ -244,7 +245,7 @@ export const DiagramEditor = ({
       </div>
 
       <div className="mb-4 flex-1 flex flex-col min-h-0">
-        <label className="block text-sm font-medium text-gray-300 mb-2">
+        <label htmlFor="diagram-spec-textarea" className="block text-sm font-medium text-gray-300 mb-2">
           Specification
         </label>
         {isEditing ? (
@@ -262,6 +263,7 @@ export const DiagramEditor = ({
             {/* Transparent textarea on top captures all input */}
             <textarea
               ref={textareaRef}
+              id="diagram-spec-textarea"
               className={`absolute inset-0 w-full h-full p-2 text-[0.85rem] font-mono leading-relaxed bg-transparent resize-none focus:outline-none selection:bg-blue-500/30 ${content ? "text-transparent caret-white" : "text-gray-400"}`}
               value={content}
               onChange={(e) => {
@@ -302,10 +304,13 @@ export const DiagramEditor = ({
                 <div
                   className="absolute z-10 bg-gray-800 border border-gray-600 rounded shadow-lg overflow-y-auto max-h-40"
                   style={posStyle}
+                  role="listbox"
                 >
                   {suggestions.map((s, i) => (
                     <div
-                      key={i}
+                      key={s.label}
+                      role="option"
+                      aria-selected={i === selectedIndex}
                       className={`px-3 py-1 text-xs font-mono cursor-pointer whitespace-nowrap ${
                         i === selectedIndex
                           ? "bg-blue-600 text-white"

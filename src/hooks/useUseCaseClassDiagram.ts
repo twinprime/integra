@@ -5,10 +5,8 @@ import type { UseCaseNode } from "../store/types"
 import { buildUseCaseClassDiagram } from "../utils/useCaseClassDiagram"
 
 declare global {
-  interface Window {
-    __integraNavigate?: (id: string) => void
-    __integraIdMap?: Record<string, string>
-  }
+  var __integraNavigate: ((id: string) => void) | undefined
+  var __integraIdMap: Record<string, string> | undefined
 }
 
 export function useUseCaseClassDiagram(useCaseNode: UseCaseNode | null) {
@@ -35,9 +33,9 @@ export function useUseCaseClassDiagram(useCaseNode: UseCaseNode | null) {
         return
       }
 
-      window.__integraIdMap = idToUuid
-      window.__integraNavigate = (nodeId: string) => {
-        const uuid = window.__integraIdMap?.[nodeId]
+      globalThis.__integraIdMap = idToUuid
+      globalThis.__integraNavigate = (nodeId: string) => {
+        const uuid = globalThis.__integraIdMap?.[nodeId]
         if (uuid) selectNode(uuid)
       }
 
