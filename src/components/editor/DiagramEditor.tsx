@@ -31,7 +31,7 @@ export const DiagramEditor = ({
   const historyIndexRef = useRef(0)
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const { rootComponent, applyFunctionUpdates } = useSystemStore()
+  const { rootComponent, applyFunctionUpdates, parseError, clearParseError } = useSystemStore()
   const seqDiagrams = getSequenceDiagrams(rootComponent)
 
   const ownerComp = useMemo((): ComponentNode | null => {
@@ -181,7 +181,10 @@ export const DiagramEditor = ({
 
   const saveContent = (exitEdit: boolean) => {
     if (exitEdit) setIsEditing(false)
-    if (content === node.content) return
+    if (content === node.content) {
+      if (parseError) clearParseError()
+      return
+    }
 
     if (node.type === "sequence-diagram") {
       const matches = analyzeSequenceDiagramChanges(

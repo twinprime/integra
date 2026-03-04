@@ -184,8 +184,17 @@ export function parseSequenceDiagram(
 ): ComponentNode {
   const { cst, lexErrors, parseErrors } = parseSequenceDiagramCst(content)
   if (lexErrors.length || parseErrors.length) {
-    const errs = [...lexErrors, ...parseErrors].map((e) => e.message).join("; ")
-    throw new Error(`Parse error: ${errs}`)
+    const lexMessages = lexErrors.map((e) => {
+      const loc = e.line != null ? `Line ${e.line}, Col ${e.column ?? 1}: ` : ""
+      return `${loc}${e.message}`
+    })
+    const parseMessages = parseErrors.map((e) => {
+      const line = e.token?.startLine
+      const col = e.token?.startColumn
+      const loc = line != null ? `Line ${line}, Col ${col ?? 1}: ` : ""
+      return `${loc}${e.message}`
+    })
+    throw new Error([...lexMessages, ...parseMessages].join("\n"))
   }
 
   const ast = buildSeqAst(cst)
