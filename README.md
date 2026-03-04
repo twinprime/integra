@@ -277,12 +277,107 @@ Integra is a single-page web application that allows users to model software sys
 9. **Orphan detection** — actors and components not referenced by any diagram are deletable; otherwise the delete button is hidden
 10. **Syntax highlighting** — the diagram specification editor highlights known tokens (keywords, participants, interfaces, functions, use case references) in real time using a backdrop technique
 11. **Navigation** — highlighted tokens in the specification editor are clickable and navigate to the corresponding node in the tree; entities in the rendered Mermaid diagram are also clickable for the same purpose
-12. **Persistence** — system state is persisted to `localStorage` and restored on page load; a clear button resets to the initial state; Save / Load buttons use the File System Access API to read/write JSON files
+12. **Persistence** — system state is persisted to `localStorage` and restored on page load; a clear button resets to the initial state; Save / Load buttons use the File System Access API to read/write YAML files
 13. **Auto-generated use-case class diagram** — selecting a use-case node renders a class diagram in the bottom panel derived from all its sequence diagrams, showing actors, components, interfaces (with methods), and realization / dependency relationships
 
 ---
 
 ### Design Overview
+
+#### React Component Architecture
+
+The UI is split into three panels managed by `MainLayout`. Each panel is independently scrollable and resizable via drag handles.
+
+```mermaid
+graph TD
+    App --> MainLayout
+
+    MainLayout -->|left panel| TreeView
+    MainLayout -->|right panel| EditorPanel
+    MainLayout -->|bottom panel| DiagramPanel
+
+    TreeView --> TreeNode["TreeNode (recursive)"]
+    TreeNode --> ContextMenu
+
+    EditorPanel -->|component| ComponentEditor
+    EditorPanel -->|"use-case-diagram<br>sequence-diagram"| DiagramEditor
+    EditorPanel -->|actor, use-case, etc.| CommonEditor
+
+    ComponentEditor --> InterfaceEditor
+    ComponentEditor --> MarkdownEditor
+    InterfaceEditor --> FunctionEditor
+    FunctionEditor --> MarkdownEditor
+    CommonEditor --> MarkdownEditor
+
+    DiagramEditor --> DiagramSpecPreview
+    DiagramEditor --> FunctionUpdateDialog
+
+    DiagramPanel -->|use-case-diagram| UseCaseDiagram
+    DiagramPanel -->|sequence-diagram| SequenceDiagram
+    DiagramPanel -->|use-case| UseCaseClassDiagram
+```
+
+**Panel roles:**
+
+| Component | Role |
+|---|---|
+| `MainLayout` | Split-panel layout with draggable resize handles and expand/collapse buttons |
+| `TreeView` | System tree with add/delete/rename; Save, Load, Clear, Undo/Redo toolbar |
+| `TreeNode` | Recursive node row — renders label, type icon, +/delete buttons, selection highlight |
+| `ContextMenu` | Right-click menu for node-level actions |
+| `EditorPanel` | Routes to the correct editor based on the selected node's type |
+| `DiagramEditor` | Text editor for use-case and sequence diagram specs; syntax highlighting, autocomplete, undo/redo, Shift+Enter save |
+| `DiagramSpecPreview` | Read-only highlighted view of a spec; used in both `"backdrop"` mode (behind the textarea) and `"preview"` mode (standalone) |
+| `ComponentEditor` | Name, description, and interface list editor for component nodes |
+| `InterfaceEditor` | Interface name, type, and function list editor |
+| `FunctionEditor` | Function id, parameters, and description editor; shows referencing sequence diagrams |
+| `CommonEditor` | Minimal name + markdown description editor for actor, use-case, and sequence-diagram nodes |
+| `MarkdownEditor` | Markdown textarea with preview toggle; node-path links are clickable |
+| `FunctionUpdateDialog` | Modal dialog shown when a function signature change affects other diagrams |
+| `DiagramPanel` | Routes to the correct Mermaid renderer based on selected node type |
+| `UseCaseDiagram` | Renders use-case-diagram spec via Mermaid; clickable entities |
+| `SequenceDiagram` | Renders sequence diagram spec via Mermaid; clickable participants and message labels |
+| `UseCaseClassDiagram` | Renders auto-generated class diagram for a use-case node; clickable classes |
+| `DiagramErrorBanner` | Displays Mermaid render errors with the raw spec source |
+
+#### Hooks
+
+Rendering logic for Mermaid diagrams is extracted into custom hooks to keep components thin:
+
+| Hook | Used by | Purpose |
+|---|---|---|
+| `useMermaidBase` | `useUseCaseDiagram`, `useSequenceDiagram` | Shared Mermaid render loop — builds the diagram string, calls `mermaid.render()`, binds click handlers, exposes `svg`/`error`/`elementRef` |
+| `useUseCaseDiagram` | `UseCaseDiagram` | Builds the use-case diagram transform and wires `__integraNavigate` |
+| `useSequenceDiagram` | `SequenceDiagram` | Builds the sequence diagram transform and wires `__integraNavigate` |
+| `useUseCaseClassDiagram` | `UseCaseClassDiagram` | Calls `buildUseCaseClassDiagram()`, renders via Mermaid, wires `__integraNavigate` |
+| `useAutoComplete` | `DiagramEditor` | Cursor-position-aware suggestion engine — returns suggestions, selected index, and accept/dismiss handlers |
+
+#### State Management
+
+All application state lives in a single **Zustand** store (`useSystemStore`). Components subscribe selectively to avoid unnecessary re-renders.
+
+```mermaid
+graph LR
+    Store[("useSystemStore<br>Zustand + persist")]
+
+    Store -->|"rootComponent<br>selectedNodeId"| TreeView
+    Store -->|"rootComponent<br>selectedNodeId"| EditorPanel
+    Store -->|"rootComponent<br>selectedNodeId"| MainLayout
+    Store -->|"rootComponent<br>selectedNodeId"| DiagramPanel
+
+    TreeView -->|"selectNode<br>updateNode<br>addNode<br>deleteNode<br>undo / redo<br>markSaved<br>setSystem"| Store
+    EditorPanel -->|"updateNode<br>applyFunctionUpdates"| Store
+    DiagramPanel -->|selectNode| Store
+```
+
+Key store slices:
+
+| Slice | Type | Purpose |
+|---|---|---|
+| `rootComponent` | `ComponentNode` | Entire system tree |
+| `selectedNodeId` | `string \| null` | Currently selected node UUID |
+| `savedSnapshot` | `string \| null` | YAML snapshot at last save (for unsaved-changes detection) |
+| `past` / `future` | `ComponentNode[]` | Undo/redo history stacks |
 
 #### Node Types
 
@@ -303,7 +398,7 @@ When a `use-case` node is selected, `buildUseCaseClassDiagram()` (`src/utils/use
 - `Component ..|> Interface` — realization (component owns/provides the interface)
 - `Sender ..> Interface` — dependency (sender calls via the interface)
 - `Sender ..> Receiver` — dependency for plain (non-interface, non-self) messages
-- Click handlers use `window.__integraNavigate` to navigate to the clicked node
+- Click handlers use `globalThis.__integraNavigate` to navigate to the clicked node
 
 #### Key Fields on `DiagramNode`
 
