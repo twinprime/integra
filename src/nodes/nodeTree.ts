@@ -11,9 +11,6 @@
 import type {
   ComponentNode,
   Node,
-  UseCaseDiagramNode,
-  UseCaseNode,
-  SequenceDiagramNode,
   ActorNode,
 } from "../store/types"
 import {
@@ -22,7 +19,6 @@ import {
   getSiblingIdsInComponent,
   findContainerComponentByUuid,
   findOwnerComponentUuidInComp,
-  findCompByUuid,
   findParentInComponent,
   componentHandler,
 } from "./componentNode"
@@ -109,7 +105,7 @@ export const upsertNodeInTree = (
  */
 export const addChildToNode = (parent: Node, child: Node, ownerCompUuid: string): Node => {
   if (parent.type === "component")
-    return nodeHandlers[child.type].addToComponent(parent as ComponentNode, child, ownerCompUuid)
+    return nodeHandlers[child.type].addToComponent(parent, child, ownerCompUuid)
   return nodeHandlers[parent.type].addChild(parent, child, ownerCompUuid)
 }
 
@@ -155,7 +151,7 @@ export const findParentNode = (root: ComponentNode, targetUuid: string): Node | 
 
 // ─── Component UUID lookup ────────────────────────────────────────────────────
 
-export { findCompByUuid }
+export { findCompByUuid } from "./componentNode"
 
 // ─── mergeLists (moved from diagramParserHelpers) ─────────────────────────────
 
@@ -176,5 +172,6 @@ export const mergeLists = <T extends { id: string; name: string }>(
 }
 
 // Re-export types for convenience
-export type { DiagramRef, NodeHandler }
-export type { ComponentNode, Node, UseCaseDiagramNode, UseCaseNode, SequenceDiagramNode, ActorNode }
+export type { DiagramRef } from "./useCaseDiagramNode"
+export type { NodeHandler } from "./nodeHandler"
+export type { ComponentNode, Node, UseCaseDiagramNode, UseCaseNode, SequenceDiagramNode, ActorNode } from "../store/types"

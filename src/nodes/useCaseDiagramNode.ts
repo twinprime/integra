@@ -96,7 +96,7 @@ export const ucDiagHandler: NodeHandler = {
   addChild: (node, child) => {
     const ucd = node as UseCaseDiagramNode
     if (child.type !== "use-case") return ucd
-    const uc = child as UseCaseNode
+    const uc = child
     return { ...ucd, useCases: [...ucd.useCases, { ...uc, sequenceDiagrams: [] }] }
   },
 }

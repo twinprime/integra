@@ -1,5 +1,5 @@
 import type { InterfaceSpecification, InterfaceFunction } from "../store/types"
-import { updateDescriptionRefs, updateContentRefs } from "../utils/renameNodeId"
+import { updateDescriptionRefs } from "../utils/renameNodeId"
 
 export const applyIdRenameInInterface = (
   iface: InterfaceSpecification,
@@ -37,4 +37,4 @@ export const findIdInInterface = (
   return null
 }
 
-export { updateContentRefs, updateDescriptionRefs }
+export { updateContentRefs, updateDescriptionRefs } from "../utils/renameNodeId"
