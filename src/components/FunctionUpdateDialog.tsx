@@ -1,7 +1,7 @@
 import { useState } from "react"
 import type { FunctionDecision } from "../store/useSystemStore"
-import type { FunctionMatch } from "../../parser/sequenceDiagram/systemUpdater"
-import { paramsToString } from "../../parser/sequenceDiagram/systemUpdater"
+import type { FunctionMatch } from "../parser/sequenceDiagram/systemUpdater"
+import { paramsToString } from "../parser/sequenceDiagram/systemUpdater"
 
 type SeqDiagramInfo = { uuid: string; name: string }
 
@@ -39,7 +39,10 @@ function SignatureChange({
   functionId,
   oldParams,
   newParams,
-}: Pick<FunctionMatch, "interfaceId" | "functionId" | "oldParams" | "newParams">) {
+}: Pick<
+  FunctionMatch,
+  "interfaceId" | "functionId" | "oldParams" | "newParams"
+>) {
   return (
     <div className="mt-1 font-mono text-xs space-y-0.5">
       <div className="text-red-400 line-through">
