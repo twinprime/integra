@@ -1,8 +1,8 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import type { ComponentNode, Node, SequenceDiagramNode } from "./types"
-import { parseUseCaseDiagram } from "../utils/useCaseDiagramParser"
-import { parseSequenceDiagram, type FunctionMatch } from "../utils/sequenceDiagramParser"
+import { parseUseCaseDiagram } from "../parser/useCaseDiagram/systemUpdater"
+import { parseSequenceDiagram, type FunctionMatch } from "../parser/sequenceDiagram/systemUpdater"
 import { applyIdRename } from "../utils/renameNodeId"
 import {
   findNodeByUuid,

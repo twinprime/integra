@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import type { ComponentNode } from "../../store/types"
-import { paramsToString } from "../../utils/sequenceDiagramParser"
+import { paramsToString } from "../../parser/sequenceDiagram/systemUpdater"
 
 export type Suggestion = {
   label: string

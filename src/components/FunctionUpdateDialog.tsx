@@ -1,7 +1,7 @@
 import { useState } from "react"
 import type { FunctionDecision } from "../store/useSystemStore"
-import type { FunctionMatch } from "../utils/sequenceDiagramParser"
-import { paramsToString } from "../utils/sequenceDiagramParser"
+import type { FunctionMatch } from "../../parser/sequenceDiagram/systemUpdater"
+import { paramsToString } from "../../parser/sequenceDiagram/systemUpdater"
 
 type SeqDiagramInfo = { uuid: string; name: string }
 

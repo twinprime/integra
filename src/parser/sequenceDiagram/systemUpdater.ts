@@ -1,0 +1,301 @@
+/**
+ * systemUpdater.ts — replaces src/utils/sequenceDiagramParser.ts
+ *
+ * Parses sequence diagram DSL content using the Chevrotain-based parser and
+ * updates the component tree accordingly.
+ */
+import type { ComponentNode, InterfaceSpecification, Parameter } from "../../store/types"
+import { upsertNodeInTree, mergeLists } from "../../nodes/nodeTree"
+import { findCompByUuid } from "../../nodes/nodeTree"
+import { findNodeByPath } from "../../utils/nodeUtils"
+import { parseSequenceDiagramCst } from "./parser"
+import { buildSeqAst } from "./visitor"
+
+// ─── Shared utilities (re-exported for callers) ───────────────────────────────
+
+export function parseParameters(rawParams: string): Parameter[] {
+  if (!rawParams.trim()) return []
+  return rawParams.split(",").map((p) => {
+    const trimmed = p.trim()
+    const colonIdx = trimmed.indexOf(":")
+    if (colonIdx === -1) return { name: trimmed, type: "any", required: true }
+    const name = trimmed.slice(0, colonIdx).trim()
+    const rawType = trimmed.slice(colonIdx + 1).trim()
+    const optional = rawType.endsWith("?")
+    const type = optional ? rawType.slice(0, -1).trim() : rawType
+    return { name, type: type || "any", required: !optional }
+  })
+}
+
+export function paramsToString(params: Parameter[]): string {
+  return params.map((p) => `${p.name}: ${p.type}${p.required ? "" : "?"}`).join(", ")
+}
+
+function paramsMatch(a: Parameter[], b: Parameter[]): boolean {
+  if (a.length !== b.length) return false
+  return a.every((p, i) => p.name === b[i].name && p.type === b[i].type && p.required === b[i].required)
+}
+
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+export type FunctionMatch = {
+  kind: "compatible" | "incompatible"
+  interfaceId: string
+  functionId: string
+  functionUuid: string
+  oldParams: Parameter[]
+  newParams: Parameter[]
+  affectedDiagramUuids: string[]
+}
+
+// ─── Internal helpers ─────────────────────────────────────────────────────────
+
+function findFunctionInTree(
+  root: ComponentNode,
+  interfaceId: string,
+  functionId: string,
+): { uuid: string; parameters: Parameter[] } | null {
+  const iface = root.interfaces?.find((i) => i.id === interfaceId)
+  if (iface) {
+    const fn = iface.functions.find((f) => f.id === functionId)
+    if (fn) return { uuid: fn.uuid, parameters: fn.parameters }
+  }
+  for (const sub of root.subComponents) {
+    const found = findFunctionInTree(sub, interfaceId, functionId)
+    if (found) return found
+  }
+  return null
+}
+
+function findFunctionUuidInTree(root: ComponentNode, interfaceId: string, functionId: string): string | null {
+  return findFunctionInTree(root, interfaceId, functionId)?.uuid ?? null
+}
+
+const INTERFACE_TYPE_OWNER: Record<string, "sender" | "receiver"> = {
+  kafka: "sender",
+  rest: "receiver",
+  graphql: "receiver",
+  other: "receiver",
+}
+
+function applyMessageToComponents(
+  components: ComponentNode[],
+  from: string,
+  to: string,
+  interfaceId: string,
+  functionId: string,
+  rawParams: string,
+): ComponentNode[] {
+  const result = [...components]
+  const receiverIdx = result.findIndex((c) => c.id === to)
+  const senderIdx = result.findIndex((c) => c.id === from)
+
+  // Determine which component owns the interface
+  const receiverIface = receiverIdx >= 0 ? result[receiverIdx].interfaces?.find((i) => i.id === interfaceId) : undefined
+  let ownerIdx = receiverIdx
+  if (receiverIface) {
+    ownerIdx = INTERFACE_TYPE_OWNER[receiverIface.type] === "sender" ? senderIdx : receiverIdx
+  } else {
+    const senderIface = senderIdx >= 0 ? result[senderIdx].interfaces?.find((i) => i.id === interfaceId) : undefined
+    if (senderIface && INTERFACE_TYPE_OWNER[senderIface.type] === "sender") ownerIdx = senderIdx
+  }
+
+  if (ownerIdx < 0) return result
+
+  const targetComp = { ...result[ownerIdx] }
+  const interfaces: InterfaceSpecification[] = targetComp.interfaces ? [...targetComp.interfaces] : []
+
+  let ifaceIdx = interfaces.findIndex((i) => i.id === interfaceId)
+  if (ifaceIdx === -1) {
+    interfaces.push({ uuid: crypto.randomUUID(), id: interfaceId, name: interfaceId, type: "rest", functions: [] })
+    ifaceIdx = interfaces.length - 1
+  }
+
+  const iface = { ...interfaces[ifaceIdx], functions: [...interfaces[ifaceIdx].functions] }
+  const newParams = parseParameters(rawParams)
+  const exactMatchIdx = iface.functions.findIndex((f) => f.id === functionId && paramsMatch(f.parameters, newParams))
+
+  if (exactMatchIdx === -1) {
+    const sameIdSameCount = iface.functions.find((f) => f.id === functionId && f.parameters.length === newParams.length)
+    if (sameIdSameCount) {
+      throw new Error(
+        `Parameter mismatch for function "${functionId}" in interface "${interfaceId}": ` +
+          `existing (${paramsToString(sameIdSameCount.parameters)}) vs new (${paramsToString(newParams)})`,
+      )
+    }
+    iface.functions.push({ uuid: crypto.randomUUID(), id: functionId, parameters: newParams })
+  }
+
+  interfaces[ifaceIdx] = iface
+  targetComp.interfaces = interfaces
+  result[ownerIdx] = targetComp
+  return result
+}
+
+// ─── Exported parser functions ────────────────────────────────────────────────
+
+export function analyzeSequenceDiagramChanges(
+  content: string,
+  rootComponent: ComponentNode,
+  diagramUuid: string,
+  allSeqDiagrams: Array<{ uuid: string; referencedFunctionUuids: string[] }>,
+): FunctionMatch[] {
+  const { cst, lexErrors, parseErrors } = parseSequenceDiagramCst(content)
+  if (lexErrors.length || parseErrors.length) return []
+
+  const ast = buildSeqAst(cst)
+
+  const otherRefs = new Set(
+    allSeqDiagrams.filter((d) => d.uuid !== diagramUuid).flatMap((d) => d.referencedFunctionUuids),
+  )
+
+  const matches: FunctionMatch[] = []
+  const seen = new Set<string>()
+
+  for (const msg of ast.messages) {
+    if (!msg.functionRef) continue
+    const { interfaceId, functionId, rawParams } = msg.functionRef
+    const key = `${interfaceId}:${functionId}`
+    if (seen.has(key)) continue
+    seen.add(key)
+
+    const newParams = parseParameters(rawParams)
+    const existing = findFunctionInTree(rootComponent, interfaceId, functionId)
+    if (!existing || paramsMatch(existing.parameters, newParams)) continue
+
+    const kind = existing.parameters.length === newParams.length ? "incompatible" : "compatible"
+    const affectedDiagramUuids = allSeqDiagrams
+      .filter((d) => d.uuid !== diagramUuid && d.referencedFunctionUuids.includes(existing.uuid))
+      .map((d) => d.uuid)
+
+    if (kind === "incompatible" && !otherRefs.has(existing.uuid)) continue
+
+    matches.push({ kind, interfaceId, functionId, functionUuid: existing.uuid, oldParams: existing.parameters, newParams, affectedDiagramUuids })
+  }
+
+  return matches
+}
+
+export function parseSequenceDiagram(
+  content: string,
+  rootComponent: ComponentNode,
+  ownerComponentUuid: string,
+  diagramUuid: string,
+): ComponentNode {
+  const { cst, lexErrors, parseErrors } = parseSequenceDiagramCst(content)
+  if (lexErrors.length || parseErrors.length) {
+    const errs = [...lexErrors, ...parseErrors].map((e) => e.message).join("; ")
+    throw new Error(`Parse error: ${errs}`)
+  }
+
+  const ast = buildSeqAst(cst)
+
+  // Maps participantId (alias or path.last) → treeNodeId (path[0] for local)
+  const participantToTreeId = new Map<string, string>()
+  const externalUuids: string[] = []
+  const localActors: ComponentNode["actors"][number][] = []
+  const localComponents: ComponentNode[] = []
+
+  for (const decl of ast.declarations) {
+    const treeNodeId = decl.path[decl.path.length - 1]
+    participantToTreeId.set(decl.id, decl.path[0])
+
+    if (decl.path.length === 1) {
+      // Local node
+      if (decl.entityType === "actor") {
+        localActors.push({ uuid: crypto.randomUUID(), id: treeNodeId, name: decl.alias ?? treeNodeId, type: "actor", description: "" })
+      } else {
+        localComponents.push({
+          uuid: crypto.randomUUID(), id: treeNodeId, name: decl.alias ?? treeNodeId, type: "component",
+          description: "", subComponents: [], actors: [], useCaseDiagrams: [], interfaces: [],
+        })
+      }
+    } else {
+      // External node: resolve UUID from root tree
+      const pathStr = decl.path.join("/")
+      const uuid = findNodeByPath(rootComponent, pathStr)
+      if (!uuid) throw new Error(`Cannot resolve path: "${pathStr}"`)
+      if (!externalUuids.includes(uuid)) externalUuids.push(uuid)
+    }
+  }
+
+  // Handle self-reference (owner component declared as a participant)
+  const ownerCompBefore = findCompByUuid(rootComponent, ownerComponentUuid)
+  const filteredComponents = localComponents.filter((c) => {
+    if (ownerCompBefore && c.id === ownerCompBefore.id) {
+      // Self-reference: replace with external UUID
+      if (!externalUuids.includes(ownerComponentUuid)) externalUuids.push(ownerComponentUuid)
+      // Update participantToTreeId to point to ownerComp
+      const pid = [...participantToTreeId.entries()].find(([, v]) => v === c.id)?.[0]
+      if (pid) participantToTreeId.set(pid, ownerCompBefore.id)
+      return false
+    }
+    return true
+  })
+
+  // Upsert local participants into owner component
+  let updatedRoot = upsertNodeInTree(rootComponent, ownerComponentUuid, (node) => {
+    const comp = node as ComponentNode
+    return {
+      ...comp,
+      actors: mergeLists(comp.actors ?? [], localActors),
+      subComponents: mergeLists(comp.subComponents, filteredComponents),
+    }
+  })
+
+  // Resolve referencedNodeIds from updated tree
+  const updatedOwnerComp = findCompByUuid(updatedRoot, ownerComponentUuid)
+  const referencedNodeIds = [...externalUuids]
+
+  if (updatedOwnerComp) {
+    for (const treeNodeId of new Set(participantToTreeId.values())) {
+      const actor = updatedOwnerComp.actors?.find((a) => a.id === treeNodeId)
+      if (actor) { if (!referencedNodeIds.includes(actor.uuid)) referencedNodeIds.push(actor.uuid); continue }
+      const comp = updatedOwnerComp.subComponents?.find((c) => c.id === treeNodeId)
+      if (comp && !referencedNodeIds.includes(comp.uuid)) referencedNodeIds.push(comp.uuid)
+    }
+    // Also include owner if self-referenced
+    if (externalUuids.includes(ownerComponentUuid) && !referencedNodeIds.includes(ownerComponentUuid)) {
+      referencedNodeIds.push(ownerComponentUuid)
+    }
+  }
+
+  // Apply messages: build a working components list [owner, ...subComponents]
+  // keyed by treeNodeId
+  if (ast.messages.length > 0 && updatedOwnerComp) {
+    let workingComponents: ComponentNode[] = [updatedOwnerComp, ...updatedOwnerComp.subComponents]
+
+    for (const msg of ast.messages) {
+      if (!msg.functionRef) continue
+      const fromTreeId = participantToTreeId.get(msg.from) ?? msg.from
+      const toTreeId = participantToTreeId.get(msg.to) ?? msg.to
+      workingComponents = applyMessageToComponents(
+        workingComponents, fromTreeId, toTreeId,
+        msg.functionRef.interfaceId, msg.functionRef.functionId, msg.functionRef.rawParams,
+      )
+    }
+
+    const [updatedOwner, ...updatedSubComponents] = workingComponents
+    updatedRoot = upsertNodeInTree(updatedRoot, ownerComponentUuid, () => ({
+      ...updatedOwner,
+      subComponents: updatedSubComponents,
+    }))
+  }
+
+  // Track referencedFunctionUuids
+  const referencedFunctionUuids: string[] = []
+  for (const msg of ast.messages) {
+    if (!msg.functionRef) continue
+    const fnUuid = findFunctionUuidInTree(updatedRoot, msg.functionRef.interfaceId, msg.functionRef.functionId)
+    if (fnUuid && !referencedFunctionUuids.includes(fnUuid)) referencedFunctionUuids.push(fnUuid)
+  }
+
+  // Update diagram node
+  updatedRoot = upsertNodeInTree(updatedRoot, diagramUuid, (node) => ({
+    ...node,
+    referencedNodeIds,
+    referencedFunctionUuids,
+  }))
+
+  return updatedRoot
+}

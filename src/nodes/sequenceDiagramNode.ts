@@ -3,7 +3,7 @@ import type {
   Parameter,
 } from "../store/types"
 import { updateDescriptionRefs, updateContentRefs } from "../utils/renameNodeId"
-import { paramsToString } from "../utils/sequenceDiagramParser"
+import { paramsToString } from "../parser/sequenceDiagram/systemUpdater"
 
 export const applyIdRenameInSeqDiag = (
   sd: SequenceDiagramNode,

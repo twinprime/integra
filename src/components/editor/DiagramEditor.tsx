@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import type { ComponentNode, DiagramNode } from "../../store/types"
 import { useSystemStore, getSequenceDiagrams, type FunctionDecision } from "../../store/useSystemStore"
-import { analyzeSequenceDiagramChanges, type FunctionMatch } from "../../utils/sequenceDiagramParser"
+import { analyzeSequenceDiagramChanges, type FunctionMatch } from "../../parser/sequenceDiagram/systemUpdater"
 import { FunctionUpdateDialog } from "../FunctionUpdateDialog"
 import { DiagramSpecPreview } from "./DiagramSpecPreview"
 import { useAutoComplete, type Suggestion } from "./useAutoComplete"

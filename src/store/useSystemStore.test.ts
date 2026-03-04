@@ -218,15 +218,15 @@ describe("useSystemStore", () => {
       // Update diagram content
       act(() => {
         result.current.updateNode("diagram-uuid", {
-          content: `actor "User" as user\nuse case "Login" as login\nuser --> login`,
+          content: `actor user\nuse case login\nuser --> login`,
         })
       })
 
       // Verify the content was updated
       const updatedComp = result.current.rootComponent.subComponents[0]
       const updatedDiagram = updatedComp.useCaseDiagrams[0]
-      expect(updatedDiagram.content).toContain("User")
-      expect(updatedDiagram.content).toContain("Login")
+      expect(updatedDiagram.content).toContain("user")
+      expect(updatedDiagram.content).toContain("login")
     })
   })
 
@@ -387,7 +387,7 @@ describe("useSystemStore", () => {
                 name: "Use Case Diagram",
                 type: "use-case-diagram" as const,
                 description: "Test Use Case Diagram",
-                content: `actor "User" as user\nuse case "Login" as login`,
+                content: `actor user\nuse case login`,
                 referencedNodeIds: [],
                 ownerComponentUuid: "comp-uuid",
                 useCases: [],
@@ -480,7 +480,7 @@ describe("useSystemStore", () => {
       // First parse: define fn(x: string)
       act(() => {
         result.current.updateNode("seq-uuid", {
-          content: `component "Comp" as comp\ncomp->>comp: myInterface:doWork(x: string)`,
+          content: `component comp\ncomp --> comp: myInterface:doWork(x: string)`,
         })
       })
       expect(result.current.parseError).toBeNull()
@@ -494,7 +494,7 @@ describe("useSystemStore", () => {
       // Second parse: update same fn to fn(x: string, y: number) — should not error
       act(() => {
         result.current.updateNode("seq-uuid", {
-          content: `component "Comp" as comp\ncomp->>comp: myInterface:doWork(x: string, y: number)`,
+          content: `component comp\ncomp --> comp: myInterface:doWork(x: string, y: number)`,
         })
       })
       expect(result.current.parseError).toBeNull()
@@ -573,7 +573,7 @@ describe("useSystemStore", () => {
                       id: "seq2",
                       name: "Other Diagram",
                       type: "sequence-diagram",
-                      content: "component a\ncomponent b\na->>b: API:fn(id: number)",
+                      content: "component a\ncomponent b\na --> b: API:fn(id: number)",
                       ownerComponentUuid: "comp-uuid",
                       referencedNodeIds: [],
                       referencedFunctionUuids: [FN_UUID],
@@ -612,7 +612,7 @@ describe("useSystemStore", () => {
         result.current.applyFunctionUpdates(
           [decision],
           CURRENT_DIAG,
-          "component a\ncomponent b\na->>b: API:fn(id: string)",
+          "component a\ncomponent b\na --> b: API:fn(id: string)",
         )
       })
 
@@ -653,7 +653,7 @@ describe("useSystemStore", () => {
         result.current.applyFunctionUpdates(
           [decision],
           CURRENT_DIAG,
-          "component a\ncomponent b\na->>b: API:fn(id: number, name: string)",
+          "component a\ncomponent b\na --> b: API:fn(id: number, name: string)",
         )
       })
 
@@ -693,7 +693,7 @@ describe("useSystemStore", () => {
         result.current.applyFunctionUpdates(
           [decision],
           CURRENT_DIAG,
-          "component a\ncomponent b\na->>b: API:fn(id: number, name: string)",
+          "component a\ncomponent b\na --> b: API:fn(id: number, name: string)",
         )
       })
 
