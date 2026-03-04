@@ -17,22 +17,54 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
 
-#### 2. Build your system model
+#### 2. Save and load your model
+
+Use the **Save** / **Load** buttons in the toolbar to persist your model as a JSON file via the browser's File System Access API. Changes are also auto-saved to `localStorage` and restored on page load.
+
+#### 3. Build your system model
 
 The left panel shows your **system tree**. Start by renaming the root component, then add sub-components, use case diagrams, and sequence diagrams using the **+** buttons on each node.
 
-#### 3. Write diagram specifications
+#### 4. Write diagram specifications
 
 Select a diagram node to open its specification editor. Type your spec in the text area — the right panel renders the diagram in real time. Syntax is highlighted as you type.
 
-#### 4. Explore the derived model
+#### 5. Explore the derived model
 
 As you write sequence diagrams, Integra automatically derives:
 - **Actors and components** added to the owning component
 - **Interface specifications** (with typed functions and parameters) on the receiving component
 - **Use cases** listed under their use case diagram
+- **Use-case class diagram** — when a use-case node is selected, the bottom panel renders an auto-generated class diagram showing all actors, components, and interfaces used across its sequence diagrams, with realization (`..|>`) and dependency (`..>`) arrows
 
-Navigate the tree to inspect generated nodes. Orphaned nodes (no longer referenced by any diagram) show a delete button on hover.
+Navigate the tree to inspect generated nodes. Clicking a node or participant in the rendered diagram navigates to that node in the tree. Orphaned nodes (no longer referenced by any diagram) show a delete button on hover.
+
+---
+
+### Editor Features
+
+#### Autocomplete
+
+The diagram spec editor provides context-aware suggestions as you type:
+- **Participants**: suggest known actors and components when typing after `actor`, `component`, or `from`
+- **Message receivers**: suggest participants when typing the receiver in a message line
+- **UseCase targets**: suggest use case IDs after `UseCase:` in a message label
+
+Suggestions appear in a dropdown and reflect nodes already defined in the current component (local-first ordering).
+
+#### Keyboard Shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Shift+Enter` | Save spec and preview diagram without leaving edit mode |
+| `Cmd/Ctrl+Z` | Undo (diagram spec editor *or* tree-level) |
+| `Cmd/Ctrl+Shift+Z` | Redo |
+
+Tree-level undo/redo is also accessible via the toolbar buttons above the system tree.
+
+#### Panel Layout
+
+The split-panel layout can be adjusted by dragging the resize handles. Use the **›** button on the right-panel handle to expand/collapse the right panel.
 
 ---
 
@@ -87,6 +119,7 @@ orderSvc->>customer: UseCase:orderConfirmed
 | `from path/to/node` | Reference an existing node (no new node created) |
 | `sender->>receiver: Interface:function(param: type)` | Function call message — derives interface on receiver |
 | `sender->>receiver: UseCase:useCaseId` | Use case reference — links to an existing use case on the receiver |
+| `sender->>receiver: UseCase:useCaseId:label` | Use case reference with a custom Mermaid message label |
 
 **Function call message format:** `sender->>receiver: InterfaceId:functionId(param: type, param2: type?)`
 - Parameter types default to `any` if omitted
@@ -140,8 +173,9 @@ Integra is a single-page web application that allows users to model software sys
 8. **Function update flow** — when a function signature changes, the user is prompted to update all affected sequence diagrams or add an overload
 9. **Orphan detection** — actors and components not referenced by any diagram are deletable; otherwise the delete button is hidden
 10. **Syntax highlighting** — the diagram specification editor highlights known tokens (keywords, participants, interfaces, functions, use case references) in real time using a backdrop technique
-11. **Navigation** — highlighted tokens in the specification editor are clickable and navigate to the corresponding node in the tree
-12. **Persistence** — system state is persisted to `localStorage` and restored on page load; a clear button resets to the initial state
+11. **Navigation** — highlighted tokens in the specification editor are clickable and navigate to the corresponding node in the tree; entities in the rendered Mermaid diagram are also clickable for the same purpose
+12. **Persistence** — system state is persisted to `localStorage` and restored on page load; a clear button resets to the initial state; Save / Load buttons use the File System Access API to read/write JSON files
+13. **Auto-generated use-case class diagram** — selecting a use-case node renders a class diagram in the bottom panel derived from all its sequence diagrams, showing actors, components, interfaces (with methods), and realization / dependency relationships
 
 ---
 
@@ -156,6 +190,17 @@ Integra is a single-page web application that allows users to model software sys
 | `use-case-diagram` | `component` | No | useCases |
 | `use-case` | `use-case-diagram` | Yes (from UC diagram) | sequenceDiagrams |
 | `sequence-diagram` | `use-case` | No | — |
+
+#### Auto-generated Use-Case Class Diagram
+
+When a `use-case` node is selected, `buildUseCaseClassDiagram()` (`src/utils/useCaseClassDiagram.ts`) parses all sequence diagrams under it and produces a Mermaid `classDiagram`:
+
+- Each actor/component participant becomes a class node (`<<actor>>` annotation for actors)
+- Each interface ID referenced in a message becomes a class with `<<interface>>` and its called methods listed
+- `Component ..|> Interface` — realization (component owns/provides the interface)
+- `Sender ..> Interface` — dependency (sender calls via the interface)
+- `Sender ..> Receiver` — dependency for plain (non-interface, non-self) messages
+- Click handlers use `window.__integraNavigate` to navigate to the clicked node
 
 #### Key Fields on `DiagramNode`
 
@@ -209,6 +254,7 @@ The spec editor overlays a transparent `<textarea>` on top of a non-interactive 
 | Tailwind CSS | — | Styling |
 | @uiw/react-md-editor | — | Markdown description fields |
 | Vitest | 4 | Unit tests |
+| Playwright | — | End-to-end tests |
 | ESLint | 9 | Linting |
 
 #### Scripts
@@ -218,8 +264,9 @@ npm run dev        # Development server
 npm run build      # Production build
 npm run preview    # Preview production build
 npm run lint       # Run ESLint
-npm test           # Run tests in watch mode
-npm run test:run   # Run tests once (CI)
-npm run test:ui    # Run tests with Vitest UI
+npm test           # Run unit tests in watch mode
+npm run test:run   # Run unit tests once (CI)
+npm run test:ui    # Run unit tests with Vitest UI
+npm run test:e2e   # Run Playwright end-to-end tests
 ```
 
