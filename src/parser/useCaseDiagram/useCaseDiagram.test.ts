@@ -1,0 +1,137 @@
+/**
+ * Tests for the use case diagram Chevrotain lexer, parser, and visitor.
+ */
+import { describe, it, expect } from "vitest"
+import { UcdLexer } from "./lexer"
+import { parseUseCaseDiagramCst } from "./parser"
+import { buildUcdAst } from "./visitor"
+
+function parse(input: string) {
+  const { cst, lexErrors, parseErrors } = parseUseCaseDiagramCst(input)
+  return { ast: buildUcdAst(cst), lexErrors, parseErrors }
+}
+
+// ─── Lexer ────────────────────────────────────────────────────────────────────
+
+describe("use case diagram lexer", () => {
+  it("tokenises an actor declaration", () => {
+    const { errors, tokens } = UcdLexer.tokenize("actor user")
+    expect(errors).toHaveLength(0)
+    expect(tokens.map((t) => t.tokenType.name)).toEqual(["Actor", "Identifier"])
+  })
+
+  it("tokenises a use case declaration", () => {
+    const { errors, tokens } = UcdLexer.tokenize("use case login")
+    expect(errors).toHaveLength(0)
+    expect(tokens.map((t) => t.tokenType.name)).toEqual(["Use", "Case", "Identifier"])
+  })
+
+  it("tokenises a link", () => {
+    const { errors, tokens } = UcdLexer.tokenize("user --> login")
+    expect(errors).toHaveLength(0)
+    expect(tokens.map((t) => t.tokenType.name)).toEqual(["Identifier", "Arrow", "Identifier"])
+  })
+
+  it("produces no errors for multi-line input", () => {
+    const input = "actor user\nuse case login\nuser --> login"
+    expect(UcdLexer.tokenize(input).errors).toHaveLength(0)
+  })
+})
+
+// ─── Parser / visitor ────────────────────────────────────────────────────────
+
+describe("use case diagram parser — declarations", () => {
+  it("parses an actor declaration", () => {
+    const { ast, lexErrors, parseErrors } = parse("actor user")
+    expect(lexErrors).toHaveLength(0)
+    expect(parseErrors).toHaveLength(0)
+    expect(ast.declarations).toHaveLength(1)
+    expect(ast.declarations[0]).toMatchObject({ entityType: "actor", path: ["user"], alias: null, id: "user" })
+  })
+
+  it("parses a component declaration", () => {
+    const { ast } = parse("component fts")
+    expect(ast.declarations[0]).toMatchObject({ entityType: "component", path: ["fts"], id: "fts" })
+  })
+
+  it("parses a use case declaration", () => {
+    const { ast } = parse("use case login")
+    expect(ast.declarations[0]).toMatchObject({ entityType: "use-case", path: ["login"], id: "login" })
+  })
+
+  it("parses a declaration with alias", () => {
+    const { ast } = parse("actor user as u")
+    expect(ast.declarations[0]).toMatchObject({ entityType: "actor", alias: "u", id: "u", path: ["user"] })
+  })
+
+  it("parses a multi-segment path", () => {
+    const { ast } = parse("component root/services/auth")
+    expect(ast.declarations[0]).toMatchObject({ entityType: "component", path: ["root", "services", "auth"], id: "auth" })
+  })
+
+  it("parses multiple declarations", () => {
+    const { ast, parseErrors } = parse("actor user\nuse case login\nuse case register")
+    expect(parseErrors).toHaveLength(0)
+    expect(ast.declarations).toHaveLength(3)
+    expect(ast.declarations.map((d) => d.id)).toEqual(["user", "login", "register"])
+  })
+})
+
+describe("use case diagram parser — links", () => {
+  it("parses a link between actor and use case", () => {
+    const { ast, parseErrors } = parse("actor user\nuse case login\nuser --> login")
+    expect(parseErrors).toHaveLength(0)
+    expect(ast.links).toHaveLength(1)
+    expect(ast.links[0]).toMatchObject({ from: "user", to: "login" })
+  })
+
+  it("parses multiple links", () => {
+    const { ast } = parse("user --> login\nuser --> register")
+    expect(ast.links).toHaveLength(2)
+    expect(ast.links[1]).toMatchObject({ from: "user", to: "register" })
+  })
+})
+
+describe("use case diagram parser — mixed content", () => {
+  it("parses a realistic diagram", () => {
+    const input = `actor user
+use case login
+use case register
+component auth
+user --> login
+user --> register
+login --> auth`
+    const { ast, lexErrors, parseErrors } = parse(input)
+    expect(lexErrors).toHaveLength(0)
+    expect(parseErrors).toHaveLength(0)
+    expect(ast.declarations).toHaveLength(4)
+    expect(ast.links).toHaveLength(3)
+  })
+})
+
+describe("use case diagram parser — edge cases", () => {
+  it("handles leading blank lines", () => {
+    const { ast, parseErrors } = parse("\n\nactor user")
+    expect(parseErrors).toHaveLength(0)
+    expect(ast.declarations[0].id).toBe("user")
+  })
+
+  it("handles trailing newline", () => {
+    const { ast, parseErrors } = parse("actor user\n")
+    expect(parseErrors).toHaveLength(0)
+    expect(ast.declarations[0].id).toBe("user")
+  })
+
+  it("handles blank lines between statements", () => {
+    const { ast, parseErrors } = parse("actor user\n\nuse case login")
+    expect(parseErrors).toHaveLength(0)
+    expect(ast.declarations).toHaveLength(2)
+  })
+
+  it("handles empty input", () => {
+    const { ast, parseErrors } = parse("")
+    expect(parseErrors).toHaveLength(0)
+    expect(ast.declarations).toHaveLength(0)
+    expect(ast.links).toHaveLength(0)
+  })
+})

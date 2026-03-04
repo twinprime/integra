@@ -34,6 +34,7 @@ const NewlineExit = createToken({
   pattern: /\r?\n/,
   line_breaks: true,
   pop_mode: true,
+  categories: [Newline], // treated as a Newline by the parser
 })
 
 // ─── Colon that pushes text_mode ─────────────────────────────────────────────
