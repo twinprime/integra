@@ -109,30 +109,58 @@ export const DiagramEditor = ({
     })
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Autocomplete navigation takes priority when dropdown is visible
-    if (suggestions.length > 0) {
-      if (e.key === "ArrowDown") {
-        e.preventDefault()
-        setSelectedIndex((selectedIndex + 1) % suggestions.length)
-        return
+  const handleAutocompleteKeys = (e: React.KeyboardEvent<HTMLTextAreaElement>): boolean => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault()
+      setSelectedIndex((selectedIndex + 1) % suggestions.length)
+      return true
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault()
+      setSelectedIndex((selectedIndex - 1 + suggestions.length) % suggestions.length)
+      return true
+    }
+    if (e.key === "Tab" || e.key === "Enter") {
+      e.preventDefault()
+      acceptSuggestion(suggestions[selectedIndex])
+      return true
+    }
+    if (e.key === "Escape") {
+      e.preventDefault()
+      dismiss()
+      return true
+    }
+    return false
+  }
+
+  const flushDebounce = () => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+      debounceTimerRef.current = null
+    }
+  }
+
+  const handleUndoRedoKeys = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    const ctrlOrCmd = e.metaKey || e.ctrlKey
+    if (ctrlOrCmd && e.key === "z" && !e.shiftKey) {
+      e.preventDefault()
+      flushDebounce()
+      if (historyIndexRef.current > 0) {
+        historyIndexRef.current--
+        setContent(historyRef.current[historyIndexRef.current])
       }
-      if (e.key === "ArrowUp") {
-        e.preventDefault()
-        setSelectedIndex((selectedIndex - 1 + suggestions.length) % suggestions.length)
-        return
-      }
-      if (e.key === "Tab" || e.key === "Enter") {
-        e.preventDefault()
-        acceptSuggestion(suggestions[selectedIndex])
-        return
-      }
-      if (e.key === "Escape") {
-        e.preventDefault()
-        dismiss()
-        return
+    } else if (ctrlOrCmd && ((e.key === "z" && e.shiftKey) || e.key === "y")) {
+      e.preventDefault()
+      flushDebounce()
+      if (historyIndexRef.current < historyRef.current.length - 1) {
+        historyIndexRef.current++
+        setContent(historyRef.current[historyIndexRef.current])
       }
     }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (suggestions.length > 0 && handleAutocompleteKeys(e)) return
 
     // Tab with no suggestions: trigger autocomplete immediately
     if (e.key === "Tab") {
@@ -148,28 +176,7 @@ export const DiagramEditor = ({
       return
     }
 
-    const ctrlOrCmd = e.metaKey || e.ctrlKey
-    if (ctrlOrCmd && e.key === "z" && !e.shiftKey) {
-      e.preventDefault()
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current)
-        debounceTimerRef.current = null
-      }
-      if (historyIndexRef.current > 0) {
-        historyIndexRef.current--
-        setContent(historyRef.current[historyIndexRef.current])
-      }
-    } else if (ctrlOrCmd && ((e.key === "z" && e.shiftKey) || e.key === "y")) {
-      e.preventDefault()
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current)
-        debounceTimerRef.current = null
-      }
-      if (historyIndexRef.current < historyRef.current.length - 1) {
-        historyIndexRef.current++
-        setContent(historyRef.current[historyIndexRef.current])
-      }
-    }
+    handleUndoRedoKeys(e)
   }
 
   const saveContent = (exitEdit: boolean) => {
