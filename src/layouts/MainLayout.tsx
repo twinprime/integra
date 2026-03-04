@@ -60,7 +60,8 @@ export function MainLayout({
   const selectedNode = selectedNodeId ? findNode([rootComponent], selectedNodeId) : null
   const hasDiagram =
     selectedNode?.type === "use-case-diagram" ||
-    selectedNode?.type === "sequence-diagram"
+    selectedNode?.type === "sequence-diagram" ||
+    selectedNode?.type === "use-case"
 
   return (
     <div className="h-screen w-screen bg-gray-950 text-gray-100 font-sans overflow-hidden">
