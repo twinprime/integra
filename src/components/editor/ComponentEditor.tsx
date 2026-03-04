@@ -1,7 +1,8 @@
 import { useState } from "react"
 import type { ComponentNode, InterfaceSpecification, InterfaceFunction } from "../../store/types"
 import { useSystemStore } from "../../store/useSystemStore"
-import { collectReferencedFunctionUuids, getNodeSiblingIds } from "../../utils/nodeUtils"
+import { collectReferencedFunctionUuids } from "../../utils/nodeUtils"
+import { getNodeSiblingIds } from "../../nodes/nodeTree"
 import { MarkdownEditor } from "./MarkdownEditor"
 import { InterfaceEditor } from "./InterfaceEditor"
 

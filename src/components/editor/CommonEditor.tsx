@@ -1,7 +1,7 @@
 import { useState } from "react"
 import type { Node } from "../../store/types"
 import { useSystemStore } from "../../store/useSystemStore"
-import { getNodeSiblingIds } from "../../utils/nodeUtils"
+import { getNodeSiblingIds } from "../../nodes/nodeTree"
 import { MarkdownEditor } from "./MarkdownEditor"
 
 const ID_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_-]*$/

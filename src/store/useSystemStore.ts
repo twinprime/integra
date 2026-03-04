@@ -1,10 +1,23 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
-import type { ComponentNode, Node, DiagramNode, UseCaseDiagramNode, UseCaseNode, SequenceDiagramNode, Parameter } from "./types"
+import type { ComponentNode, Node, DiagramNode, SequenceDiagramNode, Parameter } from "./types"
 import { parseUseCaseDiagram } from "../utils/useCaseDiagramParser"
-import { parseSequenceDiagram, paramsToString, type FunctionMatch } from "../utils/sequenceDiagramParser"
+import { parseSequenceDiagram, type FunctionMatch } from "../utils/sequenceDiagramParser"
 import { upsertTree } from "../utils/diagramParserHelpers"
 import { applyIdRename } from "../utils/renameNodeId"
+import {
+  findNodeByUuid,
+  deleteNodeFromTree,
+  collectAllDiagrams,
+  findOwnerComponentUuid,
+  findIdByUuid,
+} from "../nodes/nodeTree"
+import {
+  updateFunctionParams,
+  addFunctionToInterface,
+  removeFunctionsFromInterfaces,
+} from "../nodes/componentNode"
+import { replaceSignatureInContent } from "../nodes/sequenceDiagramNode"
 
 export type FunctionDecision = FunctionMatch & {
   action: "add-new" | "update-existing" | "update-all"
@@ -47,82 +60,9 @@ const initialSystem: ComponentNode = {
   interfaces: [],
 }
 
-function getNodeChildren(node: Node): Node[] {
-  switch (node.type) {
-    case "component": return [...node.subComponents, ...node.actors, ...node.useCaseDiagrams]
-    case "use-case-diagram": return [...node.useCases]
-    case "use-case": return [...node.sequenceDiagrams]
-    default: return []
-  }
-}
-
 // Helper to recursively find a node by uuid
-export const findNode = (
-  nodes: Node[],
-  uuid: string,
-): Node | null => {
-  for (const node of nodes) {
-    if (node.uuid === uuid) return node
-    const children = getNodeChildren(node)
-    if (children.length > 0) {
-      const found = findNode(children, uuid)
-      if (found) return found
-    }
-  }
-  return null
-}
-
-// Helper to recursively delete a node
-const deleteNodeRecursive = (node: Node, uuid: string): Node => {
-  if (node.type === "component") {
-    return {
-      ...node,
-      subComponents: node.subComponents
-        .filter((c) => c.uuid !== uuid)
-        .map((c) => deleteNodeRecursive(c, uuid) as ComponentNode),
-      actors: node.actors.filter((a) => a.uuid !== uuid),
-      useCaseDiagrams: node.useCaseDiagrams
-        .filter((d) => d.uuid !== uuid)
-        .map((d) => deleteNodeRecursive(d, uuid) as UseCaseDiagramNode),
-    }
-  }
-
-  if (node.type === "use-case-diagram") {
-    return {
-      ...node,
-      useCases: node.useCases
-        .filter((u) => u.uuid !== uuid)
-        .map((u) => deleteNodeRecursive(u, uuid) as UseCaseNode),
-    }
-  }
-
-  if (node.type === "use-case") {
-    return {
-      ...node,
-      sequenceDiagrams: node.sequenceDiagrams
-        .filter((d) => d.uuid !== uuid)
-        .map((d) => deleteNodeRecursive(d, uuid) as SequenceDiagramNode),
-    }
-  }
-
-  return node
-}
-
-function collectAllDiagrams(
-  comp: ComponentNode,
-): Array<{ diagram: DiagramNode; ownerComponentUuid: string }> {
-  const diagrams: Array<{ diagram: DiagramNode; ownerComponentUuid: string }> = []
-  comp.useCaseDiagrams.forEach((ucDiagram) => {
-    diagrams.push({ diagram: ucDiagram, ownerComponentUuid: comp.uuid })
-    ucDiagram.useCases.forEach((useCase) => {
-      useCase.sequenceDiagrams.forEach((seqDiagram) => {
-        diagrams.push({ diagram: seqDiagram, ownerComponentUuid: comp.uuid })
-      })
-    })
-  })
-  comp.subComponents.forEach((c) => diagrams.push(...collectAllDiagrams(c)))
-  return diagrams
-}
+export const findNode = (nodes: Node[], uuid: string): Node | null =>
+  findNodeByUuid(nodes, uuid)
 
 export function getSequenceDiagrams(
   comp: ComponentNode,
@@ -135,80 +75,6 @@ export function getSequenceDiagrams(
       referencedFunctionUuids: (diagram as SequenceDiagramNode)
         .referencedFunctionUuids,
     }))
-}
-
-function updateFunctionParams(
-  comp: ComponentNode,
-  functionUuid: string,
-  newParams: Parameter[],
-): ComponentNode {
-  return {
-    ...comp,
-    interfaces: comp.interfaces.map((iface) => ({
-      ...iface,
-      functions: iface.functions.map((f) =>
-        f.uuid === functionUuid ? { ...f, parameters: newParams } : f,
-      ),
-    })),
-    subComponents: comp.subComponents.map((sub) =>
-      updateFunctionParams(sub, functionUuid, newParams),
-    ),
-  }
-}
-
-function addFunctionToInterfaceByUuid(
-  comp: ComponentNode,
-  existingFunctionUuid: string,
-  functionId: string,
-  newParams: Parameter[],
-): ComponentNode {
-  const ifaceIdx =
-    comp.interfaces?.findIndex((i) =>
-      i.functions.some((f) => f.uuid === existingFunctionUuid),
-    ) ?? -1
-  if (ifaceIdx >= 0) {
-    return {
-      ...comp,
-      interfaces: comp.interfaces.map((iface, idx) =>
-        idx === ifaceIdx
-          ? {
-              ...iface,
-              functions: [
-                ...iface.functions,
-                {
-                  uuid: crypto.randomUUID(),
-                  id: functionId,
-                  parameters: newParams,
-                },
-              ],
-            }
-          : iface,
-      ),
-    }
-  }
-  return {
-    ...comp,
-    subComponents: comp.subComponents.map((sub) =>
-      addFunctionToInterfaceByUuid(sub, existingFunctionUuid, functionId, newParams),
-    ),
-  }
-}
-
-function replaceSignatureInContent(
-  content: string,
-  interfaceId: string,
-  functionId: string,
-  newParams: Parameter[],
-): string {
-  const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
-  const pattern = new RegExp(
-    `(${escape(interfaceId)}:${escape(functionId)}\\()[^)]*\\)`,
-    "g",
-  )
-  return content.replace(
-    pattern,
-    `${interfaceId}:${functionId}(${paramsToString(newParams)})`,
-  )
 }
 
 function rebuildSystemDiagrams(system: ComponentNode): ComponentNode {
@@ -251,58 +117,6 @@ function rebuildSystemDiagrams(system: ComponentNode): ComponentNode {
   return updatedSystem
 }
 
-function findOwnerComponentUuid(root: ComponentNode, useCaseUuid: string): string | null {
-  for (const diagram of root.useCaseDiagrams) {
-    if (diagram.useCases.some(uc => uc.uuid === useCaseUuid)) {
-      return diagram.ownerComponentUuid
-    }
-  }
-  for (const sub of root.subComponents) {
-    const found = findOwnerComponentUuid(sub, useCaseUuid)
-    if (found) return found
-  }
-  return null
-}
-
-/** Find the id of any node, interface, or function by its uuid across the full tree. */
-function findIdByUuid(root: ComponentNode, uuid: string): string | null {
-  const searchComp = (comp: ComponentNode): string | null => {
-    if (comp.uuid === uuid) return comp.id
-    for (const a of comp.actors) if (a.uuid === uuid) return a.id
-    for (const iface of comp.interfaces) {
-      if (iface.uuid === uuid) return iface.id
-      for (const fn of iface.functions) if (fn.uuid === uuid) return fn.id
-    }
-    for (const ucd of comp.useCaseDiagrams) {
-      if (ucd.uuid === uuid) return ucd.id
-      for (const uc of ucd.useCases) {
-        if (uc.uuid === uuid) return uc.id
-        for (const sd of uc.sequenceDiagrams) {
-          if (sd.uuid === uuid) return sd.id
-        }
-      }
-    }
-    for (const sub of comp.subComponents) {
-      const found = searchComp(sub)
-      if (found !== null) return found
-    }
-    return null
-  }
-  return searchComp(root)
-}
-
-function removeInterfaceFunctions(comp: ComponentNode, uuidsToRemove: Set<string>): ComponentNode {
-  if (uuidsToRemove.size === 0) return comp
-  return {
-    ...comp,
-    interfaces: comp.interfaces.map((iface) => ({
-      ...iface,
-      functions: iface.functions.filter((f) => !uuidsToRemove.has(f.uuid)),
-    })),
-    subComponents: comp.subComponents.map((sub) => removeInterfaceFunctions(sub, uuidsToRemove)),
-  }
-}
-
 function stripExclusiveFunctionContributions(system: ComponentNode, diagramUuid: string): ComponentNode {
   const allDiagrams = collectAllDiagrams(system)
 
@@ -323,7 +137,7 @@ function stripExclusiveFunctionContributions(system: ComponentNode, diagramUuid:
       (uuid) => !otherRefs.has(uuid),
     ),
   )
-  return removeInterfaceFunctions(system, toRemove)
+  return removeFunctionsFromInterfaces(system, toRemove)
 }
 
 function tryReparseContent(
@@ -474,7 +288,7 @@ export const useSystemStore = create<SystemState>()(
       return {
         past: pushPast(state.past, state.rootComponent),
         future: [],
-        rootComponent: deleteNodeRecursive(
+        rootComponent: deleteNodeFromTree(
           state.rootComponent,
           nodeUuid,
         ) as ComponentNode,
@@ -487,7 +301,7 @@ export const useSystemStore = create<SystemState>()(
 
       for (const d of decisions) {
         if (d.action === "add-new") {
-          system = addFunctionToInterfaceByUuid(
+          system = addFunctionToInterface(
             system,
             d.functionUuid,
             d.functionId,
