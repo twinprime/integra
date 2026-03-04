@@ -270,7 +270,7 @@ interfaces: []
 | Field | Who sets it | Notes |
 |---|---|---|
 | `uuid` | App (on create) | Must be globally unique. When authoring by hand, use any unique string (e.g. UUIDs). Do not reuse values within the same file. |
-| `ownerComponentUuid` | App | Must match the `uuid` of the component that contains the diagram. |
+| `ownerComponentUuid` | App (on load) | Derived automatically from the tree structure on load. Can be omitted or left empty when authoring by hand. |
 | `referencedNodeIds` | App (on parse) | Populated automatically when a diagram spec is saved. Can be left empty when authoring by hand — the app will repopulate on first edit. |
 | `referencedFunctionUuids` | App (on parse) | Same as above. |
 
