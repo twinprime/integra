@@ -152,9 +152,9 @@ export function analyzeSequenceDiagramChanges(
   const matches: FunctionMatch[] = []
   const seen = new Set<string>()
 
-  for (const msg of ast.messages) {
-    if (!msg.functionRef) continue
-    const { interfaceId, functionId, rawParams } = msg.functionRef
+  for (const stmt of ast.statements) {
+    if (!("functionRef" in stmt) || !stmt.functionRef) continue
+    const { interfaceId, functionId, rawParams } = stmt.functionRef
     const key = `${interfaceId}:${functionId}`
     if (seen.has(key)) continue
     seen.add(key)
@@ -271,10 +271,11 @@ export function parseSequenceDiagram(
 
   // Apply messages: build a working components list [owner, ...subComponents]
   // keyed by treeNodeId
-  if (ast.messages.length > 0 && updatedOwnerComp) {
+  const astMessages = ast.statements.filter((s): s is import("./visitor").SeqMessage => "functionRef" in s)
+  if (astMessages.length > 0 && updatedOwnerComp) {
     let workingComponents: ComponentNode[] = [updatedOwnerComp, ...updatedOwnerComp.subComponents]
 
-    for (const msg of ast.messages) {
+    for (const msg of astMessages) {
       if (!msg.functionRef) continue
       const fromTreeId = participantToTreeId.get(msg.from) ?? msg.from
       const toTreeId = participantToTreeId.get(msg.to) ?? msg.to
@@ -293,7 +294,7 @@ export function parseSequenceDiagram(
 
   // Track referencedFunctionUuids
   const referencedFunctionUuids: string[] = []
-  for (const msg of ast.messages) {
+  for (const msg of astMessages) {
     if (!msg.functionRef) continue
     const fnUuid = findFunctionUuidInTree(updatedRoot, msg.functionRef.interfaceId, msg.functionRef.functionId)
     if (fnUuid && !referencedFunctionUuids.includes(fnUuid)) referencedFunctionUuids.push(fnUuid)

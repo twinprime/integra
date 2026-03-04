@@ -6,9 +6,15 @@ import { SeqLexer } from "./lexer"
 import { parseSequenceDiagramCst } from "./parser"
 import { buildSeqAst } from "./visitor"
 
+import type { SeqMessage, SeqNote } from "./visitor"
+
 function parse(input: string) {
   const { cst, lexErrors, parseErrors } = parseSequenceDiagramCst(input)
-  return { ast: buildSeqAst(cst), lexErrors, parseErrors }
+  const ast = buildSeqAst(cst)
+  // Convenience accessors matching old SeqAst shape, for easier test assertions
+  const messages = ast.statements.filter((s): s is SeqMessage => "functionRef" in s)
+  const notes = ast.statements.filter((s): s is SeqNote => "position" in s)
+  return { ast: { ...ast, messages, notes }, lexErrors, parseErrors }
 }
 
 // ─── Lexer ────────────────────────────────────────────────────────────────────
@@ -220,6 +226,27 @@ note over fts,Output Topics: if custom AIP set is used`
     expect(ast.notes[0].position).toMatchObject({ kind: "over", participants: ["fts", "Output Topics"] })
   })
 })
+
+describe("sequence diagram parser — statement ordering", () => {
+  it("preserves note position between messages in statements array", () => {
+    const input = `a --> b: first message
+note over a: between note
+a --> b: second message`
+    const { ast, parseErrors } = parse(input)
+    expect(parseErrors).toHaveLength(0)
+    expect(ast.statements).toHaveLength(3)
+    expect("functionRef" in ast.statements[0]).toBe(true)   // message
+    expect("position" in ast.statements[1]).toBe(true)      // note
+    expect("functionRef" in ast.statements[2]).toBe(true)   // message
+  })
+
+  it("preserves note at the beginning", () => {
+    const { ast } = parse("note right of a: intro\na --> b: msg")
+    expect("position" in ast.statements[0]).toBe(true)
+    expect("functionRef" in ast.statements[1]).toBe(true)
+  })
+})
+
 
 describe("sequence diagram parser — edge cases", () => {
   it("handles leading blank lines", () => {

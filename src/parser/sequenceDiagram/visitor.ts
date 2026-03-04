@@ -37,8 +37,8 @@ export interface SeqNote {
 
 export interface SeqAst {
   declarations: SeqDeclaration[]
-  messages: SeqMessage[]
-  notes: SeqNote[]
+  /** Messages and notes in source order — preserves note positions between messages. */
+  statements: (SeqMessage | SeqNote)[]
 }
 
 // ─── Visitor ──────────────────────────────────────────────────────────────────
@@ -51,17 +51,15 @@ class SequenceDiagramVisitor extends BaseVisitor {
 
   sequenceDiagram(ctx: Record<string, unknown[]>): SeqAst {
     const declarations: SeqDeclaration[] = []
-    const messages: SeqMessage[] = []
-    const notes: SeqNote[] = []
+    const statements: (SeqMessage | SeqNote)[] = []
 
     for (const stmt of ctx.seqStatement ?? []) {
       const result = this.visit(stmt as never) as SeqDeclaration | SeqMessage | SeqNote | undefined
       if (!result) continue
       if ("entityType" in result) declarations.push(result as SeqDeclaration)
-      else if ("position" in result) notes.push(result as SeqNote)
-      else messages.push(result as SeqMessage)
+      else statements.push(result as SeqMessage | SeqNote)
     }
-    return { declarations, messages, notes }
+    return { declarations, statements }
   }
 
   seqStatement(ctx: Record<string, unknown[]>): SeqDeclaration | SeqMessage | SeqNote {

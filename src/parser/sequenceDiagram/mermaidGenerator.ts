@@ -56,33 +56,34 @@ export function generateSequenceMermaidFromAst(
     mermaidContent += `participant ${mermaidId} as ${stereotype}<br/>${displayName}\n`
   }
 
-  // ─── Message lines ───────────────────────────────────────────────────────────
-  for (const msg of ast.messages) {
-    const fromId = sanitizeMermaidId(msg.from)
-    const toId = sanitizeMermaidId(msg.to)
-    if (msg.functionRef) {
-      const { interfaceId, functionId, rawParams } = msg.functionRef
-      const mermaidLabel = `${interfaceId}:${functionId}(${rawParams})`
-      const compUuid = findComponentByInterfaceId(root, interfaceId)
-      if (compUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = compUuid
-      mermaidContent += `${fromId}->>${toId}: ${mermaidLabel}\n`
-    } else if (msg.label) {
-      mermaidContent += `${fromId}->>${toId}: ${escapeLabel(msg.label)}\n`
+  // ─── Messages and notes in source order ──────────────────────────────────────
+  for (const stmt of ast.statements) {
+    if ("position" in stmt) {
+      // Note
+      const text = escapeLabel(stmt.text)
+      if (stmt.position.kind === "side") {
+        mermaidContent += `note ${stmt.position.side} of ${sanitizeMermaidId(stmt.position.participant)}: ${text}\n`
+      } else {
+        const [p1, p2] = stmt.position.participants
+        mermaidContent += p2
+          ? `note over ${sanitizeMermaidId(p1)}, ${sanitizeMermaidId(p2)}: ${text}\n`
+          : `note over ${sanitizeMermaidId(p1)}: ${text}\n`
+      }
     } else {
-      mermaidContent += `${fromId}->>${toId}\n`
-    }
-  }
-
-  // ─── Note lines ──────────────────────────────────────────────────────────────
-  for (const note of ast.notes) {
-    const text = escapeLabel(note.text)
-    if (note.position.kind === "side") {
-      mermaidContent += `note ${note.position.side} of ${sanitizeMermaidId(note.position.participant)}: ${text}\n`
-    } else {
-      const [p1, p2] = note.position.participants
-      mermaidContent += p2
-        ? `note over ${sanitizeMermaidId(p1)}, ${sanitizeMermaidId(p2)}: ${text}\n`
-        : `note over ${sanitizeMermaidId(p1)}: ${text}\n`
+      // Message
+      const fromId = sanitizeMermaidId(stmt.from)
+      const toId = sanitizeMermaidId(stmt.to)
+      if (stmt.functionRef) {
+        const { interfaceId, functionId, rawParams } = stmt.functionRef
+        const mermaidLabel = `${interfaceId}:${functionId}(${rawParams})`
+        const compUuid = findComponentByInterfaceId(root, interfaceId)
+        if (compUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = compUuid
+        mermaidContent += `${fromId}->>${toId}: ${mermaidLabel}\n`
+      } else if (stmt.label) {
+        mermaidContent += `${fromId}->>${toId}: ${escapeLabel(stmt.label)}\n`
+      } else {
+        mermaidContent += `${fromId}->>${toId}\n`
+      }
     }
   }
 
