@@ -19,7 +19,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 #### 2. Save and load your model
 
-Use the **Save** / **Load** buttons in the toolbar to persist your model as a JSON file via the browser's File System Access API. Changes are also auto-saved to `localStorage` and restored on page load.
+Use the **Save** / **Load** buttons in the toolbar to persist your model as a YAML file via the browser's File System Access API. Changes are also auto-saved to `localStorage` and restored on page load.
 
 #### 3. Build your system model
 
@@ -154,6 +154,125 @@ See also [Login Use Case](services/auth/mainDiag/login)   <!-- deep path -->
 ```
 
 Clicking a node link navigates to that node in the tree.
+
+---
+
+### YAML File Format
+
+Integra saves and loads your model as a **YAML file** (`.yaml` / `.yml`). The file is a direct serialisation of the root `ComponentNode` tree — the same structure held in memory. It can be read, authored, or version-controlled by hand, though the app manages certain fields automatically (see notes below).
+
+#### Top-level structure
+
+The file root is always a `component` node representing the root of your system:
+
+```yaml
+uuid: <globally-unique-id>
+id: root                      # must be "root" for the root component
+name: My System
+type: component
+description: Optional description   # supports Markdown
+subComponents: [...]
+actors: [...]
+useCaseDiagrams: [...]
+interfaces: [...]
+```
+
+#### Node type fields
+
+| Node type | Key fields (beyond `uuid`, `id`, `name`, `type`, `description`) |
+|---|---|
+| `component` | `subComponents[]`, `actors[]`, `useCaseDiagrams[]`, `interfaces[]` |
+| `actor` | *(none)* |
+| `use-case-diagram` | `content` (spec text), `ownerComponentUuid`, `referencedNodeIds[]`, `useCases[]` |
+| `use-case` | `sequenceDiagrams[]` |
+| `sequence-diagram` | `content` (spec text), `ownerComponentUuid`, `referencedNodeIds[]`, `referencedFunctionUuids[]` |
+
+Interface specifications live directly on their owning component:
+
+| Object | Key fields |
+|---|---|
+| `InterfaceSpecification` | `uuid`, `id`, `name`, `type` (`rest`\|`kafka`\|`graphql`\|`other`), `functions[]` |
+| `InterfaceFunction` | `uuid`, `id`, `description?`, `parameters[]` |
+| `Parameter` | `name`, `type`, `required` (boolean), `description?` |
+
+#### Example
+
+```yaml
+uuid: a1b2c3d4-0001
+id: root
+name: E-Commerce System
+type: component
+subComponents:
+  - uuid: a1b2c3d4-0010
+    id: orderSvc
+    name: Order Service
+    type: component
+    subComponents: []
+    actors: []
+    useCaseDiagrams: []
+    interfaces:
+      - uuid: a1b2c3d4-0011
+        id: OrdersAPI
+        name: OrdersAPI
+        type: rest
+        functions:
+          - uuid: a1b2c3d4-0012
+            id: placeOrder
+            parameters:
+              - name: orderId
+                type: string
+                required: true
+              - name: amount
+                type: number
+                required: true
+actors:
+  - uuid: a1b2c3d4-0020
+    id: customer
+    name: Customer
+    type: actor
+useCaseDiagrams:
+  - uuid: a1b2c3d4-0030
+    id: mainFlows
+    name: Main Flows
+    type: use-case-diagram
+    content: |
+      actor "Customer" as customer
+      use case "Place Order" as placeOrder
+      customer --> placeOrder
+    ownerComponentUuid: a1b2c3d4-0001
+    referencedNodeIds:
+      - a1b2c3d4-0020    # customer actor uuid
+    useCases:
+      - uuid: a1b2c3d4-0031
+        id: placeOrder
+        name: Place Order
+        type: use-case
+        sequenceDiagrams:
+          - uuid: a1b2c3d4-0040
+            id: placeOrderFlow
+            name: Place Order Flow
+            type: sequence-diagram
+            content: |
+              actor "Customer" as customer
+              component "Order Service" as orderSvc
+              customer->>orderSvc: OrdersAPI:placeOrder(orderId: string, amount: number)
+            ownerComponentUuid: a1b2c3d4-0001
+            referencedNodeIds:
+              - a1b2c3d4-0020    # customer actor uuid
+              - a1b2c3d4-0010    # orderSvc component uuid
+            referencedFunctionUuids:
+              - a1b2c3d4-0012    # OrdersAPI.placeOrder uuid
+interfaces: []
+```
+
+#### Notes on managed fields
+
+| Field | Who sets it | Notes |
+|---|---|---|
+| `uuid` | App (on create) | Must be globally unique. When authoring by hand, use any unique string (e.g. UUIDs). Do not reuse values within the same file. |
+| `ownerComponentUuid` | App | Must match the `uuid` of the component that contains the diagram. |
+| `referencedNodeIds` | App (on parse) | Populated automatically when a diagram spec is saved. Can be left empty when authoring by hand — the app will repopulate on first edit. |
+| `referencedFunctionUuids` | App (on parse) | Same as above. |
 
 ---
 
