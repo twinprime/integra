@@ -1,6 +1,6 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
-import type { ComponentNode, Node, DiagramNode, SequenceDiagramNode, Parameter } from "./types"
+import type { ComponentNode, Node, SequenceDiagramNode } from "./types"
 import { parseUseCaseDiagram } from "../utils/useCaseDiagramParser"
 import { parseSequenceDiagram, type FunctionMatch } from "../utils/sequenceDiagramParser"
 import { upsertTree } from "../utils/diagramParserHelpers"

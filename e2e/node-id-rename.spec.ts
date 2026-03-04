@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { makeLocalStorageValue, UUIDS } from "./fixtures/sample-system"
+import { makeLocalStorageValue } from "./fixtures/sample-system"
 
 test.beforeEach(async ({ page }) => {
   const lsValue = makeLocalStorageValue()

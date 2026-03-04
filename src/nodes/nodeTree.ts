@@ -21,7 +21,6 @@ import {
   collectDiagramsFromComponent,
   findIdInComponent,
   getSiblingIdsInComponent,
-  applyIdRenameInComponent,
   findContainerComponentByUuid,
   findOwnerComponentUuidInComp,
 } from "./componentNode"
