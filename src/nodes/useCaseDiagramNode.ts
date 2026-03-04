@@ -4,7 +4,7 @@ import type {
   DiagramNode,
   Node,
 } from "../store/types"
-import { applyIdRenameInUseCase } from "./useCaseNode"
+import { applyIdRenameInUseCase, findParentInUseCase } from "./useCaseNode"
 import { updateDescriptionRefs, updateContentRefs } from "../utils/renameNodeId"
 
 export type DiagramRef = { diagram: DiagramNode; ownerComponentUuid: string }
@@ -63,4 +63,16 @@ export const getSiblingIdsInUcDiag = (
 ): string[] | null => {
   if (!ucd.useCases.some((uc) => uc.uuid === uuid)) return null
   return ucd.useCases.filter((uc) => uc.uuid !== uuid).map((uc) => uc.id)
+}
+
+export const getChildById = (ucd: UseCaseDiagramNode, id: string): UseCaseNode | null =>
+  ucd.useCases.find((uc) => uc.id === id) ?? null
+
+export const findParentInUcDiag = (diagram: UseCaseDiagramNode, targetUuid: string): Node | null => {
+  for (const useCase of diagram.useCases) {
+    if (useCase.uuid === targetUuid) return diagram
+    const found = findParentInUseCase(useCase, targetUuid)
+    if (found) return found
+  }
+  return null
 }

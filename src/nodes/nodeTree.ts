@@ -23,12 +23,21 @@ import {
   getSiblingIdsInComponent,
   findContainerComponentByUuid,
   findOwnerComponentUuidInComp,
+  getChildById as getChildByIdInComp,
+  findCompByUuid,
+  findParentInComponent,
 } from "./componentNode"
-import { getUcDiagChildren, deleteFromUcDiag, upsertInUcDiag } from "./useCaseDiagramNode"
+import {
+  getUcDiagChildren,
+  deleteFromUcDiag,
+  upsertInUcDiag,
+  getChildById as getChildByIdInUcDiag,
+} from "./useCaseDiagramNode"
 import {
   getUseCaseChildren,
   deleteFromUseCase,
   upsertInUseCase,
+  getChildById as getChildByIdInUseCase,
 } from "./useCaseNode"
 import type { DiagramRef } from "./useCaseDiagramNode"
 
@@ -128,6 +137,39 @@ export const findContainerInSystem = (
   root: ComponentNode,
   uuid: string,
 ): ComponentNode | null => findContainerComponentByUuid(root, uuid)
+
+// ─── Path traversal ───────────────────────────────────────────────────────────
+
+export const traversePath = (node: Node, remaining: string[]): string | null => {
+  if (remaining.length === 0) return node.uuid
+  const [next, ...rest] = remaining
+
+  switch (node.type) {
+    case "component": {
+      const child = getChildByIdInComp(node, next)
+      return child ? traversePath(child, rest) : null
+    }
+    case "use-case-diagram": {
+      const child = getChildByIdInUcDiag(node, next)
+      return child ? traversePath(child, rest) : null
+    }
+    case "use-case": {
+      const child = getChildByIdInUseCase(node, next)
+      return child ? traversePath(child, rest) : null
+    }
+    default:
+      return null
+  }
+}
+
+// ─── Parent lookup ────────────────────────────────────────────────────────────
+
+export const findParentNode = (root: ComponentNode, targetUuid: string): Node | null =>
+  findParentInComponent(root, targetUuid)
+
+// ─── Component UUID lookup ────────────────────────────────────────────────────
+
+export { findCompByUuid }
 
 // ─── mergeLists (moved from diagramParserHelpers) ─────────────────────────────
 

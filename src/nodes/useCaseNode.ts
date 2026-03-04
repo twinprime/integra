@@ -44,3 +44,11 @@ export const getSiblingIdsInUseCase = (
   if (!uc.sequenceDiagrams.some((sd) => sd.uuid === uuid)) return null
   return uc.sequenceDiagrams.filter((sd) => sd.uuid !== uuid).map((sd) => sd.id)
 }
+
+export const getChildById = (uc: UseCaseNode, id: string): SequenceDiagramNode | null =>
+  uc.sequenceDiagrams.find((sd) => sd.id === id) ?? null
+
+export const findParentInUseCase = (useCase: UseCaseNode, targetUuid: string): Node | null => {
+  if (useCase.sequenceDiagrams.some((sd) => sd.uuid === targetUuid)) return useCase
+  return null
+}

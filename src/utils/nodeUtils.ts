@@ -1,4 +1,5 @@
-import type { Node, ComponentNode, UseCaseDiagramNode, UseCaseNode, SequenceDiagramNode } from "../store/types"
+import type { Node, ComponentNode, UseCaseDiagramNode, SequenceDiagramNode } from "../store/types"
+import { traversePath, findCompByUuid } from "../nodes/nodeTree"
 
 // Collect all referencedFunctionUuids from every sequence diagram in the entire component tree
 const collectFromUcDiag = (d: UseCaseDiagramNode, uuids: Set<string>): void => {
@@ -108,44 +109,6 @@ export const findNearestComponentAncestor = (
 //   - Multi-segment: each segment is a node ID at successive levels of the tree
 //     (component → subComponent/actor/diagram → useCase → sequenceDiagram)
 // Returns the UUID of the found node, or null.
-const traversePath = (node: Node, remaining: string[]): string | null => {
-  if (remaining.length === 0) return node.uuid
-  const [next, ...rest] = remaining
-
-  switch (node.type) {
-    case "component": {
-      const children: Node[] = [...node.subComponents, ...(node.actors || []), ...(node.useCaseDiagrams || [])]
-      for (const child of children) {
-        if (child.id === next) return traversePath(child, rest)
-      }
-      return null
-    }
-    case "use-case-diagram": {
-      for (const uc of node.useCases) {
-        if (uc.id === next) return traversePath(uc, rest)
-      }
-      return null
-    }
-    case "use-case": {
-      for (const sd of node.sequenceDiagrams) {
-        if (sd.id === next) return traversePath(sd, rest)
-      }
-      return null
-    }
-    default:
-      return null
-  }
-}
-
-const findCompByUuid = (root: ComponentNode, uuid: string): ComponentNode | null => {
-  if (root.uuid === uuid) return root
-  for (const sub of root.subComponents) {
-    const found = findCompByUuid(sub, uuid)
-    if (found) return found
-  }
-  return null
-}
-
 export const findNodeByPath = (
   root: ComponentNode,
   path: string,
@@ -167,36 +130,4 @@ export const findNodeByPath = (
   return traversePath(root, segments)
 }
 
-const findParentInComp = (comp: ComponentNode, targetUuid: string): Node | null => {
-  const directChildren: Node[] = [...comp.subComponents, ...(comp.actors || []), ...(comp.useCaseDiagrams || [])]
-  if (directChildren.some((c) => c.uuid === targetUuid)) return comp
-
-  for (const subComp of comp.subComponents) {
-    const found = findParentInComp(subComp, targetUuid)
-    if (found) return found
-  }
-  for (const diagram of comp.useCaseDiagrams) {
-    const found = findParentInUcDiag(diagram, targetUuid)
-    if (found) return found
-  }
-  return null
-}
-
-const findParentInUcDiag = (diagram: UseCaseDiagramNode, targetUuid: string): Node | null => {
-  for (const useCase of diagram.useCases) {
-    if (useCase.uuid === targetUuid) return diagram
-    const found = findParentInUseCase(useCase, targetUuid)
-    if (found) return found
-  }
-  return null
-}
-
-const findParentInUseCase = (useCase: UseCaseNode, targetUuid: string): Node | null => {
-  if (useCase.sequenceDiagrams.some((sd) => sd.uuid === targetUuid)) return useCase
-  return null
-}
-
-export const findParentNode = (
-  rootComponent: ComponentNode,
-  targetUuid: string
-): Node | null => findParentInComp(rootComponent, targetUuid)
+export { findParentNode } from "../nodes/nodeTree"

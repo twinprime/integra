@@ -10,6 +10,7 @@ import { applyIdRenameInActor } from "./actorNode"
 import {
   applyIdRenameInUcDiag,
   collectDiagramsFromUcDiag,
+  findParentInUcDiag,
   type DiagramRef,
 } from "./useCaseDiagramNode"
 import { applyIdRenameInInterface, findIdInInterface } from "./interfaceNode"
@@ -20,6 +21,35 @@ export const getComponentChildren = (comp: ComponentNode): Node[] => [
   ...comp.actors,
   ...comp.useCaseDiagrams,
 ]
+
+export const getChildById = (comp: ComponentNode, id: string): Node | null => {
+  for (const child of getComponentChildren(comp)) {
+    if (child.id === id) return child
+  }
+  return null
+}
+
+export const findCompByUuid = (root: ComponentNode, uuid: string): ComponentNode | null => {
+  if (root.uuid === uuid) return root
+  for (const sub of root.subComponents) {
+    const found = findCompByUuid(sub, uuid)
+    if (found) return found
+  }
+  return null
+}
+
+export const findParentInComponent = (comp: ComponentNode, targetUuid: string): Node | null => {
+  if (getComponentChildren(comp).some((c) => c.uuid === targetUuid)) return comp
+  for (const sub of comp.subComponents) {
+    const found = findParentInComponent(sub, targetUuid)
+    if (found) return found
+  }
+  for (const diagram of comp.useCaseDiagrams) {
+    const found = findParentInUcDiag(diagram, targetUuid)
+    if (found) return found
+  }
+  return null
+}
 
 export const deleteFromComponent = (
   comp: ComponentNode,
