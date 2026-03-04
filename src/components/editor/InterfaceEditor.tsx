@@ -1,13 +1,17 @@
 import { useState } from "react"
 import type { InterfaceSpecification, InterfaceFunction } from "../../store/types"
+import { useSystemStore } from "../../store/useSystemStore"
 import { MarkdownEditor } from "./MarkdownEditor"
 import { FunctionEditor } from "./FunctionEditor"
+
+const ID_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_-]*$/
 
 const INTERFACE_TYPES = ["rest", "graphql", "kafka", "other"] as const
 
 export const InterfaceEditor = ({
   iface,
   referencedFunctionUuids,
+  siblingInterfaceIds,
   onInterfaceUpdate,
   onFunctionUpdate,
   onDeleteFunction,
@@ -17,6 +21,7 @@ export const InterfaceEditor = ({
   iface: InterfaceSpecification
   ifaceIdx: number
   referencedFunctionUuids: Set<string>
+  siblingInterfaceIds: string[]
   onInterfaceUpdate: (updates: Partial<InterfaceSpecification>) => void
   onFunctionUpdate: (fnIdx: number, updates: Partial<InterfaceFunction>) => void
   onDeleteFunction: (fnIdx: number) => void
@@ -25,6 +30,35 @@ export const InterfaceEditor = ({
 }) => {
   const [name, setName] = useState(iface.name)
   const [description, setDescription] = useState(iface.description || "")
+  const [localId, setLocalId] = useState(iface.id)
+  const [idError, setIdError] = useState<string | null>(null)
+
+  const renameNodeId = useSystemStore((s) => s.renameNodeId)
+
+  const handleIdChange = (value: string) => {
+    setLocalId(value)
+    if (!value) {
+      setIdError("ID cannot be empty")
+    } else if (!ID_FORMAT.test(value)) {
+      setIdError("ID must start with a letter or _ and contain only letters, digits, _ or -")
+    } else {
+      setIdError(null)
+    }
+  }
+
+  const handleIdBlur = () => {
+    const trimmed = localId.trim()
+    if (!trimmed || idError || trimmed === iface.id) {
+      setLocalId(iface.id)
+      setIdError(null)
+      return
+    }
+    if (siblingInterfaceIds.includes(trimmed)) {
+      setIdError(`ID "${trimmed}" is already used by another interface`)
+      return
+    }
+    renameNodeId(iface.uuid, trimmed)
+  }
 
   return (
     <div className="border border-gray-700 rounded-md bg-gray-900/50 p-3">
@@ -47,9 +81,24 @@ export const InterfaceEditor = ({
           ))}
         </select>
       </div>
-      <p className="text-xs text-gray-500 mb-2">
-        ID: <span className="font-mono">{iface.id}</span>
-      </p>
+      <div className="mb-2">
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs text-gray-500">ID:</span>
+          <input
+            className={`font-mono text-xs bg-transparent border-b focus:outline-none w-32 ${
+              idError
+                ? "border-red-500 text-red-400"
+                : "border-transparent text-gray-500 hover:border-gray-600 focus:border-blue-400"
+            }`}
+            value={localId}
+            onChange={(e) => handleIdChange(e.target.value)}
+            onBlur={handleIdBlur}
+            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
+            aria-label="Interface ID"
+          />
+        </div>
+        {idError && <p className="text-xs text-red-400 mt-0.5">{idError}</p>}
+      </div>
       <MarkdownEditor
         value={description}
         onChange={setDescription}
@@ -68,12 +117,16 @@ export const InterfaceEditor = ({
           </p>
           {iface.functions.map((fn, fnIdx) => {
             const isUnreferenced = !referencedFunctionUuids.has(fn.uuid)
+            const siblingFunctionIds = iface.functions
+              .filter((_, j) => j !== fnIdx)
+              .map((f) => f.id)
             return (
               <FunctionEditor
                 key={fn.uuid || fn.id}
                 fn={fn}
                 fnIdx={fnIdx}
                 isUnreferenced={isUnreferenced}
+                siblingFunctionIds={siblingFunctionIds}
                 onUpdate={(updates) => onFunctionUpdate(fnIdx, updates)}
                 onDelete={() => onDeleteFunction(fnIdx)}
                 onParamDescriptionUpdate={(paramIdx, desc) =>

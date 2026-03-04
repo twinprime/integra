@@ -1,9 +1,11 @@
 import { useState } from "react"
 import type { ComponentNode, InterfaceSpecification, InterfaceFunction } from "../../store/types"
 import { useSystemStore } from "../../store/useSystemStore"
-import { collectReferencedFunctionUuids } from "../../utils/nodeUtils"
+import { collectReferencedFunctionUuids, getNodeSiblingIds } from "../../utils/nodeUtils"
 import { MarkdownEditor } from "./MarkdownEditor"
 import { InterfaceEditor } from "./InterfaceEditor"
+
+const ID_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_-]*$/
 
 export const ComponentEditor = ({
   node,
@@ -16,6 +18,8 @@ export const ComponentEditor = ({
 }) => {
   const [name, setName] = useState(node.name || "")
   const [description, setDescription] = useState(node.description || "")
+  const [localId, setLocalId] = useState(node.id)
+  const [idError, setIdError] = useState<string | null>(null)
 
   const handleNameBlur = () => {
     if (name !== node.name && name.trim() !== "") {
@@ -32,7 +36,34 @@ export const ComponentEditor = ({
   }
 
   const rootComponent = useSystemStore((state) => state.rootComponent)
+  const renameNodeId = useSystemStore((s) => s.renameNodeId)
   const referencedFunctionUuids = collectReferencedFunctionUuids(rootComponent)
+
+  const handleIdChange = (value: string) => {
+    setLocalId(value)
+    if (!value) {
+      setIdError("ID cannot be empty")
+    } else if (!ID_FORMAT.test(value)) {
+      setIdError("ID must start with a letter or _ and contain only letters, digits, _ or -")
+    } else {
+      setIdError(null)
+    }
+  }
+
+  const handleIdBlur = () => {
+    const trimmed = localId.trim()
+    if (!trimmed || idError || trimmed === node.id) {
+      setLocalId(node.id)
+      setIdError(null)
+      return
+    }
+    const siblings = getNodeSiblingIds(rootComponent, node.uuid)
+    if (siblings.includes(trimmed)) {
+      setIdError(`ID "${trimmed}" is already used by a sibling node`)
+      return
+    }
+    renameNodeId(node.uuid, trimmed)
+  }
 
   const handleInterfaceUpdate = (ifaceIdx: number, updates: Partial<InterfaceSpecification>) => {
     const newInterfaces = node.interfaces.map((iface, i) =>
@@ -98,9 +129,24 @@ export const ComponentEditor = ({
             {node.type}
           </span>
         </h2>
-        <p className="mt-1 text-sm text-gray-400">
-          ID: <span className="font-mono text-gray-500">{node.id}</span>
-        </p>
+        <div className="mt-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm text-gray-400">ID:</span>
+            <input
+              className={`font-mono text-sm bg-transparent border-b focus:outline-none w-40 ${
+                idError
+                  ? "border-red-500 text-red-400"
+                  : "border-transparent text-gray-400 hover:border-gray-600 focus:border-blue-400"
+              }`}
+              value={localId}
+              onChange={(e) => handleIdChange(e.target.value)}
+              onBlur={handleIdBlur}
+              onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
+              aria-label="Node ID"
+            />
+          </div>
+          {idError && <p className="text-xs text-red-400 mt-0.5">{idError}</p>}
+        </div>
       </div>
 
       <div className="mb-4">
@@ -145,6 +191,9 @@ export const ComponentEditor = ({
                 iface={iface}
                 ifaceIdx={ifaceIdx}
                 referencedFunctionUuids={referencedFunctionUuids}
+                siblingInterfaceIds={node.interfaces
+                  .filter((_, i) => i !== ifaceIdx)
+                  .map((i) => i.id)}
                 onInterfaceUpdate={(updates) => handleInterfaceUpdate(ifaceIdx, updates)}
                 onFunctionUpdate={(fnIdx, updates) => handleFunctionUpdate(ifaceIdx, fnIdx, updates)}
                 onDeleteFunction={(fnIdx) => handleDeleteFunction(ifaceIdx, fnIdx)}

@@ -4,9 +4,12 @@ import type { InterfaceFunction } from "../../store/types"
 import { MarkdownEditor } from "./MarkdownEditor"
 import { useSystemStore, getSequenceDiagrams } from "../../store/useSystemStore"
 
+const ID_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_-]*$/
+
 export const FunctionEditor = ({
   fn,
   isUnreferenced,
+  siblingFunctionIds,
   onUpdate,
   onDelete,
   onParamDescriptionUpdate,
@@ -15,31 +18,67 @@ export const FunctionEditor = ({
   fn: InterfaceFunction
   fnIdx: number
   isUnreferenced: boolean
+  siblingFunctionIds: string[]
   onUpdate: (updates: Partial<InterfaceFunction>) => void
   onDelete: () => void
   onParamDescriptionUpdate: (paramIdx: number, desc: string) => void
   contextComponentUuid?: string
 }) => {
   const [fnId, setFnId] = useState(fn.id)
+  const [idError, setIdError] = useState<string | null>(null)
   const [fnDescription, setFnDescription] = useState(fn.description || "")
   const [showDiagrams, setShowDiagrams] = useState(false)
 
-  const { rootComponent, selectNode } = useSystemStore()
+  const { rootComponent, selectNode, renameNodeId } = useSystemStore()
   const referencingDiagrams = getSequenceDiagrams(rootComponent).filter((d) =>
     d.referencedFunctionUuids.includes(fn.uuid),
   )
 
+  const handleIdChange = (value: string) => {
+    setFnId(value)
+    if (!value) {
+      setIdError("ID cannot be empty")
+    } else if (!ID_FORMAT.test(value)) {
+      setIdError("ID must start with a letter or _ and contain only letters, digits, _ or -")
+    } else {
+      setIdError(null)
+    }
+  }
+
+  const handleIdBlur = () => {
+    const trimmed = fnId.trim()
+    if (!trimmed || idError || trimmed === fn.id) {
+      setFnId(fn.id)
+      setIdError(null)
+      return
+    }
+    if (siblingFunctionIds.includes(trimmed)) {
+      setIdError(`ID "${trimmed}" is already used by another function`)
+      return
+    }
+    renameNodeId(fn.uuid, trimmed)
+  }
+
   return (
     <div className="bg-gray-950 border border-gray-800 rounded p-2">
-      <div className="flex items-center gap-2 mb-1">
-        <input
-          className={`text-sm font-mono flex-1 bg-transparent border-b border-transparent hover:border-gray-600 focus:border-blue-400 focus:outline-none ${isUnreferenced ? "line-through text-gray-500" : "text-blue-400"}`}
-          value={fnId}
-          onChange={(e) => setFnId(e.target.value)}
-          onBlur={() => {
-            if (fnId !== fn.id && fnId.trim()) onUpdate({ id: fnId.trim() })
-          }}
-        />
+      <div className="flex items-start gap-2 mb-1">
+        <div className="flex-1 min-w-0">
+          <input
+            className={`text-sm font-mono w-full bg-transparent border-b focus:outline-none ${
+              idError
+                ? "border-red-500 text-red-400"
+                : isUnreferenced
+                  ? "line-through text-gray-500 border-transparent hover:border-gray-600 focus:border-blue-400"
+                  : "text-blue-400 border-transparent hover:border-gray-600 focus:border-blue-400"
+            }`}
+            value={fnId}
+            onChange={(e) => handleIdChange(e.target.value)}
+            onBlur={handleIdBlur}
+            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
+            aria-label="Function ID"
+          />
+          {idError && <p className="text-xs text-red-400 mt-0.5">{idError}</p>}
+        </div>
         {referencingDiagrams.length > 0 && (
           <button
             type="button"

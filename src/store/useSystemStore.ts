@@ -4,6 +4,7 @@ import type { ComponentNode, Node, DiagramNode, UseCaseDiagramNode, UseCaseNode,
 import { parseUseCaseDiagram } from "../utils/useCaseDiagramParser"
 import { parseSequenceDiagram, paramsToString, type FunctionMatch } from "../utils/sequenceDiagramParser"
 import { upsertTree } from "../utils/diagramParserHelpers"
+import { applyIdRename } from "../utils/renameNodeId"
 
 export type FunctionDecision = FunctionMatch & {
   action: "add-new" | "update-existing" | "update-all"
@@ -31,6 +32,7 @@ interface SystemState {
     currentDiagramUuid: string,
     currentDiagramContent: string,
   ) => void
+  renameNodeId: (uuid: string, newId: string) => void
 }
 
 const initialSystem: ComponentNode = {
@@ -260,6 +262,33 @@ function findOwnerComponentUuid(root: ComponentNode, useCaseUuid: string): strin
     if (found) return found
   }
   return null
+}
+
+/** Find the id of any node, interface, or function by its uuid across the full tree. */
+function findIdByUuid(root: ComponentNode, uuid: string): string | null {
+  const searchComp = (comp: ComponentNode): string | null => {
+    if (comp.uuid === uuid) return comp.id
+    for (const a of comp.actors) if (a.uuid === uuid) return a.id
+    for (const iface of comp.interfaces) {
+      if (iface.uuid === uuid) return iface.id
+      for (const fn of iface.functions) if (fn.uuid === uuid) return fn.id
+    }
+    for (const ucd of comp.useCaseDiagrams) {
+      if (ucd.uuid === uuid) return ucd.id
+      for (const uc of ucd.useCases) {
+        if (uc.uuid === uuid) return uc.id
+        for (const sd of uc.sequenceDiagrams) {
+          if (sd.uuid === uuid) return sd.id
+        }
+      }
+    }
+    for (const sub of comp.subComponents) {
+      const found = searchComp(sub)
+      if (found !== null) return found
+    }
+    return null
+  }
+  return searchComp(root)
 }
 
 function removeInterfaceFunctions(comp: ComponentNode, uuidsToRemove: Set<string>): ComponentNode {
@@ -493,6 +522,18 @@ export const useSystemStore = create<SystemState>()(
         past: pushPast(state.past, state.rootComponent),
         future: [],
         ...tryReparseContent(currentDiagramContent, updatedWithContent, currentDiagramUuid),
+      }
+    }),
+  renameNodeId: (uuid, newId) =>
+    set((state) => {
+      const oldId = findIdByUuid(state.rootComponent, uuid)
+      if (!oldId || oldId === newId) return state
+      const renamed = applyIdRename(state.rootComponent, uuid, oldId, newId)
+      const rebuilt = rebuildSystemDiagrams(renamed)
+      return {
+        past: pushPast(state.past, state.rootComponent),
+        future: [],
+        rootComponent: rebuilt,
       }
     }),
   }),

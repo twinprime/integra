@@ -161,7 +161,43 @@ export const findNodeByPath = (
   return traverse(root, segments)
 }
 
+/**
+ * Return the IDs of all siblings of the node identified by uuid.
+ * Searches ComponentNode children only (subComponents, actors, useCaseDiagrams,
+ * useCases, sequenceDiagrams). Returns [] if uuid is root or not found.
+ */
+export const getNodeSiblingIds = (root: ComponentNode, uuid: string): string[] => {
+  if (root.uuid === uuid) return []
 
+  const checkArray = (arr: { uuid: string; id: string }[], target: string): string[] | null => {
+    if (!arr.some((n) => n.uuid === target)) return null
+    return arr.filter((n) => n.uuid !== target).map((n) => n.id)
+  }
+
+  const search = (comp: ComponentNode): string[] | null => {
+    let result = checkArray(comp.subComponents, uuid)
+    if (result) return result
+    result = checkArray(comp.actors, uuid)
+    if (result) return result
+    result = checkArray(comp.useCaseDiagrams, uuid)
+    if (result) return result
+    for (const ucd of comp.useCaseDiagrams) {
+      result = checkArray(ucd.useCases, uuid)
+      if (result) return result
+      for (const uc of ucd.useCases) {
+        result = checkArray(uc.sequenceDiagrams, uuid)
+        if (result) return result
+      }
+    }
+    for (const sub of comp.subComponents) {
+      result = search(sub)
+      if (result) return result
+    }
+    return null
+  }
+
+  return search(root) ?? []
+}
 
 export const findParentNode = (
   rootComponent: ComponentNode,
