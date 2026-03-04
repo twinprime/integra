@@ -166,6 +166,7 @@ const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
 }
 
 const YAML_FILE_TYPES = [{ description: "YAML files", accept: { "text/yaml": [".yaml", ".yml"] } }]
+const DERIVED_KEYS = new Set(["ownerComponentUuid", "referencedNodeIds", "referencedFunctionUuids"])
 
 export const TreeView = () => {
   const rootComponent = useSystemStore((state) => state.rootComponent)
@@ -190,7 +191,10 @@ export const TreeView = () => {
   } | null>(null)
 
   const serializeYaml = (comp: ComponentNode) =>
-    yaml.dump(comp, { indent: 2, noRefs: true, skipInvalid: true })
+    yaml.dump(
+      JSON.parse(JSON.stringify(comp, (key, value) => DERIVED_KEYS.has(key) ? undefined : value)),
+      { indent: 2, noRefs: true, skipInvalid: true },
+    )
 
   const hasUnsavedChanges =
     savedSnapshot !== null && serializeYaml(rootComponent) !== savedSnapshot

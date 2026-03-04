@@ -183,9 +183,9 @@ interfaces: [...]
 |---|---|
 | `component` | `subComponents[]`, `actors[]`, `useCaseDiagrams[]`, `interfaces[]` |
 | `actor` | *(none)* |
-| `use-case-diagram` | `content` (spec text), `ownerComponentUuid`, `referencedNodeIds[]`, `useCases[]` |
+| `use-case-diagram` | `content` (spec text), `useCases[]` |
 | `use-case` | `sequenceDiagrams[]` |
-| `sequence-diagram` | `content` (spec text), `ownerComponentUuid`, `referencedNodeIds[]`, `referencedFunctionUuids[]` |
+| `sequence-diagram` | `content` (spec text) |
 
 Interface specifications live directly on their owning component:
 
@@ -239,9 +239,6 @@ useCaseDiagrams:
       actor "Customer" as customer
       use case "Place Order" as placeOrder
       customer --> placeOrder
-    ownerComponentUuid: a1b2c3d4-0001
-    referencedNodeIds:
-      - a1b2c3d4-0020    # customer actor uuid
     useCases:
       - uuid: a1b2c3d4-0031
         id: placeOrder
@@ -256,23 +253,10 @@ useCaseDiagrams:
               actor "Customer" as customer
               component "Order Service" as orderSvc
               customer->>orderSvc: OrdersAPI:placeOrder(orderId: string, amount: number)
-            ownerComponentUuid: a1b2c3d4-0001
-            referencedNodeIds:
-              - a1b2c3d4-0020    # customer actor uuid
-              - a1b2c3d4-0010    # orderSvc component uuid
-            referencedFunctionUuids:
-              - a1b2c3d4-0012    # OrdersAPI.placeOrder uuid
 interfaces: []
 ```
 
-#### Notes on managed fields
-
-| Field | Who sets it | Notes |
-|---|---|---|
-| `uuid` | App (on create) | Must be globally unique. When authoring by hand, use any unique string (e.g. UUIDs). Do not reuse values within the same file. |
-| `ownerComponentUuid` | App (on load) | Derived automatically from the tree structure on load. Can be omitted or left empty when authoring by hand. |
-| `referencedNodeIds` | App (on parse) | Populated automatically when a diagram spec is saved. Can be left empty when authoring by hand — the app will repopulate on first edit. |
-| `referencedFunctionUuids` | App (on parse) | Same as above. |
+The only field you must ensure is unique is `uuid` — use any distinct string per node (e.g. standard UUIDs or simple incrementing IDs as in the example above).
 
 ---
 
