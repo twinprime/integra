@@ -187,3 +187,56 @@ describe("parseUseCaseDiagram — out-of-scope reference", () => {
     ).not.toThrow()
   })
 })
+
+// ─── generateUseCaseMermaidFromAst — label resolution ────────────────────────
+
+import { generateUseCaseMermaidFromAst } from "./mermaidGenerator"
+import { buildUcdAst as buildAst } from "./visitor"
+
+function makeMermaidComp(uuid: string, id: string, name: string, subComponents: ComponentNode[] = []): ComponentNode {
+  return { uuid, id, name, type: "component", actors: [], subComponents, useCaseDiagrams: [], interfaces: [] }
+}
+
+function parseUcdAst(input: string) {
+  const { cst } = parseUseCaseDiagramCst(input)
+  return buildAst(cst)
+}
+
+describe("generateUseCaseMermaidFromAst — display labels", () => {
+  it("uses node name when no alias given", () => {
+    const actor = { uuid: "a-uuid", id: "alice", name: "Alice Smith", type: "actor" as const }
+    const owner = makeMermaidComp("root-uuid", "root", "Root", [])
+    owner.actors = [actor]
+    const root = owner
+    const ast = parseUcdAst("actor alice")
+    const { mermaidContent } = generateUseCaseMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain('"Alice Smith"')
+    expect(mermaidContent).not.toContain('"alice"')
+  })
+
+  it("uses alias when explicitly specified (overrides node name)", () => {
+    const actor = { uuid: "a-uuid", id: "alice", name: "Alice Smith", type: "actor" as const }
+    const owner = makeMermaidComp("root-uuid", "root", "Root", [])
+    owner.actors = [actor]
+    const root = owner
+    const ast = parseUcdAst("actor alice as Customer")
+    const { mermaidContent } = generateUseCaseMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain('"Customer"')
+    expect(mermaidContent).not.toContain('"Alice Smith"')
+  })
+
+  it("falls back to last path segment when node not found", () => {
+    const owner = makeMermaidComp("root-uuid", "root", "Root", [])
+    const ast = parseUcdAst("component unknown")
+    const { mermaidContent } = generateUseCaseMermaidFromAst(ast, owner, owner)
+    expect(mermaidContent).toContain('"unknown"')
+  })
+
+  it("uses component node name for component participant", () => {
+    const svc = makeMermaidComp("svc-uuid", "svc", "Order Service")
+    const owner = makeMermaidComp("root-uuid", "root", "Root", [svc])
+    const ast = parseUcdAst("component svc")
+    const { mermaidContent } = generateUseCaseMermaidFromAst(ast, owner, owner)
+    expect(mermaidContent).toContain('"Order Service"')
+  })
+})

@@ -5,6 +5,7 @@
  */
 import type { ComponentNode } from "../../store/types"
 import { findNodeByPath } from "../../utils/nodeUtils"
+import { findNode } from "../../store/useSystemStore"
 import { parseUseCaseDiagramCst } from "./parser"
 import { buildUcdAst, type UcdAst } from "./visitor"
 
@@ -42,12 +43,15 @@ export function generateUseCaseMermaidFromAst(
   let mermaidContent = "graph TD\n"
 
   for (const decl of ast.declarations) {
-    if (ownerComp) {
-      const uuid = resolveUcdParticipantUuid(decl.path, ownerComp, root)
-      if (uuid) idToUuid[decl.id] = uuid
-    }
+    const uuid = ownerComp
+      ? resolveUcdParticipantUuid(decl.path, ownerComp, root)
+      : null
+    if (uuid) idToUuid[decl.id] = uuid
 
-    const displayName = decl.alias ?? decl.path[decl.path.length - 1]
+    const node = uuid ? findNode([root], uuid) : null
+    const lastSegment = decl.path[decl.path.length - 1]
+    const displayName = decl.alias ?? node?.name ?? lastSegment
+
     if (decl.entityType === "actor" || decl.entityType === "component") {
       mermaidContent += `    ${decl.id}["${displayName}"]\n`
     } else {
