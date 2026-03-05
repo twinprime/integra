@@ -35,8 +35,8 @@ test.describe("node ID rename", () => {
 
     // Select the diagram node to open its editor
     const diagramEditor = page.getByLabel("Specification")
-    await expect(diagramEditor).toContainText("as SignIn")
-    await expect(diagramEditor).not.toContainText("as Login")
+    await expect(diagramEditor).toContainText("use case SignIn")
+    await expect(diagramEditor).not.toContainText("use case Login")
   })
 
   test("renaming an actor ID updates sequence diagram content", async ({ page }) => {
@@ -52,9 +52,9 @@ test.describe("node ID rename", () => {
     await page.getByRole("treeitem").filter({ hasText: "Login Flow" }).click()
 
     const diagramEditor = page.getByLabel("Specification")
-    await expect(diagramEditor).toContainText("as Customer")
-    await expect(diagramEditor).toContainText("Customer->>AuthService")
-    await expect(diagramEditor).not.toContainText("as User")
+    await expect(diagramEditor).toContainText("actor Customer")
+    await expect(diagramEditor).toContainText("Customer --> AuthService")
+    await expect(diagramEditor).not.toContainText("actor User")
   })
 
   test("invalid ID format shows inline error and does not save", async ({ page }) => {
@@ -103,7 +103,7 @@ test.describe("node ID rename", () => {
     // Navigate to the use-case diagram to check content
     await page.getByRole("treeitem").filter({ hasText: "Main Use Cases" }).click()
     const diagramEditor = page.getByLabel("Specification")
-    await expect(diagramEditor).toContainText("as Customer")
-    await expect(diagramEditor).not.toContainText("as User")
+    await expect(diagramEditor).toContainText("actor Customer")
+    await expect(diagramEditor).not.toContainText("actor User")
   })
 })

@@ -9,8 +9,8 @@ import type {
 // A sequence diagram with enough lines to overflow a bounded editor container
 const LONG_CONTENT = Array.from({ length: 40 }, (_, i) =>
   i % 2 === 0
-    ? `actor "User${i}" as User${i}`
-    : `component "Service${i}" as Service${i}`,
+    ? `actor User${i}`
+    : `component Service${i}`,
 ).join("\n")
 
 function makeLocalStorageValue(): string {
@@ -76,8 +76,8 @@ test.describe("diagram spec editor — preview mode scrollbar", () => {
   })
 
   test("preview container is scrollable when content overflows", async ({ page }) => {
-    const preview = page.getByRole("button", { name: /diagram specification/i })
-    const isOverflowing = await preview.evaluate(
+    const cmScroller = page.locator(".cm-scroller").first()
+    const isOverflowing = await cmScroller.evaluate(
       (el) => el.scrollHeight > el.clientHeight,
     )
     expect(isOverflowing).toBe(true)

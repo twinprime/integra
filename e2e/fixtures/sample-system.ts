@@ -37,10 +37,10 @@ const seqDiagram: SequenceDiagramNode = {
   referencedNodeIds: [UUIDS.authComp],
   referencedFunctionUuids: [UUIDS.fn],
   content: [
-    'actor "User" as User',
-    'component "AuthService" as AuthService',
-    "User->>AuthService: IAuth:login()",
-    "AuthService-->>User: done",
+    "actor User",
+    "component AuthService",
+    "User --> AuthService: IAuth:login()",
+    "AuthService --> User: done",
   ].join("\n"),
 }
 
@@ -60,8 +60,8 @@ const ucDiagram: UseCaseDiagramNode = {
   ownerComponentUuid: UUIDS.root,
   referencedNodeIds: [UUIDS.actor, UUIDS.uc],
   content: [
-    'actor "User" as User',
-    'use case "Login" as Login',
+    "actor User",
+    "use case Login",
     "User --> Login",
   ].join("\n"),
   useCases: [ucNode],
