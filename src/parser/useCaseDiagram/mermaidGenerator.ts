@@ -50,7 +50,7 @@ export function generateUseCaseMermaidFromAst(
 
     const node = uuid ? findNode([root], uuid) : null
     const lastSegment = decl.path[decl.path.length - 1]
-    const displayName = decl.alias ?? node?.name ?? lastSegment
+    const displayName = node?.name ?? lastSegment
 
     if (decl.entityType === "actor" || decl.entityType === "component") {
       mermaidContent += `    ${decl.id}["${displayName}"]\n`

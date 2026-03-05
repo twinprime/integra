@@ -356,15 +356,16 @@ describe("generateSequenceMermaidFromAst — participant display labels", () => 
     expect(mermaidContent).not.toContain("«component»\nsvc")
   })
 
-  it("prefers explicit alias over node name", () => {
+  it("uses node name even when alias is specified (alias is local id only)", () => {
     const child = makeNamedComp("child-uuid", "svc", "Order Service")
     const owner = makeNamedComp("owner-uuid", "owner", "owner")
     owner.subComponents = [child]
     const root = makeNamedComp("root-uuid", "root", "root", [owner])
     const ast = parseAst("component svc as MyAlias")
     const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
-    expect(mermaidContent).toContain("MyAlias")
-    expect(mermaidContent).not.toContain("Order Service")
+    // "MyAlias" is the Mermaid participant id; "Order Service" is the display label
+    expect(mermaidContent).toContain("Order Service")
+    expect(mermaidContent).toMatch(/participant MyAlias as .*Order Service/)
   })
 
   it("falls back to path segment when node not found", () => {

@@ -214,15 +214,16 @@ describe("generateUseCaseMermaidFromAst — display labels", () => {
     expect(mermaidContent).not.toContain('"alice"')
   })
 
-  it("uses alias when explicitly specified (overrides node name)", () => {
+  it("uses node name even when alias is specified (alias is local id only)", () => {
     const actor = { uuid: "a-uuid", id: "alice", name: "Alice Smith", type: "actor" as const }
     const owner = makeMermaidComp("root-uuid", "root", "Root", [])
     owner.actors = [actor]
     const root = owner
     const ast = parseUcdAst("actor alice as Customer")
     const { mermaidContent } = generateUseCaseMermaidFromAst(ast, owner, root)
-    expect(mermaidContent).toContain('"Customer"')
-    expect(mermaidContent).not.toContain('"Alice Smith"')
+    // "Customer" is the Mermaid node id; "Alice Smith" is the display label
+    expect(mermaidContent).toContain('"Alice Smith"')
+    expect(mermaidContent).toMatch(/Customer\["Alice Smith"\]/)
   })
 
   it("falls back to last path segment when node not found", () => {

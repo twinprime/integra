@@ -53,7 +53,7 @@ export function generateSequenceMermaidFromAst(
     const node = uuid ? findNode([root], uuid) : null
     const lastSegment = decl.path[decl.path.length - 1]
     const stereotype = decl.entityType === "actor" ? "«actor»" : "«component»"
-    const displayName = decl.alias ?? node?.name ?? lastSegment
+    const displayName = node?.name ?? lastSegment
     mermaidContent += `participant ${mermaidId} as ${stereotype}<br/>${displayName}\n`
   }
 
