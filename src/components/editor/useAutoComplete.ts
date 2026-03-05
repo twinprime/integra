@@ -8,7 +8,7 @@ export type Suggestion = {
   replaceFrom: number
 }
 
-type DiagramType = "sequence-diagram" | "use-case-diagram"
+export type DiagramType = "sequence-diagram" | "use-case-diagram"
 
 const UC_KEYWORDS = ["actor", "component", "use case"]
 const SEQ_KEYWORDS = ["actor", "component"]
@@ -47,7 +47,7 @@ function findComponentByIdInTree(
   return null
 }
 
-type Context =
+export type Context =
   | {
       type: "keyword"
       keywords: string[]
@@ -88,7 +88,7 @@ type Context =
       anchorLine: number
     }
 
-function detectContext(
+export function detectContext(
   content: string,
   cursorPos: number,
   diagramType: DiagramType,
@@ -341,7 +341,7 @@ function buildDeclaredIdSuggestions(
     .map((id) => ({ label: id, insertText: id, replaceFrom: ctx.replaceFrom }))
 }
 
-function buildSuggestions(
+export function buildSuggestions(
   ctx: Context,
   content: string,
   ownerComp: ComponentNode,

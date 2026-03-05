@@ -83,20 +83,23 @@ test.describe("diagram spec editor — preview mode scrollbar", () => {
     expect(isOverflowing).toBe(true)
   })
 
-  test("switching to edit mode replaces preview with overflow-hidden textarea wrapper", async ({ page }) => {
+  test("switching to edit mode replaces preview with CodeMirror editor", async ({ page }) => {
     const preview = page.getByRole("button", { name: /diagram specification/i })
 
     // Confirm we start in preview mode with overflow:auto
     const previewOverflow = await preview.evaluate((el) => getComputedStyle(el).overflowY)
     expect(previewOverflow).toBe("auto")
 
-    // Click to enter edit mode — preview button disappears, textarea appears
+    // Click to enter edit mode — preview button disappears, CM editor appears
     await preview.click()
     await expect(preview).not.toBeVisible()
-    await expect(page.locator("textarea")).toBeVisible()
 
-    // The edit container wrapping the textarea uses overflow:hidden
-    const editWrapper = page.locator("textarea").locator("..")
+    // CodeMirror renders a contenteditable editor (no textarea)
+    const cmEditor = page.locator(".cm-editor")
+    await expect(cmEditor).toBeVisible()
+
+    // The edit container wrapping the CM editor uses overflow:hidden
+    const editWrapper = page.locator("[data-testid='cm-editor-container']").locator("..")
     const editOverflow = await editWrapper.evaluate((el) => getComputedStyle(el).overflow)
     expect(editOverflow).toBe("hidden")
   })

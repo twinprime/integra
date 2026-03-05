@@ -3,12 +3,7 @@ import type { ComponentNode, DiagramNode } from "../../store/types"
 import { useSystemStore, getSequenceDiagrams, type FunctionDecision } from "../../store/useSystemStore"
 import { analyzeSequenceDiagramChanges, type FunctionMatch } from "../../parser/sequenceDiagram/systemUpdater"
 import { FunctionUpdateDialog } from "../FunctionUpdateDialog"
-import { DiagramSpecPreview } from "./DiagramSpecPreview"
-import { useAutoComplete, type Suggestion } from "./useAutoComplete"
-
-const LINE_HEIGHT = 22
-const TEXTAREA_PADDING = 8
-const DROPDOWN_MAX_HEIGHT = 160
+import { DiagramCodeMirrorEditor } from "./DiagramCodeMirrorEditor"
 
 export const DiagramEditor = ({
   node,
@@ -19,19 +14,12 @@ export const DiagramEditor = ({
 }) => {
   const [name, setName] = useState(node.name || "")
   const [content, setContent] = useState(node.content || "")
-  const [cursorPos, setCursorPos] = useState(0)
-  const [scrollTop, setScrollTop] = useState(0)
   const [pendingContent, setPendingContent] = useState<string | null>(null)
   const [functionMatches, setFunctionMatches] = useState<FunctionMatch[]>([])
   const [isEditing, setIsEditing] = useState(!node.content)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const backdropRef = useRef<HTMLDivElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const historyRef = useRef<string[]>([node.content || ""])
-  const historyIndexRef = useRef(0)
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const { rootComponent, applyFunctionUpdates, parseError, clearParseError } = useSystemStore()
+  const { rootComponent, applyFunctionUpdates, parseError, clearParseError, selectNode } = useSystemStore()
   const seqDiagrams = getSequenceDiagrams(rootComponent)
 
   const ownerComp = useMemo((): ComponentNode | null => {
@@ -45,24 +33,15 @@ export const DiagramEditor = ({
     }
     return walk(rootComponent)
   }, [rootComponent, node.ownerComponentUuid])
+  void ownerComp // used via ref in DiagramCodeMirrorEditor
 
-  const { suggestions, selectedIndex, setSelectedIndex, anchorLine, dismiss, triggerNow, reset } = useAutoComplete(
-    content,
-    cursorPos,
-    node.type as "sequence-diagram" | "use-case-diagram",
-    ownerComp,
-    rootComponent,
-  )
-
-  // Reset edit mode and history when switching to a different node
+  // Reset edit mode when switching to a different node
   useEffect(() => {
     setIsEditing(!node.content)
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current)
       debounceTimerRef.current = null
     }
-    historyRef.current = [node.content || ""]
-    historyIndexRef.current = 0
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [node.uuid])
 
@@ -70,11 +49,6 @@ export const DiagramEditor = ({
     setName(node.name || "")
     setContent(node.content || "")
   }, [node.uuid, node.name, node.content])
-
-  // Auto-focus textarea when entering edit mode
-  useEffect(() => {
-    if (isEditing) textareaRef.current?.focus()
-  }, [isEditing])
 
   const handleNameBlur = () => {
     if (name !== node.name && name.trim() !== "") {
@@ -88,95 +62,8 @@ export const DiagramEditor = ({
     setContent(newValue)
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
     debounceTimerRef.current = setTimeout(() => {
-      const truncated = historyRef.current.slice(0, historyIndexRef.current + 1)
-      truncated.push(newValue)
-      historyRef.current = truncated
-      historyIndexRef.current = truncated.length - 1
       debounceTimerRef.current = null
     }, 500)
-  }
-
-  const acceptSuggestion = (suggestion: Suggestion) => {
-    const before = content.slice(0, suggestion.replaceFrom)
-    const after = content.slice(cursorPos)
-    const newContent = before + suggestion.insertText + after
-    const newCursor = suggestion.replaceFrom + suggestion.insertText.length
-    handleContentChange(newContent)
-    dismiss()
-    requestAnimationFrame(() => {
-      textareaRef.current?.setSelectionRange(newCursor, newCursor)
-      setCursorPos(newCursor)
-    })
-  }
-
-  const handleAutocompleteKeys = (e: React.KeyboardEvent<HTMLTextAreaElement>): boolean => {
-    if (e.key === "ArrowDown") {
-      e.preventDefault()
-      setSelectedIndex((selectedIndex + 1) % suggestions.length)
-      return true
-    }
-    if (e.key === "ArrowUp") {
-      e.preventDefault()
-      setSelectedIndex((selectedIndex - 1 + suggestions.length) % suggestions.length)
-      return true
-    }
-    if (e.key === "Tab" || e.key === "Enter") {
-      e.preventDefault()
-      acceptSuggestion(suggestions[selectedIndex])
-      return true
-    }
-    if (e.key === "Escape") {
-      e.preventDefault()
-      dismiss()
-      return true
-    }
-    return false
-  }
-
-  const flushDebounce = () => {
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current)
-      debounceTimerRef.current = null
-    }
-  }
-
-  const handleUndoRedoKeys = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    const ctrlOrCmd = e.metaKey || e.ctrlKey
-    if (ctrlOrCmd && e.key === "z" && !e.shiftKey) {
-      e.preventDefault()
-      flushDebounce()
-      if (historyIndexRef.current > 0) {
-        historyIndexRef.current--
-        setContent(historyRef.current[historyIndexRef.current])
-      }
-    } else if (ctrlOrCmd && ((e.key === "z" && e.shiftKey) || e.key === "y")) {
-      e.preventDefault()
-      flushDebounce()
-      if (historyIndexRef.current < historyRef.current.length - 1) {
-        historyIndexRef.current++
-        setContent(historyRef.current[historyIndexRef.current])
-      }
-    }
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (suggestions.length > 0 && handleAutocompleteKeys(e)) return
-
-    // Tab with no suggestions: trigger autocomplete immediately
-    if (e.key === "Tab") {
-      e.preventDefault()
-      triggerNow()
-      return
-    }
-
-    // Shift+Enter: save/parse without leaving edit mode
-    if (e.key === "Enter" && e.shiftKey) {
-      e.preventDefault()
-      saveContent(false)
-      return
-    }
-
-    handleUndoRedoKeys(e)
   }
 
   const saveContent = (exitEdit: boolean) => {
@@ -202,8 +89,6 @@ export const DiagramEditor = ({
 
     onUpdate({ content })
   }
-
-  const handleContentBlur = () => saveContent(true)
 
   const handleDialogResolve = (decisions: FunctionDecision[]): void => {
     const saved = pendingContent!
@@ -255,95 +140,67 @@ export const DiagramEditor = ({
       </div>
 
       <div className="mb-4 flex-1 flex flex-col min-h-0">
-        <label htmlFor="diagram-spec-textarea" className="block text-sm font-medium text-gray-300 mb-2">
+        <label className="block text-sm font-medium text-gray-300 mb-2">
           Specification
         </label>
+
         {isEditing ? (
-          <div ref={containerRef} className="relative flex-1 min-h-[200px] bg-gray-950 border border-blue-400 rounded-md overflow-hidden">
-            {/* Colored backdrop — non-interactive highlight layer */}
-            <div ref={backdropRef} className="absolute inset-0 overflow-hidden pointer-events-none">
-              <DiagramSpecPreview
-                content={content}
-                rootComponent={rootComponent}
-                ownerComponentUuid={node.ownerComponentUuid}
-                diagramType={node.type as "sequence-diagram" | "use-case-diagram"}
-                mode="backdrop"
-              />
-            </div>
-            {/* Transparent textarea on top captures all input */}
-            <textarea
-              ref={textareaRef}
-              id="diagram-spec-textarea"
-              className={`absolute inset-0 w-full h-full p-2 text-[0.85rem] font-mono leading-relaxed bg-transparent resize-none focus:outline-none selection:bg-blue-500/30 ${content ? "text-transparent caret-white" : "text-gray-400"}`}
-              value={content}
-              onChange={(e) => {
-                handleContentChange(e.target.value)
-                setCursorPos(e.target.selectionStart ?? 0)
-              }}
-              onBlur={handleContentBlur}
-              onKeyDown={handleKeyDown}
-              onSelect={(e) => setCursorPos(e.currentTarget.selectionStart ?? 0)}
-              onFocus={(e) => {
-                setCursorPos(e.currentTarget.selectionStart ?? 0)
-                reset()
-              }}
-              onScroll={(e) => {
-                setScrollTop(e.currentTarget.scrollTop)
-                if (backdropRef.current) {
-                  backdropRef.current.scrollTop = e.currentTarget.scrollTop
-                  backdropRef.current.scrollLeft = e.currentTarget.scrollLeft
-                }
-              }}
-              spellCheck={false}
-              placeholder={
-                node.type === "sequence-diagram"
-                  ? 'actor "User" as user\ncomponent "Service" as service\nuser->>service: ExplorationsAPI:createExploration(id: number)'
-                  : 'actor "User" as user\nuse case "Login" as login\nuser --> login'
-              }
+          /* ── Edit mode: CodeMirror editable editor ── */
+          <div className="flex-1 min-h-[200px] bg-gray-950 border border-blue-400 rounded-md overflow-hidden">
+            <DiagramCodeMirrorEditor
+              content={content}
+              diagramType={node.type as "sequence-diagram" | "use-case-diagram"}
+              ownerComponentUuid={node.ownerComponentUuid}
+              rootComponent={rootComponent}
+              readonly={false}
+              onChange={handleContentChange}
+              onBlur={() => saveContent(true)}
+              onShiftEnter={() => saveContent(false)}
+              className="h-full"
             />
-            {/* Autocomplete dropdown */}
-            {suggestions.length > 0 && (() => {
-              const lineTop = anchorLine * LINE_HEIGHT + TEXTAREA_PADDING - scrollTop
-              const lineBottom = lineTop + LINE_HEIGHT
-              const containerHeight = containerRef.current?.clientHeight ?? 0
-              const showAbove = containerHeight > 0 && containerHeight - lineBottom < DROPDOWN_MAX_HEIGHT
-              const posStyle = showAbove
-                ? { bottom: Math.max(0, containerHeight - lineTop), left: TEXTAREA_PADDING }
-                : { top: lineBottom, left: TEXTAREA_PADDING }
-              return (
-                <div
-                  className="absolute z-10 bg-gray-800 border border-gray-600 rounded shadow-lg overflow-y-auto max-h-40"
-                  style={posStyle}
-                >
-                  {suggestions.map((s, i) => (
-                    <button
-                      key={s.label}
-                      type="button"
-                      className={`block w-full text-left px-3 py-1 text-xs font-mono cursor-pointer whitespace-nowrap ${
-                        i === selectedIndex
-                          ? "bg-blue-600 text-white"
-                          : "text-gray-200 hover:bg-gray-700"
-                      }`}
-                      onMouseDown={(e) => {
-                        e.preventDefault()
-                        acceptSuggestion(s)
-                      }}
-                    >
-                      {s.label}
-                    </button>
-                  ))}
-                </div>
-              )
-            })()}
+          </div>
+        ) : content ? (
+          /* ── Preview mode: CodeMirror readonly with navigation ── */
+          <div
+            role="button"
+            tabIndex={0}
+            aria-label="Diagram specification — click to edit"
+            className="w-full border border-gray-700 rounded-md bg-gray-950 cursor-text min-h-[200px] flex-1 overflow-auto focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault()
+                setIsEditing(true)
+              }
+            }}
+          >
+            <DiagramCodeMirrorEditor
+              content={content}
+              diagramType={node.type as "sequence-diagram" | "use-case-diagram"}
+              ownerComponentUuid={node.ownerComponentUuid}
+              rootComponent={rootComponent}
+              readonly={true}
+              onNavigate={selectNode}
+              onEditRequest={() => setIsEditing(true)}
+              className="h-full"
+            />
           </div>
         ) : (
-          <DiagramSpecPreview
-            content={content}
-            rootComponent={rootComponent}
-            ownerComponentUuid={node.ownerComponentUuid}
-            diagramType={node.type as "sequence-diagram" | "use-case-diagram"}
+          /* ── Empty state: click to start editing ── */
+          <div
+            role="button"
+            tabIndex={0}
+            className="w-full p-2 border border-dashed border-gray-700 rounded-md text-sm text-gray-400 cursor-text min-h-[200px] flex-1 flex items-center justify-center italic hover:border-gray-600"
             onClick={() => setIsEditing(true)}
-          />
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault()
+                setIsEditing(true)
+              }
+            }}
+            aria-label="Click to edit specification"
+          >
+            Click to edit specification…
+          </div>
         )}
       </div>
     </div>

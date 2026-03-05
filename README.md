@@ -50,17 +50,19 @@ The diagram spec editor provides context-aware suggestions as you type:
 - **Message receivers**: suggest participants when typing the receiver in a message line
 - **UseCase targets**: suggest use case IDs after `UseCase:` in a message label
 
-Suggestions appear in a dropdown and reflect nodes already defined in the current component (local-first ordering).
+Suggestions appear automatically as you type or can be triggered explicitly with `Tab`. They reflect nodes already defined in the current component (local-first ordering). Accept with `Tab` or `Enter`, dismiss with `Escape`.
 
 #### Keyboard Shortcuts
 
 | Shortcut | Action |
 |---|---|
 | `Shift+Enter` | Save spec and preview diagram without leaving edit mode |
-| `Cmd/Ctrl+Z` | Undo (diagram spec editor *or* tree-level) |
-| `Cmd/Ctrl+Shift+Z` | Redo |
+| `Cmd/Ctrl+Z` | Undo in the diagram spec editor (CodeMirror history) *or* tree-level |
+| `Cmd/Ctrl+Shift+Z` / `Cmd/Ctrl+Y` | Redo |
+| `Tab` | Accept autocomplete suggestion (or trigger if no suggestions are showing) |
 
 Tree-level undo/redo is also accessible via the toolbar buttons above the system tree.
+The diagram spec editor uses CodeMirror's built-in history, fully independent from the tree-level history.
 
 #### Panel Layout
 
@@ -275,7 +277,7 @@ Integra is a single-page web application that allows users to model software sys
 7. **Use case references in messages** — sequence diagram messages can reference use cases on a component via `UseCase:ucId`; referenced use cases cannot be deleted
 8. **Function update flow** — when a function signature changes, the user is prompted to update all affected sequence diagrams or add an overload
 9. **Orphan detection** — actors and components not referenced by any diagram are deletable; otherwise the delete button is hidden
-10. **Syntax highlighting** — the diagram specification editor highlights known tokens (keywords, participants, interfaces, functions, use case references) in real time using a backdrop technique
+10. **Syntax highlighting** — the diagram specification editor (CodeMirror 6) highlights known tokens (keywords, participants, interfaces, functions, use case references) in real time using a Chevrotain-based decoration pass
 11. **Navigation** — highlighted tokens in the specification editor are clickable and navigate to the corresponding node in the tree; entities in the rendered Mermaid diagram are also clickable for the same purpose
 12. **Persistence** — system state is persisted to `localStorage` and restored on page load; a clear button resets to the initial state; Save / Load buttons use the File System Access API to read/write YAML files
 13. **Auto-generated use-case class diagram** — selecting a use-case node renders a class diagram in the bottom panel derived from all its sequence diagrams, showing actors, components, interfaces (with methods), and realization / dependency relationships
@@ -309,7 +311,7 @@ graph TD
     FunctionEditor --> MarkdownEditor
     CommonEditor --> MarkdownEditor
 
-    DiagramEditor --> DiagramSpecPreview
+    DiagramEditor --> DiagramCodeMirrorEditor
     DiagramEditor --> FunctionUpdateDialog
 
     DiagramPanel -->|use-case-diagram| UseCaseDiagram
@@ -327,7 +329,7 @@ graph TD
 | `ContextMenu` | Right-click menu for node-level actions |
 | `EditorPanel` | Routes to the correct editor based on the selected node's type |
 | `DiagramEditor` | Text editor for use-case and sequence diagram specs; syntax highlighting, autocomplete, undo/redo, Shift+Enter save |
-| `DiagramSpecPreview` | Read-only highlighted view of a spec; used in both `"backdrop"` mode (behind the textarea) and `"preview"` mode (standalone) |
+| `DiagramCodeMirrorEditor` | CodeMirror 6 editor wrapper used by `DiagramEditor`; handles both editable and read-only (preview) modes; Chevrotain-powered syntax highlighting; click-to-navigate tokens in preview mode |
 | `ComponentEditor` | Name, description, and interface list editor for component nodes |
 | `InterfaceEditor` | Interface name, type, and function list editor |
 | `FunctionEditor` | Function id, parameters, and description editor; shows referencing sequence diagrams |
@@ -350,7 +352,7 @@ Rendering logic for Mermaid diagrams is extracted into custom hooks to keep comp
 | `useUseCaseDiagram` | `UseCaseDiagram` | Builds the use-case diagram transform and wires `__integraNavigate` |
 | `useSequenceDiagram` | `SequenceDiagram` | Builds the sequence diagram transform and wires `__integraNavigate` |
 | `useUseCaseClassDiagram` | `UseCaseClassDiagram` | Calls `buildUseCaseClassDiagram()`, renders via Mermaid, wires `__integraNavigate` |
-| `useAutoComplete` | `DiagramEditor` | Cursor-position-aware suggestion engine — returns suggestions, selected index, and accept/dismiss handlers |
+| `useAutoComplete` | `DiagramEditor` / `integraAutocomplete.ts` | Cursor-position-aware suggestion engine — `detectContext` and `buildSuggestions` pure functions are also consumed by the CodeMirror completion source |
 
 #### State Management
 
@@ -436,9 +438,13 @@ Each `sender->>receiver: InterfaceId:functionId(...)` message:
 - **Use cases**: deletable only when `isUseCaseReferenced()` returns `false` — same full-tree search
 - `isNodeOrphaned` delegates to `isUseCaseReferenced` for a unified implementation
 
-#### Syntax Highlighting (Backdrop Technique)
+#### Syntax Highlighting (CodeMirror 6 + Chevrotain)
 
-The spec editor overlays a transparent `<textarea>` on top of a non-interactive `DiagramSpecPreview` (mode `"backdrop"`). The textarea uses `text-transparent caret-white` so the coloured tokens from the backdrop show through. An `onScroll` handler keeps the two layers in sync.
+The spec editor uses **CodeMirror 6** (`DiagramCodeMirrorEditor`) for both editable and read-only preview modes.  Syntax colouring is provided by a CodeMirror `StateField<DecorationSet>` in `integraLanguage.ts` that runs line-by-line regex tokenisation (identical patterns to the former backdrop approach) on every document change and maps token types to `Decoration.mark({ class })` spans.  The same pass also builds a navigation map (offset range → node UUID) used by the readonly editor to navigate the tree on token click.
+
+Chevrotain lexer tokens defined in `src/parser/tokens.ts` are the authoritative token vocabulary; the CM highlight field follows the same pattern rules to keep behaviour in sync.
+
+Autocomplete is provided by `integraAutocomplete.ts`, a CodeMirror `CompletionSource` that delegates to the shared `detectContext` / `buildSuggestions` pure functions from `useAutoComplete.ts`.  CodeMirror manages the trigger delay and dropdown UI.
 
 #### Tech Stack
 
@@ -450,6 +456,8 @@ The spec editor overlays a transparent `<textarea>` on top of a non-interactive 
 | Zustand | — | State management |
 | Mermaid | — | Diagram rendering |
 | Tailwind CSS | — | Styling |
+| CodeMirror 6 | — | Diagram spec editor (syntax highlighting, autocomplete, undo/redo) |
+| Chevrotain | 11 | Diagram spec lexer / parser; token vocabulary reused for CM highlighting |
 | @uiw/react-md-editor | — | Markdown description fields |
 | Vitest | 4 | Unit tests |
 | Playwright | — | End-to-end tests |
