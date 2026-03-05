@@ -163,7 +163,11 @@ export const mergeLists = <T extends { id: string; name: string }>(
   incoming.forEach((item) => {
     const index = result.findIndex((e) => e.id === item.id)
     if (index >= 0) {
-      result[index] = { ...result[index], name: item.name }
+      // Only update name if an explicit alias was provided (name differs from id).
+      // When name === id the parser defaulted to the id — preserve any user-set name.
+      if (item.name !== item.id) {
+        result[index] = { ...result[index], name: item.name }
+      }
     } else {
       result.push(item)
     }
