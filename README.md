@@ -175,6 +175,31 @@ When a path reference is used:
 
 **Single-segment declarations** (`actor id`, `component id`) always create or reference a **local** node within the owning component. Use a multi-segment path (`component root/services/auth`) to reach nodes elsewhere in the tree.
 
+#### Reference scope
+
+Multi-segment path references are restricted to components that are **in scope** for the owning diagram. A component `X` is in scope when it is:
+
+| Relationship to ownerComp | Example (ownerComp = `child`) | Allowed |
+|---|---|---|
+| **Self** | `child` | ✅ |
+| **Direct child** | `child/grandchild` | ✅ |
+| **Ancestor** (parent, grandparent, …) | `root` | ✅ |
+| **Sibling** (direct child of parent) | `root/sibling` | ✅ |
+| **Uncle/Aunt** (direct child of grandparent) | `root/grandparent/uncle` — resolved as `uncle` | ✅ |
+| **Grandchild** (child of direct child) | `child/grandchild/greatGrandchild` | ❌ |
+| **Cousin** (child of sibling/uncle) | `root/sibling/cousin` | ❌ |
+
+```
+root
+  child     ← ownerComp
+    grandchild        # direct child — ✅
+      greatGrandchild # grandchild of owner — ❌
+  sibling             # direct child of ancestor root — ✅
+    cousin            # child of sibling — ❌
+```
+
+Referencing an out-of-scope path causes a parse error and the diagram spec is not applied.
+
 ---
 
 ### Markdown Descriptions

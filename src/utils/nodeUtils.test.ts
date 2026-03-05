@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { collectReferencedFunctionUuids, isUseCaseReferenced, findNodeByPath, findNearestComponentAncestor } from "./nodeUtils"
+import { collectReferencedFunctionUuids, isUseCaseReferenced, findNodeByPath, findNearestComponentAncestor, getAncestorComponentChain, isInScope } from "./nodeUtils"
 import type { ComponentNode } from "../store/types"
 
 describe("collectReferencedFunctionUuids", () => {
@@ -292,5 +292,137 @@ describe("isUseCaseReferenced", () => {
       }],
     }]
     expect(isUseCaseReferenced(root, "uc-uuid")).toBe(true)
+  })
+})
+
+// ─── Scope utilities ──────────────────────────────────────────────────────────
+
+/**
+ * Tree used for scope tests:
+ *
+ *   root
+ *     child1   ← primary ownerComp in most tests
+ *       grandchild1
+ *         greatGrandchild
+ *     child2   ← sibling of child1
+ *       gc2    ← child of sibling (cousin of grandchild1)
+ */
+const buildScopeTree = () => {
+  const makeComp = (uuid: string, id: string, subComponents: ComponentNode[] = []): ComponentNode => ({
+    uuid, id, name: id, type: "component",
+    actors: [], subComponents, useCaseDiagrams: [], interfaces: [],
+  })
+  const greatGrandchild = makeComp("ggc-uuid", "ggc")
+  const grandchild1 = makeComp("gc1-uuid", "gc1", [greatGrandchild])
+  const gc2 = makeComp("gc2-uuid", "gc2")
+  const child2 = makeComp("ch2-uuid", "ch2", [gc2])
+  const child1 = makeComp("ch1-uuid", "ch1", [grandchild1])
+  const root = makeComp("root-uuid", "root", [child1, child2])
+  return { root, child1, child2, grandchild1, greatGrandchild, gc2 }
+}
+
+describe("getAncestorComponentChain", () => {
+  it("returns empty array for root", () => {
+    const { root } = buildScopeTree()
+    expect(getAncestorComponentChain(root, root.uuid)).toEqual([])
+  })
+
+  it("returns [root] for a direct child of root", () => {
+    const { root, child1 } = buildScopeTree()
+    const chain = getAncestorComponentChain(root, child1.uuid)
+    expect(chain.map((c) => c.uuid)).toEqual([root.uuid])
+  })
+
+  it("returns [parent, root] for a grandchild", () => {
+    const { root, child1, grandchild1 } = buildScopeTree()
+    const chain = getAncestorComponentChain(root, grandchild1.uuid)
+    expect(chain.map((c) => c.uuid)).toEqual([child1.uuid, root.uuid])
+  })
+
+  it("returns [grandchild, parent, root] for a great-grandchild", () => {
+    const { root, child1, grandchild1, greatGrandchild } = buildScopeTree()
+    const chain = getAncestorComponentChain(root, greatGrandchild.uuid)
+    expect(chain.map((c) => c.uuid)).toEqual([grandchild1.uuid, child1.uuid, root.uuid])
+  })
+})
+
+describe("isInScope — ownerComp = child1", () => {
+  it("returns true for self", () => {
+    const { root, child1 } = buildScopeTree()
+    expect(isInScope(root, child1.uuid, child1.uuid)).toBe(true)
+  })
+
+  it("returns true for direct child", () => {
+    const { root, child1, grandchild1 } = buildScopeTree()
+    expect(isInScope(root, child1.uuid, grandchild1.uuid)).toBe(true)
+  })
+
+  it("returns false for grandchild (too deep)", () => {
+    const { root, child1, greatGrandchild } = buildScopeTree()
+    expect(isInScope(root, child1.uuid, greatGrandchild.uuid)).toBe(false)
+  })
+
+  it("returns true for ancestor (root)", () => {
+    const { root, child1 } = buildScopeTree()
+    expect(isInScope(root, child1.uuid, root.uuid)).toBe(true)
+  })
+
+  it("returns true for sibling (direct child of ancestor root)", () => {
+    const { root, child1, child2 } = buildScopeTree()
+    expect(isInScope(root, child1.uuid, child2.uuid)).toBe(true)
+  })
+
+  it("returns false for cousin (child of sibling)", () => {
+    const { root, child1, gc2 } = buildScopeTree()
+    expect(isInScope(root, child1.uuid, gc2.uuid)).toBe(false)
+  })
+})
+
+describe("isInScope — ownerComp = grandchild1 (deeper nesting)", () => {
+  it("returns true for self", () => {
+    const { root, grandchild1 } = buildScopeTree()
+    expect(isInScope(root, grandchild1.uuid, grandchild1.uuid)).toBe(true)
+  })
+
+  it("returns true for direct child (great-grandchild)", () => {
+    const { root, grandchild1, greatGrandchild } = buildScopeTree()
+    expect(isInScope(root, grandchild1.uuid, greatGrandchild.uuid)).toBe(true)
+  })
+
+  it("returns true for parent ancestor", () => {
+    const { root, child1, grandchild1 } = buildScopeTree()
+    expect(isInScope(root, grandchild1.uuid, child1.uuid)).toBe(true)
+  })
+
+  it("returns true for root ancestor", () => {
+    const { root, grandchild1 } = buildScopeTree()
+    expect(isInScope(root, grandchild1.uuid, root.uuid)).toBe(true)
+  })
+
+  it("returns true for uncle (sibling of parent = direct child of ancestor root)", () => {
+    const { root, grandchild1, child2 } = buildScopeTree()
+    expect(isInScope(root, grandchild1.uuid, child2.uuid)).toBe(true)
+  })
+
+  it("returns false for cousin (child of uncle)", () => {
+    const { root, grandchild1, gc2 } = buildScopeTree()
+    expect(isInScope(root, grandchild1.uuid, gc2.uuid)).toBe(false)
+  })
+})
+
+describe("isInScope — ownerComp = root", () => {
+  it("returns true for self (root)", () => {
+    const { root } = buildScopeTree()
+    expect(isInScope(root, root.uuid, root.uuid)).toBe(true)
+  })
+
+  it("returns true for direct child", () => {
+    const { root, child1 } = buildScopeTree()
+    expect(isInScope(root, root.uuid, child1.uuid)).toBe(true)
+  })
+
+  it("returns false for grandchild (too deep)", () => {
+    const { root, grandchild1 } = buildScopeTree()
+    expect(isInScope(root, root.uuid, grandchild1.uuid)).toBe(false)
   })
 })

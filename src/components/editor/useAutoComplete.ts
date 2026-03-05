@@ -5,6 +5,7 @@ import { SeqLexer } from "../../parser/sequenceDiagram/lexer"
 import { UcdLexer } from "../../parser/useCaseDiagram/lexer"
 import { Actor, Component, Use, Case, Arrow, Identifier } from "../../parser/tokens"
 import { SeqColon } from "../../parser/sequenceDiagram/lexer"
+import { isInScope } from "../../utils/nodeUtils"
 
 export type Suggestion = {
   label: string
@@ -317,8 +318,9 @@ function buildEntityNameSuggestions(
   diagramType: DiagramType,
 ): Suggestion[] {
   const allComps = collectAllComponents(rootComponent)
-  if (ctx.keyword === "actor") return buildActorSuggestions(ctx, allComps, ownerComp)
-  if (ctx.keyword === "component") return buildComponentSuggestions(ctx, allComps, ownerComp)
+  const scopedComps = allComps.filter((c) => isInScope(rootComponent, ownerComp.uuid, c.uuid))
+  if (ctx.keyword === "actor") return buildActorSuggestions(ctx, scopedComps, ownerComp)
+  if (ctx.keyword === "component") return buildComponentSuggestions(ctx, scopedComps, ownerComp)
   if (ctx.keyword === "use case" && diagramType === "use-case-diagram") {
     return buildUseCaseSuggestions(ctx, ownerComp)
   }

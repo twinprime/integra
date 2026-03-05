@@ -7,7 +7,7 @@
 import type { ComponentNode, InterfaceSpecification, Parameter } from "../../store/types"
 import { upsertNodeInTree, mergeLists } from "../../nodes/nodeTree"
 import { findCompByUuid } from "../../nodes/nodeTree"
-import { findNodeByPath } from "../../utils/nodeUtils"
+import { findNodeByPath, isInScope } from "../../utils/nodeUtils"
 import { parseSequenceDiagramCst } from "./parser"
 import { buildSeqAst } from "./visitor"
 
@@ -224,6 +224,13 @@ export function parseSequenceDiagram(
       const pathStr = decl.path.join("/")
       const uuid = findNodeByPath(rootComponent, pathStr)
       if (!uuid) throw new Error(`Cannot resolve path: "${pathStr}"`)
+      // Scope check: verify the owning component is in scope for this diagram
+      const owningCompUuid = decl.entityType === "component"
+        ? uuid
+        : findNodeByPath(rootComponent, decl.path.slice(0, -1).join("/"))
+      if (!owningCompUuid || !isInScope(rootComponent, ownerComponentUuid, owningCompUuid)) {
+        throw new Error(`Reference "${pathStr}" is out of scope for this diagram`)
+      }
       if (!externalUuids.includes(uuid)) externalUuids.push(uuid)
     }
   }

@@ -131,3 +131,49 @@ export const findNodeByPath = (
 }
 
 export { findParentNode } from "../nodes/nodeTree"
+
+// ─── Scope utilities ──────────────────────────────────────────────────────────
+
+/**
+ * Returns the ancestor chain of ownerComp from immediate parent up to (and including) root.
+ * Returns an empty array when ownerComp is the root.
+ */
+export const getAncestorComponentChain = (
+  root: ComponentNode,
+  ownerCompUuid: string,
+): ComponentNode[] => {
+  if (root.uuid === ownerCompUuid) return []
+  const chain: ComponentNode[] = []
+  let currentUuid = ownerCompUuid
+  while (true) {
+    const parent = findNearestComponentAncestor(root, currentUuid)
+    if (!parent || parent.uuid === currentUuid) break
+    chain.push(parent)
+    if (parent.uuid === root.uuid) break
+    currentUuid = parent.uuid
+  }
+  return chain
+}
+
+/**
+ * Returns true when candidateCompUuid is in scope for a diagram owned by ownerComp:
+ *   - ownerComp itself
+ *   - a direct child of ownerComp
+ *   - any ancestor of ownerComp
+ *   - a direct child of any ancestor (siblings, uncles/aunts, etc.) — but NOT their children
+ */
+export const isInScope = (
+  root: ComponentNode,
+  ownerCompUuid: string,
+  candidateCompUuid: string,
+): boolean => {
+  if (candidateCompUuid === ownerCompUuid) return true
+  const ownerComp = findCompByUuid(root, ownerCompUuid)
+  if (ownerComp?.subComponents.some((c) => c.uuid === candidateCompUuid)) return true
+  const ancestors = getAncestorComponentChain(root, ownerCompUuid)
+  for (const ancestor of ancestors) {
+    if (ancestor.uuid === candidateCompUuid) return true
+    if (ancestor.subComponents.some((c) => c.uuid === candidateCompUuid)) return true
+  }
+  return false
+}
