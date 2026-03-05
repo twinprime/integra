@@ -77,24 +77,28 @@ The split-panel layout can be adjusted by dragging the resize handles. Use the *
 Declare actors, use cases, and their relationships.
 
 ```
-actor "Customer" as customer
-actor "Admin" from root/admin as admin
+# Local nodes (created in the owning component)
+actor customer
+use case login
+use case placeOrder
 
-use case "Browse Catalogue" as browse
-use case "Place Order" as order
-use case "Manage Products" as manage
+# External node — reference an existing node by path
+component root/admin as admin
 
-customer --> browse
-customer --> order
-admin --> manage
+# Relationships
+customer --> login
+customer --> placeOrder
+admin --> placeOrder
 ```
 
-| Keyword | Purpose |
+| Syntax | Purpose |
 |---|---|
-| `actor "Name" as id` | Declare an actor |
-| `use case "Name" as id` | Declare a use case |
-| `from path/to/node` | Reference an existing node instead of creating a new one |
-| `A --> B` | Relationship arrow (rendered as-is by Mermaid) |
+| `actor id` | Declare a local actor |
+| `actor id as alias` | Declare a local actor; use `alias` in relationship lines |
+| `use case id` | Declare a use case |
+| `component path/to/node` | Reference an existing component by path (no new node created) |
+| `component path/to/node as alias` | Reference with an alias |
+| `A --> B` | Relationship arrow |
 
 **Node IDs are scoped to the owning component.** The same ID can be reused in different components.
 
@@ -105,28 +109,46 @@ admin --> manage
 Declare participants and message interactions.
 
 ```
-actor "Customer" as customer
-component "Order Service" as orderSvc
-component "Payment Service" from payments/paymentSvc as paymentSvc
+# Local participants
+actor customer
+component orderSvc
+component paymentSvc
 
-customer->>orderSvc: OrdersAPI:placeOrder(orderId: string, amount: number)
-orderSvc->>paymentSvc: PaymentsAPI:charge(orderId: string, amount: number, currency: string?)
-orderSvc->>customer: UseCase:orderConfirmed
+# External component referenced by path
+component root/services/auth as auth
+
+customer --> orderSvc: OrdersAPI:placeOrder(orderId: string, amount: number)
+orderSvc --> paymentSvc: PaymentsAPI:charge(orderId: string, amount: number, currency: string?)
+orderSvc --> customer: UseCase:orderConfirmed
+
+note right of customer: initiates the flow
+note over orderSvc, paymentSvc: payment handshake
 ```
 
 | Syntax | Purpose |
 |---|---|
-| `actor "Name" as id` | Declare an actor participant |
-| `component "Name" as id` | Declare a component participant |
-| `from path/to/node` | Reference an existing node (no new node created) |
-| `sender->>receiver: Interface:function(param: type)` | Function call message — derives interface on receiver |
-| `sender->>receiver: UseCase:useCaseId` | Use case reference — links to an existing use case on the receiver |
-| `sender->>receiver: UseCase:useCaseId:label` | Use case reference with a custom Mermaid message label |
+| `actor id` | Declare a local actor participant |
+| `actor id as alias` | Declare a local actor; use `alias` in message lines |
+| `component id` | Declare a local component participant |
+| `component path/to/node` | Reference an existing component by path (no new node created) |
+| `component path/to/node as alias` | Reference with an alias |
+| `sender --> receiver: Interface:function(param: type)` | Function call message — derives interface on receiver |
+| `sender --> receiver: label text` | Plain message label |
+| `sender --> receiver` | Bare arrow (no label) |
+| `sender --> receiver: UseCase:useCaseId` | Use case reference |
+| `sender --> receiver: UseCase:useCaseId:label` | Use case reference with a custom label |
+| `note right of id: text` | Note to the right of a participant |
+| `note left of id: text` | Note to the left of a participant |
+| `note over id: text` | Note spanning a single participant |
+| `note over id1, id2: text` | Note spanning two participants |
 
-**Function call message format:** `sender->>receiver: InterfaceId:functionId(param: type, param2: type?)`
+**Function call message format:** `sender --> receiver: InterfaceId:functionId(param: type, param2: type?)`
 - Parameter types default to `any` if omitted
 - Append `?` to mark a parameter as optional (e.g. `name: string?`)
 - For `kafka`-type interfaces, the **sender** owns the interface
+- Use `\n` in a label or note text for a line break (renders as `<br/>` in Mermaid)
+
+**Multi-word participant names** are supported — declare as `actor Output Topics` and reference the same name in messages.
 
 **Self-reference:** A `component` participant with the same ID as the owning component is treated as a self-reference — no child component is created.
 
@@ -134,14 +156,24 @@ orderSvc->>customer: UseCase:orderConfirmed
 
 ### Cross-Component References
 
-Use the `from` clause to reference nodes defined in other parts of the tree. The path is a `/`-separated list of component IDs with the node ID last:
+Use a path to reference nodes defined in other parts of the tree. The path is a `/`-separated list of component IDs ending with the node ID:
 
 ```
-actor "Global Admin" from root/admin as admin
-component "Auth Service" from services/auth as auth
+# In a use case diagram — reference external component
+component root/services/auth as auth
+
+# In a sequence diagram — reference external component with alias
+component root/services/payments as pay
+customer --> auth: AuthAPI:login(user: string)
+customer --> pay: PaymentsAPI:charge(amount: number)
 ```
 
-When `from` is used, no new node is created — the existing node's UUID is recorded in `referencedNodeIds`. The node cannot be deleted while this reference exists.
+When a path reference is used:
+- No new node is created — the existing node's UUID is recorded in `referencedNodeIds`
+- The node cannot be deleted while this reference exists
+- The alias (if provided with `as alias`) is used in all message lines; otherwise the last path segment is used
+
+**Single-segment declarations** (`actor id`, `component id`) always create or reference a **local** node within the owning component. Use a multi-segment path (`component root/services/auth`) to reach nodes elsewhere in the tree.
 
 ---
 
@@ -238,8 +270,8 @@ useCaseDiagrams:
     name: Main Flows
     type: use-case-diagram
     content: |
-      actor "Customer" as customer
-      use case "Place Order" as placeOrder
+      actor customer
+      use case placeOrder
       customer --> placeOrder
     useCases:
       - uuid: a1b2c3d4-0031
@@ -252,9 +284,9 @@ useCaseDiagrams:
             name: Place Order Flow
             type: sequence-diagram
             content: |
-              actor "Customer" as customer
-              component "Order Service" as orderSvc
-              customer->>orderSvc: OrdersAPI:placeOrder(orderId: string, amount: number)
+              actor customer
+              component orderSvc
+              customer --> orderSvc: OrdersAPI:placeOrder(orderId: string, amount: number)
 interfaces: []
 ```
 
@@ -393,7 +425,7 @@ Key store slices:
 
 #### Auto-generated Use-Case Class Diagram
 
-When a `use-case` node is selected, `buildUseCaseClassDiagram()` (`src/utils/useCaseClassDiagram.ts`) parses all sequence diagrams under it and produces a Mermaid `classDiagram`:
+When a `use-case` node is selected, `buildUseCaseClassDiagram()` (`src/utils/useCaseClassDiagram.ts`) parses all sequence diagrams under it using the Chevrotain `SeqAst` and produces a Mermaid `classDiagram`:
 
 - Each actor/component participant becomes a class node (`<<actor>>` annotation for actors)
 - Each interface ID referenced in a message becomes a class with `<<interface>>` and its called methods listed
@@ -402,7 +434,30 @@ When a `use-case` node is selected, `buildUseCaseClassDiagram()` (`src/utils/use
 - `Sender ..> Receiver` — dependency for plain (non-interface, non-self) messages
 - Click handlers use `globalThis.__integraNavigate` to navigate to the clicked node
 
-#### Key Fields on `DiagramNode`
+#### Parsers (`src/parser/`)
+
+Diagram specs are parsed by **Chevrotain**-based lexer + CstParser + CST visitor pipelines, one per diagram type:
+
+```
+src/parser/
+  tokens.ts                     ← shared token definitions
+  sequenceDiagram/
+    lexer.ts                    ← multi-mode lexer (label mode, text mode)
+    parser.ts                   ← CstParser
+    visitor.ts                  ← CST → SeqAst { declarations[], statements[] }
+    systemUpdater.ts            ← SeqAst → node tree update
+    mermaidGenerator.ts         ← SeqAst → Mermaid string + idToUuid map
+  useCaseDiagram/
+    lexer.ts                    ← single-mode lexer
+    parser.ts                   ← CstParser
+    visitor.ts                  ← CST → UcdAst { declarations[], links[] }
+    systemUpdater.ts            ← UcdAst → node tree update
+    mermaidGenerator.ts         ← UcdAst → Mermaid string + idToUuid map
+```
+
+`SeqAst.statements` preserves source order for both messages and notes, so notes appear in the rendered diagram exactly where they were written.
+
+
 
 - `ownerComponentUuid` — the component that logically owns the diagram (set when created)
 - `referencedNodeIds` — UUIDs of all actors/components/use-cases referenced in the diagram spec
@@ -425,9 +480,11 @@ updateNode(diagramUuid, { content })
                └─► upsertTree() — stores referencedNodeIds, referencedFunctionUuids
 ```
 
+Both parsers are implemented with **Chevrotain** (lexer + CstParser + CST visitor), producing typed ASTs (`SeqAst` / `UcdAst`) before applying node-tree changes or generating Mermaid output. Parse errors are reported with line and column numbers and cleared automatically when the content becomes valid.
+
 #### Interface Derivation
 
-Each `sender->>receiver: InterfaceId:functionId(...)` message:
+Each `sender --> receiver: InterfaceId:functionId(...)` message:
 1. Finds or creates an `InterfaceSpecification` with `id = InterfaceId` on the receiver (or sender for `kafka`)
 2. Finds or creates a function with `id = functionId` and the parsed parameter list
 3. If a function with the same id already exists with a **different** parameter count or types, the user is prompted via a dialog to update all affected diagrams or add as overload
@@ -455,6 +512,7 @@ Autocomplete is provided by `integraAutocomplete.ts`, a CodeMirror `CompletionSo
 | Vite | 7 | Build tooling |
 | Zustand | — | State management |
 | Mermaid | — | Diagram rendering |
+| Chevrotain | 11 | Lexer + parser for diagram spec grammars |
 | Tailwind CSS | — | Styling |
 | CodeMirror 6 | — | Diagram spec editor (syntax highlighting, autocomplete, undo/redo) |
 | Chevrotain | 11 | Diagram spec lexer / parser; token vocabulary reused for CM highlighting |
