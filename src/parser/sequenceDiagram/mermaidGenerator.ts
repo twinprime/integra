@@ -8,6 +8,7 @@
 import type { ComponentNode } from "../../store/types"
 import { findNodeByPath } from "../../utils/nodeUtils"
 import { findComponentByInterfaceId } from "../../utils/diagramResolvers"
+import { findNode } from "../../store/useSystemStore"
 import { parseSequenceDiagramCst } from "./parser"
 import { buildSeqAst, type SeqAst } from "./visitor"
 
@@ -47,12 +48,12 @@ export function generateSequenceMermaidFromAst(
   let mermaidContent = "sequenceDiagram\n"
   for (const decl of ast.declarations) {
     const mermaidId = sanitizeMermaidId(decl.id)
-    if (ownerComp) {
-      const uuid = resolveParticipantUuid(decl.path, ownerComp, root)
-      if (uuid) idToUuid[mermaidId] = uuid
-    }
+    const uuid = ownerComp ? resolveParticipantUuid(decl.path, ownerComp, root) : null
+    if (uuid) idToUuid[mermaidId] = uuid
+    const node = uuid ? findNode([root], uuid) : null
+    const lastSegment = decl.path[decl.path.length - 1]
     const stereotype = decl.entityType === "actor" ? "«actor»" : "«component»"
-    const displayName = decl.alias ?? decl.path[decl.path.length - 1]
+    const displayName = decl.alias ?? node?.name ?? lastSegment
     mermaidContent += `participant ${mermaidId} as ${stereotype}<br/>${displayName}\n`
   }
 

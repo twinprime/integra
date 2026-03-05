@@ -327,3 +327,51 @@ describe("parseSequenceDiagram — out-of-scope reference", () => {
     ).not.toThrow()
   })
 })
+
+// ─── generateSequenceMermaidFromAst — participant display labels ──────────────
+
+import { generateSequenceMermaidFromAst } from "./mermaidGenerator"
+import { buildSeqAst } from "./visitor"
+import { parseSequenceDiagramCst } from "./parser"
+
+function parseAst(content: string) {
+  const { cst } = parseSequenceDiagramCst(content)
+  return buildSeqAst(cst)
+}
+
+const makeNamedComp = (uuid: string, id: string, name: string, subComponents: ComponentNode[] = []): ComponentNode => ({
+  uuid, id, name, type: "component",
+  actors: [], subComponents, useCaseDiagrams: [], interfaces: [],
+})
+
+describe("generateSequenceMermaidFromAst — participant display labels", () => {
+  it("uses node name instead of id for component participant", () => {
+    const child = makeNamedComp("child-uuid", "svc", "Order Service")
+    const owner = makeNamedComp("owner-uuid", "owner", "owner")
+    owner.subComponents = [child]
+    const root = makeNamedComp("root-uuid", "root", "root", [owner])
+    const ast = parseAst("component svc")
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain("Order Service")
+    expect(mermaidContent).not.toContain("«component»\nsvc")
+  })
+
+  it("prefers explicit alias over node name", () => {
+    const child = makeNamedComp("child-uuid", "svc", "Order Service")
+    const owner = makeNamedComp("owner-uuid", "owner", "owner")
+    owner.subComponents = [child]
+    const root = makeNamedComp("root-uuid", "root", "root", [owner])
+    const ast = parseAst("component svc as MyAlias")
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain("MyAlias")
+    expect(mermaidContent).not.toContain("Order Service")
+  })
+
+  it("falls back to path segment when node not found", () => {
+    const owner = makeNamedComp("owner-uuid", "owner", "owner")
+    const root = makeNamedComp("root-uuid", "root", "root", [owner])
+    const ast = parseAst("component unknown")
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain("unknown")
+  })
+})
