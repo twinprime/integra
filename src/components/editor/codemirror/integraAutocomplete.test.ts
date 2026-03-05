@@ -110,6 +110,11 @@ describe("createIntegralCompletionSource — keyword context", () => {
 
 // ─── Entity-name (actor) suggestions ─────────────────────────────────────────
 
+const makeComp = (uuid: string, id: string, overrides: Partial<ComponentNode> = {}): ComponentNode => ({
+  uuid, id, name: id, type: "component",
+  subComponents: [], actors: [], useCaseDiagrams: [], interfaces: [], ...overrides,
+})
+
 describe("createIntegralCompletionSource — entity-name context", () => {
   it("suggests actor names from ownerComp after 'actor '", () => {
     const root = makeRoot({
@@ -135,6 +140,86 @@ describe("createIntegralCompletionSource — entity-name context", () => {
       rootComponent: root,
     })
     expect(result!.from).toBe("actor ".length)
+  })
+
+  // ─── apply assertions ──────────────────────────────────────────────────────
+
+  it("local actor apply = actorId (bare, no path)", () => {
+    const root = makeRoot({
+      actors: [{ uuid: "a1", id: "alice", name: "Alice", type: "actor" }],
+    })
+    const result = runCompletion("actor ", 6, {
+      diagramType: "sequence-diagram",
+      ownerComp: root,
+      rootComponent: root,
+    })
+    const opt = result!.options.find((o) => o.label.includes("Alice"))!
+    expect(opt.apply).toBe("alice")
+  })
+
+  it("actor in child comp apply = childId/actorId (relative, no alias)", () => {
+    const svc = makeComp("svc-uuid", "svc", {
+      actors: [{ uuid: "a1", id: "alice", name: "Alice", type: "actor" }],
+    })
+    const root = makeRoot({ subComponents: [svc] })
+    const result = runCompletion("actor ", 6, {
+      diagramType: "sequence-diagram",
+      ownerComp: root,
+      rootComponent: root,
+    })
+    const opt = result!.options.find((o) => o.label.includes("Alice"))!
+    expect(opt.apply).toBe("svc/alice")
+  })
+
+  it("cross-tree actor apply = absolutePath/actorId as actorId", () => {
+    const svc = makeComp("svc-uuid", "svc", {
+      actors: [{ uuid: "a1", id: "alice", name: "Alice", type: "actor" }],
+    })
+    const ownerComp = makeComp("owner-uuid", "owner")
+    const root = makeRoot({ subComponents: [ownerComp, svc] })
+    const result = runCompletion("actor ", 6, {
+      diagramType: "sequence-diagram",
+      ownerComp,
+      rootComponent: root,
+    })
+    const opt = result!.options.find((o) => o.label.includes("Alice"))!
+    expect(opt.apply).toBe("root/svc/alice as alice")
+  })
+
+  it("self component apply = compId (bare id)", () => {
+    const root = makeRoot()
+    const result = runCompletion("component ", 10, {
+      diagramType: "sequence-diagram",
+      ownerComp: root,
+      rootComponent: root,
+    })
+    const opt = result!.options.find((o) => o.label.includes("(self)"))!
+    expect(opt.apply).toBe("root")
+  })
+
+  it("child component apply = childId (bare, single-segment relative)", () => {
+    const svc = makeComp("svc-uuid", "svc")
+    const root = makeRoot({ subComponents: [svc] })
+    const result = runCompletion("component ", 10, {
+      diagramType: "sequence-diagram",
+      ownerComp: root,
+      rootComponent: root,
+    })
+    const opt = result!.options.find((o) => o.label === "svc (local)")!
+    expect(opt.apply).toBe("svc")
+  })
+
+  it("cross-tree (sibling) component apply = absolutePath as compId", () => {
+    const svc = makeComp("svc-uuid", "svc")
+    const ownerComp = makeComp("owner-uuid", "owner")
+    const root = makeRoot({ subComponents: [ownerComp, svc] })
+    const result = runCompletion("component ", 10, {
+      diagramType: "sequence-diagram",
+      ownerComp,
+      rootComponent: root,
+    })
+    const opt = result!.options.find((o) => o.label.includes("svc"))!
+    expect(opt.apply).toBe("root/svc as svc")
   })
 })
 

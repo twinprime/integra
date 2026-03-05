@@ -106,8 +106,8 @@ export const findNearestComponentAncestor = (
 // Find a node by a slash-separated path.
 // Path semantics:
 //   - Single segment + contextComponentUuid: resolve within that component, fall back to full tree
-//   - Multi-segment: each segment is a node ID at successive levels of the tree
-//     (component → subComponent/actor/diagram → useCase → sequenceDiagram)
+//   - Multi-segment + contextComponentUuid: try relative to context component first, then absolute
+//   - Multi-segment no context: absolute traversal from root (root.id prefix is optional)
 // Returns the UUID of the found node, or null.
 export const findNodeByPath = (
   root: ComponentNode,
@@ -117,11 +117,16 @@ export const findNodeByPath = (
   const segments = path.split('/').filter(Boolean)
   if (segments.length === 0) return null
 
-  if (segments.length === 1 && contextComponentUuid) {
+  if (contextComponentUuid) {
     const contextComp = findCompByUuid(root, contextComponentUuid)
     if (contextComp) {
-      const node = findNodeInComponent(contextComp, segments[0])
-      if (node) return node.uuid
+      if (segments.length === 1) {
+        const node = findNodeInComponent(contextComp, segments[0])
+        if (node) return node.uuid
+      } else {
+        const result = traversePath(contextComp, segments)
+        if (result) return result
+      }
     }
   }
 
@@ -133,6 +138,12 @@ export const findNodeByPath = (
 export { findParentNode } from "../nodes/nodeTree"
 
 // ─── Scope utilities ──────────────────────────────────────────────────────────
+
+/**
+ * Returns true when candidateCompUuid is any descendant of comp (recursive).
+ */
+const isDescendantOf = (comp: ComponentNode, candidateUuid: string): boolean =>
+  comp.subComponents.some((c) => c.uuid === candidateUuid || isDescendantOf(c, candidateUuid))
 
 /**
  * Returns the ancestor chain of ownerComp from immediate parent up to (and including) root.
@@ -156,9 +167,21 @@ export const getAncestorComponentChain = (
 }
 
 /**
+ * Returns the absolute path from root to the component as a slash-joined string.
+ * e.g. root → "root", root/svc/db → "root/svc/db"
+ */
+export const getComponentAbsolutePath = (root: ComponentNode, compUuid: string): string => {
+  if (root.uuid === compUuid) return root.id
+  const ancestors = getAncestorComponentChain(root, compUuid)
+  const comp = findCompByUuid(root, compUuid)
+  if (!comp) return ""
+  return [...ancestors].reverse().concat(comp).map((c) => c.id).join("/")
+}
+
+/**
  * Returns true when candidateCompUuid is in scope for a diagram owned by ownerComp:
  *   - ownerComp itself
- *   - a direct child of ownerComp
+ *   - any descendant of ownerComp (children, grandchildren, etc.)
  *   - any ancestor of ownerComp
  *   - a direct child of any ancestor (siblings, uncles/aunts, etc.) — but NOT their children
  */
@@ -169,7 +192,7 @@ export const isInScope = (
 ): boolean => {
   if (candidateCompUuid === ownerCompUuid) return true
   const ownerComp = findCompByUuid(root, ownerCompUuid)
-  if (ownerComp?.subComponents.some((c) => c.uuid === candidateCompUuid)) return true
+  if (ownerComp && isDescendantOf(ownerComp, candidateCompUuid)) return true
   const ancestors = getAncestorComponentChain(root, ownerCompUuid)
   for (const ancestor of ancestors) {
     if (ancestor.uuid === candidateCompUuid) return true

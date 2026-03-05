@@ -72,14 +72,14 @@ export function parseUseCaseDiagram(
         localUseCaseIds.push(decl.id)
       }
     } else {
-      // External node
+      // External node (try relative to ownerComp first)
       const pathStr = decl.path.join("/")
-      const uuid = findNodeByPath(rootComponent, pathStr)
+      const uuid = findNodeByPath(rootComponent, pathStr, ownerComponentUuid)
       if (!uuid) throw new Error(`Cannot resolve path: "${pathStr}"`)
       // Scope check: verify the owning component is in scope for this diagram
       const owningCompUuid = decl.entityType === "component"
         ? uuid
-        : findNodeByPath(rootComponent, decl.path.slice(0, -1).join("/"))
+        : findNodeByPath(rootComponent, decl.path.slice(0, -1).join("/"), ownerComponentUuid)
       if (!owningCompUuid || !isInScope(rootComponent, ownerComponentUuid, owningCompUuid)) {
         throw new Error(`Reference "${pathStr}" is out of scope for this diagram`)
       }

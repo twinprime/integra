@@ -5,7 +5,7 @@ import { SeqLexer } from "../../parser/sequenceDiagram/lexer"
 import { UcdLexer } from "../../parser/useCaseDiagram/lexer"
 import { Actor, Component, Use, Case, Arrow, Identifier } from "../../parser/tokens"
 import { SeqColon } from "../../parser/sequenceDiagram/lexer"
-import { isInScope } from "../../utils/nodeUtils"
+import { isInScope, getComponentAbsolutePath } from "../../utils/nodeUtils"
 
 export type Suggestion = {
   label: string
@@ -223,14 +223,28 @@ function matchLower(text: string, partial: string): boolean {
 }
 
 function resolveActorEntry(
+  root: ComponentNode,
+  ownerComp: ComponentNode,
   comp: ComponentNode,
   actor: { name: string; id: string },
   isOwner: boolean,
   ctx: Extract<Context, { type: "entity-name" }>,
 ): Suggestion | null {
-  const insertText = isOwner
-    ? `"${actor.name}" as ${actor.id}`
-    : `"${actor.name}" from ${comp.id}/${actor.id} as ${actor.id}`
+  let insertText: string
+  if (isOwner) {
+    insertText = actor.id
+  } else {
+    const ownerAbsPath = getComponentAbsolutePath(root, ownerComp.uuid)
+    const compAbsPath = getComponentAbsolutePath(root, comp.uuid)
+    const subtreePrefix = ownerAbsPath + "/"
+    if (compAbsPath.startsWith(subtreePrefix)) {
+      // Relative path from ownerComp (e.g. "childId/actorId")
+      insertText = `${compAbsPath.slice(subtreePrefix.length)}/${actor.id}`
+    } else {
+      // Absolute path + alias for cross-tree references
+      insertText = `${compAbsPath}/${actor.id} as ${actor.id}`
+    }
+  }
   if (!matchLower(insertText, ctx.partial)) return null
   return {
     label: isOwner ? `${actor.name} (local)` : `${actor.name} (from ${comp.name})`,
@@ -243,13 +257,14 @@ function buildActorSuggestions(
   ctx: Extract<Context, { type: "entity-name" }>,
   allComps: ComponentNode[],
   ownerComp: ComponentNode,
+  root: ComponentNode,
 ): Suggestion[] {
   const localSuggs: Suggestion[] = []
   const externalSuggs: Suggestion[] = []
   for (const comp of allComps) {
     const isOwner = comp.uuid === ownerComp.uuid
     for (const actor of comp.actors) {
-      const entry = resolveActorEntry(comp, actor, isOwner, ctx)
+      const entry = resolveActorEntry(root, ownerComp, comp, actor, isOwner, ctx)
       if (!entry) continue
       if (isOwner) localSuggs.push(entry)
       else externalSuggs.push(entry)
@@ -259,19 +274,24 @@ function buildActorSuggestions(
 }
 
 function componentSuggestionText(
+  root: ComponentNode,
+  ownerComp: ComponentNode,
   comp: ComponentNode,
   isOwner: boolean,
-  isDirectChild: boolean,
 ): { label: string; insertText: string } {
   if (isOwner) {
-    return { label: `${comp.name} (self)`, insertText: `"${comp.name}" as ${comp.id}` }
+    return { label: `${comp.name} (self)`, insertText: comp.id }
   }
-  if (isDirectChild) {
-    return { label: `${comp.name} (local)`, insertText: `"${comp.name}" as ${comp.id}` }
+  const ownerAbsPath = getComponentAbsolutePath(root, ownerComp.uuid)
+  const compAbsPath = getComponentAbsolutePath(root, comp.uuid)
+  const subtreePrefix = ownerAbsPath + "/"
+  if (compAbsPath.startsWith(subtreePrefix)) {
+    // Relative path from ownerComp (e.g. "childId" or "childId/grandchildId")
+    return { label: `${comp.name} (local)`, insertText: compAbsPath.slice(subtreePrefix.length) }
   }
   return {
     label: `${comp.name} (from tree)`,
-    insertText: `"${comp.name}" from ${comp.id} as ${comp.id}`,
+    insertText: `${compAbsPath} as ${comp.id}`,
   }
 }
 
@@ -279,18 +299,20 @@ function buildComponentSuggestions(
   ctx: Extract<Context, { type: "entity-name" }>,
   allComps: ComponentNode[],
   ownerComp: ComponentNode,
+  root: ComponentNode,
 ): Suggestion[] {
-  const directChildUuids = new Set(ownerComp.subComponents.map((s) => s.uuid))
   const localSuggs: Suggestion[] = []
   const externalSuggs: Suggestion[] = []
   for (const comp of allComps) {
     const isOwner = comp.uuid === ownerComp.uuid
-    const isDirectChild = directChildUuids.has(comp.uuid)
-    const { label, insertText } = componentSuggestionText(comp, isOwner, isDirectChild)
+    const { label, insertText } = componentSuggestionText(root, ownerComp, comp, isOwner)
     if (!matchLower(insertText, ctx.partial)) continue
     const entry = { label, insertText, replaceFrom: ctx.replaceFrom }
-    const bucket = isOwner || isDirectChild ? localSuggs : externalSuggs
-    bucket.push(entry)
+    const ownerAbsPath = getComponentAbsolutePath(root, ownerComp.uuid)
+    const compAbsPath = getComponentAbsolutePath(root, comp.uuid)
+    const isSubtree = isOwner || compAbsPath.startsWith(ownerAbsPath + "/")
+    if (isSubtree) localSuggs.push(entry)
+    else externalSuggs.push(entry)
   }
   return [...localSuggs, ...externalSuggs]
 }
@@ -319,8 +341,8 @@ function buildEntityNameSuggestions(
 ): Suggestion[] {
   const allComps = collectAllComponents(rootComponent)
   const scopedComps = allComps.filter((c) => isInScope(rootComponent, ownerComp.uuid, c.uuid))
-  if (ctx.keyword === "actor") return buildActorSuggestions(ctx, scopedComps, ownerComp)
-  if (ctx.keyword === "component") return buildComponentSuggestions(ctx, scopedComps, ownerComp)
+  if (ctx.keyword === "actor") return buildActorSuggestions(ctx, scopedComps, ownerComp, rootComponent)
+  if (ctx.keyword === "component") return buildComponentSuggestions(ctx, scopedComps, ownerComp, rootComponent)
   if (ctx.keyword === "use case" && diagramType === "use-case-diagram") {
     return buildUseCaseSuggestions(ctx, ownerComp)
   }

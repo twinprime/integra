@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { collectReferencedFunctionUuids, isUseCaseReferenced, findNodeByPath, findNearestComponentAncestor, getAncestorComponentChain, isInScope } from "./nodeUtils"
+import { collectReferencedFunctionUuids, isUseCaseReferenced, findNodeByPath, findNearestComponentAncestor, getAncestorComponentChain, isInScope, getComponentAbsolutePath } from "./nodeUtils"
 import type { ComponentNode } from "../store/types"
 
 describe("collectReferencedFunctionUuids", () => {
@@ -357,9 +357,9 @@ describe("isInScope — ownerComp = child1", () => {
     expect(isInScope(root, child1.uuid, grandchild1.uuid)).toBe(true)
   })
 
-  it("returns false for grandchild (too deep)", () => {
+  it("returns true for grandchild (descendant in scope)", () => {
     const { root, child1, greatGrandchild } = buildScopeTree()
-    expect(isInScope(root, child1.uuid, greatGrandchild.uuid)).toBe(false)
+    expect(isInScope(root, child1.uuid, greatGrandchild.uuid)).toBe(true)
   })
 
   it("returns true for ancestor (root)", () => {
@@ -421,8 +421,56 @@ describe("isInScope — ownerComp = root", () => {
     expect(isInScope(root, root.uuid, child1.uuid)).toBe(true)
   })
 
-  it("returns false for grandchild (too deep)", () => {
+  it("returns true for grandchild (descendant in scope)", () => {
     const { root, grandchild1 } = buildScopeTree()
-    expect(isInScope(root, root.uuid, grandchild1.uuid)).toBe(false)
+    expect(isInScope(root, root.uuid, grandchild1.uuid)).toBe(true)
+  })
+})
+
+// ─── getComponentAbsolutePath ─────────────────────────────────────────────────
+
+describe("getComponentAbsolutePath", () => {
+  it("returns root.id for root", () => {
+    const { root } = buildScopeTree()
+    expect(getComponentAbsolutePath(root, root.uuid)).toBe("root")
+  })
+
+  it("returns root/childId for a direct child", () => {
+    const { root, child1 } = buildScopeTree()
+    expect(getComponentAbsolutePath(root, child1.uuid)).toBe("root/ch1")
+  })
+
+  it("returns root/childId/grandchildId for a grandchild", () => {
+    const { root, grandchild1 } = buildScopeTree()
+    expect(getComponentAbsolutePath(root, grandchild1.uuid)).toBe("root/ch1/gc1")
+  })
+
+  it("returns full path for a great-grandchild", () => {
+    const { root, greatGrandchild } = buildScopeTree()
+    expect(getComponentAbsolutePath(root, greatGrandchild.uuid)).toBe("root/ch1/gc1/ggc")
+  })
+})
+
+// ─── findNodeByPath — relative context ───────────────────────────────────────
+
+describe("findNodeByPath — multi-segment relative resolution", () => {
+  it("resolves childId/grandchildId relative to ownerComp", () => {
+    const { root, child1, grandchild1 } = buildScopeTree()
+    // When ownerComp=child1, "gc1" is a direct child — single-segment still works
+    const uuid = findNodeByPath(root, "gc1", child1.uuid)
+    expect(uuid).toBe(grandchild1.uuid)
+  })
+
+  it("resolves grandchildId/greatGrandchildId relative to ownerComp", () => {
+    const { root, child1, greatGrandchild } = buildScopeTree()
+    const uuid = findNodeByPath(root, "gc1/ggc", child1.uuid)
+    expect(uuid).toBe(greatGrandchild.uuid)
+  })
+
+  it("falls back to absolute resolution when relative lookup fails", () => {
+    const { root, child2, gc2 } = buildScopeTree()
+    // Absolute path from root (without root prefix)
+    const uuid = findNodeByPath(root, "ch2/gc2", child2.uuid)
+    expect(uuid).toBe(gc2.uuid)
   })
 })

@@ -273,3 +273,57 @@ describe("sequence diagram parser — edge cases", () => {
     expect(ast.messages[0].label).toBe("some label")
   })
 })
+
+// ─── parseSequenceDiagram — scope validation ──────────────────────────────────
+
+import { parseSequenceDiagram } from "./systemUpdater"
+import type { ComponentNode } from "../../store/types"
+
+const makeComp = (uuid: string, id: string, subComponents: ComponentNode[] = []): ComponentNode => ({
+  uuid, id, name: id, type: "component",
+  actors: [], subComponents, useCaseDiagrams: [], interfaces: [],
+})
+
+describe("parseSequenceDiagram — out-of-scope reference", () => {
+  it("throws when referencing a cousin (child of sibling)", () => {
+    // Tree: root → ownerComp, sibling → cousin
+    const cousin = makeComp("cousin-uuid", "cousin")
+    const sibling = makeComp("sibling-uuid", "sibling", [cousin])
+    const ownerComp = makeComp("owner-uuid", "owner")
+    const root = makeComp("root-uuid", "root", [ownerComp, sibling])
+    // "sibling/cousin" is a cousin — out of scope
+    expect(() =>
+      parseSequenceDiagram("component sibling/cousin as c", root, ownerComp.uuid, "diag-uuid")
+    ).toThrow("out of scope")
+  })
+
+  it("throws when referencing a deep cousin (grandchild of sibling)", () => {
+    const deepCousin = makeComp("dc-uuid", "deepCousin")
+    const cousin = makeComp("cousin-uuid", "cousin", [deepCousin])
+    const sibling = makeComp("sibling-uuid", "sibling", [cousin])
+    const ownerComp = makeComp("owner-uuid", "owner")
+    const root = makeComp("root-uuid", "root", [ownerComp, sibling])
+    expect(() =>
+      parseSequenceDiagram("component sibling/cousin/deepCousin as dc", root, ownerComp.uuid, "diag-uuid")
+    ).toThrow("out of scope")
+  })
+
+  it("does NOT throw for a relative child reference", () => {
+    const child = makeComp("child-uuid", "child")
+    const ownerComp = makeComp("owner-uuid", "owner", [child])
+    const root = makeComp("root-uuid", "root", [ownerComp])
+    expect(() =>
+      parseSequenceDiagram("component child", root, ownerComp.uuid, "diag-uuid")
+    ).not.toThrow()
+  })
+
+  it("does NOT throw for a relative grandchild reference", () => {
+    const grandchild = makeComp("gc-uuid", "gc")
+    const child = makeComp("child-uuid", "child", [grandchild])
+    const ownerComp = makeComp("owner-uuid", "owner", [child])
+    const root = makeComp("root-uuid", "root", [ownerComp])
+    expect(() =>
+      parseSequenceDiagram("component child/gc", root, ownerComp.uuid, "diag-uuid")
+    ).not.toThrow()
+  })
+})
