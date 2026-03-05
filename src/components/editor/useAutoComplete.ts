@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react"
 import type { ComponentNode } from "../../store/types"
 import { paramsToString } from "../../parser/sequenceDiagram/systemUpdater"
+import { SeqLexer } from "../../parser/sequenceDiagram/lexer"
+import { UcdLexer } from "../../parser/useCaseDiagram/lexer"
+import { Actor, Component, Use, Case, Arrow, Identifier } from "../../parser/tokens"
+import { SeqColon } from "../../parser/sequenceDiagram/lexer"
 
 export type Suggestion = {
   label: string
@@ -15,10 +19,22 @@ const SEQ_KEYWORDS = ["actor", "component"]
 
 function parseDeclaredIds(content: string): string[] {
   const ids: string[] = []
-  const rx = /\bas\s+(\w+)/g
+  // Explicit aliases: "as id"
+  const asRx = /\bas\s+(\w+)/g
   let m: RegExpExecArray | null
-  while ((m = rx.exec(content)) !== null) {
+  while ((m = asRx.exec(content)) !== null) {
     if (!ids.includes(m[1])) ids.push(m[1])
+  }
+  // Bare declarations: "actor id" or "component id" (no "as" alias)
+  const bareRx = /^(?:actor|component)\s+([\w/-]+)(?:\s|$)/gm
+  while ((m = bareRx.exec(content)) !== null) {
+    // Skip if this declaration has an "as" alias (already captured above)
+    const lineEnd = content.indexOf("\n", m.index)
+    const line = content.slice(m.index, lineEnd < 0 ? undefined : lineEnd)
+    if (/\bas\s+\w+/.test(line)) continue
+    const pathParts = m[1].split("/")
+    const id = pathParts[pathParts.length - 1]
+    if (!ids.includes(id)) ids.push(id)
   }
   return ids
 }
@@ -97,64 +113,82 @@ export function detectContext(
   const currentLine = content.slice(lineStart, cursorPos)
   const anchorLine = content.slice(0, cursorPos).split("\n").length - 1
 
-  // Function reference: sender->>receiver: partial (sequence diagrams only)
-  if (diagramType === "sequence-diagram") {
-    const msgMatch = /^(\w+)\s*->>\s*(\w+):\s*(\S*)$/.exec(currentLine)
-    if (msgMatch) {
-      const partial = msgMatch[3]
-      return {
-        type: "function-ref",
-        receiverId: msgMatch[2],
-        partial,
-        replaceFrom: cursorPos - partial.length,
-        anchorLine,
-      }
-    }
+  // Tokenize the current line (up to cursor) using the grammar's own lexer
+  const toks = diagramType === "sequence-diagram"
+    ? SeqLexer.tokenize(currentLine).tokens
+    : UcdLexer.tokenize(currentLine).tokens
 
-    // Receiver suggestion: sender->> with partial receiver (no colon yet)
-    const receiverMatch = /^(\w+)\s*->>\s*(\w*)$/.exec(currentLine)
-    if (receiverMatch) {
-      const partial = receiverMatch[2]
-      return {
-        type: "seq-receiver",
-        partial,
-        replaceFrom: cursorPos - partial.length,
-        anchorLine,
-      }
+  // ─── Arrow contexts ────────────────────────────────────────────────────────
+
+  const arrowIdx = toks.findIndex((t) => t.tokenType === Arrow)
+
+  if (arrowIdx >= 0 && diagramType === "sequence-diagram") {
+    const colonIdx = toks.findIndex((t) => t.tokenType === SeqColon)
+    if (colonIdx >= 0) {
+      // After colon → function-ref context
+      const receiverToks = toks.slice(arrowIdx + 1, colonIdx)
+        .filter((t) => t.tokenType === Identifier)
+      const receiverId = receiverToks.map((t) => t.image).join(" ")
+      const textToks = toks.slice(colonIdx + 1)
+      const lastTextTok = textToks[textToks.length - 1]
+      const partial = lastTextTok?.image ?? ""
+      const replaceFrom = lastTextTok != null
+        ? lineStart + lastTextTok.startOffset
+        : lineStart + currentLine.length
+      return { type: "function-ref", receiverId, partial, replaceFrom, anchorLine }
     }
+    // No colon yet → seq-receiver
+    const afterArrow = toks.slice(arrowIdx + 1).filter((t) => t.tokenType === Identifier)
+    const lastId = afterArrow[afterArrow.length - 1]
+    const partial = lastId?.image ?? ""
+    const replaceFrom = lastId != null
+      ? lineStart + lastId.startOffset
+      : lineStart + currentLine.length
+    return { type: "seq-receiver", partial, replaceFrom, anchorLine }
   }
 
-  // Use-case link target: entityId --> partial  or  entityId -->> partial
-  if (diagramType === "use-case-diagram") {
-    const linkMatch = /^(\w+)\s*--?>>?\s*(\w*)$/.exec(currentLine)
-    if (linkMatch) {
-      const partial = linkMatch[2]
-      return {
-        type: "uc-link-target",
-        partial,
-        replaceFrom: cursorPos - partial.length,
-        anchorLine,
-      }
-    }
+  if (arrowIdx >= 0 && diagramType === "use-case-diagram") {
+    const afterArrow = toks.slice(arrowIdx + 1).filter((t) => t.tokenType === Identifier)
+    const lastId = afterArrow[afterArrow.length - 1]
+    const partial = lastId?.image ?? ""
+    const replaceFrom = lastId != null
+      ? lineStart + lastId.startOffset
+      : lineStart + currentLine.length
+    return { type: "uc-link-target", partial, replaceFrom, anchorLine }
   }
 
-  // Entity name after keyword (keyword must be followed by exactly one space)
-  const keywords =
-    diagramType === "use-case-diagram" ? UC_KEYWORDS : SEQ_KEYWORDS
-  for (const kw of keywords) {
-    if (currentLine.startsWith(kw + " ")) {
-      const partial = currentLine.slice(kw.length + 1)
-      return {
-        type: "entity-name",
-        keyword: kw as "actor" | "component" | "use case",
-        partial,
-        replaceFrom: lineStart + kw.length + 1,
-        anchorLine,
-      }
+  // ─── Keyword + entity-name contexts ───────────────────────────────────────
+
+  const firstTok = toks[0]
+
+  // "use case" keyword (UCD only)
+  if (diagramType === "use-case-diagram" && firstTok?.tokenType === Use) {
+    const caseIdx = toks.findIndex((t) => t.tokenType === Case)
+    if (caseIdx >= 0) {
+      const caseTok = toks[caseIdx]
+      const afterCase = currentLine.slice(caseTok.startOffset + caseTok.image.length)
+      const spaceLen = afterCase.startsWith(" ") ? 1 : 0
+      const partial = afterCase.slice(spaceLen)
+      const replaceFrom = lineStart + caseTok.startOffset + caseTok.image.length + spaceLen
+      return { type: "entity-name", keyword: "use case", partial, replaceFrom, anchorLine }
     }
+    // "use" without "case" yet → fall through to keyword prefix check
   }
 
-  // Keyword prefix at line start
+  // "actor" / "component" keyword
+  if (firstTok?.tokenType === Actor || firstTok?.tokenType === Component) {
+    const keyword = firstTok.tokenType === Actor ? "actor" : "component"
+    const kwEnd = firstTok.startOffset + firstTok.image.length
+    const afterKw = currentLine.slice(kwEnd)
+    const spaceLen = afterKw.startsWith(" ") ? 1 : 0
+    const partial = afterKw.slice(spaceLen)
+    const replaceFrom = lineStart + kwEnd + spaceLen
+    return { type: "entity-name", keyword, partial, replaceFrom, anchorLine }
+  }
+
+  // ─── Keyword prefix at line start ──────────────────────────────────────────
+
+  const keywords = diagramType === "use-case-diagram" ? UC_KEYWORDS : SEQ_KEYWORDS
   const partial = currentLine
   const matchingKeywords = keywords.filter(
     (k) => k.startsWith(partial) && k !== partial,
@@ -169,7 +203,8 @@ export function detectContext(
     }
   }
 
-  // Declared entity IDs (empty line or word-only partial)
+  // ─── Declared entity ───────────────────────────────────────────────────────
+
   if (partial.length === 0 || /^\w+$/.test(partial)) {
     return {
       type: "declared-entity",

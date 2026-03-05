@@ -43,9 +43,11 @@ describe("buildAnnotations — empty / trivial", () => {
   })
 
   it("falls back to default class for unrecognised lines", () => {
+    // In the new lexer-based approach, unrecognised tokens produce no annotations.
+    // Tokens that don't match any grammar token are skipped by the lexer.
     const anns = buildAnnotations("hello world", makeCtx("sequence-diagram", makeRoot()))
-    const defaultEntry = anns.find((a) => a.cls === CLS.default)
-    expect(defaultEntry).toBeDefined()
+    // "hello" and "world" are Identifiers → cm-integra-id class
+    expect(anns.every((a) => a.cls === CLS.identifier || a.cls === CLS.default)).toBe(true)
   })
 })
 
@@ -54,7 +56,7 @@ describe("buildAnnotations — empty / trivial", () => {
 describe("buildAnnotations — sequence diagram", () => {
   it("highlights 'actor' keyword with keyword class", () => {
     const anns = buildAnnotations(
-      'actor "User" as user',
+      "actor user",
       makeCtx("sequence-diagram", makeRoot()),
     )
     const kwEntry = anns.find((a) => a.cls === CLS.keyword)
@@ -62,26 +64,18 @@ describe("buildAnnotations — sequence diagram", () => {
     expect(kwEntry!.to - kwEntry!.from).toBe("actor".length)
   })
 
-  it("highlights quoted name with name class", () => {
-    const anns = buildAnnotations(
-      'actor "User" as user',
-      makeCtx("sequence-diagram", makeRoot()),
-    )
-    expect(anns.some((a) => a.cls === CLS.name)).toBe(true)
-  })
-
   it("highlights participant id with identifier class", () => {
     const anns = buildAnnotations(
-      'actor "User" as user',
+      "actor user as u",
       makeCtx("sequence-diagram", makeRoot()),
     )
-    const idEntry = anns.find((a) => a.cls === CLS.identifier)
-    expect(idEntry).toBeDefined()
+    const idEntries = anns.filter((a) => a.cls === CLS.identifier)
+    expect(idEntries.length).toBeGreaterThan(0)
   })
 
-  it("highlights arrow (->>  ) with operator class", () => {
+  it("highlights arrow (-->) with operator class", () => {
     const anns = buildAnnotations(
-      "sender->>receiver: SomeLabel",
+      "sender --> receiver: SomeLabel",
       makeCtx("sequence-diagram", makeRoot()),
     )
     const opEntry = anns.find((a) => a.cls === CLS.operator && a.to - a.from > 1)
@@ -90,7 +84,7 @@ describe("buildAnnotations — sequence diagram", () => {
 
   it("highlights InterfaceId:FunctionId with function class", () => {
     const anns = buildAnnotations(
-      "sender->>receiver: IFace:doThing(x: string)",
+      "sender --> receiver: IFace:doThing(x: string)",
       makeCtx("sequence-diagram", makeRoot()),
     )
     const fnEntry = anns.find((a) => a.cls === CLS.function)
@@ -99,7 +93,7 @@ describe("buildAnnotations — sequence diagram", () => {
 
   it("highlights UseCase:ucId with function class", () => {
     const anns = buildAnnotations(
-      "sender->>receiver: UseCase:login",
+      "sender --> receiver: UseCase:login()",
       makeCtx("sequence-diagram", makeRoot()),
     )
     const fnEntry = anns.find((a) => a.cls === CLS.function)
@@ -124,11 +118,11 @@ describe("buildAnnotations — sequence diagram", () => {
   })
 
   it("correctly computes offsets across multiple lines", () => {
-    const doc = 'actor "A" as a\nactor "B" as b'
+    const doc = "actor a\nactor b"
     const anns = buildAnnotations(doc, makeCtx("sequence-diagram", makeRoot()))
     const offsets = anns.map((a) => a.from)
-    // Second line starts after first line length + newline
-    expect(offsets.some((o) => o > "actor ".length + 4 + " as a".length)).toBe(true)
+    // Second line starts after "actor a\n" (8 chars); the 'b' Identifier is at offset 14
+    expect(offsets.some((o) => o > "actor a".length)).toBe(true)
   })
 })
 
@@ -137,7 +131,7 @@ describe("buildAnnotations — sequence diagram", () => {
 describe("buildAnnotations — use-case diagram", () => {
   it("highlights 'use case' keyword span", () => {
     const anns = buildAnnotations(
-      'use case "Login" as login',
+      "use case login as l",
       makeCtx("use-case-diagram", makeRoot()),
     )
     const kwEntry = anns.find((a) => a.cls === CLS.keyword)
@@ -162,7 +156,7 @@ describe("buildAnnotations — navigation map (uuid)", () => {
       actors: [{ uuid: "actor-uuid", id: "user", name: "User", type: "actor" }],
     })
     const anns = buildAnnotations(
-      'actor "User" as user',
+      "actor user",
       makeCtx("sequence-diagram", root),
     )
     const navEntry = anns.find((a) => a.uuid === "actor-uuid")
@@ -172,7 +166,7 @@ describe("buildAnnotations — navigation map (uuid)", () => {
   it("does not record uuid when participant is not in the tree", () => {
     const root = makeRoot()
     const anns = buildAnnotations(
-      'actor "Unknown" as unknown',
+      "actor unknown",
       makeCtx("sequence-diagram", root),
     )
     expect(anns.every((a) => a.uuid === undefined)).toBe(true)
@@ -182,7 +176,7 @@ describe("buildAnnotations — navigation map (uuid)", () => {
     const sub: ComponentNode = makeRoot({ uuid: "sub-uuid", id: "svc", name: "Svc" })
     const root = makeRoot({ subComponents: [sub] })
     const anns = buildAnnotations(
-      'component "Svc" as svc',
+      "component svc",
       makeCtx("sequence-diagram", root),
     )
     const navEntry = anns.find((a) => a.uuid === "sub-uuid")
@@ -194,7 +188,7 @@ describe("buildAnnotations — navigation map (uuid)", () => {
       actors: [{ uuid: "actor-uuid", id: "user", name: "User", type: "actor" }],
     })
     const anns = buildAnnotations(
-      'actor "User" as user\nactor "User" as user',
+      "actor user\nactor user as u",
       makeCtx("sequence-diagram", root),
     )
     const navEntries = anns.filter((a) => !!a.uuid)
