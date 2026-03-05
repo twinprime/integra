@@ -15,7 +15,7 @@
 import { CstParser } from "chevrotain"
 import {
   Actor, Component, As, Note, Right, Left, Of, Over,
-  Arrow, Slash, Comma, Newline, Identifier,
+  Arrow, Slash, Comma, Newline, Identifier, NumberToken,
 } from "../tokens"
 import { FunctionRef, LabelText, SeqLexer, SeqColon, allSeqTokens } from "./lexer"
 
@@ -70,11 +70,17 @@ export class SequenceDiagramParser extends CstParser {
     })
   })
 
-  // ─── Participant reference (one or more space-separated words) ───────────────
+  // ─── Participant reference (one or more space-separated words, digits allowed) ─
 
   participantRef = this.RULE("participantRef", () => {
-    this.CONSUME(Identifier)
-    this.MANY(() => this.CONSUME2(Identifier))
+    this.OR([
+      { ALT: () => this.CONSUME(Identifier) },
+      { ALT: () => this.CONSUME(NumberToken) },
+    ])
+    this.MANY(() => this.OR2([
+      { ALT: () => this.CONSUME2(Identifier) },
+      { ALT: () => this.CONSUME2(NumberToken) },
+    ]))
   })
 
   // ─── Note ───────────────────────────────────────────────────────────────────
@@ -142,6 +148,6 @@ export function parseSequenceDiagramCst(input: string) {
 // Re-export token types for use in visitor and tests
 export {
   Actor, Component, As, Note, Right, Left, Of, Over,
-  Arrow, Slash, Comma, Newline, Identifier,
+  Arrow, Slash, Comma, Newline, Identifier, NumberToken,
 } from "../tokens"
 export { FunctionRef, LabelText, SeqColon } from "./lexer"

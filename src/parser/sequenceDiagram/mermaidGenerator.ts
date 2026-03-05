@@ -46,8 +46,10 @@ export function generateSequenceMermaidFromAst(
 
   // ─── Participant lines ───────────────────────────────────────────────────────
   let mermaidContent = "sequenceDiagram\n"
+  const declaredMermaidIds = new Set<string>()
   for (const decl of ast.declarations) {
     const mermaidId = sanitizeMermaidId(decl.id)
+    declaredMermaidIds.add(mermaidId)
     const uuid = ownerComp ? resolveParticipantUuid(decl.path, ownerComp, root) : null
     if (uuid) idToUuid[mermaidId] = uuid
     const node = uuid ? findNode([root], uuid) : null
@@ -55,6 +57,19 @@ export function generateSequenceMermaidFromAst(
     const stereotype = decl.entityType === "actor" ? "«actor»" : "«component»"
     const displayName = node?.name ?? lastSegment
     mermaidContent += `participant ${mermaidId} as ${stereotype}<br/>${displayName}\n`
+  }
+
+  // Auto-declare any undeclared participants referenced in messages so Mermaid
+  // shows the original name (with spaces) instead of the sanitized id (underscores).
+  for (const stmt of ast.statements) {
+    if ("position" in stmt) continue
+    for (const raw of [stmt.from, stmt.to]) {
+      const mermaidId = sanitizeMermaidId(raw)
+      if (!declaredMermaidIds.has(mermaidId)) {
+        declaredMermaidIds.add(mermaidId)
+        mermaidContent += `participant ${mermaidId} as ${raw}\n`
+      }
+    }
   }
 
   // ─── Messages and notes in source order ──────────────────────────────────────

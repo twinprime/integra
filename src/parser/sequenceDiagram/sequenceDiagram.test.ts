@@ -376,3 +376,33 @@ describe("generateSequenceMermaidFromAst — participant display labels", () => 
     expect(mermaidContent).toContain("unknown")
   })
 })
+
+// ─── undeclared receivers ─────────────────────────────────────────────────────
+
+describe("sequence diagram — undeclared receiver", () => {
+  it("allows digit-only word in participant ref (e.g. 'Output Topics 2')", () => {
+    const { ast, lexErrors, parseErrors } = parse("actor sender\nsender --> Output Topics 2")
+    expect(lexErrors).toHaveLength(0)
+    expect(parseErrors).toHaveLength(0)
+    expect(ast.messages[0].to).toBe("Output Topics 2")
+  })
+
+  it("auto-declares undeclared receiver with original spaced name as label", () => {
+    const owner = makeNamedComp("owner-uuid", "owner", "owner")
+    const root = makeNamedComp("root-uuid", "root", "root", [owner])
+    const ast = parseAst("actor sender\nsender --> Output Topics 2")
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain("participant Output_Topics_2 as Output Topics 2")
+  })
+
+  it("does not double-declare a receiver that is already declared", () => {
+    const child = makeNamedComp("svc-uuid", "svc", "My Service")
+    const owner = makeNamedComp("owner-uuid", "owner", "owner")
+    owner.subComponents = [child]
+    const root = makeNamedComp("root-uuid", "root", "root", [owner])
+    const ast = parseAst("component svc\nactor sender\nsender -->> svc")
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
+    const matches = mermaidContent.match(/participant svc/g)
+    expect(matches).toHaveLength(1)
+  })
+})

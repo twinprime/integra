@@ -84,8 +84,11 @@ class SequenceDiagramVisitor extends BaseVisitor {
     return (ctx.Identifier ?? []).map((t) => t.image)
   }
 
-  participantRef(ctx: Record<string, { image: string }[]>): string {
-    return (ctx.Identifier ?? []).map((t) => t.image).join(" ")
+  participantRef(ctx: Record<string, { image: string; startOffset: number }[]>): string {
+    return [...(ctx.Identifier ?? []), ...(ctx.NumberToken ?? [])]
+      .sort((a, b) => a.startOffset - b.startOffset)
+      .map((t) => t.image)
+      .join(" ")
   }
 
   seqNote(ctx: Record<string, { image: string }[]>): SeqNote {

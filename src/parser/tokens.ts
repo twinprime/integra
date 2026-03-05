@@ -31,6 +31,9 @@ export const Comma = createToken({ name: "Comma", pattern: /,/ })
 
 export const Identifier = createToken({ name: "Identifier", pattern: /[a-zA-Z_][a-zA-Z0-9_-]*/ })
 
+// Numeric word token — allows digit-only words in participant references (e.g. "Output Topics 2")
+export const NumberToken = createToken({ name: "NumberToken", pattern: /\d+/ })
+
 // Wire longer_alt: keywords should fall back to Identifier if not matched
 Actor.PATTERN = /actor(?![a-zA-Z0-9_-])/
 Component.PATTERN = /component(?![a-zA-Z0-9_-])/
@@ -78,4 +81,5 @@ export const sharedTokens = [
   Colon,
   Comma,
   Identifier,
+  NumberToken,
 ]
