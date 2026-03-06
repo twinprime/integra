@@ -636,3 +636,81 @@ describe("generateSequenceMermaidFromAst — UseCaseRef messages", () => {
     expect(messageLabelToUuid["UseCase:placeOrder"]).toBeUndefined()
   })
 })
+
+// ─── parseSequenceDiagram — function-follows-receiver ────────────────────────
+
+const makeCompWithIface = (
+  uuid: string,
+  id: string,
+  subComponents: ComponentNode[] = [],
+  ifaceId?: string,
+  fnId?: string,
+  fnUuid?: string,
+): ComponentNode => {
+  const interfaces = ifaceId && fnId && fnUuid
+    ? [{ uuid: `${uuid}-iface`, id: ifaceId, name: ifaceId, type: "rest" as const, functions: [{ uuid: fnUuid, id: fnId, parameters: [] }] }]
+    : []
+  return { uuid, id, name: id, type: "component", actors: [], subComponents, useCaseDiagrams: [], interfaces }
+}
+
+describe("parseSequenceDiagram — function follows receiver", () => {
+  it("adds function to new local receiver when receiver changes", () => {
+    // owner has two subComponents: ServiceB (has getUser) and ServiceC (empty)
+    const serviceB = makeCompWithIface("sb-uuid", "ServiceB", [], "REST", "getUser", "fn-uuid-1")
+    const serviceC = makeCompWithIface("sc-uuid", "ServiceC")
+    const owner = makeComp("owner-uuid", "owner", [serviceB, serviceC])
+    const root = makeComp("root-uuid", "root", [owner])
+
+    // Spec where ServiceC is now the receiver
+    const result = parseSequenceDiagram(
+      "component ServiceB\ncomponent ServiceC\nServiceB --> ServiceC: REST:getUser()",
+      root,
+      owner.uuid,
+      "diag-uuid",
+    )
+
+    const updatedOwner = result.subComponents.find((c) => c.uuid === owner.uuid)!
+    const updatedC = updatedOwner.subComponents.find((c) => c.id === "ServiceC")!
+    const cFn = updatedC.interfaces.find((i) => i.id === "REST")?.functions.find((f) => f.id === "getUser")
+    expect(cFn).toBeDefined()
+  })
+
+  it("adds function to external (path) participant at the correct leaf component", () => {
+    // Tree: root → owner → payment → ServiceB
+    const serviceB = makeCompWithIface("sb-uuid", "ServiceB")
+    const payment = makeComp("pay-uuid", "payment", [serviceB])
+    const owner = makeComp("owner-uuid", "owner", [payment])
+    const root = makeComp("root-uuid", "root", [owner])
+
+    // "ServiceB" is declared with path payment/ServiceB; message references it by its id "ServiceB"
+    const spec = "component payment/ServiceB\ncomponent gateway\ngateway --> ServiceB: REST:getUser()"
+    const result = parseSequenceDiagram(spec, root, owner.uuid, "diag-uuid")
+
+    const updatedOwner = result.subComponents.find((c) => c.uuid === owner.uuid)!
+    const updatedPayment = updatedOwner.subComponents.find((c) => c.id === "payment")!
+    const updatedServiceB = updatedPayment.subComponents.find((c) => c.id === "ServiceB")!
+    const fn = updatedServiceB.interfaces.find((i) => i.id === "REST")?.functions.find((f) => f.id === "getUser")
+    expect(fn).toBeDefined()
+  })
+
+  it("referencedFunctionUuids points to the function on the leaf external component", () => {
+    const serviceB = makeCompWithIface("sb-uuid", "ServiceB")
+    const payment = makeComp("pay-uuid", "payment", [serviceB])
+    const owner = makeComp("owner-uuid", "owner", [payment])
+    const root = makeComp("root-uuid", "root", [owner])
+
+    // "ServiceB" is declared with path payment/ServiceB; message references by id "ServiceB"
+    const spec = "component payment/ServiceB\ncomponent gateway\ngateway --> ServiceB: REST:getUser()"
+    const result = parseSequenceDiagram(spec, root, owner.uuid, "diag-uuid")
+
+    // Locate the function UUID on ServiceB (leaf)
+    const updatedOwner = result.subComponents.find((c) => c.uuid === owner.uuid)!
+    const updatedPayment = updatedOwner.subComponents.find((c) => c.id === "payment")!
+    const updatedServiceB = updatedPayment.subComponents.find((c) => c.id === "ServiceB")!
+    const fn = updatedServiceB.interfaces.find((i) => i.id === "REST")?.functions.find((f) => f.id === "getUser")
+    expect(fn).toBeDefined()
+    // Function must NOT be on the parent "payment" component
+    const paymentFn = updatedPayment.interfaces.find((i) => i.id === "REST")?.functions.find((f) => f.id === "getUser")
+    expect(paymentFn).toBeUndefined()
+  })
+})

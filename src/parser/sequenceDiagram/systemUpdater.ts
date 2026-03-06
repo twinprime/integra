@@ -79,6 +79,75 @@ const INTERFACE_TYPE_OWNER: Record<string, "sender" | "receiver"> = {
   other: "receiver",
 }
 
+/**
+ * Apply a function to a component identified by UUID, updating it in the full tree.
+ * Used for external (path-based) participants where the component is not in the local
+ * working-components list.
+ */
+function applyFunctionToComponentByUuid(
+  root: ComponentNode,
+  uuid: string,
+  interfaceId: string,
+  functionId: string,
+  rawParams: string,
+): ComponentNode {
+  return upsertNodeInTree(root, uuid, (node) => {
+    const comp = node as ComponentNode
+    const interfaces = comp.interfaces ? [...comp.interfaces] : []
+    let ifaceIdx = interfaces.findIndex((i) => i.id === interfaceId)
+    if (ifaceIdx === -1) {
+      interfaces.push({ uuid: crypto.randomUUID(), id: interfaceId, name: interfaceId, type: "rest", functions: [] })
+      ifaceIdx = interfaces.length - 1
+    }
+    const iface = { ...interfaces[ifaceIdx], functions: [...interfaces[ifaceIdx].functions] }
+    const newParams = parseParameters(rawParams)
+    const exactMatch = iface.functions.findIndex((f) => f.id === functionId && paramsMatch(f.parameters, newParams))
+    if (exactMatch === -1) {
+      const sameIdSameCount = iface.functions.find((f) => f.id === functionId && f.parameters.length === newParams.length)
+      if (sameIdSameCount) {
+        throw new Error(
+          `Parameter mismatch for function "${functionId}" in interface "${interfaceId}": ` +
+            `existing (${paramsToString(sameIdSameCount.parameters)}) vs new (${paramsToString(newParams)})`,
+        )
+      }
+      iface.functions.push({ uuid: crypto.randomUUID(), id: functionId, parameters: newParams })
+    }
+    interfaces[ifaceIdx] = iface
+    return { ...comp, interfaces }
+  })
+}
+
+/**
+ * For messages where at least one participant is external, determine which participant
+ * UUID should own the function (receiver for REST/graphql/other; sender for kafka).
+ * Returns undefined when the owner is local (handled by workingComponents).
+ */
+function resolveExternalOwnerUuid(
+  root: ComponentNode,
+  fromExtUuid: string | undefined,
+  toExtUuid: string | undefined,
+  interfaceId: string,
+): string | undefined {
+  if (toExtUuid !== undefined) {
+    const comp = findCompByUuid(root, toExtUuid)
+    const iface = comp?.interfaces?.find((i) => i.id === interfaceId)
+    if (iface && INTERFACE_TYPE_OWNER[iface.type] === "sender") {
+      return fromExtUuid  // sender-owned interface (e.g. kafka); sender must also be external
+    }
+    return toExtUuid  // receiver owns (REST default)
+  }
+  // Only sender is external
+  if (fromExtUuid !== undefined) {
+    const comp = findCompByUuid(root, fromExtUuid)
+    const iface = comp?.interfaces?.find((i) => i.id === interfaceId)
+    if (iface && INTERFACE_TYPE_OWNER[iface.type] === "sender") {
+      return fromExtUuid  // sender-owned and sender is external
+    }
+    // Receiver is local — falls through to workingComponents
+  }
+  return undefined
+}
+
 function applyMessageToComponents(
   components: ComponentNode[],
   from: string,
@@ -205,6 +274,8 @@ export function parseSequenceDiagram(
 
   // Maps participantId (alias or path.last) → treeNodeId (path[0] for local)
   const participantToTreeId = new Map<string, string>()
+  // Maps participantId → UUID for external (multi-segment path) participants
+  const participantExternalUuidMap = new Map<string, string>()
   const externalUuids: string[] = []
   const localActors: ComponentNode["actors"][number][] = []
   const localComponents: ComponentNode[] = []
@@ -241,6 +312,7 @@ export function parseSequenceDiagram(
         throw new Error(`Reference "${pathStr}" is out of scope for this diagram`)
       }
       if (!externalUuids.includes(uuid)) externalUuids.push(uuid)
+      participantExternalUuidMap.set(decl.id, uuid)
     }
   }
 
@@ -286,26 +358,55 @@ export function parseSequenceDiagram(
   }
 
   // Apply messages: build a working components list [owner, ...subComponents]
-  // keyed by treeNodeId
+  // keyed by treeNodeId for local participants; external participants are handled via UUID.
   const astMessages = ast.statements.filter((s): s is import("./visitor").SeqMessage => "functionRef" in s)
   if (astMessages.length > 0 && updatedOwnerComp) {
     let workingComponents: ComponentNode[] = [updatedOwnerComp, ...updatedOwnerComp.subComponents]
 
+    // Collect external-participant function assignments to apply after local writeback.
+    // They must run after to avoid being overwritten by the workingComponents writeback.
+    const pendingExternalFunctions: Array<{ ownerUuid: string; interfaceId: string; functionId: string; rawParams: string }> = []
+
     for (const msg of astMessages) {
       if (!msg.functionRef) continue
-      const fromTreeId = participantToTreeId.get(msg.from) ?? msg.from
-      const toTreeId = participantToTreeId.get(msg.to) ?? msg.to
-      workingComponents = applyMessageToComponents(
-        workingComponents, fromTreeId, toTreeId,
-        msg.functionRef.interfaceId, msg.functionRef.functionId, msg.functionRef.rawParams,
-      )
+      const { interfaceId, functionId, rawParams } = msg.functionRef
+      const fromExtUuid = participantExternalUuidMap.get(msg.from)
+      const toExtUuid = participantExternalUuidMap.get(msg.to)
+
+      if (fromExtUuid !== undefined || toExtUuid !== undefined) {
+        // At least one participant is external — defer to post-writeback processing
+        const ownerUuid = resolveExternalOwnerUuid(updatedRoot, fromExtUuid, toExtUuid, interfaceId)
+        if (ownerUuid) {
+          pendingExternalFunctions.push({ ownerUuid, interfaceId, functionId, rawParams })
+        } else {
+          // Owner is local (e.g. kafka sender is local while receiver is external)
+          const fromTreeId = participantToTreeId.get(msg.from) ?? msg.from
+          const toTreeId = participantToTreeId.get(msg.to) ?? msg.to
+          workingComponents = applyMessageToComponents(
+            workingComponents, fromTreeId, toTreeId, interfaceId, functionId, rawParams,
+          )
+        }
+      } else {
+        // Both participants are local
+        const fromTreeId = participantToTreeId.get(msg.from) ?? msg.from
+        const toTreeId = participantToTreeId.get(msg.to) ?? msg.to
+        workingComponents = applyMessageToComponents(
+          workingComponents, fromTreeId, toTreeId, interfaceId, functionId, rawParams,
+        )
+      }
     }
 
+    // Write back local component changes
     const [updatedOwner, ...updatedSubComponents] = workingComponents
     updatedRoot = upsertNodeInTree(updatedRoot, ownerComponentUuid, () => ({
       ...updatedOwner,
       subComponents: updatedSubComponents,
     }))
+
+    // Apply external participant function assignments after writeback
+    for (const { ownerUuid, interfaceId, functionId, rawParams } of pendingExternalFunctions) {
+      updatedRoot = applyFunctionToComponentByUuid(updatedRoot, ownerUuid, interfaceId, functionId, rawParams)
+    }
   }
 
   // Track referencedFunctionUuids
