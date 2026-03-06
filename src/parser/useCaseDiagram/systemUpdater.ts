@@ -8,6 +8,7 @@ import type { ComponentNode, ActorNode, UseCaseNode, UseCaseDiagramNode } from "
 import { upsertNodeInTree, mergeLists } from "../../nodes/nodeTree"
 import { findCompByUuid } from "../../nodes/nodeTree"
 import { findNodeByPath, isInScope } from "../../utils/nodeUtils"
+import { autoCreateByPath } from "../../utils/diagramResolvers"
 import { parseUseCaseDiagramCst } from "./parser"
 import { buildUcdAst } from "./visitor"
 
@@ -37,6 +38,9 @@ export function parseUseCaseDiagram(
   }
 
   const ast = buildUcdAst(cst)
+
+  // Mutable root — may be updated as missing path nodes are auto-created
+  let root = rootComponent
 
   const localActors: ActorNode[] = []
   const localComponents: ComponentNode[] = []
@@ -74,13 +78,18 @@ export function parseUseCaseDiagram(
     } else {
       // External node (try relative to ownerComp first)
       const pathStr = decl.path.join("/")
-      const uuid = findNodeByPath(rootComponent, pathStr, ownerComponentUuid)
-      if (!uuid) throw new Error(`Cannot resolve path: "${pathStr}"`)
+      let uuid = findNodeByPath(root, pathStr, ownerComponentUuid)
+      if (!uuid) {
+        const created = autoCreateByPath(root, decl.path, decl.entityType as "actor" | "component", ownerComponentUuid)
+        if (!created) throw new Error(`Cannot resolve path: "${pathStr}"`)
+        root = created.updatedRoot
+        uuid = created.uuid
+      }
       // Scope check: verify the owning component is in scope for this diagram
       const owningCompUuid = decl.entityType === "component"
         ? uuid
-        : findNodeByPath(rootComponent, decl.path.slice(0, -1).join("/"), ownerComponentUuid)
-      if (!owningCompUuid || !isInScope(rootComponent, ownerComponentUuid, owningCompUuid)) {
+        : findNodeByPath(root, decl.path.slice(0, -1).join("/"), ownerComponentUuid)
+      if (!owningCompUuid || !isInScope(root, ownerComponentUuid, owningCompUuid)) {
         throw new Error(`Reference "${pathStr}" is out of scope for this diagram`)
       }
       if (!externalUuids.includes(uuid)) externalUuids.push(uuid)
@@ -88,7 +97,7 @@ export function parseUseCaseDiagram(
   }
 
   // Validate use case ID uniqueness within the component (across all diagrams)
-  const ownerBefore = findOwnerInTree(rootComponent, ownerComponentUuid)
+  const ownerBefore = findOwnerInTree(root, ownerComponentUuid)
   if (ownerBefore) {
     for (const diagram of ownerBefore.useCaseDiagrams) {
       if (diagram.uuid === diagramUuid) continue
@@ -101,7 +110,7 @@ export function parseUseCaseDiagram(
   }
 
   // Upsert actors and sub-components into owner component
-  let updatedRoot = upsertNodeInTree(rootComponent, ownerComponentUuid, (node) => {
+  let updatedRoot = upsertNodeInTree(root, ownerComponentUuid, (node) => {
     const comp = node as ComponentNode
     return {
       ...comp,

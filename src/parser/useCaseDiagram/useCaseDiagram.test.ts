@@ -188,6 +188,44 @@ describe("parseUseCaseDiagram — out-of-scope reference", () => {
   })
 })
 
+describe("parseUseCaseDiagram — auto-create missing path nodes", () => {
+  it("auto-creates a missing sub-component when path parent exists", () => {
+    const ownerComp = makeComp("owner-uuid", "owner")
+    const root = makeComp("root-uuid", "root", [ownerComp])
+    const updated = parseUseCaseDiagram("component owner/newChild", root, ownerComp.uuid, "diag-uuid")
+    const updatedOwner = updated.subComponents.find((c) => c.uuid === ownerComp.uuid)!
+    expect(updatedOwner.subComponents.some((c) => c.id === "newChild")).toBe(true)
+  })
+
+  it("auto-creates a missing actor under an ancestor component", () => {
+    const ownerComp = makeComp("owner-uuid", "owner")
+    const root = makeComp("root-uuid", "root", [ownerComp])
+    const updated = parseUseCaseDiagram("actor owner/NewUser", root, ownerComp.uuid, "diag-uuid")
+    const updatedOwner = updated.subComponents.find((c) => c.uuid === ownerComp.uuid)!
+    expect(updatedOwner.actors.some((a) => a.id === "NewUser")).toBe(true)
+  })
+
+  it("auto-creates intermediate components for deep missing path", () => {
+    const ownerComp = makeComp("owner-uuid", "owner")
+    const root = makeComp("root-uuid", "root", [ownerComp])
+    const updated = parseUseCaseDiagram("component owner/mid/leaf", root, ownerComp.uuid, "diag-uuid")
+    const updatedOwner = updated.subComponents.find((c) => c.uuid === ownerComp.uuid)!
+    const mid = updatedOwner.subComponents.find((c) => c.id === "mid")
+    expect(mid).toBeDefined()
+    expect(mid!.subComponents.some((c) => c.id === "leaf")).toBe(true)
+  })
+
+  it("still throws for out-of-scope auto-create attempt", () => {
+    const cousin = makeComp("cousin-uuid", "cousin")
+    const sibling = makeComp("sibling-uuid", "sibling", [cousin])
+    const ownerComp = makeComp("owner-uuid", "owner")
+    const root = makeComp("root-uuid", "root", [ownerComp, sibling])
+    expect(() =>
+      parseUseCaseDiagram("component sibling/cousin/newDeepCousin", root, ownerComp.uuid, "diag-uuid")
+    ).toThrow()
+  })
+})
+
 // ─── generateUseCaseMermaidFromAst — label resolution ────────────────────────
 
 import { generateUseCaseMermaidFromAst } from "./mermaidGenerator"

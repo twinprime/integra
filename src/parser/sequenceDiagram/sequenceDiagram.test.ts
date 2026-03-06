@@ -328,6 +328,47 @@ describe("parseSequenceDiagram — out-of-scope reference", () => {
   })
 })
 
+describe("parseSequenceDiagram — auto-create missing path nodes", () => {
+  it("auto-creates a missing sub-component when path parent exists", () => {
+    const ownerComp = makeComp("owner-uuid", "owner")
+    const root = makeComp("root-uuid", "root", [ownerComp])
+    // "newChild" does not yet exist under ownerComp
+    const updated = parseSequenceDiagram("component owner/newChild", root, ownerComp.uuid, "diag-uuid")
+    const updatedOwner = updated.subComponents.find((c) => c.uuid === ownerComp.uuid)!
+    expect(updatedOwner.subComponents.some((c) => c.id === "newChild")).toBe(true)
+  })
+
+  it("auto-creates a missing actor when path parent exists", () => {
+    const ownerComp = makeComp("owner-uuid", "owner")
+    const root = makeComp("root-uuid", "root", [ownerComp])
+    const updated = parseSequenceDiagram("actor owner/NewUser", root, ownerComp.uuid, "diag-uuid")
+    const updatedOwner = updated.subComponents.find((c) => c.uuid === ownerComp.uuid)!
+    expect(updatedOwner.actors.some((a) => a.id === "NewUser")).toBe(true)
+  })
+
+  it("auto-creates intermediate component nodes when multiple segments are missing", () => {
+    const ownerComp = makeComp("owner-uuid", "owner")
+    const root = makeComp("root-uuid", "root", [ownerComp])
+    // "mid" and "leaf" both missing under ownerComp
+    const updated = parseSequenceDiagram("component owner/mid/leaf", root, ownerComp.uuid, "diag-uuid")
+    const updatedOwner = updated.subComponents.find((c) => c.uuid === ownerComp.uuid)!
+    const mid = updatedOwner.subComponents.find((c) => c.id === "mid")
+    expect(mid).toBeDefined()
+    expect(mid!.subComponents.some((c) => c.id === "leaf")).toBe(true)
+  })
+
+  it("still throws for out-of-scope auto-create attempt (cousin path)", () => {
+    const cousin = makeComp("cousin-uuid", "cousin")
+    const sibling = makeComp("sibling-uuid", "sibling", [cousin])
+    const ownerComp = makeComp("owner-uuid", "owner")
+    const root = makeComp("root-uuid", "root", [ownerComp, sibling])
+    // sibling/cousin/newDeepCousin would be out of scope
+    expect(() =>
+      parseSequenceDiagram("component sibling/cousin/newDeepCousin", root, ownerComp.uuid, "diag-uuid")
+    ).toThrow()
+  })
+})
+
 // ─── generateSequenceMermaidFromAst — participant display labels ──────────────
 
 import { generateSequenceMermaidFromAst } from "./mermaidGenerator"

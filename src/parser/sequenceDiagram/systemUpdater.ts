@@ -8,7 +8,7 @@ import type { ComponentNode, InterfaceSpecification, Parameter } from "../../sto
 import { upsertNodeInTree, mergeLists } from "../../nodes/nodeTree"
 import { findCompByUuid } from "../../nodes/nodeTree"
 import { findNodeByPath, isInScope } from "../../utils/nodeUtils"
-import { resolveUseCaseByPath } from "../../utils/diagramResolvers"
+import { resolveUseCaseByPath, autoCreateByPath } from "../../utils/diagramResolvers"
 import { parseSequenceDiagramCst } from "./parser"
 import { buildSeqAst } from "./visitor"
 
@@ -200,6 +200,9 @@ export function parseSequenceDiagram(
 
   const ast = buildSeqAst(cst)
 
+  // Mutable root — may be updated as missing path nodes are auto-created
+  let root = rootComponent
+
   // Maps participantId (alias or path.last) → treeNodeId (path[0] for local)
   const participantToTreeId = new Map<string, string>()
   const externalUuids: string[] = []
@@ -223,13 +226,18 @@ export function parseSequenceDiagram(
     } else {
       // External node: resolve UUID from root tree (try relative to ownerComp first)
       const pathStr = decl.path.join("/")
-      const uuid = findNodeByPath(rootComponent, pathStr, ownerComponentUuid)
-      if (!uuid) throw new Error(`Cannot resolve path: "${pathStr}"`)
+      let uuid = findNodeByPath(root, pathStr, ownerComponentUuid)
+      if (!uuid) {
+        const created = autoCreateByPath(root, decl.path, decl.entityType as "actor" | "component", ownerComponentUuid)
+        if (!created) throw new Error(`Cannot resolve path: "${pathStr}"`)
+        root = created.updatedRoot
+        uuid = created.uuid
+      }
       // Scope check: verify the owning component is in scope for this diagram
       const owningCompUuid = decl.entityType === "component"
         ? uuid
-        : findNodeByPath(rootComponent, decl.path.slice(0, -1).join("/"), ownerComponentUuid)
-      if (!owningCompUuid || !isInScope(rootComponent, ownerComponentUuid, owningCompUuid)) {
+        : findNodeByPath(root, decl.path.slice(0, -1).join("/"), ownerComponentUuid)
+      if (!owningCompUuid || !isInScope(root, ownerComponentUuid, owningCompUuid)) {
         throw new Error(`Reference "${pathStr}" is out of scope for this diagram`)
       }
       if (!externalUuids.includes(uuid)) externalUuids.push(uuid)
@@ -237,7 +245,7 @@ export function parseSequenceDiagram(
   }
 
   // Handle self-reference (owner component declared as a participant)
-  const ownerCompBefore = findCompByUuid(rootComponent, ownerComponentUuid)
+  const ownerCompBefore = findCompByUuid(root, ownerComponentUuid)
   const filteredComponents = localComponents.filter((c) => {
     if (ownerCompBefore && c.id === ownerCompBefore.id) {
       // Self-reference: replace with external UUID
@@ -251,7 +259,7 @@ export function parseSequenceDiagram(
   })
 
   // Upsert local participants into owner component
-  let updatedRoot = upsertNodeInTree(rootComponent, ownerComponentUuid, (node) => {
+  let updatedRoot = upsertNodeInTree(root, ownerComponentUuid, (node) => {
     const comp = node as ComponentNode
     return {
       ...comp,

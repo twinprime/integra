@@ -20,6 +20,7 @@ export const UUIDS = {
   orderComp: "test-order-uuid",
   orderUcd: "test-order-ucd-uuid",
   orderUc: "test-order-uc-uuid",
+  emptySeq: "test-empty-seq-uuid",
 } as const
 
 // ─── Fixture ─────────────────────────────────────────────────────────────────
@@ -141,4 +142,34 @@ export const sampleSystem: ComponentNode = {
 /** Zustand persist envelope written to localStorage["integra-system"] */
 export function makeLocalStorageValue(): string {
   return JSON.stringify({ state: { rootComponent: sampleSystem }, version: 0 })
+}
+
+/**
+ * Variant fixture with an extra empty sequence diagram attached to the Login use case.
+ * The empty diagram starts in edit mode (no content), making e2e interaction easier.
+ */
+export function makeLocalStorageValueWithEmptySeq(): string {
+  const emptySeq: SequenceDiagramNode = {
+    uuid: UUIDS.emptySeq,
+    id: "NewFlow",
+    name: "New Flow",
+    type: "sequence-diagram",
+    ownerComponentUuid: UUIDS.root,
+    referencedNodeIds: [],
+    referencedFunctionUuids: [],
+    content: "",
+  }
+
+  const systemWithEmptySeq: ComponentNode = {
+    ...sampleSystem,
+    useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
+      ...ucd,
+      useCases: ucd.useCases.map((uc) => ({
+        ...uc,
+        sequenceDiagrams: [...uc.sequenceDiagrams, emptySeq],
+      })),
+    })),
+  }
+
+  return JSON.stringify({ state: { rootComponent: systemWithEmptySeq }, version: 0 })
 }
