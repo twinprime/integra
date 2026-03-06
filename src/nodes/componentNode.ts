@@ -10,6 +10,7 @@ import { applyIdRenameInActor } from "./actorNode"
 import {
   applyIdRenameInUcDiag,
   collectDiagramsFromUcDiag,
+  deleteFromUcDiag,
   findParentInUcDiag,
   type DiagramRef,
 } from "./useCaseDiagramNode"
@@ -61,7 +62,9 @@ export const deleteFromComponent = (
     .filter((c) => c.uuid !== uuid)
     .map((c) => deleteFromComponent(c, uuid)),
   actors: comp.actors.filter((a) => a.uuid !== uuid),
-  useCaseDiagrams: comp.useCaseDiagrams.filter((d) => d.uuid !== uuid),
+  useCaseDiagrams: comp.useCaseDiagrams
+    .filter((d) => d.uuid !== uuid)
+    .map((d) => deleteFromUcDiag(d, uuid)),
 })
 
 export const upsertInComponent = (
