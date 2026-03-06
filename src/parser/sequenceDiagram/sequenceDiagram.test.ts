@@ -585,11 +585,13 @@ describe("generateSequenceMermaidFromAst — UseCaseRef messages", () => {
     expect(mermaidContent).toContain("customer->>customer: unknownUc")
   })
 
-  it("populates messageLabelToUuid for UseCaseRef", () => {
+  it("populates messageLabelToUuid for UseCaseRef using the rendered display label as key", () => {
     const owner = makeCompWithUcs3("owner-uuid", "owner", [{ id: "placeOrder", name: "Place Order" }])
     const root = makeNamedComp("root-uuid", "root", "root", [owner])
     const ast = parseAst("actor customer\ncustomer --> customer: UseCase:placeOrder")
     const { messageLabelToUuid } = generateSequenceMermaidFromAst(ast, owner, root, "owner-uuid")
-    expect(messageLabelToUuid["UseCase:placeOrder"]).toBe("owner-uuid-placeOrder-uuid")
+    // Key is the rendered display label (use case name), NOT the raw spec string
+    expect(messageLabelToUuid["Place Order"]).toBe("owner-uuid-placeOrder-uuid")
+    expect(messageLabelToUuid["UseCase:placeOrder"]).toBeUndefined()
   })
 })

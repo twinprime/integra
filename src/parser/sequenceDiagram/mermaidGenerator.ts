@@ -104,9 +104,9 @@ export function generateSequenceMermaidFromAst(
           : undefined
         const ucNode = ucUuid ? findNode([root], ucUuid) : null
         const displayLabel = customLabel ?? ucNode?.name ?? ucId
-        const mermaidLabel = `UseCase:${path.join("/")}${customLabel ? ":" + customLabel : ""}`
-        if (ucUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = ucUuid
-        mermaidContent += `${fromId}->>${toId}: ${escapeLabel(displayLabel)}\n`
+        const renderedLabel = escapeLabel(displayLabel)
+        if (ucUuid && !messageLabelToUuid[renderedLabel]) messageLabelToUuid[renderedLabel] = ucUuid
+        mermaidContent += `${fromId}->>${toId}: ${renderedLabel}\n`
       } else if (stmt.label) {
         mermaidContent += `${fromId}->>${toId}: ${escapeLabel(stmt.label)}\n`
       } else {
