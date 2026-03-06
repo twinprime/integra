@@ -142,7 +142,7 @@ const makeTree = (): ComponentNode => ({
       id: "mainDiag",
       name: "Main",
       type: "use-case-diagram",
-      content: 'actor customer\nuse case placeOrder\ncustomer-->placeOrder',
+      content: "actor customer\nuse case placeOrder\ncustomer --> placeOrder",
       referencedNodeIds: [],
       ownerComponentUuid: "root-uuid",
       useCases: [
@@ -158,7 +158,7 @@ const makeTree = (): ComponentNode => ({
               id: "placeOrderFlow",
               name: "Flow",
               type: "sequence-diagram",
-              content: "actor customer\ncustomer->>api: OrdersAPI:placeOrder(item: string)\nUseCase:placeOrder",
+              content: "actor customer\ncustomer --> api: OrdersAPI:placeOrder(item: string)\ncustomer --> api: UseCase:placeOrder",
               referencedNodeIds: [],
               referencedFunctionUuids: [],
               ownerComponentUuid: "root-uuid",
@@ -236,8 +236,8 @@ describe("applyIdRename — actor rename", () => {
   it("updates actor as message sender in sequence diagram", () => {
     const updated = applyIdRename(makeTree(), "actor-uuid", "customer", "buyer")
     const sd = updated.useCaseDiagrams[0].useCases[0].sequenceDiagrams[0]
-    expect(sd.content).toContain("buyer->>api:")
-    expect(sd.content).not.toContain("customer->>api:")
+    expect(sd.content).toContain("buyer --> api:")
+    expect(sd.content).not.toContain("customer --> api:")
   })
 })
 

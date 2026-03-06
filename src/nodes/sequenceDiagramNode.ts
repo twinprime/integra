@@ -2,7 +2,8 @@ import type {
   SequenceDiagramNode,
   Parameter,
 } from "../store/types"
-import { updateDescriptionRefs, updateContentRefs } from "../utils/renameNodeId"
+import { updateDescriptionRefs } from "../utils/renameNodeId"
+import { renameInSeqSpec } from "../parser/sequenceDiagram/specSerializer"
 import { paramsToString } from "../parser/sequenceDiagram/systemUpdater"
 
 export const applyIdRenameInSeqDiag = (
@@ -16,7 +17,7 @@ export const applyIdRenameInSeqDiag = (
   description: sd.description
     ? updateDescriptionRefs(sd.description, oldId, newId)
     : sd.description,
-  content: updateContentRefs(sd.content, oldId, newId),
+  content: renameInSeqSpec(sd.content, oldId, newId),
 })
 
 export const replaceSignatureInContent = (
@@ -33,4 +34,4 @@ export const replaceSignatureInContent = (
   return content.replace(pattern, `${interfaceId}:${functionId}(${paramsToString(newParams)})`)
 }
 
-export { updateContentRefs, updateDescriptionRefs }
+export { updateDescriptionRefs }

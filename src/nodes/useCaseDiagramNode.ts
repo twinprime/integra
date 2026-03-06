@@ -5,7 +5,8 @@ import type {
   Node,
 } from "../store/types"
 import { applyIdRenameInUseCase, findParentInUseCase } from "./useCaseNode"
-import { updateDescriptionRefs, updateContentRefs } from "../utils/renameNodeId"
+import { updateDescriptionRefs } from "../utils/renameNodeId"
+import { renameInUcdSpec } from "../parser/useCaseDiagram/specSerializer"
 import type { NodeHandler } from "./nodeHandler"
 
 export type DiagramRef = { diagram: DiagramNode; ownerComponentUuid: string }
@@ -54,7 +55,7 @@ export const applyIdRenameInUcDiag = (
   description: ucd.description
     ? updateDescriptionRefs(ucd.description, oldId, newId)
     : ucd.description,
-  content: updateContentRefs(ucd.content, oldId, newId),
+  content: renameInUcdSpec(ucd.content, oldId, newId),
   useCases: ucd.useCases.map((uc) => applyIdRenameInUseCase(uc, targetUuid, oldId, newId)),
 })
 
