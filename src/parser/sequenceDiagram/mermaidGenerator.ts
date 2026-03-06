@@ -7,7 +7,7 @@
  */
 import type { ComponentNode } from "../../store/types"
 import { findNodeByPath } from "../../utils/nodeUtils"
-import { findComponentByInterfaceId } from "../../utils/diagramResolvers"
+import { findComponentByInterfaceId, resolveUseCaseByPath } from "../../utils/diagramResolvers"
 import { findNode } from "../../store/useSystemStore"
 import { parseSequenceDiagramCst } from "./parser"
 import { buildSeqAst, type SeqAst } from "./visitor"
@@ -40,6 +40,7 @@ export function generateSequenceMermaidFromAst(
   ast: SeqAst,
   ownerComp: ComponentNode | null,
   root: ComponentNode,
+  ownerCompUuid?: string,
 ): { mermaidContent: string; idToUuid: Record<string, string>; messageLabelToUuid: Record<string, string> } {
   const idToUuid: Record<string, string> = {}
   const messageLabelToUuid: Record<string, string> = {}
@@ -95,6 +96,17 @@ export function generateSequenceMermaidFromAst(
         const compUuid = findComponentByInterfaceId(root, interfaceId)
         if (compUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = compUuid
         mermaidContent += `${fromId}->>${toId}: ${mermaidLabel}\n`
+      } else if (stmt.useCaseRef) {
+        const { path, label: customLabel } = stmt.useCaseRef
+        const ucId = path[path.length - 1]
+        const ucUuid = ownerComp && ownerCompUuid
+          ? resolveUseCaseByPath(path, root, ownerComp, ownerCompUuid)
+          : undefined
+        const ucNode = ucUuid ? findNode([root], ucUuid) : null
+        const displayLabel = customLabel ?? ucNode?.name ?? ucId
+        const mermaidLabel = `UseCase:${path.join("/")}${customLabel ? ":" + customLabel : ""}`
+        if (ucUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = ucUuid
+        mermaidContent += `${fromId}->>${toId}: ${escapeLabel(displayLabel)}\n`
       } else if (stmt.label) {
         mermaidContent += `${fromId}->>${toId}: ${escapeLabel(stmt.label)}\n`
       } else {
@@ -110,11 +122,12 @@ export function generateSequenceMermaid(
   content: string,
   ownerComp: ComponentNode | null,
   root: ComponentNode,
+  ownerCompUuid?: string,
 ): { mermaidContent: string; idToUuid: Record<string, string>; messageLabelToUuid: Record<string, string> } {
   const { cst, lexErrors } = parseSequenceDiagramCst(content)
   if (lexErrors.length) {
     return { mermaidContent: "sequenceDiagram\n", idToUuid: {}, messageLabelToUuid: {} }
   }
   const ast = buildSeqAst(cst)
-  return generateSequenceMermaidFromAst(ast, ownerComp, root)
+  return generateSequenceMermaidFromAst(ast, ownerComp, root, ownerCompUuid)
 }

@@ -48,7 +48,7 @@ Navigate the tree to inspect generated nodes. Clicking a node or participant in 
 The diagram spec editor provides context-aware suggestions as you type:
 - **Participants**: suggest known actors and components when typing after `actor`, `component`, or `from`
 - **Message receivers**: suggest participants when typing the receiver in a message line
-- **UseCase targets**: suggest use case IDs after `UseCase:` in a message label
+- **UseCase targets**: suggest use case IDs after `UseCase:` in a message label; for use cases in other components the suggestion includes the full path (e.g. `UseCase:orders/placeOrder`)
 
 Suggestions appear automatically as you type or can be triggered explicitly with `Tab`. They reflect nodes already defined in the current component (local-first ordering). Accept with `Tab` or `Enter`, dismiss with `Escape`.
 
@@ -120,6 +120,8 @@ component root/services/auth as auth
 customer --> orderSvc: OrdersAPI:placeOrder(orderId: string, amount: number)
 orderSvc --> paymentSvc: PaymentsAPI:charge(orderId: string, amount: number, currency: string?)
 orderSvc --> customer: UseCase:orderConfirmed
+orderSvc --> customer: UseCase:orderService/orderConfirmed
+orderSvc --> customer: UseCase:root/orders/orderConfirmed:Order confirmed
 
 note right of customer: initiates the flow
 note over orderSvc, paymentSvc: payment handshake
@@ -135,8 +137,10 @@ note over orderSvc, paymentSvc: payment handshake
 | `sender --> receiver: Interface:function(param: type)` | Function call message — derives interface on receiver |
 | `sender --> receiver: label text` | Plain message label |
 | `sender --> receiver` | Bare arrow (no label) |
-| `sender --> receiver: UseCase:useCaseId` | Use case reference |
-| `sender --> receiver: UseCase:useCaseId:label` | Use case reference with a custom label |
+| `sender --> receiver: UseCase:useCaseId` | Use case reference (local — receiver's component) |
+| `sender --> receiver: UseCase:comp/useCaseId` | Use case reference by path (relative or absolute) |
+| `sender --> receiver: UseCase:useCaseId:label` | Use case reference with a custom display label |
+| `sender --> receiver: UseCase:comp/useCaseId:label` | Use case path reference with a custom label |
 | `note right of id: text` | Note to the right of a participant |
 | `note left of id: text` | Note to the left of a participant |
 | `note over id: text` | Note spanning a single participant |
@@ -331,7 +335,7 @@ Integra is a single-page web application that allows users to model software sys
 4. **Derived interfaces** — interface functions (with typed parameters) are extracted from sequence diagram messages and stored on the receiving component
 5. **Cross-component references** — participants can reference nodes in other components via a `from path` clause; referenced nodes cannot be deleted while the reference exists
 6. **Self-referencing** — a sequence diagram can declare a participant with the same id as its owning component (treated as a self-reference, not a new child)
-7. **Use case references in messages** — sequence diagram messages can reference use cases on a component via `UseCase:ucId`; referenced use cases cannot be deleted
+7. **Use case references in messages** — sequence diagram messages can reference use cases via `UseCase:ucId` (local) or `UseCase:path/to/comp/ucId` (cross-component); referenced use cases cannot be deleted
 8. **Function update flow** — when a function signature changes, the user is prompted to update all affected sequence diagrams or add an overload
 9. **Orphan detection** — actors and components not referenced by any diagram are deletable; otherwise the delete button is hidden
 10. **Syntax highlighting** — the diagram specification editor (CodeMirror 6) highlights known tokens (keywords, participants, interfaces, functions, use case references) in real time using a Chevrotain-based decoration pass

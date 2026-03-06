@@ -1,5 +1,6 @@
 import type { ComponentNode } from "../store/types"
 import { findNodeByPath } from "./nodeUtils"
+import { findCompByUuid } from "../nodes/nodeTree"
 
 export function resolveInOwner(
   ownerComp: ComponentNode,
@@ -49,4 +50,36 @@ export function findComponentByInterfaceId(
     if (found) return found
   }
   return undefined
+}
+
+/**
+ * Resolves a `UseCase:<path>` reference to a use case UUID.
+ *
+ * @param path - Segments from the UseCase reference (last = use case ID,
+ *               preceding = path to the owning component).
+ * @param root - Root component of the system tree.
+ * @param ownerComp - Component that owns the sequence diagram (local scope).
+ * @param ownerCompUuid - UUID of ownerComp (used for relative path resolution).
+ * @returns The use case UUID, or undefined if it cannot be resolved.
+ */
+export function resolveUseCaseByPath(
+  path: string[],
+  root: ComponentNode,
+  ownerComp: ComponentNode,
+  ownerCompUuid: string,
+): string | undefined {
+  const ucId = path[path.length - 1]
+  const compPath = path.slice(0, -1)
+
+  if (compPath.length === 0) {
+    // Local reference — search within ownerComp
+    return resolveUseCaseInOwner(ownerComp, ucId)
+  }
+
+  // Path reference — resolve the component, then search its use cases
+  const compUuid = findNodeByPath(root, compPath.join("/"), ownerCompUuid)
+  if (!compUuid) return undefined
+  const comp = findCompByUuid(root, compUuid)
+  if (!comp) return undefined
+  return resolveUseCaseInOwner(comp, ucId)
 }

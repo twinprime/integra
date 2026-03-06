@@ -193,6 +193,7 @@ export function DiagramCodeMirrorEditor({
       diagramType,
       rootComponent,
       ownerComp: ownerComp ?? null,
+      ownerCompUuid: ownerComponentUuid,
     }
     view.dispatch({ effects: setDiagramContext.of(initialCtx) })
 
@@ -233,9 +234,10 @@ export function DiagramCodeMirrorEditor({
         diagramType,
         rootComponent,
         ownerComp: ownerComp ?? null,
+        ownerCompUuid: ownerComponentUuid,
       }),
     })
-  }, [diagramType, rootComponent, ownerComp])
+  }, [diagramType, rootComponent, ownerComp, ownerComponentUuid])
 
   // ── Auto-focus when switching to edit mode ──────────────────────────────────
 

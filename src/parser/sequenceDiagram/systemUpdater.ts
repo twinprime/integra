@@ -8,6 +8,7 @@ import type { ComponentNode, InterfaceSpecification, Parameter } from "../../sto
 import { upsertNodeInTree, mergeLists } from "../../nodes/nodeTree"
 import { findCompByUuid } from "../../nodes/nodeTree"
 import { findNodeByPath, isInScope } from "../../utils/nodeUtils"
+import { resolveUseCaseByPath } from "../../utils/diagramResolvers"
 import { parseSequenceDiagramCst } from "./parser"
 import { buildSeqAst } from "./visitor"
 
@@ -305,6 +306,20 @@ export function parseSequenceDiagram(
     if (!msg.functionRef) continue
     const fnUuid = findFunctionUuidInTree(updatedRoot, msg.functionRef.interfaceId, msg.functionRef.functionId)
     if (fnUuid && !referencedFunctionUuids.includes(fnUuid)) referencedFunctionUuids.push(fnUuid)
+  }
+
+  // Add referenced use case UUIDs to referencedNodeIds
+  if (updatedOwnerComp) {
+    for (const msg of astMessages) {
+      if (!msg.useCaseRef) continue
+      const ucUuid = resolveUseCaseByPath(
+        msg.useCaseRef.path,
+        updatedRoot,
+        updatedOwnerComp,
+        ownerComponentUuid,
+      )
+      if (ucUuid && !referencedNodeIds.includes(ucUuid)) referencedNodeIds.push(ucUuid)
+    }
   }
 
   // Update diagram node

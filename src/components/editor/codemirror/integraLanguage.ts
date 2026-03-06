@@ -23,6 +23,7 @@ export interface DiagramContext {
   diagramType: "sequence-diagram" | "use-case-diagram"
   rootComponent: ComponentNode
   ownerComp: ComponentNode | null
+  ownerCompUuid?: string
 }
 
 /** Character range with colour class and optional navigation UUID */
@@ -70,6 +71,7 @@ const TOKEN_CLASS: Record<string, string> = {
   Comma:     CLS.operator,
   Slash:     CLS.operator,
   FunctionRef: CLS.function,
+  UseCaseRef:  CLS.function,
   LabelText:   CLS.label,
 }
 
@@ -92,7 +94,7 @@ export function buildAnnotations(doc: string, ctx: DiagramContext): AnnotatedSeg
   // Step 2: overlay UUIDs from the positioned CST visitor
   if (ctx.ownerComp) {
     const navEntries = ctx.diagramType === "sequence-diagram"
-      ? buildSeqNavEntries(doc, ctx.rootComponent, ctx.ownerComp)
+      ? buildSeqNavEntries(doc, ctx.rootComponent, ctx.ownerComp, ctx.ownerCompUuid)
       : buildUcdNavEntries(doc, ctx.rootComponent, ctx.ownerComp)
 
     const byFrom = new Map(anns.map((a, i) => [a.from, i]))

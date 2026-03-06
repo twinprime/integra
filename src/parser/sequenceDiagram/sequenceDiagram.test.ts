@@ -406,3 +406,190 @@ describe("sequence diagram — undeclared receiver", () => {
     expect(matches).toHaveLength(1)
   })
 })
+
+// ─── UseCaseRef token ──────────────────────────────────────────────────────────
+
+import { UseCaseRef } from "./lexer"
+import { resolveUseCaseByPath } from "../../utils/diagramResolvers"
+
+describe("UseCaseRef — lexer", () => {
+  it("tokenises local UseCase reference (no slash)", () => {
+    const result = SeqLexer.tokenize("actor sender\nsender --> receiver: UseCase:placeOrder")
+    const ucToks = result.tokens.filter((t) => t.tokenType === UseCaseRef)
+    expect(ucToks).toHaveLength(1)
+    expect(ucToks[0].image).toBe("UseCase:placeOrder")
+  })
+
+  it("tokenises path UseCase reference (with slashes)", () => {
+    const result = SeqLexer.tokenize("actor sender\nsender --> receiver: UseCase:root/orders/placeOrder")
+    const ucToks = result.tokens.filter((t) => t.tokenType === UseCaseRef)
+    expect(ucToks).toHaveLength(1)
+    expect(ucToks[0].image).toBe("UseCase:root/orders/placeOrder")
+  })
+
+  it("tokenises UseCase reference with custom label", () => {
+    const result = SeqLexer.tokenize("actor sender\nsender --> receiver: UseCase:placeOrder:Place an order")
+    const ucToks = result.tokens.filter((t) => t.tokenType === UseCaseRef)
+    expect(ucToks).toHaveLength(1)
+    expect(ucToks[0].image).toBe("UseCase:placeOrder:Place an order")
+  })
+
+  it("does NOT tokenise plain labels as UseCaseRef", () => {
+    const result = SeqLexer.tokenize("actor sender\nsender --> receiver: some plain label")
+    const ucToks = result.tokens.filter((t) => t.tokenType === UseCaseRef)
+    expect(ucToks).toHaveLength(0)
+  })
+})
+
+describe("UseCaseRef — visitor (SeqMessage.useCaseRef)", () => {
+  it("populates useCaseRef for local reference", () => {
+    const { ast } = parse("actor a\ncomponent b\na --> b: UseCase:placeOrder")
+    expect(ast.messages[0].useCaseRef).toEqual({ path: ["placeOrder"], label: null })
+    expect(ast.messages[0].functionRef).toBeNull()
+    expect(ast.messages[0].label).toBeNull()
+  })
+
+  it("populates useCaseRef for path reference", () => {
+    const { ast } = parse("actor a\ncomponent b\na --> b: UseCase:root/orders/placeOrder")
+    expect(ast.messages[0].useCaseRef).toEqual({ path: ["root", "orders", "placeOrder"], label: null })
+  })
+
+  it("populates useCaseRef with custom label", () => {
+    const { ast } = parse("actor a\ncomponent b\na --> b: UseCase:placeOrder:Place an order")
+    expect(ast.messages[0].useCaseRef).toEqual({ path: ["placeOrder"], label: "Place an order" })
+  })
+
+  it("does NOT set useCaseRef for FunctionRef messages", () => {
+    const { ast } = parse("actor a\ncomponent b\na --> b: IFace:fn()")
+    expect(ast.messages[0].useCaseRef).toBeNull()
+    expect(ast.messages[0].functionRef).not.toBeNull()
+  })
+
+  it("does NOT set useCaseRef for plain label messages", () => {
+    const { ast } = parse("actor a\ncomponent b\na --> b: hello world")
+    expect(ast.messages[0].useCaseRef).toBeNull()
+    expect(ast.messages[0].label).toBe("hello world")
+  })
+})
+
+describe("resolveUseCaseByPath", () => {
+  const makeUc = (uuid: string, id: string) => ({
+    uuid, id, name: id, type: "use-case" as const, sequenceDiagrams: [],
+  })
+  const makeUcd = (uuid: string, useCases: ReturnType<typeof makeUc>[]) => ({
+    uuid, id: "ucd", name: "ucd", type: "use-case-diagram" as const,
+    ownerComponentUuid: "",
+    referencedNodeIds: [],
+    content: "",
+    useCases,
+  })
+  const makeCompWithUcs = (uuid: string, id: string, ucIds: string[]): ComponentNode => ({
+    uuid, id, name: id, type: "component",
+    actors: [], subComponents: [], interfaces: [],
+    useCaseDiagrams: [makeUcd(`${uuid}-ucd`, ucIds.map((ucId) => makeUc(`${uuid}-${ucId}-uuid`, ucId)))],
+  })
+
+  it("resolves local use case (no compPath)", () => {
+    const owner = makeCompWithUcs("owner-uuid", "owner", ["placeOrder"])
+    const root = makeNamedComp("root-uuid", "root", "root", [owner])
+    const result = resolveUseCaseByPath(["placeOrder"], root, owner, "owner-uuid")
+    expect(result).toBe("owner-uuid-placeOrder-uuid")
+  })
+
+  it("resolves use case in a sibling component by absolute path", () => {
+    const orders = makeCompWithUcs("orders-uuid", "orders", ["placeOrder"])
+    const owner = makeNamedComp("owner-uuid", "owner", "owner")
+    const root = makeNamedComp("root-uuid", "root", "root", [owner, orders])
+    const result = resolveUseCaseByPath(["orders", "placeOrder"], root, owner, "owner-uuid")
+    expect(result).toBe("orders-uuid-placeOrder-uuid")
+  })
+
+  it("returns undefined for unknown use case id", () => {
+    const owner = makeCompWithUcs("owner-uuid", "owner", ["placeOrder"])
+    const root = makeNamedComp("root-uuid", "root", "root", [owner])
+    const result = resolveUseCaseByPath(["unknown"], root, owner, "owner-uuid")
+    expect(result).toBeUndefined()
+  })
+
+  it("returns undefined for unknown component path", () => {
+    const owner = makeCompWithUcs("owner-uuid", "owner", ["placeOrder"])
+    const root = makeNamedComp("root-uuid", "root", "root", [owner])
+    const result = resolveUseCaseByPath(["nonexistent", "placeOrder"], root, owner, "owner-uuid")
+    expect(result).toBeUndefined()
+  })
+})
+
+describe("parseSequenceDiagram — UseCase referencedNodeIds", () => {
+  it("adds local use case UUID to referencedNodeIds via direct AST inspection", () => {
+    // We test via the visitor directly: parse AST and verify useCaseRef is populated,
+    // then verify resolveUseCaseByPath returns the correct UUID.
+    const { ast } = parse("actor customer\ncustomer --> customer: UseCase:placeOrder")
+    expect(ast.messages[0].useCaseRef).toEqual({ path: ["placeOrder"], label: null })
+
+    // Verify resolver returns correct UUID
+    const makeUc = (uuid: string, id: string) => ({
+      uuid, id, name: id, type: "use-case" as const, sequenceDiagrams: [],
+    })
+    const owner: ComponentNode = {
+      uuid: "owner-uuid", id: "owner", name: "owner", type: "component",
+      actors: [], subComponents: [], interfaces: [],
+      useCaseDiagrams: [{
+        uuid: "ucd-uuid", id: "ucd", name: "ucd", type: "use-case-diagram",
+        ownerComponentUuid: "owner-uuid", referencedNodeIds: [], content: "",
+        useCases: [makeUc("uc-uuid", "placeOrder")],
+      }],
+    }
+    const root: ComponentNode = {
+      uuid: "root-uuid", id: "root", name: "root", type: "component",
+      actors: [], subComponents: [owner], interfaces: [], useCaseDiagrams: [],
+    }
+    const uuid = resolveUseCaseByPath(["placeOrder"], root, owner, "owner-uuid")
+    expect(uuid).toBe("uc-uuid")
+  })
+})
+
+describe("generateSequenceMermaidFromAst — UseCaseRef messages", () => {
+  const makeCompWithUcs3 = (uuid: string, id: string, ucIds: { id: string; name: string }[]): ComponentNode => ({
+    uuid, id, name: id, type: "component",
+    actors: [], subComponents: [], interfaces: [],
+    useCaseDiagrams: [{
+      uuid: `${uuid}-ucd`, id: "ucd", name: "ucd", type: "use-case-diagram",
+      ownerComponentUuid: uuid, referencedNodeIds: [], content: "",
+      useCases: ucIds.map((uc) => ({
+        uuid: `${uuid}-${uc.id}-uuid`, id: uc.id, name: uc.name, type: "use-case", sequenceDiagrams: [],
+      })),
+    }],
+  })
+
+  it("renders local UseCaseRef using use case name as label", () => {
+    const owner = makeCompWithUcs3("owner-uuid", "owner", [{ id: "placeOrder", name: "Place Order" }])
+    const root = makeNamedComp("root-uuid", "root", "root", [owner])
+    const ast = parseAst("actor customer\ncustomer --> customer: UseCase:placeOrder")
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root, "owner-uuid")
+    expect(mermaidContent).toContain("customer->>customer: Place Order")
+  })
+
+  it("renders UseCaseRef with custom label overriding use case name", () => {
+    const owner = makeCompWithUcs3("owner-uuid", "owner", [{ id: "placeOrder", name: "Place Order" }])
+    const root = makeNamedComp("root-uuid", "root", "root", [owner])
+    const ast = parseAst("actor customer\ncustomer --> customer: UseCase:placeOrder:Custom Label")
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root, "owner-uuid")
+    expect(mermaidContent).toContain("customer->>customer: Custom Label")
+  })
+
+  it("falls back to ucId when use case is not in tree", () => {
+    const owner = makeNamedComp("owner-uuid", "owner", "owner")
+    const root = makeNamedComp("root-uuid", "root", "root", [owner])
+    const ast = parseAst("actor customer\ncustomer --> customer: UseCase:unknownUc")
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root, "owner-uuid")
+    expect(mermaidContent).toContain("customer->>customer: unknownUc")
+  })
+
+  it("populates messageLabelToUuid for UseCaseRef", () => {
+    const owner = makeCompWithUcs3("owner-uuid", "owner", [{ id: "placeOrder", name: "Place Order" }])
+    const root = makeNamedComp("root-uuid", "root", "root", [owner])
+    const ast = parseAst("actor customer\ncustomer --> customer: UseCase:placeOrder")
+    const { messageLabelToUuid } = generateSequenceMermaidFromAst(ast, owner, root, "owner-uuid")
+    expect(messageLabelToUuid["UseCase:placeOrder"]).toBe("owner-uuid-placeOrder-uuid")
+  })
+})

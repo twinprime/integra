@@ -17,6 +17,9 @@ export const UUIDS = {
   authComp: "test-auth-uuid",
   iface: "test-iface-uuid",
   fn: "test-fn-uuid",
+  orderComp: "test-order-uuid",
+  orderUcd: "test-order-ucd-uuid",
+  orderUc: "test-order-uc-uuid",
 } as const
 
 // ─── Fixture ─────────────────────────────────────────────────────────────────
@@ -28,19 +31,51 @@ const actor: ActorNode = {
   type: "actor",
 }
 
+const orderUcNode: UseCaseNode = {
+  uuid: UUIDS.orderUc,
+  id: "PlaceOrder",
+  name: "Place Order",
+  type: "use-case",
+  sequenceDiagrams: [],
+}
+
+const orderUcd: UseCaseDiagramNode = {
+  uuid: UUIDS.orderUcd,
+  id: "OrderUCD",
+  name: "Order Use Cases",
+  type: "use-case-diagram",
+  ownerComponentUuid: UUIDS.orderComp,
+  referencedNodeIds: [UUIDS.actor, UUIDS.orderUc],
+  content: ["actor User", "use case PlaceOrder", "User --> PlaceOrder"].join("\n"),
+  useCases: [orderUcNode],
+}
+
+const orderComp: ComponentNode = {
+  uuid: UUIDS.orderComp,
+  id: "OrderService",
+  name: "OrderService",
+  type: "component",
+  subComponents: [],
+  actors: [],
+  useCaseDiagrams: [orderUcd],
+  interfaces: [],
+}
+
 const seqDiagram: SequenceDiagramNode = {
   uuid: UUIDS.seq,
   id: "LoginFlow",
   name: "Login Flow",
   type: "sequence-diagram",
   ownerComponentUuid: UUIDS.root,
-  referencedNodeIds: [UUIDS.authComp],
+  referencedNodeIds: [UUIDS.authComp, UUIDS.orderUc],
   referencedFunctionUuids: [UUIDS.fn],
   content: [
     "actor User",
     "component AuthService",
+    "component OrderService",
     "User --> AuthService: IAuth:login()",
     "AuthService --> User: done",
+    "User --> OrderService: UseCase:OrderService/PlaceOrder:Place an order",
   ].join("\n"),
 }
 
@@ -97,7 +132,7 @@ export const sampleSystem: ComponentNode = {
   id: "System",
   name: "System",
   type: "component",
-  subComponents: [authComp],
+  subComponents: [authComp, orderComp],
   actors: [actor],
   useCaseDiagrams: [ucDiagram],
   interfaces: [],

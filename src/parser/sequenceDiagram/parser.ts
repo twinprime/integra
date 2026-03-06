@@ -17,7 +17,7 @@ import {
   Actor, Component, As, Note, Right, Left, Of, Over,
   Arrow, Slash, Comma, Newline, Identifier, NumberToken,
 } from "../tokens"
-import { FunctionRef, LabelText, SeqLexer, SeqColon, allSeqTokens } from "./lexer"
+import { FunctionRef, UseCaseRef, LabelText, SeqLexer, SeqColon, allSeqTokens } from "./lexer"
 
 export class SequenceDiagramParser extends CstParser {
   constructor() {
@@ -126,9 +126,10 @@ export class SequenceDiagramParser extends CstParser {
     this.SUBRULE2(this.participantRef)
     this.OPTION(() => {
       this.CONSUME(SeqColon)
-      // After SeqColon the lexer switches to text_mode — FunctionRef or LabelText
+      // After SeqColon the lexer switches to text_mode — FunctionRef, UseCaseRef, or LabelText
       this.OR([
         { ALT: () => this.CONSUME(FunctionRef) },
+        { ALT: () => this.CONSUME(UseCaseRef) },
         { ALT: () => this.CONSUME(LabelText) },
       ])
     })
@@ -150,4 +151,4 @@ export {
   Actor, Component, As, Note, Right, Left, Of, Over,
   Arrow, Slash, Comma, Newline, Identifier, NumberToken,
 } from "../tokens"
-export { FunctionRef, LabelText, SeqColon } from "./lexer"
+export { FunctionRef, UseCaseRef, LabelText, SeqColon } from "./lexer"

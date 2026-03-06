@@ -9,7 +9,7 @@ const CLICK_DIRECTIVE_TYPES = new Set(["use-case-diagram"])
 
 export function useUseCaseDiagram(diagramNode: DiagramNode | null) {
   const buildContent = useCallback(
-    (content: string, ownerComp: ComponentNode | null, root: ComponentNode) => {
+    (content: string, ownerComp: ComponentNode | null, root: ComponentNode, _ownerCompUuid: string) => {
       return generateUseCaseMermaid(content, ownerComp, root)
     },
     [],

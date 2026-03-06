@@ -6,8 +6,8 @@ import type { ComponentNode } from "../store/types"
 
 describe("updateContentRefs", () => {
   it("replaces participant alias", () => {
-    expect(updateContentRefs('actor "User" as customer', "customer", "user")).toBe(
-      'actor "User" as user',
+    expect(updateContentRefs("actor userId as customer", "customer", "user")).toBe(
+      "actor userId as user",
     )
   })
 
@@ -29,6 +29,16 @@ describe("updateContentRefs", () => {
     )
   })
 
+  it("replaces path segment in UseCase path reference", () => {
+    expect(
+      updateContentRefs("UseCase:root/recorder/rec_stream:label", "recorder", "media_recorder"),
+    ).toBe("UseCase:root/media_recorder/rec_stream:label")
+    // last segment (use case id) is also replaced correctly
+    expect(
+      updateContentRefs("UseCase:root/recorder/rec_stream", "rec_stream", "live_stream"),
+    ).toBe("UseCase:root/recorder/live_stream")
+  })
+
   it("replaces interface:function reference — interface rename", () => {
     expect(updateContentRefs("client->>api: OrdersAPI:place(a: string)", "OrdersAPI", "OrdersV2")).toBe(
       "client->>api: OrdersV2:place(a: string)",
@@ -41,9 +51,9 @@ describe("updateContentRefs", () => {
     )
   })
 
-  it("replaces path segment in from declaration", () => {
-    expect(updateContentRefs("actor \"User\" from root/customer as c", "customer", "user")).toBe(
-      'actor "User" from root/user as c',
+  it("replaces id in node path declaration", () => {
+    expect(updateContentRefs("actor root/customer as c", "customer", "user")).toBe(
+      "actor root/user as c",
     )
   })
 
@@ -54,9 +64,9 @@ describe("updateContentRefs", () => {
   })
 
   it("replaces all occurrences in multiline content", () => {
-    const content = "actor \"A\" as login\nlogin->>server: go()\nserver->>login: ok()"
+    const content = "actor login\nlogin->>server: go()\nserver->>login: ok()"
     const result = updateContentRefs(content, "login", "signIn")
-    expect(result).toBe('actor "A" as signIn\nsignIn->>server: go()\nserver->>signIn: ok()')
+    expect(result).toBe("actor signIn\nsignIn->>server: go()\nserver->>signIn: ok()")
   })
 })
 
@@ -132,7 +142,7 @@ const makeTree = (): ComponentNode => ({
       id: "mainDiag",
       name: "Main",
       type: "use-case-diagram",
-      content: 'actor "Customer" as customer\nuse case "Place Order" as placeOrder\ncustomer-->placeOrder',
+      content: 'actor customer\nuse case placeOrder\ncustomer-->placeOrder',
       referencedNodeIds: [],
       ownerComponentUuid: "root-uuid",
       useCases: [
@@ -148,7 +158,7 @@ const makeTree = (): ComponentNode => ({
               id: "placeOrderFlow",
               name: "Flow",
               type: "sequence-diagram",
-              content: "actor \"Customer\" as customer\ncustomer->>api: OrdersAPI:placeOrder(item: string)\nUseCase:placeOrder",
+              content: "actor customer\ncustomer->>api: OrdersAPI:placeOrder(item: string)\nUseCase:placeOrder",
               referencedNodeIds: [],
               referencedFunctionUuids: [],
               ownerComponentUuid: "root-uuid",
@@ -183,10 +193,10 @@ describe("applyIdRename — node ID rename", () => {
     expect(updated.useCaseDiagrams[0].useCases[0].id).toBe("createOrder")
   })
 
-  it("updates use-case alias in use-case diagram content", () => {
+  it("updates use-case id in use-case diagram content", () => {
     const updated = applyIdRename(makeTree(), "uc-uuid", "placeOrder", "createOrder")
-    expect(updated.useCaseDiagrams[0].content).toContain("as createOrder")
-    expect(updated.useCaseDiagrams[0].content).not.toContain("as placeOrder")
+    expect(updated.useCaseDiagrams[0].content).toContain("use case createOrder")
+    expect(updated.useCaseDiagrams[0].content).not.toContain("use case placeOrder")
   })
 
   it("updates UseCase: reference in sequence diagram content", () => {
@@ -217,10 +227,10 @@ describe("applyIdRename — actor rename", () => {
     expect(updated.actors[0].id).toBe("buyer")
   })
 
-  it("updates actor alias in use-case diagram content", () => {
+  it("updates actor id in use-case diagram content", () => {
     const updated = applyIdRename(makeTree(), "actor-uuid", "customer", "buyer")
-    expect(updated.useCaseDiagrams[0].content).toContain("as buyer")
-    expect(updated.useCaseDiagrams[0].content).not.toContain("as customer")
+    expect(updated.useCaseDiagrams[0].content).toContain("actor buyer")
+    expect(updated.useCaseDiagrams[0].content).not.toContain("actor customer")
   })
 
   it("updates actor as message sender in sequence diagram", () => {

@@ -378,7 +378,16 @@ function buildFunctionRefSuggestions(
   }
   for (const ucDiag of receiverComp.useCaseDiagrams) {
     for (const uc of ucDiag.useCases) {
-      const insertText = `UseCase:${uc.id}`
+      // Build path: omit prefix if receiverComp === ownerComp (local reference)
+      const isLocal = receiverComp.uuid === ownerComp.uuid
+      let ucPath: string
+      if (isLocal) {
+        ucPath = uc.id
+      } else {
+        const absPath = getComponentAbsolutePath(rootComponent, receiverComp.uuid)
+        ucPath = absPath ? `${absPath}/${uc.id}` : uc.id
+      }
+      const insertText = `UseCase:${ucPath}`
       if (matchLower(insertText, ctx.partial)) {
         suggs.push({
           label: `${insertText} (${uc.name})`,

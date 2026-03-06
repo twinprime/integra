@@ -18,6 +18,17 @@ export const FunctionRef = createToken({
   pattern: /[A-Za-z_]\w*:[A-Za-z_]\w*\([^)]*\)/,
 })
 
+/**
+ * Matches `UseCase:<path>` or `UseCase:<path>:<label>` where <path> is one or
+ * more slash-separated identifiers (e.g. `UseCase:rec_stream` or
+ * `UseCase:root/recorder/rec_stream:my label`).
+ * Tried before LabelText so it takes priority.
+ */
+export const UseCaseRef = createToken({
+  name: "UseCaseRef",
+  pattern: /UseCase:[A-Za-z_][A-Za-z0-9_-]*(?:\/[A-Za-z_][A-Za-z0-9_-]*)*(?::[^\r\n]*)?/,
+})
+
 /** Catch-all: rest of line text for plain message labels and note bodies */
 export const LabelText = createToken({
   name: "LabelText",
@@ -58,7 +69,7 @@ const defaultModeTokens = sharedTokens.map((t) => (t === SharedColon ? SeqColon 
 export const seqLexerDefinition = {
   modes: {
     default_mode: defaultModeTokens,
-    text_mode: [NewlineExit, WhiteSpace, FunctionRef, LabelText],
+    text_mode: [NewlineExit, WhiteSpace, FunctionRef, UseCaseRef, LabelText],
   },
   defaultMode: "default_mode",
 }
@@ -70,6 +81,7 @@ export const allSeqTokens = [
   ...defaultModeTokens,
   NewlineExit,
   FunctionRef,
+  UseCaseRef,
   LabelText,
 ]
 

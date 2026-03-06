@@ -12,6 +12,7 @@ import type { ComponentNode } from "../../store/types"
 import {
   resolveParticipant,
   findComponentByInterfaceId,
+  resolveUseCaseByPath,
 } from "../../utils/diagramResolvers"
 
 export interface NavEntry {
@@ -43,6 +44,7 @@ const BaseVisitor = seqParser.getBaseCstVisitorConstructorWithDefaults()
 class SeqPositionedVisitorImpl extends BaseVisitor {
   private _root!: ComponentNode
   private _ownerComp!: ComponentNode | null
+  private _ownerCompUuid!: string
   private _participantMap!: Map<string, string>
   private _entries!: NavEntry[]
 
@@ -55,9 +57,11 @@ class SeqPositionedVisitorImpl extends BaseVisitor {
     cst: CstNode,
     root: ComponentNode,
     ownerComp: ComponentNode | null,
+    ownerCompUuid?: string,
   ): NavEntry[] {
     this._root = root
     this._ownerComp = ownerComp
+    this._ownerCompUuid = ownerCompUuid ?? ownerComp?.uuid ?? ""
     this._participantMap = new Map()
     this._entries = []
     this._buildParticipantMap(cst)
@@ -146,6 +150,17 @@ class SeqPositionedVisitorImpl extends BaseVisitor {
         if (uuid) this._entries.push({ from: fnRef.startOffset, to: tokenEnd(fnRef), uuid })
       }
     }
+    // UseCaseRef → navigate to use case node
+    const ucRef = toks(ctx, "UseCaseRef")[0]
+    if (ucRef && this._ownerComp) {
+      // Strip "UseCase:" prefix, take path before optional second colon
+      const withoutPrefix = ucRef.image.slice("UseCase:".length)
+      const secondColonIdx = withoutPrefix.indexOf(":")
+      const pathStr = secondColonIdx === -1 ? withoutPrefix : withoutPrefix.slice(0, secondColonIdx)
+      const path = pathStr.split("/")
+      const uuid = resolveUseCaseByPath(path, this._root, this._ownerComp, this._ownerCompUuid)
+      if (uuid) this._entries.push({ from: ucRef.startOffset, to: tokenEnd(ucRef), uuid })
+    }
   }
 
   private _addParticipantRef(pRef: CstNode): void {
@@ -169,7 +184,8 @@ export function buildSeqNavEntries(
   doc: string,
   root: ComponentNode,
   ownerComp: ComponentNode | null,
+  ownerCompUuid?: string,
 ): NavEntry[] {
   const { cst } = parseSequenceDiagramCst(doc)
-  return seqPositionedVisitor.run(cst as unknown as CstNode, root, ownerComp)
+  return seqPositionedVisitor.run(cst as unknown as CstNode, root, ownerComp, ownerCompUuid)
 }

@@ -24,8 +24,8 @@ export function useSequenceDiagram(diagramNode: DiagramNode | null) {
   const messageLabelUuidsRef = useRef<Record<string, string>>({})
 
   const buildContent = useCallback(
-    (content: string, ownerComp: ComponentNode | null, root: ComponentNode) => {
-      const { mermaidContent, idToUuid, messageLabelToUuid } = generateSequenceMermaid(content, ownerComp, root)
+    (content: string, ownerComp: ComponentNode | null, root: ComponentNode, ownerCompUuid: string) => {
+      const { mermaidContent, idToUuid, messageLabelToUuid } = generateSequenceMermaid(content, ownerComp, root, ownerCompUuid)
       participantIdMapRef.current = idToUuid
       messageLabelUuidsRef.current = messageLabelToUuid
       return { mermaidContent, idToUuid }

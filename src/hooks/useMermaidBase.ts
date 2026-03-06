@@ -20,6 +20,7 @@ export type BuildContent = (
   content: string,
   ownerComp: ComponentNode | null,
   root: ComponentNode,
+  ownerCompUuid: string,
 ) => { mermaidContent: string; idToUuid: Record<string, string> }
 
 export function useMermaidBase(diagramNode: DiagramNode | null, buildContent: BuildContent) {
@@ -49,6 +50,7 @@ export function useMermaidBase(diagramNode: DiagramNode | null, buildContent: Bu
           diagramNode.content,
           ownerComp,
           rootComponent,
+          diagramNode.ownerComponentUuid,
         )
         window.__integraIdMap = idToUuid
         window.__integraNavigate = (nodeId: string) => {
