@@ -10,14 +10,36 @@
     "preview": "vite preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "test:e2e": "playwright test",
+    "coverage": "NODE_OPTIONS=\"--max-old-space-size=8192\" vitest-coverage.sh",
+    "sonar": "vite-sonar-scan.sh"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.20.1",
+    "@codemirror/commands": "^6.10.2",
+    "@codemirror/language": "^6.12.2",
+    "@codemirror/state": "^6.5.4",
+    "@codemirror/view": "^6.39.16",
+    "@lezer/highlight": "^1.2.3",
+    "@tailwindcss/vite": "^4.1.18",
+    "@types/js-yaml": "^4.0.9",
+    "@uiw/react-md-editor": "^4.0.11",
+    "chevrotain": "^11.2.0",
+    "clsx": "^2.1.1",
+    "js-yaml": "^4.1.1",
+    "lucide-react": "^0.561.0",
+    "mermaid": "^11.12.2",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "react-resizable-panels": "^3.0.6",
+    "tailwind-merge": "^3.4.0",
+    "tailwindcss": "^4.1.18",
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.1",
+    "@playwright/test": "^1.58.2",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
