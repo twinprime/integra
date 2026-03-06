@@ -99,9 +99,7 @@ const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
 
   const handleDelete = (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (confirm(`Are you sure you want to delete "${node.name}"?`)) {
-      deleteNode(node.uuid)
-    }
+    deleteNode(node.uuid)
   }
 
   return (
@@ -400,12 +398,8 @@ export const TreeView = () => {
 
   const handleDeleteNode = () => {
     if (!contextMenu) return
-    if (
-      confirm(`Are you sure you want to delete "${contextMenu.node.name}"?`)
-    ) {
-      deleteNode(contextMenu.node.uuid)
-      setContextMenu(null)
-    }
+    deleteNode(contextMenu.node.uuid)
+    setContextMenu(null)
   }
 
   return (
