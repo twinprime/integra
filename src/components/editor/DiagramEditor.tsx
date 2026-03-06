@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import type { ComponentNode, DiagramNode } from "../../store/types"
-import { useSystemStore, getSequenceDiagrams, type FunctionDecision } from "../../store/useSystemStore"
-import { analyzeSequenceDiagramChanges, type FunctionMatch } from "../../parser/sequenceDiagram/systemUpdater"
+import {
+  useSystemStore,
+  getSequenceDiagrams,
+  type FunctionDecision,
+} from "../../store/useSystemStore"
+import {
+  analyzeSequenceDiagramChanges,
+  type FunctionMatch,
+} from "../../parser/sequenceDiagram/systemUpdater"
 import { FunctionUpdateDialog } from "../FunctionUpdateDialog"
 import { DiagramCodeMirrorEditor } from "./DiagramCodeMirrorEditor"
 
@@ -19,7 +26,13 @@ export const DiagramEditor = ({
   const [isEditing, setIsEditing] = useState(!node.content)
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const { rootComponent, applyFunctionUpdates, parseError, clearParseError, selectNode } = useSystemStore()
+  const {
+    rootComponent,
+    applyFunctionUpdates,
+    parseError,
+    clearParseError,
+    selectNode,
+  } = useSystemStore()
   const seqDiagrams = getSequenceDiagrams(rootComponent)
 
   const ownerComp = useMemo((): ComponentNode | null => {
@@ -117,16 +130,13 @@ export const DiagramEditor = ({
         <h2 className="text-xl font-semibold text-gray-100 flex items-center gap-2">
           {node.name}
         </h2>
-        <p className="mt-1 text-sm text-gray-400">
-          Usage:{" "}
-          {node.type === "sequence-diagram"
-            ? "Mermaid Sequence Syntax"
-            : "Text / YAML"}
-        </p>
       </div>
 
       <div className="mb-4">
-        <label htmlFor="diagram-name-input" className="block text-sm font-medium text-gray-300 mb-2">
+        <label
+          htmlFor="diagram-name-input"
+          className="block text-sm font-medium text-gray-300 mb-2"
+        >
           Name
         </label>
         <input
