@@ -1,4 +1,4 @@
-import type { ComponentNode, SequenceDiagramNode } from "../store/types"
+import type { ComponentNode, InterfaceSpecification, SequenceDiagramNode } from "../store/types"
 import { findNode } from "../store/useSystemStore"
 import { resolveInOwner } from "./diagramResolvers"
 import { parseSequenceDiagramCst } from "../parser/sequenceDiagram/parser"
@@ -49,19 +49,33 @@ function registerParticipants(
   }
 }
 
+function emitInterfaceClass(iface: InterfaceSpecification, lines: string[], cssClass?: string): void {
+  const classTag = cssClass ? `:::${cssClass}` : ""
+  lines.push(`    class ${iface.id}${classTag} {`)
+  lines.push(`        <<interface>>`)
+  for (const fn of iface.functions) {
+    const params = fn.parameters
+      .map((p) => `${p.name}: ${p.type}${p.required ? "" : "?"}`)
+      .join(", ")
+    lines.push(`        +${fn.id}(${params})`)
+  }
+  lines.push(`    }`)
+}
+
 export function buildComponentClassDiagram(
   component: ComponentNode,
   rootComponent: ComponentNode,
 ): { mermaidContent: string; idToUuid: Record<string, string> } {
-  if (!component.interfaces?.length) {
-    return { mermaidContent: "", idToUuid: {} }
-  }
+  const targetInterfaceIds = new Set((component.interfaces ?? []).map((i) => i.id))
 
-  const targetInterfaceIds = new Set(component.interfaces.map((i) => i.id))
-
+  // dependents: participants that call INTO this component's interfaces
   const dependentParticipants = new Map<string, Participant>()
   const depArrows: Array<{ fromNodeId: string; toNodeId: string }> = []
   const depArrowsSet = new Set<string>()
+
+  // dependencies: (receiverUuid → interfaceId[]) that this component calls out to
+  const outgoingByReceiver = new Map<string, Set<string>>()
+  const receiverParticipants = new Map<string, Participant>()
 
   for (const { diagram, ownerComponentUuid } of collectAllDiagrams(rootComponent)) {
     if (diagram.type !== "sequence-diagram") continue
@@ -83,51 +97,63 @@ export function buildComponentClassDiagram(
     for (const msg of messages) {
       if (!msg.functionRef) continue
       const { interfaceId } = msg.functionRef
-      if (!targetInterfaceIds.has(interfaceId)) continue
-
-      // Verify the receiver resolves to the target component (disambiguates shared interface IDs)
-      const receiverUuid = aliasToUuid.get(msg.to)
-      if (receiverUuid !== component.uuid) continue
 
       const senderUuid = aliasToUuid.get(msg.from)
-      // Skip self-references (component calling its own interface)
-      if (!senderUuid || senderUuid === component.uuid) continue
+      const receiverUuid = aliasToUuid.get(msg.to)
 
-      const sender = participantsMap.get(senderUuid)
-      if (!sender) continue
+      // ── Dependents: someone calls INTO this component's interface ──────────
+      if (targetInterfaceIds.has(interfaceId) && receiverUuid === component.uuid) {
+        if (!senderUuid || senderUuid === component.uuid) continue
 
-      if (!dependentParticipants.has(senderUuid)) {
-        dependentParticipants.set(senderUuid, sender)
+        const sender = participantsMap.get(senderUuid)
+        if (!sender) continue
+
+        if (!dependentParticipants.has(senderUuid)) {
+          dependentParticipants.set(senderUuid, sender)
+        }
+        const arrowKey = `${sender.nodeId}|${interfaceId}`
+        if (!depArrowsSet.has(arrowKey)) {
+          depArrowsSet.add(arrowKey)
+          depArrows.push({ fromNodeId: sender.nodeId, toNodeId: interfaceId })
+        }
       }
 
-      const arrowKey = `${sender.nodeId}|${interfaceId}`
-      if (!depArrowsSet.has(arrowKey)) {
-        depArrowsSet.add(arrowKey)
-        depArrows.push({ fromNodeId: sender.nodeId, toNodeId: interfaceId })
+      // ── Dependencies: this component calls OUT to another component ────────
+      if (senderUuid === component.uuid && receiverUuid && receiverUuid !== component.uuid) {
+        const receiver = participantsMap.get(receiverUuid)
+        if (!receiver || receiver.kind !== "component") continue
+
+        if (!outgoingByReceiver.has(receiverUuid)) {
+          outgoingByReceiver.set(receiverUuid, new Set())
+          receiverParticipants.set(receiverUuid, receiver)
+        }
+        outgoingByReceiver.get(receiverUuid)!.add(interfaceId)
       }
     }
+  }
+
+  const hasOwnInterfaces = (component.interfaces?.length ?? 0) > 0
+  const hasDependencies = outgoingByReceiver.size > 0
+  if (!hasOwnInterfaces && !hasDependencies && dependentParticipants.size === 0) {
+    return { mermaidContent: "", idToUuid: {} }
   }
 
   const lines: string[] = ["classDiagram"]
+  lines.push(`    classDef subject fill:#dbeafe,stroke:#2563eb,color:#1e3a5f`)
+  lines.push(`    classDef subjectInterface fill:#eff6ff,stroke:#3b82f6,color:#1e3a5f`)
 
-  lines.push(`    class ${component.id}["${component.name}"]:::component`)
+  // ── Subject component ──────────────────────────────────────────────────────
+  lines.push(`    class ${component.id}["${component.name}"]:::subject`)
 
-  for (const iface of component.interfaces) {
-    lines.push(`    class ${iface.id} {`)
-    lines.push(`        <<interface>>`)
-    for (const fn of iface.functions) {
-      const params = fn.parameters
-        .map((p) => `${p.name}: ${p.type}${p.required ? "" : "?"}`)
-        .join(", ")
-      lines.push(`        +${fn.id}(${params})`)
-    }
-    lines.push(`    }`)
+  // ── Subject's own interfaces ───────────────────────────────────────────────
+  for (const iface of component.interfaces ?? []) {
+    emitInterfaceClass(iface, lines, "subjectInterface")
   }
-
-  for (const iface of component.interfaces) {
+  for (const iface of component.interfaces ?? []) {
     lines.push(`    ${component.id} ..|> ${iface.id}`)
   }
 
+  // ── Dependents (callers of this component's interfaces) ───────────────────
   for (const dep of dependentParticipants.values()) {
     if (dep.kind === "actor") {
       lines.push(`    class ${dep.nodeId}["${dep.name}"]:::actor {`)
@@ -137,14 +163,35 @@ export function buildComponentClassDiagram(
       lines.push(`    class ${dep.nodeId}["${dep.name}"]:::component`)
     }
   }
-
   for (const { fromNodeId, toNodeId } of depArrows) {
     lines.push(`    ${fromNodeId} ..> ${toNodeId}`)
   }
 
+  // ── Dependencies (this component calls out to) ────────────────────────────
+  for (const [receiverUuid, interfaceIds] of outgoingByReceiver) {
+    const receiver = receiverParticipants.get(receiverUuid)!
+    const receiverNode = findNode([rootComponent], receiverUuid) as ComponentNode | null
+
+    for (const ifaceId of interfaceIds) {
+      const ifaceSpec = receiverNode?.interfaces?.find((i) => i.id === ifaceId)
+      if (ifaceSpec) {
+        emitInterfaceClass(ifaceSpec, lines)
+        lines.push(`    ${receiver.nodeId} ..|> ${ifaceId}`)
+      }
+      lines.push(`    ${component.id} ..> ${ifaceId}`)
+    }
+
+    lines.push(`    class ${receiver.nodeId}["${receiver.name}"]:::component`)
+    lines.push(`    ${component.id} ..> ${receiver.nodeId}`)
+  }
+
+  // ── Click navigation ──────────────────────────────────────────────────────
   const idToUuid: Record<string, string> = { [component.id]: component.uuid }
   for (const dep of dependentParticipants.values()) {
     idToUuid[dep.nodeId] = dep.uuid
+  }
+  for (const receiver of receiverParticipants.values()) {
+    idToUuid[receiver.nodeId] = receiver.uuid
   }
   for (const nodeId of Object.keys(idToUuid)) {
     lines.push(`    click ${nodeId} call __integraNavigate("${nodeId}")`)
@@ -152,3 +199,4 @@ export function buildComponentClassDiagram(
 
   return { mermaidContent: lines.join("\n"), idToUuid }
 }
+

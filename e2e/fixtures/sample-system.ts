@@ -20,6 +20,8 @@ export const UUIDS = {
   orderComp: "test-order-uuid",
   orderUcd: "test-order-ucd-uuid",
   orderUc: "test-order-uc-uuid",
+  orderIface: "test-order-iface-uuid",
+  orderFn: "test-order-fn-uuid",
   emptySeq: "test-empty-seq-uuid",
 } as const
 
@@ -212,4 +214,61 @@ export function makeLocalStorageValueWithBlockOnlyCall(): string {
   }
 
   return JSON.stringify({ state: { rootComponent: systemWithBlockOnly }, version: 0 })
+}
+
+/**
+ * Variant fixture where AuthService calls OrderService's IOrder interface.
+ * Used to verify that dependency (outgoing) arrows appear in the component class diagram.
+ *
+ * OrderService gains an IOrder interface with a process() method.
+ * A new sequence diagram shows AuthService ->> OrderService: IOrder:process()
+ */
+export function makeLocalStorageValueWithDependency(): string {
+  const orderWithIface: ComponentNode = {
+    ...sampleSystem.subComponents[1],
+    interfaces: [
+      {
+        uuid: UUIDS.orderIface,
+        id: "IOrder",
+        name: "IOrder",
+        type: "rest",
+        functions: [
+          {
+            uuid: UUIDS.orderFn,
+            id: "process",
+            parameters: [{ name: "orderId", type: "string", required: true }],
+          },
+        ],
+      },
+    ],
+  }
+
+  const depSeq: SequenceDiagramNode = {
+    uuid: "dep-seq-uuid",
+    id: "AuthToOrder",
+    name: "Auth To Order",
+    type: "sequence-diagram",
+    ownerComponentUuid: UUIDS.root,
+    referencedNodeIds: [UUIDS.authComp, UUIDS.orderComp],
+    referencedFunctionUuids: [UUIDS.orderFn],
+    content: [
+      "component AuthService",
+      "component OrderService",
+      "AuthService ->> OrderService: IOrder:process(orderId: string)",
+    ].join("\n"),
+  }
+
+  const systemWithDep: ComponentNode = {
+    ...sampleSystem,
+    subComponents: [sampleSystem.subComponents[0], orderWithIface],
+    useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
+      ...ucd,
+      useCases: ucd.useCases.map((uc) => ({
+        ...uc,
+        sequenceDiagrams: [...uc.sequenceDiagrams, depSeq],
+      })),
+    })),
+  }
+
+  return JSON.stringify({ state: { rootComponent: systemWithDep }, version: 0 })
 }

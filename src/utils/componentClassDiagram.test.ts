@@ -109,6 +109,35 @@ const makeRoot = (extraSeqDiagrams: SequenceDiagramNode[] = []): ComponentNode =
 
 const getCompA = (root: ComponentNode) => root.subComponents[0]
 
+/** Root where compB has a defined interface IBaz */
+const makeRootWithCompBInterfaces = (extraSeqDiagrams: SequenceDiagramNode[] = []): ComponentNode => {
+  const base = makeRoot(extraSeqDiagrams)
+  return {
+    ...base,
+    subComponents: [
+      base.subComponents[0], // compA unchanged
+      {
+        ...base.subComponents[1],
+        interfaces: [
+          {
+            uuid: "ibaz-uuid",
+            id: "IBaz",
+            name: "IBaz",
+            type: "rest",
+            functions: [
+              {
+                uuid: "fn3-uuid",
+                id: "process",
+                parameters: [{ name: "data", type: "string", required: true }],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  }
+}
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("buildComponentClassDiagram", () => {
@@ -129,11 +158,11 @@ describe("buildComponentClassDiagram", () => {
   it("shows component and its interfaces even with no callers", () => {
     const root = makeRoot()
     const result = buildComponentClassDiagram(getCompA(root), root)
-    expect(result.mermaidContent).toContain('class compA["Component A"]:::component')
-    expect(result.mermaidContent).toContain("class IFoo {")
+    expect(result.mermaidContent).toContain('class compA["Component A"]:::subject')
+    expect(result.mermaidContent).toContain("class IFoo:::subjectInterface {")
     expect(result.mermaidContent).toContain("<<interface>>")
     expect(result.mermaidContent).toContain("+doSomething(id: string)")
-    expect(result.mermaidContent).toContain("class IBar {")
+    expect(result.mermaidContent).toContain("class IBar:::subjectInterface {")
     expect(result.mermaidContent).toContain("+getAll(page: number?)")
   })
 
@@ -328,5 +357,97 @@ describe("buildComponentClassDiagram", () => {
     const result = buildComponentClassDiagram(getCompA(root), root)
     expect(result.mermaidContent).toContain("user ..> IFoo")
     expect(result.mermaidContent).toContain("user ..> IBar")
+  })
+
+  it("uses :::subject class for the subject component", () => {
+    const root = makeRoot()
+    const result = buildComponentClassDiagram(getCompA(root), root)
+    expect(result.mermaidContent).toContain('class compA["Component A"]:::subject')
+    expect(result.mermaidContent).not.toContain('class compA["Component A"]:::component')
+  })
+
+  it("emits classDef lines for subject and subjectInterface", () => {
+    const root = makeRoot()
+    const result = buildComponentClassDiagram(getCompA(root), root)
+    expect(result.mermaidContent).toContain("classDef subject fill:#dbeafe")
+    expect(result.mermaidContent).toContain("classDef subjectInterface fill:#eff6ff")
+  })
+
+  it("applies :::subjectInterface to subject's own interfaces", () => {
+    const root = makeRoot()
+    const result = buildComponentClassDiagram(getCompA(root), root)
+    expect(result.mermaidContent).toContain("class IFoo:::subjectInterface {")
+    expect(result.mermaidContent).toContain("class IBar:::subjectInterface {")
+  })
+
+  it("shows outgoing call to another component's interface as dependency", () => {
+    const sd = makeSeqDiagram(
+      "component compA\ncomponent compB\ncompA ->> compB: IBaz:process(data: string)",
+    )
+    const root = makeRootWithCompBInterfaces([sd])
+    const result = buildComponentClassDiagram(getCompA(root), root)
+    // dependency interface class with methods
+    expect(result.mermaidContent).toContain("class IBaz {")
+    expect(result.mermaidContent).toContain("+process(data: string)")
+    // receiver implements interface
+    expect(result.mermaidContent).toContain("compB ..|> IBaz")
+    // this component depends on interface
+    expect(result.mermaidContent).toContain("compA ..> IBaz")
+    // direct component-to-component dependency arrow
+    expect(result.mermaidContent).toContain("compA ..> compB")
+    // receiver component class
+    expect(result.mermaidContent).toContain('class compB["Component B"]:::component')
+  })
+
+  it("records receiver's uuid in idToUuid for navigation", () => {
+    const sd = makeSeqDiagram(
+      "component compA\ncomponent compB\ncompA ->> compB: IBaz:process(data: string)",
+    )
+    const root = makeRootWithCompBInterfaces([sd])
+    const result = buildComponentClassDiagram(getCompA(root), root)
+    expect(result.idToUuid["compB"]).toBe("compb-uuid")
+  })
+
+  it("does not show self-calls as outgoing dependencies", () => {
+    const sd = makeSeqDiagram(
+      "component compA\ncomponent compB\ncompA ->> compA: IFoo:doSomething(id: string)",
+    )
+    const root = makeRoot([sd])
+    const result = buildComponentClassDiagram(getCompA(root), root)
+    // compA calling its own interface should not appear as a dependency
+    expect(result.mermaidContent).not.toContain("compA ..> compA")
+  })
+
+  it("does not deduplicate: each unique interface call creates one arrow", () => {
+    const sd = makeSeqDiagram(
+      [
+        "component compA",
+        "component compB",
+        "compA ->> compB: IBaz:process(data: string)",
+        "compA ->> compB: IBaz:process(data: string)",
+      ].join("\n"),
+    )
+    const root = makeRootWithCompBInterfaces([sd])
+    const result = buildComponentClassDiagram(getCompA(root), root)
+    // IBaz interface class should appear exactly once
+    const matches = (result.mermaidContent.match(/class IBaz/g) ?? []).length
+    expect(matches).toBe(1)
+  })
+
+  it("shows both dependents and dependencies together", () => {
+    // user calls compA (dependent); compA calls compB (dependency)
+    const sdIncoming = makeSeqDiagram(
+      "actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething(id: string)",
+    )
+    const sdOutgoing = makeSeqDiagram(
+      "component compA\ncomponent compB\ncompA ->> compB: IBaz:process(data: string)",
+    )
+    const root = makeRootWithCompBInterfaces([sdIncoming, sdOutgoing])
+    const result = buildComponentClassDiagram(getCompA(root), root)
+    // dependents section
+    expect(result.mermaidContent).toContain("user ..> IFoo")
+    // dependencies section
+    expect(result.mermaidContent).toContain("compA ..> IBaz")
+    expect(result.mermaidContent).toContain("compA ..> compB")
   })
 })

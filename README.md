@@ -396,7 +396,7 @@ Integra is a single-page web application that allows users to model software sys
 11. **Navigation** — highlighted tokens in the specification editor are clickable and navigate to the corresponding node in the tree; entities in the rendered Mermaid diagram are also clickable for the same purpose
 12. **Persistence** — system state is persisted to `localStorage` and restored on page load; a clear button resets to the initial state; Save / Load buttons use the File System Access API to read/write YAML files
 13. **Auto-generated use-case class diagram** — selecting a use-case node renders a class diagram in the bottom panel derived from all its sequence diagrams, showing actors, components, interfaces (with methods), and realization / dependency relationships
-14. **Auto-generated component class diagram** — selecting a component node renders a class diagram showing the component's interfaces (with method signatures from its stored spec) and all actors/components anywhere in the system that call those interfaces, connected with dependency arrows
+14. **Auto-generated component class diagram** — selecting a component node renders a class diagram showing the component's interfaces (with method signatures from its stored spec), all actors/components that call those interfaces (dependents), and all interfaces/components that this component calls out to (dependencies), with distinct colors for the subject component and its own interfaces
 
 ---
 
@@ -457,7 +457,7 @@ graph TD
 | `UseCaseDiagram` | Renders use-case-diagram spec via Mermaid; clickable entities |
 | `SequenceDiagram` | Renders sequence diagram spec via Mermaid; clickable participants and message labels |
 | `UseCaseClassDiagram` | Renders auto-generated class diagram for a use-case node; clickable classes |
-| `ComponentClassDiagram` | Renders auto-generated class diagram for a component node showing its interfaces and dependents; clickable classes |
+| `ComponentClassDiagram` | Renders auto-generated class diagram for a component node showing its interfaces and dependents (callers) and dependencies (outgoing calls to other components); clickable classes |
 | `DiagramErrorBanner` | Displays Mermaid render errors with the raw spec source |
 
 #### Hooks
@@ -525,28 +525,43 @@ When a `use-case` node is selected, `buildUseCaseClassDiagram()` (`src/utils/use
 
 When a `component` node is selected, `buildComponentClassDiagram()` (`src/utils/componentClassDiagram.ts`) reads the component's stored interface specifications and scans every sequence diagram in the entire system tree to produce a Mermaid `classDiagram`:
 
-- The component itself is shown as a class
-- Each of its interfaces (from `component.interfaces`) becomes a class with `<<interface>>` and all defined methods (including parameter types and optionality)
+- The **subject component** is highlighted with a blue tint (`:::subject`)
+- Each of its **own interfaces** (from `component.interfaces`) is shown with `<<interface>>` and all defined methods (including parameter types and optionality), also highlighted (`:::subjectInterface`)
 - `Component ..|> Interface` — realization arrow for each interface the component provides
-- `Caller ..> Interface` — dependency arrow for each external actor or component that calls the interface in any sequence diagram
-- Callers are disambiguated by verifying the message receiver resolves to the target component's UUID, so an interface ID shared by multiple components is handled correctly
+- **Dependents** (callers): `Caller ..> Interface` — dependency arrow for each external actor or component that calls the interface in any sequence diagram
+- **Dependencies** (outgoing calls): when this component sends messages to another component's interface in any sequence diagram:
+  - The called interface class (with methods from the receiver's spec) is shown in the diagram
+  - `ReceiverComp ..|> Interface` — shows which component implements that interface
+  - `ThisComp ..> Interface` — interface-level dependency arrow
+  - `ThisComp ..> ReceiverComp` — direct component-to-component dependency arrow
+- Callers and receivers are disambiguated by verifying UUIDs, so an interface ID shared by multiple components is handled correctly
 - Self-references (the component calling its own interface) are excluded
 - Click handlers navigate to the clicked node in the tree
-- If the component has no interfaces, an empty-state message is shown instead
 
-Example output for a component `orderSvc` with interface `OrdersAPI` that is called by `client`:
+Example output for `orderSvc` (provides `OrdersAPI`, called by `client`, depends on `paymentSvc.PaymentsAPI`):
 ```
 classDiagram
-    class orderSvc["Order Service"]:::component
-    class OrdersAPI {
+    classDef subject fill:#dbeafe,stroke:#2563eb,color:#1e3a5f
+    classDef subjectInterface fill:#eff6ff,stroke:#3b82f6,color:#1e3a5f
+    class orderSvc["Order Service"]:::subject
+    class OrdersAPI:::subjectInterface {
         <<interface>>
         +placeOrder(orderId: string, amount: number)
     }
     orderSvc ..|> OrdersAPI
     class client["Client"]:::component
     client ..> OrdersAPI
+    class PaymentsAPI {
+        <<interface>>
+        +charge(orderId: string, amount: number)
+    }
+    class paymentSvc["Payment Service"]:::component
+    paymentSvc ..|> PaymentsAPI
+    orderSvc ..> PaymentsAPI
+    orderSvc ..> paymentSvc
     click orderSvc call __integraNavigate("orderSvc")
     click client call __integraNavigate("client")
+    click paymentSvc call __integraNavigate("paymentSvc")
 ```
 
 #### Parsers (`src/parser/`)
