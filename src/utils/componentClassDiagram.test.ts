@@ -158,11 +158,11 @@ describe("buildComponentClassDiagram", () => {
   it("shows component and its interfaces even with no callers", () => {
     const root = makeRoot()
     const result = buildComponentClassDiagram(getCompA(root), root)
-    expect(result.mermaidContent).toContain('class compA["Component A"]:::subject')
-    expect(result.mermaidContent).toContain("class IFoo:::subjectInterface {")
+    expect(result.mermaidContent).toContain('class compA["Component A"]')
+    expect(result.mermaidContent).toContain("class IFoo {")
     expect(result.mermaidContent).toContain("<<interface>>")
     expect(result.mermaidContent).toContain("+doSomething(id: string)")
-    expect(result.mermaidContent).toContain("class IBar:::subjectInterface {")
+    expect(result.mermaidContent).toContain("class IBar {")
     expect(result.mermaidContent).toContain("+getAll(page: number?)")
   })
 
@@ -359,25 +359,36 @@ describe("buildComponentClassDiagram", () => {
     expect(result.mermaidContent).toContain("user ..> IBar")
   })
 
-  it("uses :::subject class for the subject component", () => {
+  it("uses style directive to highlight subject component in blue", () => {
     const root = makeRoot()
     const result = buildComponentClassDiagram(getCompA(root), root)
-    expect(result.mermaidContent).toContain('class compA["Component A"]:::subject')
-    expect(result.mermaidContent).not.toContain('class compA["Component A"]:::component')
+    expect(result.mermaidContent).toContain("style compA fill:#1d4ed8")
+    expect(result.mermaidContent).not.toContain(":::subject")
   })
 
-  it("emits classDef lines for subject and subjectInterface", () => {
+  it("emits style directives for subject and its own interfaces", () => {
     const root = makeRoot()
     const result = buildComponentClassDiagram(getCompA(root), root)
-    expect(result.mermaidContent).toContain("classDef subject fill:#dbeafe")
-    expect(result.mermaidContent).toContain("classDef subjectInterface fill:#eff6ff")
+    expect(result.mermaidContent).toContain("style compA fill:#1d4ed8,stroke:#1e3a5f,color:#ffffff")
+    expect(result.mermaidContent).toContain("style IFoo fill:#bfdbfe,stroke:#2563eb,color:#1e3a5f")
+    expect(result.mermaidContent).toContain("style IBar fill:#bfdbfe,stroke:#2563eb,color:#1e3a5f")
+  })
+
+  it("does not emit style directives for dependency interfaces (only own interfaces are highlighted)", () => {
+    const sd = makeSeqDiagram(
+      "component compA\ncomponent compB\ncompA ->> compB: IBaz:process(data: string)",
+    )
+    const root = makeRootWithCompBInterfaces([sd])
+    const result = buildComponentClassDiagram(getCompA(root), root)
+    // IBaz is a dependency interface — should NOT have subject styling
+    expect(result.mermaidContent).not.toContain("style IBaz")
   })
 
   it("applies :::subjectInterface to subject's own interfaces", () => {
     const root = makeRoot()
     const result = buildComponentClassDiagram(getCompA(root), root)
-    expect(result.mermaidContent).toContain("class IFoo:::subjectInterface {")
-    expect(result.mermaidContent).toContain("class IBar:::subjectInterface {")
+    expect(result.mermaidContent).toContain("style IFoo fill:#bfdbfe")
+    expect(result.mermaidContent).toContain("style IBar fill:#bfdbfe")
   })
 
   it("shows outgoing call to another component's interface as dependency", () => {
@@ -393,10 +404,9 @@ describe("buildComponentClassDiagram", () => {
     expect(result.mermaidContent).toContain("compB ..|> IBaz")
     // this component depends on interface
     expect(result.mermaidContent).toContain("compA ..> IBaz")
-    // direct component-to-component dependency arrow
-    expect(result.mermaidContent).toContain("compA ..> compB")
-    // receiver component class
-    expect(result.mermaidContent).toContain('class compB["Component B"]:::component')
+    // receiver component class shown for context/navigation but no redundant direct arrow
+    expect(result.mermaidContent).toContain('class compB["Component B"]')
+    expect(result.mermaidContent).not.toContain("compA ..> compB")
   })
 
   it("records receiver's uuid in idToUuid for navigation", () => {
@@ -448,6 +458,7 @@ describe("buildComponentClassDiagram", () => {
     expect(result.mermaidContent).toContain("user ..> IFoo")
     // dependencies section
     expect(result.mermaidContent).toContain("compA ..> IBaz")
-    expect(result.mermaidContent).toContain("compA ..> compB")
+    // no direct component arrow since interface arrow exists
+    expect(result.mermaidContent).not.toContain("compA ..> compB")
   })
 })

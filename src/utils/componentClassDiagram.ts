@@ -49,9 +49,8 @@ function registerParticipants(
   }
 }
 
-function emitInterfaceClass(iface: InterfaceSpecification, lines: string[], cssClass?: string): void {
-  const classTag = cssClass ? `:::${cssClass}` : ""
-  lines.push(`    class ${iface.id}${classTag} {`)
+function emitInterfaceClass(iface: InterfaceSpecification, lines: string[]): void {
+  lines.push(`    class ${iface.id} {`)
   lines.push(`        <<interface>>`)
   for (const fn of iface.functions) {
     const params = fn.parameters
@@ -139,15 +138,13 @@ export function buildComponentClassDiagram(
   }
 
   const lines: string[] = ["classDiagram"]
-  lines.push(`    classDef subject fill:#dbeafe,stroke:#2563eb,color:#1e3a5f`)
-  lines.push(`    classDef subjectInterface fill:#eff6ff,stroke:#3b82f6,color:#1e3a5f`)
 
   // ── Subject component ──────────────────────────────────────────────────────
-  lines.push(`    class ${component.id}["${component.name}"]:::subject`)
+  lines.push(`    class ${component.id}["${component.name}"]`)
 
   // ── Subject's own interfaces ───────────────────────────────────────────────
   for (const iface of component.interfaces ?? []) {
-    emitInterfaceClass(iface, lines, "subjectInterface")
+    emitInterfaceClass(iface, lines)
   }
   for (const iface of component.interfaces ?? []) {
     lines.push(`    ${component.id} ..|> ${iface.id}`)
@@ -172,17 +169,22 @@ export function buildComponentClassDiagram(
     const receiver = receiverParticipants.get(receiverUuid)!
     const receiverNode = findNode([rootComponent], receiverUuid) as ComponentNode | null
 
+    let hasInterfaceArrow = false
     for (const ifaceId of interfaceIds) {
       const ifaceSpec = receiverNode?.interfaces?.find((i) => i.id === ifaceId)
       if (ifaceSpec) {
         emitInterfaceClass(ifaceSpec, lines)
         lines.push(`    ${receiver.nodeId} ..|> ${ifaceId}`)
+        hasInterfaceArrow = true
       }
       lines.push(`    ${component.id} ..> ${ifaceId}`)
     }
 
-    lines.push(`    class ${receiver.nodeId}["${receiver.name}"]:::component`)
-    lines.push(`    ${component.id} ..> ${receiver.nodeId}`)
+    lines.push(`    class ${receiver.nodeId}["${receiver.name}"]`)
+    // Only draw a direct component arrow when no interface arrow already shows the relationship
+    if (!hasInterfaceArrow) {
+      lines.push(`    ${component.id} ..> ${receiver.nodeId}`)
+    }
   }
 
   // ── Click navigation ──────────────────────────────────────────────────────
@@ -195,6 +197,12 @@ export function buildComponentClassDiagram(
   }
   for (const nodeId of Object.keys(idToUuid)) {
     lines.push(`    click ${nodeId} call __integraNavigate("${nodeId}")`)
+  }
+
+  // ── Subject styling (applied after all nodes so style targets exist) ───────
+  lines.push(`    style ${component.id} fill:#1d4ed8,stroke:#1e3a5f,color:#ffffff`)
+  for (const iface of component.interfaces ?? []) {
+    lines.push(`    style ${iface.id} fill:#bfdbfe,stroke:#2563eb,color:#1e3a5f`)
   }
 
   return { mermaidContent: lines.join("\n"), idToUuid }
