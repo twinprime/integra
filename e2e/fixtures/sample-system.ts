@@ -47,7 +47,7 @@ const orderUcd: UseCaseDiagramNode = {
   type: "use-case-diagram",
   ownerComponentUuid: UUIDS.orderComp,
   referencedNodeIds: [UUIDS.actor, UUIDS.orderUc],
-  content: ["actor User", "use case PlaceOrder", "User --> PlaceOrder"].join("\n"),
+  content: ["actor User", "use case PlaceOrder", "User ->> PlaceOrder"].join("\n"),
   useCases: [orderUcNode],
 }
 
@@ -74,9 +74,9 @@ const seqDiagram: SequenceDiagramNode = {
     "actor User",
     "component AuthService",
     "component OrderService",
-    "User --> AuthService: IAuth:login()",
-    "AuthService --> User: done",
-    "User --> OrderService: UseCase:OrderService/PlaceOrder:Place an order",
+    "User ->> AuthService: IAuth:login()",
+    "AuthService -->> User: done",
+    "User ->> OrderService: UseCase:OrderService/PlaceOrder:Place an order",
   ].join("\n"),
 }
 
@@ -98,7 +98,7 @@ const ucDiagram: UseCaseDiagramNode = {
   content: [
     "actor User",
     "use case Login",
-    "User --> Login",
+    "User ->> Login",
   ].join("\n"),
   useCases: [ucNode],
 }

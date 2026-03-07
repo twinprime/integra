@@ -53,7 +53,7 @@ test.describe("node ID rename", () => {
 
     const diagramEditor = page.getByLabel("Specification")
     await expect(diagramEditor).toContainText("actor Customer")
-    await expect(diagramEditor).toContainText("Customer --> AuthService")
+    await expect(diagramEditor).toContainText("Customer ->> AuthService")
     await expect(diagramEditor).not.toContainText("actor User")
   })
 
