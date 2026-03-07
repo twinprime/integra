@@ -40,7 +40,7 @@ export function generateUseCaseMermaidFromAst(
 ): { mermaidContent: string; idToUuid: Record<string, string> } {
   const idToUuid: Record<string, string> = {}
 
-  let mermaidContent = "graph TD\n"
+  let mermaidContent = "graph LR\n"
 
   for (const decl of ast.declarations) {
     const uuid = ownerComp
@@ -79,7 +79,7 @@ export function generateUseCaseMermaid(
 ): { mermaidContent: string; idToUuid: Record<string, string> } {
   const { cst, lexErrors } = parseUseCaseDiagramCst(content)
   if (lexErrors.length) {
-    return { mermaidContent: "graph TD\n", idToUuid: {} }
+    return { mermaidContent: "graph LR\n", idToUuid: {} }
   }
   const ast = buildUcdAst(cst)
   return generateUseCaseMermaidFromAst(ast, ownerComp, root)
