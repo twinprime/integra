@@ -27,13 +27,13 @@ describe("use case diagram lexer", () => {
   })
 
   it("tokenises a link", () => {
-    const { errors, tokens } = UcdLexer.tokenize("user --> login")
+    const { errors, tokens } = UcdLexer.tokenize("user ->> login")
     expect(errors).toHaveLength(0)
     expect(tokens.map((t) => t.tokenType.name)).toEqual(["Identifier", "Arrow", "Identifier"])
   })
 
   it("produces no errors for multi-line input", () => {
-    const input = "actor user\nuse case login\nuser --> login"
+    const input = "actor user\nuse case login\nuser ->> login"
     expect(UcdLexer.tokenize(input).errors).toHaveLength(0)
   })
 })
@@ -79,14 +79,14 @@ describe("use case diagram parser — declarations", () => {
 
 describe("use case diagram parser — links", () => {
   it("parses a link between actor and use case", () => {
-    const { ast, parseErrors } = parse("actor user\nuse case login\nuser --> login")
+    const { ast, parseErrors } = parse("actor user\nuse case login\nuser ->> login")
     expect(parseErrors).toHaveLength(0)
     expect(ast.links).toHaveLength(1)
     expect(ast.links[0]).toMatchObject({ from: "user", to: "login" })
   })
 
   it("parses multiple links", () => {
-    const { ast } = parse("user --> login\nuser --> register")
+    const { ast } = parse("user ->> login\nuser ->> register")
     expect(ast.links).toHaveLength(2)
     expect(ast.links[1]).toMatchObject({ from: "user", to: "register" })
   })
@@ -98,9 +98,9 @@ describe("use case diagram parser — mixed content", () => {
 use case login
 use case register
 component auth
-user --> login
-user --> register
-login --> auth`
+user ->> login
+user ->> register
+login ->> auth`
     const { ast, lexErrors, parseErrors } = parse(input)
     expect(lexErrors).toHaveLength(0)
     expect(parseErrors).toHaveLength(0)

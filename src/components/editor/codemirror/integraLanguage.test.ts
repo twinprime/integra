@@ -73,9 +73,9 @@ describe("buildAnnotations — sequence diagram", () => {
     expect(idEntries.length).toBeGreaterThan(0)
   })
 
-  it("highlights arrow (-->) with operator class", () => {
+  it("highlights arrow (->>)  with operator class", () => {
     const anns = buildAnnotations(
-      "sender --> receiver: SomeLabel",
+      "sender ->> receiver: SomeLabel",
       makeCtx("sequence-diagram", makeRoot()),
     )
     const opEntry = anns.find((a) => a.cls === CLS.operator && a.to - a.from > 1)
@@ -84,7 +84,7 @@ describe("buildAnnotations — sequence diagram", () => {
 
   it("highlights InterfaceId:FunctionId with function class", () => {
     const anns = buildAnnotations(
-      "sender --> receiver: IFace:doThing(x: string)",
+      "sender ->> receiver: IFace:doThing(x: string)",
       makeCtx("sequence-diagram", makeRoot()),
     )
     const fnEntry = anns.find((a) => a.cls === CLS.function)
@@ -93,7 +93,7 @@ describe("buildAnnotations — sequence diagram", () => {
 
   it("highlights UseCase:ucId with function class", () => {
     const anns = buildAnnotations(
-      "sender --> receiver: UseCase:login()",
+      "sender ->> receiver: UseCase:login()",
       makeCtx("sequence-diagram", makeRoot()),
     )
     const fnEntry = anns.find((a) => a.cls === CLS.function)
@@ -140,7 +140,7 @@ describe("buildAnnotations — use-case diagram", () => {
 
   it("highlights arrow in relation line with operator class", () => {
     const anns = buildAnnotations(
-      "user --> login",
+      "user ->> login",
       makeCtx("use-case-diagram", makeRoot()),
     )
     const opEntry = anns.find((a) => a.cls === CLS.operator)

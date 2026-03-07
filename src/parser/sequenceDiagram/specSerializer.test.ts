@@ -31,22 +31,22 @@ describe("seqAstToSpec — round-trip", () => {
   })
 
   it("round-trips a plain message", () => {
-    expect(roundTrip("a --> b: some label")).toBe("a --> b: some label")
+    expect(roundTrip("a ->> b: some label")).toBe("a ->> b: some label")
   })
 
   it("round-trips a function-ref message", () => {
-    expect(roundTrip("a --> b: REST:getUser(id: string)")).toBe("a --> b: REST:getUser(id: string)")
+    expect(roundTrip("a ->> b: REST:getUser(id: string)")).toBe("a ->> b: REST:getUser(id: string)")
   })
 
   it("round-trips a UseCase-ref message", () => {
-    expect(roundTrip("a --> b: UseCase:root/orders/placeOrder")).toBe(
-      "a --> b: UseCase:root/orders/placeOrder",
+    expect(roundTrip("a ->> b: UseCase:root/orders/placeOrder")).toBe(
+      "a ->> b: UseCase:root/orders/placeOrder",
     )
   })
 
   it("round-trips a UseCase-ref message with custom label", () => {
-    expect(roundTrip("a --> b: UseCase:placeOrder:Place an Order")).toBe(
-      "a --> b: UseCase:placeOrder:Place an Order",
+    expect(roundTrip("a ->> b: UseCase:placeOrder:Place an Order")).toBe(
+      "a ->> b: UseCase:placeOrder:Place an Order",
     )
   })
 
@@ -107,53 +107,53 @@ describe("renameInSeqSpec — declaration", () => {
 
 describe("renameInSeqSpec — messages", () => {
   it("renames message sender", () => {
-    expect(renameInSeqSpec("actor login\nlogin --> server: call", "login", "signIn")).toBe(
-      "actor signIn\nsignIn --> server: call",
+    expect(renameInSeqSpec("actor login\nlogin ->> server: call", "login", "signIn")).toBe(
+      "actor signIn\nsignIn ->> server: call",
     )
   })
 
   it("renames message receiver", () => {
-    expect(renameInSeqSpec("actor a\na --> login: call", "login", "signIn")).toBe(
-      "actor a\na --> signIn: call",
+    expect(renameInSeqSpec("actor a\na ->> login: call", "login", "signIn")).toBe(
+      "actor a\na ->> signIn: call",
     )
   })
 
   it("renames interface ID in function-ref message", () => {
-    expect(renameInSeqSpec("a --> b: OrdersAPI:place(id: string)", "OrdersAPI", "OrdersV2")).toBe(
-      "a --> b: OrdersV2:place(id: string)",
+    expect(renameInSeqSpec("a ->> b: OrdersAPI:place(id: string)", "OrdersAPI", "OrdersV2")).toBe(
+      "a ->> b: OrdersV2:place(id: string)",
     )
   })
 
   it("renames function ID in function-ref message", () => {
-    expect(renameInSeqSpec("a --> b: REST:getUser(id: string)", "getUser", "fetchUser")).toBe(
-      "a --> b: REST:fetchUser(id: string)",
+    expect(renameInSeqSpec("a ->> b: REST:getUser(id: string)", "getUser", "fetchUser")).toBe(
+      "a ->> b: REST:fetchUser(id: string)",
     )
   })
 
   it("renames a segment in UseCase path reference", () => {
     expect(
       renameInSeqSpec(
-        "a --> b: UseCase:root/recorder/rec_stream",
+        "a ->> b: UseCase:root/recorder/rec_stream",
         "recorder",
         "media_recorder",
       ),
-    ).toBe("a --> b: UseCase:root/media_recorder/rec_stream")
+    ).toBe("a ->> b: UseCase:root/media_recorder/rec_stream")
   })
 
   it("renames the use case ID in a UseCase path reference", () => {
-    expect(renameInSeqSpec("a --> b: UseCase:placeOrder", "placeOrder", "createOrder")).toBe(
-      "a --> b: UseCase:createOrder",
+    expect(renameInSeqSpec("a ->> b: UseCase:placeOrder", "placeOrder", "createOrder")).toBe(
+      "a ->> b: UseCase:createOrder",
     )
   })
 
   it("renames a UseCase path reference with custom label without touching the label text", () => {
     expect(
       renameInSeqSpec(
-        "a --> b: UseCase:root/orders/placeOrder:Place an order",
+        "a ->> b: UseCase:root/orders/placeOrder:Place an order",
         "placeOrder",
         "createOrder",
       ),
-    ).toBe("a --> b: UseCase:root/orders/createOrder:Place an order")
+    ).toBe("a ->> b: UseCase:root/orders/createOrder:Place an order")
   })
 })
 
@@ -185,44 +185,44 @@ describe("renameInSeqSpec — notes", () => {
 
 describe("renameInSeqSpec — hyphen safety (was broken with \\b regex)", () => {
   it("does NOT rename a prefix when hyphenated sibling exists", () => {
-    const spec = "component api\ncomponent api-gateway\napi --> api-gateway: REST:call()"
+    const spec = "component api\ncomponent api-gateway\napi ->> api-gateway: REST:call()"
     const result = renameInSeqSpec(spec, "api", "service")
     expect(result).toContain("component service")
     expect(result).toContain("component api-gateway")
-    expect(result).toContain("service --> api-gateway")
+    expect(result).toContain("service ->> api-gateway")
   })
 
   it("correctly renames a hyphenated ID itself", () => {
     const result = renameInSeqSpec(
-      "component api-gateway\napi-gateway --> svc: REST:get()",
+      "component api-gateway\napi-gateway ->> svc: REST:get()",
       "api-gateway",
       "gateway",
     )
     expect(result).toContain("component gateway")
-    expect(result).toContain("gateway --> svc")
+    expect(result).toContain("gateway ->> svc")
   })
 
   it("does not affect a message arrow that looks similar (login-->)", () => {
     const result = renameInSeqSpec(
-      "actor login\nlogin --> server: REST:auth()",
+      "actor login\nlogin ->> server: REST:auth()",
       "login",
       "signIn",
     )
-    expect(result).toBe("actor signIn\nsignIn --> server: REST:auth()")
+    expect(result).toBe("actor signIn\nsignIn ->> server: REST:auth()")
   })
 })
 
 describe("renameInSeqSpec — no false positives", () => {
   it("does not rename partial match inside longer id", () => {
     // 'place' must not rename 'placeOrder'
-    const spec = "actor placeOrder\nplaceOrder --> svc: REST:call()"
+    const spec = "actor placeOrder\nplaceOrder ->> svc: REST:call()"
     expect(renameInSeqSpec(spec, "place", "create")).toBe(spec)
   })
 
   it("does not rename inside a plain label text", () => {
     // Plain label text is not parsed as a semantic reference — stored verbatim in AST
     // (label property). Since we do not touch label content, it is preserved unchanged.
-    const spec = "actor a\na --> b: go to login now"
+    const spec = "actor a\na ->> b: go to login now"
     expect(renameInSeqSpec(spec, "login", "signIn")).toBe(spec)
   })
 })

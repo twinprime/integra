@@ -35,8 +35,8 @@ describe("ucdAstToSpec — round-trip", () => {
   })
 
   it("round-trips a link", () => {
-    expect(roundTrip("actor user\nuse case login\nuser --> login")).toBe(
-      "actor user\nuse case login\nuser --> login",
+    expect(roundTrip("actor user\nuse case login\nuser ->> login")).toBe(
+      "actor user\nuse case login\nuser ->> login",
     )
   })
 
@@ -78,40 +78,40 @@ describe("renameInUcdSpec — declarations", () => {
 describe("renameInUcdSpec — links", () => {
   it("renames the from side of a link", () => {
     expect(
-      renameInUcdSpec("actor login\nuse case uc\nlogin --> uc", "login", "signIn"),
-    ).toBe("actor signIn\nuse case uc\nsignIn --> uc")
+      renameInUcdSpec("actor login\nuse case uc\nlogin ->> uc", "login", "signIn"),
+    ).toBe("actor signIn\nuse case uc\nsignIn ->> uc")
   })
 
   it("renames the to side of a link", () => {
     expect(
-      renameInUcdSpec("actor user\nuse case placeOrder\nuser --> placeOrder", "placeOrder", "createOrder"),
-    ).toBe("actor user\nuse case createOrder\nuser --> createOrder")
+      renameInUcdSpec("actor user\nuse case placeOrder\nuser ->> placeOrder", "placeOrder", "createOrder"),
+    ).toBe("actor user\nuse case createOrder\nuser ->> createOrder")
   })
 })
 
 describe("renameInUcdSpec — hyphen safety", () => {
   it("does NOT corrupt a hyphenated ID when renaming a prefix", () => {
-    const spec = "actor api\ncomponent api-service\napi --> api-service"
+    const spec = "actor api\ncomponent api-service\napi ->> api-service"
     const result = renameInUcdSpec(spec, "api", "gateway")
     expect(result).toContain("actor gateway")
     expect(result).toContain("component api-service")
-    expect(result).toContain("gateway --> api-service")
+    expect(result).toContain("gateway ->> api-service")
   })
 
   it("correctly renames a hyphenated ID itself", () => {
     const result = renameInUcdSpec(
-      "actor api-user\nuse case uc\napi-user --> uc",
+      "actor api-user\nuse case uc\napi-user ->> uc",
       "api-user",
       "customer",
     )
     expect(result).toContain("actor customer")
-    expect(result).toContain("customer --> uc")
+    expect(result).toContain("customer ->> uc")
   })
 })
 
 describe("renameInUcdSpec — no false positives", () => {
   it("does not rename a partial match inside a longer id", () => {
-    const spec = "use case placeOrder\nactor user\nuser --> placeOrder"
+    const spec = "use case placeOrder\nactor user\nuser ->> placeOrder"
     expect(renameInUcdSpec(spec, "place", "create")).toBe(spec)
   })
 })

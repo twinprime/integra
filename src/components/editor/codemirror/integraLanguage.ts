@@ -73,6 +73,7 @@ const TOKEN_CLASS: Record<string, string> = {
   End:       CLS.keyword,
   Identifier: CLS.identifier,
   Arrow:     CLS.operator,
+  SeqArrow:  CLS.operator,
   Colon:     CLS.operator,
   SeqColon:  CLS.operator,
   Comma:     CLS.operator,

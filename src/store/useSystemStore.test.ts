@@ -218,7 +218,7 @@ describe("useSystemStore", () => {
       // Update diagram content
       act(() => {
         result.current.updateNode("diagram-uuid", {
-          content: `actor user\nuse case login\nuser --> login`,
+          content: `actor user\nuse case login\nuser ->> login`,
         })
       })
 
@@ -480,7 +480,7 @@ describe("useSystemStore", () => {
       // First parse: define fn(x: string)
       act(() => {
         result.current.updateNode("seq-uuid", {
-          content: `component comp\ncomp --> comp: myInterface:doWork(x: string)`,
+          content: `component comp\ncomp ->> comp: myInterface:doWork(x: string)`,
         })
       })
       expect(result.current.parseError).toBeNull()
@@ -494,7 +494,7 @@ describe("useSystemStore", () => {
       // Second parse: update same fn to fn(x: string, y: number) — should not error
       act(() => {
         result.current.updateNode("seq-uuid", {
-          content: `component comp\ncomp --> comp: myInterface:doWork(x: string, y: number)`,
+          content: `component comp\ncomp ->> comp: myInterface:doWork(x: string, y: number)`,
         })
       })
       expect(result.current.parseError).toBeNull()
@@ -573,7 +573,7 @@ describe("useSystemStore", () => {
                       id: "seq2",
                       name: "Other Diagram",
                       type: "sequence-diagram",
-                      content: "component a\ncomponent b\na --> b: API:fn(id: number)",
+                      content: "component a\ncomponent b\na ->> b: API:fn(id: number)",
                       ownerComponentUuid: "comp-uuid",
                       referencedNodeIds: [],
                       referencedFunctionUuids: [FN_UUID],
@@ -612,7 +612,7 @@ describe("useSystemStore", () => {
         result.current.applyFunctionUpdates(
           [decision],
           CURRENT_DIAG,
-          "component a\ncomponent b\na --> b: API:fn(id: string)",
+          "component a\ncomponent b\na ->> b: API:fn(id: string)",
         )
       })
 
@@ -653,7 +653,7 @@ describe("useSystemStore", () => {
         result.current.applyFunctionUpdates(
           [decision],
           CURRENT_DIAG,
-          "component a\ncomponent b\na --> b: API:fn(id: number, name: string)",
+          "component a\ncomponent b\na ->> b: API:fn(id: number, name: string)",
         )
       })
 
@@ -693,7 +693,7 @@ describe("useSystemStore", () => {
         result.current.applyFunctionUpdates(
           [decision],
           CURRENT_DIAG,
-          "component a\ncomponent b\na --> b: API:fn(id: number, name: string)",
+          "component a\ncomponent b\na ->> b: API:fn(id: number, name: string)",
         )
       })
 

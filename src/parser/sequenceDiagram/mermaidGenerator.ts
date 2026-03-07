@@ -141,7 +141,7 @@ function emitStatements(
         const mermaidLabel = `${interfaceId}:${functionId}(${rawParams})`
         const compUuid = findComponentByInterfaceId(root, interfaceId)
         if (compUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = compUuid
-        out += `${indent}${fromId}->>${toId}: ${mermaidLabel}\n`
+        out += `${indent}${fromId}${msg.arrow}${toId}: ${mermaidLabel}\n`
       } else if (msg.useCaseRef) {
         const { path, label: customLabel } = msg.useCaseRef
         const ucId = path[path.length - 1]
@@ -152,11 +152,11 @@ function emitStatements(
         const displayLabel = customLabel ?? ucNode?.name ?? ucId
         const renderedLabel = escapeLabel(displayLabel)
         if (ucUuid && !messageLabelToUuid[renderedLabel]) messageLabelToUuid[renderedLabel] = ucUuid
-        out += `${indent}${fromId}->>${toId}: ${renderedLabel}\n`
+        out += `${indent}${fromId}${msg.arrow}${toId}: ${renderedLabel}\n`
       } else if (msg.label) {
-        out += `${indent}${fromId}->>${toId}: ${escapeLabel(msg.label)}\n`
+        out += `${indent}${fromId}${msg.arrow}${toId}: ${escapeLabel(msg.label)}\n`
       } else {
-        out += `${indent}${fromId}->>${toId}\n`
+        out += `${indent}${fromId}${msg.arrow}${toId}\n`
       }
     }
   }

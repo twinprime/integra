@@ -22,11 +22,11 @@
 import { CstParser } from "chevrotain"
 import {
   Actor, Component, As, Note, Right, Left, Of, Over,
-  Arrow, Slash, Comma, Newline, Identifier, NumberToken,
+  Slash, Comma, Newline, Identifier, NumberToken,
 } from "../tokens"
 import {
   FunctionRef, UseCaseRef, LabelText, SeqLexer, SeqColon, allSeqTokens,
-  Loop, Alt, Par, Opt, Else, And, End, BlockConditionText,
+  SeqArrow, Loop, Alt, Par, Opt, Else, And, End, BlockConditionText,
 } from "./lexer"
 
 export class SequenceDiagramParser extends CstParser {
@@ -133,7 +133,7 @@ export class SequenceDiagramParser extends CstParser {
 
   seqMessage = this.RULE("seqMessage", () => {
     this.SUBRULE(this.participantRef)
-    this.CONSUME(Arrow)
+    this.CONSUME(SeqArrow)
     this.SUBRULE2(this.participantRef)
     this.OPTION(() => {
       this.CONSUME(SeqColon)
@@ -213,4 +213,4 @@ export {
   Actor, Component, As, Note, Right, Left, Of, Over,
   Arrow, Slash, Comma, Newline, Identifier, NumberToken,
 } from "../tokens"
-export { FunctionRef, UseCaseRef, LabelText, SeqColon, Loop, Alt, Par, Opt, Else, And, End, BlockConditionText } from "./lexer"
+export { FunctionRef, UseCaseRef, LabelText, SeqColon, SeqArrow, Loop, Alt, Par, Opt, Else, And, End, BlockConditionText } from "./lexer"

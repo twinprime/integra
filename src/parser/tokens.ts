@@ -20,7 +20,7 @@ export const Over = createToken({ name: "Over", pattern: /over/, longer_alt: und
 
 // ─── Structural tokens ────────────────────────────────────────────────────────
 
-export const Arrow = createToken({ name: "Arrow", pattern: /-->/ })
+export const Arrow = createToken({ name: "Arrow", pattern: /->>/  })
 export const Slash = createToken({ name: "Slash", pattern: /\// })
 export const Colon = createToken({ name: "Colon", pattern: /:/ })
 export const Comma = createToken({ name: "Comma", pattern: /,/ })
@@ -66,7 +66,7 @@ export const WhiteSpace = createToken({
 export const sharedTokens = [
   WhiteSpace,
   Newline,
-  Arrow,      // --> must come before Slash and Identifier
+  Arrow,      // ->> must come before Slash and Identifier
   Actor,
   Component,
   Use,

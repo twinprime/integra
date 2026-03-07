@@ -22,6 +22,8 @@ export interface SeqDeclaration {
 export interface SeqMessage {
   from: string
   to: string
+  /** The arrow type as written in the DSL (e.g. `->>`, `-->>`, `->`, `-->`, `-x`, `--x`, `-)`, `--)`). Maps 1:1 to Mermaid sequence diagram arrow syntax. */
+  arrow: string
   /** Populated when the label matches FUNCTION_REF */
   functionRef: { interfaceId: string; functionId: string; rawParams: string } | null
   /**
@@ -138,6 +140,7 @@ class SequenceDiagramVisitor extends BaseVisitor {
     const [fromRef, toRef] = ctx.participantRef as never[]
     const from = this.visit(fromRef) as string
     const to = this.visit(toRef) as string
+    const arrow = (ctx.SeqArrow as { image: string }[])[0].image
 
     if ((ctx.FunctionRef ?? []).length > 0) {
       const raw = (ctx.FunctionRef as { image: string }[])[0].image
@@ -145,7 +148,7 @@ class SequenceDiagramVisitor extends BaseVisitor {
       const match = raw.match(/^([A-Za-z_]\w*):([A-Za-z_]\w*)\(([^)]*)\)$/)
       if (match) {
         return {
-          from, to,
+          from, to, arrow,
           functionRef: { interfaceId: match[1], functionId: match[2], rawParams: match[3] },
           useCaseRef: null,
           label: null,
@@ -161,12 +164,12 @@ class SequenceDiagramVisitor extends BaseVisitor {
       const pathStr = secondColonIdx === -1 ? withoutPrefix : withoutPrefix.slice(0, secondColonIdx)
       const label = secondColonIdx === -1 ? null : withoutPrefix.slice(secondColonIdx + 1) || null
       const path = pathStr.split("/")
-      return { from, to, functionRef: null, useCaseRef: { path, label }, label: null }
+      return { from, to, arrow, functionRef: null, useCaseRef: { path, label }, label: null }
     }
 
     const rawLabel = (ctx.LabelText as { image: string }[] | undefined)?.[0]?.image ?? null
     return {
-      from, to,
+      from, to, arrow,
       functionRef: null,
       useCaseRef: null,
       label: rawLabel ? rawLabel.replace(/\\n/g, "\n") : null,

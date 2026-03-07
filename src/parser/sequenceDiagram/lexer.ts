@@ -10,7 +10,7 @@
  * text_mode and block_header_mode both pop back to default_mode on NEWLINE.
  */
 import { createToken, Lexer } from "chevrotain"
-import { sharedTokens, Colon as SharedColon, Newline, WhiteSpace, Identifier } from "../tokens"
+import { sharedTokens, Colon as SharedColon, Arrow as SharedArrow, Newline, WhiteSpace, Identifier } from "../tokens"
 
 // ─── Label / note text tokens (only in text_mode) ─────────────────────────────
 
@@ -66,6 +66,26 @@ export const SeqColon = createToken({
 // ─── Block keywords (sequence-diagram-specific) ───────────────────────────────
 
 /**
+ * Covers all 8 Mermaid sequence diagram arrow types. Longer patterns come
+ * first to prevent prefix matches (e.g. -->> before -->).
+ *
+ * | Arrow | Mermaid meaning                        |
+ * |-------|----------------------------------------|
+ * | ->>   | Solid line, arrowhead (sync call)      |
+ * | -->>  | Dotted line, arrowhead (reply/async)   |
+ * | ->    | Solid line, no arrowhead               |
+ * | -->   | Dotted line, no arrowhead              |
+ * | -x    | Solid line, X (destroy)                |
+ * | --x   | Dotted line, X                         |
+ * | -)    | Solid line, open arrowhead (async)     |
+ * | --)   | Dotted line, open arrowhead            |
+ */
+export const SeqArrow = createToken({
+  name: "SeqArrow",
+  pattern: /-->>|--x|--\)|-->|->>|-x|-\)|->/ ,
+})
+
+/**
  * Block keywords must be listed BEFORE Identifier so the lexer gives them
  * priority. loop/alt/par/opt/else/and push block_header_mode to capture
  * optional condition text. end stays in default_mode (no condition text).
@@ -97,15 +117,17 @@ const BlockNewlineExit = createToken({
 
 // ─── Lexer definition ─────────────────────────────────────────────────────────
 
-// Shared tokens with Colon replaced by SeqColon
-const sharedWithSeqColon = sharedTokens.map((t) => (t === SharedColon ? SeqColon : t))
+// Shared tokens with Colon replaced by SeqColon, and Arrow replaced by SeqArrow
+const sharedWithSeqTokens = sharedTokens
+  .map((t) => (t === SharedColon ? SeqColon : t))
+  .map((t) => (t === SharedArrow ? SeqArrow : t))
 
 // Insert block keywords before Identifier (so they have lexer priority)
-const identifierIdx = sharedWithSeqColon.indexOf(Identifier)
+const identifierIdx = sharedWithSeqTokens.indexOf(Identifier)
 const defaultModeTokens = [
-  ...sharedWithSeqColon.slice(0, identifierIdx),
+  ...sharedWithSeqTokens.slice(0, identifierIdx),
   Loop, Alt, Par, Opt, Else, And, End,
-  ...sharedWithSeqColon.slice(identifierIdx),
+  ...sharedWithSeqTokens.slice(identifierIdx),
 ]
 
 export const seqLexerDefinition = {

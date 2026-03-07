@@ -20,7 +20,7 @@ function serializeDeclaration(decl: UcdDeclaration): string {
 }
 
 function serializeLink(link: UcdLink): string {
-  return `${link.from} --> ${link.to}`
+  return `${link.from} ->> ${link.to}`
 }
 
 /** Serialize a UcdAst back to DSL spec text. */

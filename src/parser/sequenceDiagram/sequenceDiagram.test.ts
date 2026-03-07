@@ -5,6 +5,8 @@ import { describe, it, expect } from "vitest"
 import { SeqLexer } from "./lexer"
 import { parseSequenceDiagramCst } from "./parser"
 import { buildSeqAst } from "./visitor"
+import { seqAstToSpec } from "./specSerializer"
+import { generateSequenceMermaidFromAst } from "./mermaidGenerator"
 
 import type { SeqMessage, SeqNote, SeqBlock } from "./visitor"
 
@@ -28,13 +30,13 @@ describe("sequence diagram lexer", () => {
   })
 
   it("tokenises an arrow line", () => {
-    const { errors, tokens } = SeqLexer.tokenize("a --> b")
+    const { errors, tokens } = SeqLexer.tokenize("a ->> b")
     expect(errors).toHaveLength(0)
-    expect(tokens.map((t) => t.tokenType.name)).toEqual(["Identifier", "Arrow", "Identifier"])
+    expect(tokens.map((t) => t.tokenType.name)).toEqual(["Identifier", "SeqArrow", "Identifier"])
   })
 
   it("tokenises a function-ref label into FunctionRef token", () => {
-    const { errors, tokens } = SeqLexer.tokenize("a --> b: IFace:fn(x: string)")
+    const { errors, tokens } = SeqLexer.tokenize("a ->> b: IFace:fn(x: string)")
     expect(errors).toHaveLength(0)
     const names = tokens.map((t) => t.tokenType.name)
     expect(names).toContain("FunctionRef")
@@ -42,7 +44,7 @@ describe("sequence diagram lexer", () => {
   })
 
   it("tokenises a plain-text label into LabelText token", () => {
-    const { errors, tokens } = SeqLexer.tokenize("a --> b: do something")
+    const { errors, tokens } = SeqLexer.tokenize("a ->> b: do something")
     expect(errors).toHaveLength(0)
     const names = tokens.map((t) => t.tokenType.name)
     expect(names).toContain("LabelText")
@@ -50,7 +52,7 @@ describe("sequence diagram lexer", () => {
   })
 
   it("produces no errors for multi-line input", () => {
-    const input = "actor user\ncomponent svc\nuser --> svc: IFace:doWork()"
+    const input = "actor user\ncomponent svc\nuser ->> svc: IFace:doWork()"
     expect(SeqLexer.tokenize(input).errors).toHaveLength(0)
   })
 })
@@ -92,19 +94,19 @@ describe("sequence diagram parser — declarations", () => {
 
 describe("sequence diagram parser — messages", () => {
   it("parses a message without a label", () => {
-    const { ast, parseErrors } = parse("actor a\nactor b\na --> b")
+    const { ast, parseErrors } = parse("actor a\nactor b\na ->> b")
     expect(parseErrors).toHaveLength(0)
     expect(ast.messages).toHaveLength(1)
-    expect(ast.messages[0]).toMatchObject({ from: "a", to: "b", functionRef: null, label: null })
+    expect(ast.messages[0]).toMatchObject({ from: "a", to: "b", arrow: "->>", functionRef: null, label: null })
   })
 
   it("parses a message with a plain-text label", () => {
-    const { ast } = parse("a --> b: view running simulations")
+    const { ast } = parse("a ->> b: view running simulations")
     expect(ast.messages[0]).toMatchObject({ from: "a", to: "b", label: "view running simulations", functionRef: null })
   })
 
   it("parses a message with a function-ref label", () => {
-    const { ast } = parse("a --> b: IFace:doWork(x: string)")
+    const { ast } = parse("a ->> b: IFace:doWork(x: string)")
     expect(ast.messages[0]).toMatchObject({
       from: "a", to: "b",
       functionRef: { interfaceId: "IFace", functionId: "doWork", rawParams: "x: string" },
@@ -113,28 +115,28 @@ describe("sequence diagram parser — messages", () => {
   })
 
   it("parses a function ref with no parameters", () => {
-    const { ast } = parse("a --> b: IFace:trigger()")
+    const { ast } = parse("a ->> b: IFace:trigger()")
     expect(ast.messages[0].functionRef).toMatchObject({ interfaceId: "IFace", functionId: "trigger", rawParams: "" })
   })
 
   it("parses a function ref with multiple parameters", () => {
-    const { ast } = parse("a --> b: IFace:fn(x: string, y: number)")
+    const { ast } = parse("a ->> b: IFace:fn(x: string, y: number)")
     expect(ast.messages[0].functionRef?.rawParams).toBe("x: string, y: number")
   })
 
   it("parses a self-referencing message", () => {
-    const { ast } = parse("a --> a: IFace:fn()")
+    const { ast } = parse("a ->> a: IFace:fn()")
     expect(ast.messages[0]).toMatchObject({ from: "a", to: "a" })
   })
 
   it("handles multiple messages after declarations", () => {
     const input = `actor sim_leader
 component fts
-sim_leader --> fts: view running simulations
-sim_leader --> fts: cancel simulation
+sim_leader ->> fts: view running simulations
+sim_leader ->> fts: cancel simulation
 component adict
-fts --> adict: EventRecording:dataStreamTerminated(topic: String)
-adict --> adict: stop event recording and remove recorded data`
+fts ->> adict: EventRecording:dataStreamTerminated(topic: String)
+adict ->> adict: stop event recording and remove recorded data`
     const { ast, lexErrors, parseErrors } = parse(input)
     expect(lexErrors).toHaveLength(0)
     expect(parseErrors).toHaveLength(0)
@@ -177,21 +179,60 @@ describe("sequence diagram parser — notes", () => {
 
 describe("sequence diagram parser — label escapes", () => {
   it("replaces \\n with newline in plain-text labels", () => {
-    const { ast } = parse("a --> b: first\\nsecond")
+    const { ast } = parse("a ->> b: first\\nsecond")
     expect(ast.messages[0].label).toBe("first\nsecond")
+  })
+})
+
+describe("sequence diagram parser — arrow types", () => {
+  const arrowCases: [string, string][] = [
+    ["->>",  "solid arrowhead (sync)"],
+    ["-->>", "dotted arrowhead (async reply)"],
+    ["->",   "solid, no arrowhead"],
+    ["-->",  "dotted, no arrowhead"],
+    ["-x",   "solid X (destroy)"],
+    ["--x",  "dotted X"],
+    ["-)  ", "solid open arrowhead"],
+    ["--) ", "dotted open arrowhead"],
+  ]
+
+  for (const [arrow] of arrowCases) {
+    it(`parses arrow "${arrow.trim()}"`, () => {
+      const trimmed = arrow.trim()
+      const { ast, lexErrors, parseErrors } = parse(`actor a\nactor b\na ${trimmed} b`)
+      expect(lexErrors).toHaveLength(0)
+      expect(parseErrors).toHaveLength(0)
+      expect(ast.messages[0].arrow).toBe(trimmed)
+    })
+  }
+
+  it("round-trips -->> (async reply) through spec serializer", () => {
+    const { cst } = parseSequenceDiagramCst("actor a\nactor b\na -->> b: reply")
+    const ast = buildSeqAst(cst)
+    const spec = seqAstToSpec(ast)
+    expect(spec).toContain("a -->> b: reply")
+  })
+
+  it("emits -->> arrow in mermaid output", () => {
+    const owner = { uuid: "o", id: "owner", name: "owner", type: "component" as const, actors: [], subComponents: [], useCaseDiagrams: [], interfaces: [] }
+    const root = { ...owner, uuid: "r", id: "root", subComponents: [owner] }
+    const { cst } = parseSequenceDiagramCst("actor a\nactor b\na -->> b: reply")
+    const ast = buildSeqAst(cst)
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain("a-->>b: reply")
   })
 })
 
 describe("sequence diagram parser — multi-word participants", () => {
   it("parses a message with multi-word receiver", () => {
-    const { ast, lexErrors, parseErrors } = parse("fts --> Output Topics: Initial AIP data")
+    const { ast, lexErrors, parseErrors } = parse("fts ->> Output Topics: Initial AIP data")
     expect(lexErrors).toHaveLength(0)
     expect(parseErrors).toHaveLength(0)
     expect(ast.messages[0]).toMatchObject({ from: "fts", to: "Output Topics", label: "Initial AIP data" })
   })
 
   it("parses a message with multi-word sender", () => {
-    const { ast } = parse("Output Topics --> fts: ack")
+    const { ast } = parse("Output Topics ->> fts: ack")
     expect(ast.messages[0]).toMatchObject({ from: "Output Topics", to: "fts" })
   })
 
@@ -214,8 +255,8 @@ describe("sequence diagram parser — multi-word participants", () => {
   it("parses the full user example", () => {
     const input = `actor sim_leader
 component fts
-sim_leader --> fts: view running simulations
-fts --> Output Topics: Initial AIP data (separate topics)
+sim_leader ->> fts: view running simulations
+fts ->> Output Topics: Initial AIP data (separate topics)
 note over fts,Output Topics: if custom AIP set is used`
     const { ast, lexErrors, parseErrors } = parse(input)
     expect(lexErrors).toHaveLength(0)
@@ -229,9 +270,9 @@ note over fts,Output Topics: if custom AIP set is used`
 
 describe("sequence diagram parser — statement ordering", () => {
   it("preserves note position between messages in statements array", () => {
-    const input = `a --> b: first message
+    const input = `a ->> b: first message
 note over a: between note
-a --> b: second message`
+a ->> b: second message`
     const { ast, parseErrors } = parse(input)
     expect(parseErrors).toHaveLength(0)
     expect(ast.statements).toHaveLength(3)
@@ -241,7 +282,7 @@ a --> b: second message`
   })
 
   it("preserves note at the beginning", () => {
-    const { ast } = parse("note right of a: intro\na --> b: msg")
+    const { ast } = parse("note right of a: intro\na ->> b: msg")
     expect("position" in ast.statements[0]).toBe(true)
     expect("functionRef" in ast.statements[1]).toBe(true)
   })
@@ -268,7 +309,7 @@ describe("sequence diagram parser — edge cases", () => {
   })
 
   it("handles input without trailing newline after labeled message", () => {
-    const { ast, parseErrors } = parse("a --> b: some label")
+    const { ast, parseErrors } = parse("a ->> b: some label")
     expect(parseErrors).toHaveLength(0)
     expect(ast.messages[0].label).toBe("some label")
   })
@@ -371,8 +412,6 @@ describe("parseSequenceDiagram — auto-create missing path nodes", () => {
 
 // ─── generateSequenceMermaidFromAst — participant display labels ──────────────
 
-import { generateSequenceMermaidFromAst } from "./mermaidGenerator"
-
 function parseAst(content: string) {
   const { cst } = parseSequenceDiagramCst(content)
   return buildSeqAst(cst)
@@ -420,7 +459,7 @@ describe("generateSequenceMermaidFromAst — participant display labels", () => 
 
 describe("sequence diagram — undeclared receiver", () => {
   it("allows digit-only word in participant ref (e.g. 'Output Topics 2')", () => {
-    const { ast, lexErrors, parseErrors } = parse("actor sender\nsender --> Output Topics 2")
+    const { ast, lexErrors, parseErrors } = parse("actor sender\nsender ->> Output Topics 2")
     expect(lexErrors).toHaveLength(0)
     expect(parseErrors).toHaveLength(0)
     expect(ast.messages[0].to).toBe("Output Topics 2")
@@ -429,7 +468,7 @@ describe("sequence diagram — undeclared receiver", () => {
   it("auto-declares undeclared receiver with original spaced name as label", () => {
     const owner = makeNamedComp("owner-uuid", "owner", "owner")
     const root = makeNamedComp("root-uuid", "root", "root", [owner])
-    const ast = parseAst("actor sender\nsender --> Output Topics 2")
+    const ast = parseAst("actor sender\nsender ->> Output Topics 2")
     const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
     expect(mermaidContent).toContain("participant Output_Topics_2 as Output Topics 2")
   })
@@ -453,28 +492,28 @@ import { resolveUseCaseByPath } from "../../utils/diagramResolvers"
 
 describe("UseCaseRef — lexer", () => {
   it("tokenises local UseCase reference (no slash)", () => {
-    const result = SeqLexer.tokenize("actor sender\nsender --> receiver: UseCase:placeOrder")
+    const result = SeqLexer.tokenize("actor sender\nsender ->> receiver: UseCase:placeOrder")
     const ucToks = result.tokens.filter((t) => t.tokenType === UseCaseRef)
     expect(ucToks).toHaveLength(1)
     expect(ucToks[0].image).toBe("UseCase:placeOrder")
   })
 
   it("tokenises path UseCase reference (with slashes)", () => {
-    const result = SeqLexer.tokenize("actor sender\nsender --> receiver: UseCase:root/orders/placeOrder")
+    const result = SeqLexer.tokenize("actor sender\nsender ->> receiver: UseCase:root/orders/placeOrder")
     const ucToks = result.tokens.filter((t) => t.tokenType === UseCaseRef)
     expect(ucToks).toHaveLength(1)
     expect(ucToks[0].image).toBe("UseCase:root/orders/placeOrder")
   })
 
   it("tokenises UseCase reference with custom label", () => {
-    const result = SeqLexer.tokenize("actor sender\nsender --> receiver: UseCase:placeOrder:Place an order")
+    const result = SeqLexer.tokenize("actor sender\nsender ->> receiver: UseCase:placeOrder:Place an order")
     const ucToks = result.tokens.filter((t) => t.tokenType === UseCaseRef)
     expect(ucToks).toHaveLength(1)
     expect(ucToks[0].image).toBe("UseCase:placeOrder:Place an order")
   })
 
   it("does NOT tokenise plain labels as UseCaseRef", () => {
-    const result = SeqLexer.tokenize("actor sender\nsender --> receiver: some plain label")
+    const result = SeqLexer.tokenize("actor sender\nsender ->> receiver: some plain label")
     const ucToks = result.tokens.filter((t) => t.tokenType === UseCaseRef)
     expect(ucToks).toHaveLength(0)
   })
@@ -482,30 +521,30 @@ describe("UseCaseRef — lexer", () => {
 
 describe("UseCaseRef — visitor (SeqMessage.useCaseRef)", () => {
   it("populates useCaseRef for local reference", () => {
-    const { ast } = parse("actor a\ncomponent b\na --> b: UseCase:placeOrder")
+    const { ast } = parse("actor a\ncomponent b\na ->> b: UseCase:placeOrder")
     expect(ast.messages[0].useCaseRef).toEqual({ path: ["placeOrder"], label: null })
     expect(ast.messages[0].functionRef).toBeNull()
     expect(ast.messages[0].label).toBeNull()
   })
 
   it("populates useCaseRef for path reference", () => {
-    const { ast } = parse("actor a\ncomponent b\na --> b: UseCase:root/orders/placeOrder")
+    const { ast } = parse("actor a\ncomponent b\na ->> b: UseCase:root/orders/placeOrder")
     expect(ast.messages[0].useCaseRef).toEqual({ path: ["root", "orders", "placeOrder"], label: null })
   })
 
   it("populates useCaseRef with custom label", () => {
-    const { ast } = parse("actor a\ncomponent b\na --> b: UseCase:placeOrder:Place an order")
+    const { ast } = parse("actor a\ncomponent b\na ->> b: UseCase:placeOrder:Place an order")
     expect(ast.messages[0].useCaseRef).toEqual({ path: ["placeOrder"], label: "Place an order" })
   })
 
   it("does NOT set useCaseRef for FunctionRef messages", () => {
-    const { ast } = parse("actor a\ncomponent b\na --> b: IFace:fn()")
+    const { ast } = parse("actor a\ncomponent b\na ->> b: IFace:fn()")
     expect(ast.messages[0].useCaseRef).toBeNull()
     expect(ast.messages[0].functionRef).not.toBeNull()
   })
 
   it("does NOT set useCaseRef for plain label messages", () => {
-    const { ast } = parse("actor a\ncomponent b\na --> b: hello world")
+    const { ast } = parse("actor a\ncomponent b\na ->> b: hello world")
     expect(ast.messages[0].useCaseRef).toBeNull()
     expect(ast.messages[0].label).toBe("hello world")
   })
@@ -562,7 +601,7 @@ describe("parseSequenceDiagram — UseCase referencedNodeIds", () => {
   it("adds local use case UUID to referencedNodeIds via direct AST inspection", () => {
     // We test via the visitor directly: parse AST and verify useCaseRef is populated,
     // then verify resolveUseCaseByPath returns the correct UUID.
-    const { ast } = parse("actor customer\ncustomer --> customer: UseCase:placeOrder")
+    const { ast } = parse("actor customer\ncustomer ->> customer: UseCase:placeOrder")
     expect(ast.messages[0].useCaseRef).toEqual({ path: ["placeOrder"], label: null })
 
     // Verify resolver returns correct UUID
@@ -603,7 +642,7 @@ describe("generateSequenceMermaidFromAst — UseCaseRef messages", () => {
   it("renders local UseCaseRef using use case name as label", () => {
     const owner = makeCompWithUcs3("owner-uuid", "owner", [{ id: "placeOrder", name: "Place Order" }])
     const root = makeNamedComp("root-uuid", "root", "root", [owner])
-    const ast = parseAst("actor customer\ncustomer --> customer: UseCase:placeOrder")
+    const ast = parseAst("actor customer\ncustomer ->> customer: UseCase:placeOrder")
     const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root, "owner-uuid")
     expect(mermaidContent).toContain("customer->>customer: Place Order")
   })
@@ -611,7 +650,7 @@ describe("generateSequenceMermaidFromAst — UseCaseRef messages", () => {
   it("renders UseCaseRef with custom label overriding use case name", () => {
     const owner = makeCompWithUcs3("owner-uuid", "owner", [{ id: "placeOrder", name: "Place Order" }])
     const root = makeNamedComp("root-uuid", "root", "root", [owner])
-    const ast = parseAst("actor customer\ncustomer --> customer: UseCase:placeOrder:Custom Label")
+    const ast = parseAst("actor customer\ncustomer ->> customer: UseCase:placeOrder:Custom Label")
     const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root, "owner-uuid")
     expect(mermaidContent).toContain("customer->>customer: Custom Label")
   })
@@ -619,7 +658,7 @@ describe("generateSequenceMermaidFromAst — UseCaseRef messages", () => {
   it("falls back to ucId when use case is not in tree", () => {
     const owner = makeNamedComp("owner-uuid", "owner", "owner")
     const root = makeNamedComp("root-uuid", "root", "root", [owner])
-    const ast = parseAst("actor customer\ncustomer --> customer: UseCase:unknownUc")
+    const ast = parseAst("actor customer\ncustomer ->> customer: UseCase:unknownUc")
     const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root, "owner-uuid")
     expect(mermaidContent).toContain("customer->>customer: unknownUc")
   })
@@ -627,7 +666,7 @@ describe("generateSequenceMermaidFromAst — UseCaseRef messages", () => {
   it("populates messageLabelToUuid for UseCaseRef using the rendered display label as key", () => {
     const owner = makeCompWithUcs3("owner-uuid", "owner", [{ id: "placeOrder", name: "Place Order" }])
     const root = makeNamedComp("root-uuid", "root", "root", [owner])
-    const ast = parseAst("actor customer\ncustomer --> customer: UseCase:placeOrder")
+    const ast = parseAst("actor customer\ncustomer ->> customer: UseCase:placeOrder")
     const { messageLabelToUuid } = generateSequenceMermaidFromAst(ast, owner, root, "owner-uuid")
     // Key is the rendered display label (use case name), NOT the raw spec string
     expect(messageLabelToUuid["Place Order"]).toBe("owner-uuid-placeOrder-uuid")
@@ -661,7 +700,7 @@ describe("parseSequenceDiagram — function follows receiver", () => {
 
     // Spec where ServiceC is now the receiver
     const result = parseSequenceDiagram(
-      "component ServiceB\ncomponent ServiceC\nServiceB --> ServiceC: REST:getUser()",
+      "component ServiceB\ncomponent ServiceC\nServiceB ->> ServiceC: REST:getUser()",
       root,
       owner.uuid,
       "diag-uuid",
@@ -681,7 +720,7 @@ describe("parseSequenceDiagram — function follows receiver", () => {
     const root = makeComp("root-uuid", "root", [owner])
 
     // "ServiceB" is declared with path payment/ServiceB; message references it by its id "ServiceB"
-    const spec = "component payment/ServiceB\ncomponent gateway\ngateway --> ServiceB: REST:getUser()"
+    const spec = "component payment/ServiceB\ncomponent gateway\ngateway ->> ServiceB: REST:getUser()"
     const result = parseSequenceDiagram(spec, root, owner.uuid, "diag-uuid")
 
     const updatedOwner = result.subComponents.find((c) => c.uuid === owner.uuid)!
@@ -698,7 +737,7 @@ describe("parseSequenceDiagram — function follows receiver", () => {
     const root = makeComp("root-uuid", "root", [owner])
 
     // "ServiceB" is declared with path payment/ServiceB; message references by id "ServiceB"
-    const spec = "component payment/ServiceB\ncomponent gateway\ngateway --> ServiceB: REST:getUser()"
+    const spec = "component payment/ServiceB\ncomponent gateway\ngateway ->> ServiceB: REST:getUser()"
     const result = parseSequenceDiagram(spec, root, owner.uuid, "diag-uuid")
 
     // Locate the function UUID on ServiceB (leaf)
@@ -715,7 +754,9 @@ describe("parseSequenceDiagram — function follows receiver", () => {
 
 // ─── Block constructs (loop / alt / par) ─────────────────────────────────────
 
-import { seqAstToSpec, renameInSeqSpec } from "./specSerializer"
+// ─── Block constructs (loop / alt / par) ─────────────────────────────────────
+
+import { renameInSeqSpec } from "./specSerializer"
 
 function parseBlock(input: string): SeqBlock {
   const { cst } = parseSequenceDiagramCst(input)
@@ -727,7 +768,7 @@ function parseBlock(input: string): SeqBlock {
 
 describe("sequence diagram block constructs — visitor", () => {
   it("parses a loop block with condition text", () => {
-    const block = parseBlock("actor A\nactor B\nloop check every second\n  A --> B: ping\nend")
+    const block = parseBlock("actor A\nactor B\nloop check every second\n  A ->> B: ping\nend")
     expect(block.kind).toBe("loop")
     expect(block.sections).toHaveLength(1)
     expect(block.sections[0].guard).toBe("check every second")
@@ -737,14 +778,14 @@ describe("sequence diagram block constructs — visitor", () => {
   })
 
   it("parses a loop block without condition text", () => {
-    const block = parseBlock("actor A\nactor B\nloop\n  A --> B: ping\nend")
+    const block = parseBlock("actor A\nactor B\nloop\n  A ->> B: ping\nend")
     expect(block.kind).toBe("loop")
     expect(block.sections[0].guard).toBeNull()
   })
 
   it("parses an alt block with multiple else branches", () => {
     const block = parseBlock(
-      "actor A\nactor B\nalt happy path\n  A --> B: ok\nelse error\n  A --> B: err\nelse\n  A --> B: default\nend"
+      "actor A\nactor B\nalt happy path\n  A ->> B: ok\nelse error\n  A ->> B: err\nelse\n  A ->> B: default\nend"
     )
     expect(block.kind).toBe("alt")
     expect(block.sections).toHaveLength(3)
@@ -758,7 +799,7 @@ describe("sequence diagram block constructs — visitor", () => {
 
   it("parses a par block with and sections", () => {
     const block = parseBlock(
-      "actor A\nactor B\nactor C\nactor D\npar group 1\n  A --> B: msg1\nand group 2\n  C --> D: msg2\nend"
+      "actor A\nactor B\nactor C\nactor D\npar group 1\n  A ->> B: msg1\nand group 2\n  C ->> D: msg2\nend"
     )
     expect(block.kind).toBe("par")
     expect(block.sections).toHaveLength(2)
@@ -767,7 +808,7 @@ describe("sequence diagram block constructs — visitor", () => {
   })
 
   it("parses nested blocks (loop inside alt)", () => {
-    const spec = "actor A\nactor B\nalt outer\n  loop inner\n    A --> B: ping\n  end\nend"
+    const spec = "actor A\nactor B\nalt outer\n  loop inner\n    A ->> B: ping\n  end\nend"
     const { cst } = parseSequenceDiagramCst(spec)
     const ast = buildSeqAst(cst)
     const outer = ast.statements.find((s): s is SeqBlock => "sections" in s)!
@@ -785,7 +826,7 @@ describe("sequence diagram block constructs — mermaid generator", () => {
   })
 
   it("emits loop block in mermaid output", () => {
-    const spec = "actor A\nactor B\nloop check\n  A --> B: ping\nend"
+    const spec = "actor A\nactor B\nloop check\n  A ->> B: ping\nend"
     const { cst } = parseSequenceDiagramCst(spec)
     const ast = buildSeqAst(cst)
     const owner = mkComp("o", "owner")
@@ -798,7 +839,7 @@ describe("sequence diagram block constructs — mermaid generator", () => {
   })
 
   it("emits alt/else/end in mermaid output", () => {
-    const spec = "actor A\nactor B\nalt good\n  A --> B: ok\nelse bad\n  A --> B: err\nend"
+    const spec = "actor A\nactor B\nalt good\n  A ->> B: ok\nelse bad\n  A ->> B: err\nend"
     const { cst } = parseSequenceDiagramCst(spec)
     const ast = buildSeqAst(cst)
     const owner = mkComp("o", "owner")
@@ -811,7 +852,7 @@ describe("sequence diagram block constructs — mermaid generator", () => {
   })
 
   it("emits par/and/end in mermaid output", () => {
-    const spec = "actor A\nactor B\nactor C\nactor D\npar g1\n  A --> B: m1\nand g2\n  C --> D: m2\nend"
+    const spec = "actor A\nactor B\nactor C\nactor D\npar g1\n  A ->> B: m1\nand g2\n  C ->> D: m2\nend"
     const { cst } = parseSequenceDiagramCst(spec)
     const ast = buildSeqAst(cst)
     const owner = mkComp("o", "owner")
@@ -824,7 +865,7 @@ describe("sequence diagram block constructs — mermaid generator", () => {
   })
 
   it("auto-declares participants referenced only inside a block", () => {
-    const spec = "actor A\nloop\n  A --> B: msg\nend"
+    const spec = "actor A\nloop\n  A ->> B: msg\nend"
     const { cst } = parseSequenceDiagramCst(spec)
     const ast = buildSeqAst(cst)
     const owner = mkComp("o", "owner")
@@ -838,16 +879,16 @@ describe("sequence diagram block constructs — mermaid generator", () => {
 
 describe("sequence diagram block constructs — spec serializer", () => {
   it("round-trips a loop block", () => {
-    const { cst } = parseSequenceDiagramCst("actor A\nactor B\nloop check\n  A --> B: ping\nend")
+    const { cst } = parseSequenceDiagramCst("actor A\nactor B\nloop check\n  A ->> B: ping\nend")
     const ast = buildSeqAst(cst)
     const spec = seqAstToSpec(ast)
     expect(spec).toContain("loop check")
     expect(spec).toContain("end")
-    expect(spec).toContain("A --> B: ping")
+    expect(spec).toContain("A ->> B: ping")
   })
 
   it("round-trips an alt block with else branches", () => {
-    const input = "actor A\nactor B\nalt good\n  A --> B: ok\nelse bad\n  A --> B: err\nend"
+    const input = "actor A\nactor B\nalt good\n  A ->> B: ok\nelse bad\n  A ->> B: err\nend"
     const { cst } = parseSequenceDiagramCst(input)
     const ast = buildSeqAst(cst)
     const spec = seqAstToSpec(ast)
@@ -857,19 +898,19 @@ describe("sequence diagram block constructs — spec serializer", () => {
   })
 
   it("renames participant ID inside a block", () => {
-    const input = "actor A\nactor B\nloop\n  A --> B: ping\nend"
+    const input = "actor A\nactor B\nloop\n  A ->> B: ping\nend"
     const renamed = renameInSeqSpec(input, "A", "Alpha")
     expect(renamed).toContain("actor Alpha")
-    expect(renamed).toContain("Alpha --> B: ping")
-    expect(renamed).not.toContain("A -->")
+    expect(renamed).toContain("Alpha ->> B: ping")
+    expect(renamed).not.toContain("A ->>")
   })
 
   it("renames participant ID inside nested blocks", () => {
-    const input = "actor A\nactor B\nalt outer\n  loop inner\n    A --> B: ping\n  end\nend"
+    const input = "actor A\nactor B\nalt outer\n  loop inner\n    A ->> B: ping\n  end\nend"
     const renamed = renameInSeqSpec(input, "B", "Beta")
     expect(renamed).toContain("actor Beta")
-    expect(renamed).toContain("A --> Beta: ping")
-    expect(renamed).not.toContain("--> B:")
+    expect(renamed).toContain("A ->> Beta: ping")
+    expect(renamed).not.toContain("->> B:")
   })
 })
 
@@ -883,7 +924,7 @@ describe("sequence diagram block constructs — system updater", () => {
     const child = mkComp2("child-uuid", "svc")
     const owner = mkComp2("owner-uuid", "owner", [child])
     const root = mkComp2("root-uuid", "root", [owner])
-    const spec = "component svc\nactor caller\nloop retry\n  caller --> svc: IFace:fn()\nend"
+    const spec = "component svc\nactor caller\nloop retry\n  caller ->> svc: IFace:fn()\nend"
     const result = parseSequenceDiagram(spec, root, owner.uuid, "diag-uuid")
     const updatedOwner = result.subComponents.find((c) => c.uuid === owner.uuid)!
     const updatedSvc = updatedOwner.subComponents.find((c) => c.id === "svc")!
@@ -895,7 +936,7 @@ describe("sequence diagram block constructs — system updater", () => {
     const child = mkComp2("child-uuid", "svc")
     const owner = mkComp2("owner-uuid", "owner", [child])
     const root = mkComp2("root-uuid", "root", [owner])
-    const spec = "component svc\nactor caller\nalt branch\n  loop retry\n    caller --> svc: IFace:doWork()\n  end\nend"
+    const spec = "component svc\nactor caller\nalt branch\n  loop retry\n    caller ->> svc: IFace:doWork()\n  end\nend"
     const result = parseSequenceDiagram(spec, root, owner.uuid, "diag-uuid")
     const updatedOwner = result.subComponents.find((c) => c.uuid === owner.uuid)!
     const updatedSvc = updatedOwner.subComponents.find((c) => c.id === "svc")!
@@ -908,7 +949,7 @@ describe("sequence diagram block constructs — system updater", () => {
 
 describe("sequence diagram opt block — visitor", () => {
   it("parses an opt block with condition text", () => {
-    const block = parseBlock("actor A\nactor B\nopt if premium user\n  A --> B: upgrade\nend")
+    const block = parseBlock("actor A\nactor B\nopt if premium user\n  A ->> B: upgrade\nend")
     expect(block.kind).toBe("opt")
     expect(block.sections).toHaveLength(1)
     expect(block.sections[0].guard).toBe("if premium user")
@@ -919,13 +960,13 @@ describe("sequence diagram opt block — visitor", () => {
   })
 
   it("parses an opt block without condition text", () => {
-    const block = parseBlock("actor A\nactor B\nopt\n  A --> B: ping\nend")
+    const block = parseBlock("actor A\nactor B\nopt\n  A ->> B: ping\nend")
     expect(block.kind).toBe("opt")
     expect(block.sections[0].guard).toBeNull()
   })
 
   it("parses opt nested inside alt", () => {
-    const spec = "actor A\nactor B\nalt outer\n  opt inner\n    A --> B: ping\n  end\nend"
+    const spec = "actor A\nactor B\nalt outer\n  opt inner\n    A ->> B: ping\n  end\nend"
     const { cst } = parseSequenceDiagramCst(spec)
     const ast = buildSeqAst(cst)
     const outer = ast.statements.find((s): s is SeqBlock => "sections" in s)!
@@ -942,7 +983,7 @@ describe("sequence diagram opt block — mermaid generator", () => {
   })
 
   it("emits opt block in mermaid output", () => {
-    const spec = "actor A\nactor B\nopt if premium\n  A --> B: upgrade\nend"
+    const spec = "actor A\nactor B\nopt if premium\n  A ->> B: upgrade\nend"
     const { cst } = parseSequenceDiagramCst(spec)
     const ast = buildSeqAst(cst)
     const owner = mkOptComp("o", "owner")
@@ -958,19 +999,19 @@ describe("sequence diagram opt block — mermaid generator", () => {
 
 describe("sequence diagram opt block — spec serializer", () => {
   it("round-trips an opt block", () => {
-    const { cst } = parseSequenceDiagramCst("actor A\nactor B\nopt condition\n  A --> B: ping\nend")
+    const { cst } = parseSequenceDiagramCst("actor A\nactor B\nopt condition\n  A ->> B: ping\nend")
     const ast = buildSeqAst(cst)
     const spec = seqAstToSpec(ast)
     expect(spec).toContain("opt condition")
     expect(spec).toContain("end")
-    expect(spec).toContain("A --> B: ping")
+    expect(spec).toContain("A ->> B: ping")
   })
 
   it("renames participant ID inside an opt block", () => {
-    const input = "actor A\nactor B\nopt\n  A --> B: ping\nend"
+    const input = "actor A\nactor B\nopt\n  A ->> B: ping\nend"
     const renamed = renameInSeqSpec(input, "A", "Alpha")
     expect(renamed).toContain("actor Alpha")
-    expect(renamed).toContain("Alpha --> B: ping")
-    expect(renamed).not.toContain("A -->")
+    expect(renamed).toContain("Alpha ->> B: ping")
+    expect(renamed).not.toContain("A ->>")
   })
 })

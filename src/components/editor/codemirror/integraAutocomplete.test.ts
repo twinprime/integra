@@ -226,7 +226,7 @@ describe("createIntegralCompletionSource — entity-name context", () => {
 // ─── Function-ref suggestions ─────────────────────────────────────────────────
 
 describe("createIntegralCompletionSource — function-ref context", () => {
-  it("suggests interface functions after 'sender --> receiver: '", () => {
+  it("suggests interface functions after 'sender ->> receiver: '", () => {
     const receiver: ComponentNode = {
       uuid: "svc-uuid",
       id: "svc",
@@ -252,7 +252,7 @@ describe("createIntegralCompletionSource — function-ref context", () => {
       ],
     }
     const root = makeRoot({ subComponents: [receiver] })
-    const doc = "sender --> svc: "
+    const doc = "sender ->> svc: "
     const result = runCompletion(doc, doc.length, {
       diagramType: "sequence-diagram",
       ownerComp: root,
@@ -264,7 +264,7 @@ describe("createIntegralCompletionSource — function-ref context", () => {
 
   it("returns null when receiver component is not found", () => {
     const root = makeRoot()
-    const doc = "sender --> unknownSvc: "
+    const doc = "sender ->> unknownSvc: "
     const result = runCompletion(doc, doc.length, {
       diagramType: "sequence-diagram",
       ownerComp: root,
@@ -279,7 +279,7 @@ describe("createIntegralCompletionSource — function-ref context", () => {
 
 describe("createIntegralCompletionSource — seq-receiver context", () => {
   it("suggests declared IDs after '-->'", () => {
-    const doc = "actor alice\nalice --> "
+    const doc = "actor alice\nalice ->> "
     const result = runCompletion(doc, doc.length, {
       diagramType: "sequence-diagram",
       ownerComp: makeRoot(),
@@ -294,7 +294,7 @@ describe("createIntegralCompletionSource — seq-receiver context", () => {
 
 describe("createIntegralCompletionSource — uc-link-target context", () => {
   it("suggests declared IDs after '-->'", () => {
-    const doc = "actor user\nuser --> "
+    const doc = "actor user\nuser ->> "
     const result = runCompletion(doc, doc.length, {
       diagramType: "use-case-diagram",
       ownerComp: makeRoot(),

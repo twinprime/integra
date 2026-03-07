@@ -4,7 +4,7 @@ import { paramsToString } from "../../parser/sequenceDiagram/systemUpdater"
 import { SeqLexer } from "../../parser/sequenceDiagram/lexer"
 import { UcdLexer } from "../../parser/useCaseDiagram/lexer"
 import { Actor, Component, Use, Case, Arrow, Identifier } from "../../parser/tokens"
-import { SeqColon } from "../../parser/sequenceDiagram/lexer"
+import { SeqColon, SeqArrow } from "../../parser/sequenceDiagram/lexer"
 import { isInScope, getComponentAbsolutePath } from "../../utils/nodeUtils"
 
 export type Suggestion = {
@@ -121,7 +121,9 @@ export function detectContext(
 
   // ─── Arrow contexts ────────────────────────────────────────────────────────
 
-  const arrowIdx = toks.findIndex((t) => t.tokenType === Arrow)
+  const arrowIdx = toks.findIndex((t) =>
+    t.tokenType === (diagramType === "sequence-diagram" ? SeqArrow : Arrow)
+  )
 
   if (arrowIdx >= 0 && diagramType === "sequence-diagram") {
     const colonIdx = toks.findIndex((t) => t.tokenType === SeqColon)

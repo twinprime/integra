@@ -86,9 +86,9 @@ use case placeOrder
 component root/admin as admin
 
 # Relationships
-customer --> login
-customer --> placeOrder
-admin --> placeOrder
+customer ->> login
+customer ->> placeOrder
+admin ->> placeOrder
 ```
 
 | Syntax | Purpose |
@@ -98,7 +98,7 @@ admin --> placeOrder
 | `use case id` | Declare a use case |
 | `component path/to/node` | Reference an existing component by path (no new node created) |
 | `component path/to/node as alias` | Reference with an alias |
-| `A --> B` | Relationship arrow |
+| `A ->> B` | Relationship arrow |
 
 **Node IDs are scoped to the owning component.** The same ID can be reused in different components.
 
@@ -117,11 +117,11 @@ component paymentSvc
 # External component referenced by path
 component root/services/auth as auth
 
-customer --> orderSvc: OrdersAPI:placeOrder(orderId: string, amount: number)
-orderSvc --> paymentSvc: PaymentsAPI:charge(orderId: string, amount: number, currency: string?)
-orderSvc --> customer: UseCase:orderConfirmed
-orderSvc --> customer: UseCase:orderService/orderConfirmed
-orderSvc --> customer: UseCase:root/orders/orderConfirmed:Order confirmed
+customer ->> orderSvc: OrdersAPI:placeOrder(orderId: string, amount: number)
+orderSvc ->> paymentSvc: PaymentsAPI:charge(orderId: string, amount: number, currency: string?)
+orderSvc ->> customer: UseCase:orderConfirmed
+orderSvc ->> customer: UseCase:orderService/orderConfirmed
+orderSvc ->> customer: UseCase:root/orders/orderConfirmed:Order confirmed
 
 note right of customer: initiates the flow
 note over orderSvc, paymentSvc: payment handshake
@@ -134,13 +134,13 @@ note over orderSvc, paymentSvc: payment handshake
 | `component id` | Declare a local component participant |
 | `component path/to/node` | Reference an existing component by path (no new node created) |
 | `component path/to/node as alias` | Reference with an alias |
-| `sender --> receiver: Interface:function(param: type)` | Function call message — derives interface on receiver |
-| `sender --> receiver: label text` | Plain message label |
-| `sender --> receiver` | Bare arrow (no label) |
-| `sender --> receiver: UseCase:useCaseId` | Use case reference (local — receiver's component) |
-| `sender --> receiver: UseCase:comp/useCaseId` | Use case reference by path (relative or absolute) |
-| `sender --> receiver: UseCase:useCaseId:label` | Use case reference with a custom display label |
-| `sender --> receiver: UseCase:comp/useCaseId:label` | Use case path reference with a custom label |
+| `sender ->> receiver: Interface:function(param: type)` | Function call message — derives interface on receiver |
+| `sender ->> receiver: label text` | Plain message label |
+| `sender ->> receiver` | Bare arrow (no label) |
+| `sender ->> receiver: UseCase:useCaseId` | Use case reference (local — receiver's component) |
+| `sender ->> receiver: UseCase:comp/useCaseId` | Use case reference by path (relative or absolute) |
+| `sender ->> receiver: UseCase:useCaseId:label` | Use case reference with a custom display label |
+| `sender ->> receiver: UseCase:comp/useCaseId:label` | Use case path reference with a custom label |
 | `note right of id: text` | Note to the right of a participant |
 | `note left of id: text` | Note to the left of a participant |
 | `note over id: text` | Note spanning a single participant |
@@ -150,36 +150,55 @@ note over orderSvc, paymentSvc: payment handshake
 | `opt [condition]` … `end` | Optional block — single section, no `else` (renders as Mermaid `opt`) |
 | `par [label]` … `and [label]` … `end` | Parallel block (renders as Mermaid `par`/`and`) |
 
+**Arrow types** — the arrow between sender and receiver maps 1:1 to Mermaid's sequence diagram arrow syntax:
+
+| Arrow | Mermaid meaning |
+|---|---|
+| `->>` | Solid line, arrowhead — synchronous call (**default**) |
+| `-->>` | Dotted line, arrowhead — reply or async |
+| `->` | Solid line, no arrowhead |
+| `-->` | Dotted line, no arrowhead |
+| `-x` | Solid line, X — destroy |
+| `--x` | Dotted line, X |
+| `-)` | Solid line, open arrowhead — async notation |
+| `--)` | Dotted line, open arrowhead |
+
+Example:
+```
+client ->> server: REST:getUser(id: string)
+server -->> client: response
+```
+
 **Block constructs** — `loop`, `alt`, `opt`, and `par` wrap sequences of messages. Condition/label text after the keyword is optional free-form text. Blocks are fully nestable.
 
 ```
 loop check every second
-  A --> B: ping
+  A ->> B: ping
 end
 
 alt happy path
-  A --> B: ok
+  A ->> B: ok
 else error path
-  A --> B: err
+  A ->> B: err
 else
-  A --> B: default
+  A ->> B: default
 end
 
 opt if user is premium
-  A --> B: upgrade offer
+  A ->> B: upgrade offer
 end
 
 par send notification
-  A --> B: notify
+  A ->> B: notify
 and update audit log
-  A --> C: log
+  A ->> C: log
 end
 ```
 
 - `else` sections apply only to `alt` blocks; `and` sections apply only to `par` blocks; `opt` has no sections.
 - `end`, `else`, `and`, and `opt` are reserved keywords and cannot be used as participant IDs.
 
-**Function call message format:** `sender --> receiver: InterfaceId:functionId(param: type, param2: type?)`
+**Function call message format:** `sender ->> receiver: InterfaceId:functionId(param: type, param2: type?)`
 - Parameter types default to `any` if omitted
 - Append `?` to mark a parameter as optional (e.g. `name: string?`)
 - For `kafka`-type interfaces, the **sender** owns the interface
@@ -201,8 +220,8 @@ component root/services/auth as auth
 
 # In a sequence diagram — reference external component with alias
 component root/services/payments as pay
-customer --> auth: AuthAPI:login(user: string)
-customer --> pay: PaymentsAPI:charge(amount: number)
+customer ->> auth: AuthAPI:login(user: string)
+customer ->> pay: PaymentsAPI:charge(amount: number)
 ```
 
 When a path reference is used:
@@ -334,7 +353,7 @@ useCaseDiagrams:
     content: |
       actor customer
       use case placeOrder
-      customer --> placeOrder
+      customer ->> placeOrder
     useCases:
       - uuid: a1b2c3d4-0031
         id: placeOrder
@@ -348,7 +367,7 @@ useCaseDiagrams:
             content: |
               actor customer
               component orderSvc
-              customer --> orderSvc: OrdersAPI:placeOrder(orderId: string, amount: number)
+              customer ->> orderSvc: OrdersAPI:placeOrder(orderId: string, amount: number)
 interfaces: []
 ```
 
@@ -551,7 +570,7 @@ Both parsers are implemented with **Chevrotain** (lexer + CstParser + CST visito
 
 #### Interface Derivation
 
-Each `sender --> receiver: InterfaceId:functionId(...)` message:
+Each `sender ->> receiver: InterfaceId:functionId(...)` message:
 1. Finds or creates an `InterfaceSpecification` with `id = InterfaceId` on the receiver (or sender for `kafka`)
 2. Finds or creates a function with `id = functionId` and the parsed parameter list
 3. If a function with the same id already exists with a **different** parameter count or types, the user is prompted via a dialog to update all affected diagrams or add as overload
