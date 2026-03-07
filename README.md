@@ -46,7 +46,7 @@ Navigate the tree to inspect generated nodes. Clicking a node or participant in 
 #### Autocomplete
 
 The diagram spec editor provides context-aware suggestions as you type:
-- **Participants**: suggest known actors and components when typing after `actor`, `component`, or `from`
+- **Participants**: suggest known actors and components when typing after `actor`, `component`, or `from`; descendants of the owning component are suggested with a **relative path** (e.g. `grandchild` or `child/grandchild`), while cross-tree references use an **absolute path** with an alias (e.g. `root/services/auth as auth`)
 - **Message receivers**: suggest participants when typing the receiver in a message line
 - **UseCase targets**: suggest use case IDs after `UseCase:` in a message label; for use cases in other components the suggestion includes the full path (e.g. `UseCase:orders/placeOrder`)
 
@@ -173,8 +173,8 @@ customer --> pay: PaymentsAPI:charge(amount: number)
 ```
 
 When a path reference is used:
-- No new node is created — the existing node's UUID is recorded in `referencedNodeIds`
-- The node cannot be deleted while this reference exists
+- If the terminal node does not yet exist it is **auto-created** (as a component), provided the path is in scope — intermediate missing components are also created automatically
+- The node's UUID is recorded in `referencedNodeIds`; the node cannot be deleted while this reference exists
 - The alias (if provided with `as alias`) is used in all message lines; otherwise the last path segment is used
 
 **Single-segment declarations** (`actor id`, `component id`) always create or reference a **local** node within the owning component. Use a multi-segment path (`component root/services/auth`) to reach nodes elsewhere in the tree.
@@ -190,14 +190,14 @@ Multi-segment path references are restricted to components that are **in scope**
 | **Ancestor** (parent, grandparent, …) | `root` | ✅ |
 | **Sibling** (direct child of parent) | `root/sibling` | ✅ |
 | **Uncle/Aunt** (direct child of grandparent) | `root/grandparent/uncle` — resolved as `uncle` | ✅ |
-| **Grandchild** (child of direct child) | `child/grandchild/greatGrandchild` | ❌ |
+| **Any descendant** (grandchild, great-grandchild, …) | `grandchild`, `grandchild/greatGrandchild` | ✅ |
 | **Cousin** (child of sibling/uncle) | `root/sibling/cousin` | ❌ |
 
 ```
 root
   child     ← ownerComp
-    grandchild        # direct child — ✅
-      greatGrandchild # grandchild of owner — ❌
+    grandchild        # descendant of owner — ✅
+      greatGrandchild # descendant of owner — ✅
   sibling             # direct child of ancestor root — ✅
     cousin            # child of sibling — ❌
 ```
@@ -333,7 +333,7 @@ Integra is a single-page web application that allows users to model software sys
 2. **Use case diagrams** — text-specified diagrams that declare actors and use cases, with relationship arrows rendered via Mermaid
 3. **Sequence diagrams** — text-specified interaction diagrams that automatically derive typed interface specifications on components
 4. **Derived interfaces** — interface functions (with typed parameters) are extracted from sequence diagram messages and stored on the receiving component
-5. **Cross-component references** — participants can reference nodes in other components via a `from path` clause; referenced nodes cannot be deleted while the reference exists
+5. **Cross-component references** — participants can reference nodes in other components by path; if the target node does not exist it is auto-created (including intermediate missing components); referenced nodes cannot be deleted while the reference exists
 6. **Self-referencing** — a sequence diagram can declare a participant with the same id as its owning component (treated as a self-reference, not a new child)
 7. **Use case references in messages** — sequence diagram messages can reference use cases via `UseCase:ucId` (local) or `UseCase:path/to/comp/ucId` (cross-component); referenced use cases cannot be deleted
 8. **Function update flow** — when a function signature changes, the user is prompted to update all affected sequence diagrams or add an overload
@@ -476,15 +476,19 @@ src/parser/
     visitor.ts                  ← CST → SeqAst { declarations[], statements[] }
     systemUpdater.ts            ← SeqAst → node tree update
     mermaidGenerator.ts         ← SeqAst → Mermaid string + idToUuid map
+    specSerializer.ts           ← SeqAst → spec text; AST-aware ID rename
   useCaseDiagram/
     lexer.ts                    ← single-mode lexer
     parser.ts                   ← CstParser
     visitor.ts                  ← CST → UcdAst { declarations[], links[] }
     systemUpdater.ts            ← UcdAst → node tree update
     mermaidGenerator.ts         ← UcdAst → Mermaid string + idToUuid map
+    specSerializer.ts           ← UcdAst → spec text; AST-aware ID rename
 ```
 
 `SeqAst.statements` preserves source order for both messages and notes, so notes appear in the rendered diagram exactly where they were written.
+
+**Node ID renaming** uses an AST-aware parse → rename → serialize round-trip (`specSerializer.ts`) rather than regex replacement. This correctly handles IDs that contain hyphens (e.g. `api-gateway`) which a word-boundary regex would corrupt.
 
 
 
