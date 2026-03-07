@@ -4,7 +4,7 @@
  * Modes:
  *  - default_mode: structural tokens (declarations, message arrows, block keywords)
  *  - text_mode: activated after `:` — captures FUNCTION_REF or LABEL_TEXT / NOTE_TEXT
- *  - block_header_mode: activated after a block keyword (loop/alt/par/else/and) —
+ *  - block_header_mode: activated after a block keyword (loop/alt/par/opt/else/and) —
  *    captures optional rest-of-line condition text, then pops back on newline
  *
  * text_mode and block_header_mode both pop back to default_mode on NEWLINE.
@@ -67,12 +67,13 @@ export const SeqColon = createToken({
 
 /**
  * Block keywords must be listed BEFORE Identifier so the lexer gives them
- * priority. loop/alt/par/else/and push block_header_mode to capture
+ * priority. loop/alt/par/opt/else/and push block_header_mode to capture
  * optional condition text. end stays in default_mode (no condition text).
  */
 export const Loop = createToken({ name: "Loop", pattern: /loop(?![a-zA-Z0-9_-])/, push_mode: "block_header_mode" })
 export const Alt  = createToken({ name: "Alt",  pattern: /alt(?![a-zA-Z0-9_-])/,  push_mode: "block_header_mode" })
 export const Par  = createToken({ name: "Par",  pattern: /par(?![a-zA-Z0-9_-])/,  push_mode: "block_header_mode" })
+export const Opt  = createToken({ name: "Opt",  pattern: /opt(?![a-zA-Z0-9_-])/,  push_mode: "block_header_mode" })
 export const Else = createToken({ name: "Else", pattern: /else(?![a-zA-Z0-9_-])/, push_mode: "block_header_mode" })
 export const And  = createToken({ name: "And",  pattern: /and(?![a-zA-Z0-9_-])/,  push_mode: "block_header_mode" })
 export const End  = createToken({ name: "End",  pattern: /end(?![a-zA-Z0-9_-])/ })
@@ -103,7 +104,7 @@ const sharedWithSeqColon = sharedTokens.map((t) => (t === SharedColon ? SeqColon
 const identifierIdx = sharedWithSeqColon.indexOf(Identifier)
 const defaultModeTokens = [
   ...sharedWithSeqColon.slice(0, identifierIdx),
-  Loop, Alt, Par, Else, And, End,
+  Loop, Alt, Par, Opt, Else, And, End,
   ...sharedWithSeqColon.slice(identifierIdx),
 ]
 

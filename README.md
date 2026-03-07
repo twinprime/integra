@@ -147,9 +147,10 @@ note over orderSvc, paymentSvc: payment handshake
 | `note over id1, id2: text` | Note spanning two participants |
 | `loop [condition]` … `end` | Loop block (renders as Mermaid `loop`) |
 | `alt [condition]` … `else [condition]` … `end` | Conditional block (renders as Mermaid `alt`/`else`) |
+| `opt [condition]` … `end` | Optional block — single section, no `else` (renders as Mermaid `opt`) |
 | `par [label]` … `and [label]` … `end` | Parallel block (renders as Mermaid `par`/`and`) |
 
-**Block constructs** — `loop`, `alt`, and `par` wrap sequences of messages. Condition/label text after the keyword is optional free-form text. Blocks are fully nestable.
+**Block constructs** — `loop`, `alt`, `opt`, and `par` wrap sequences of messages. Condition/label text after the keyword is optional free-form text. Blocks are fully nestable.
 
 ```
 loop check every second
@@ -164,6 +165,10 @@ else
   A --> B: default
 end
 
+opt if user is premium
+  A --> B: upgrade offer
+end
+
 par send notification
   A --> B: notify
 and update audit log
@@ -171,8 +176,8 @@ and update audit log
 end
 ```
 
-- `else` sections apply only to `alt` blocks; `and` sections apply only to `par` blocks.
-- `end`, `else`, and `and` are reserved keywords and cannot be used as participant IDs.
+- `else` sections apply only to `alt` blocks; `and` sections apply only to `par` blocks; `opt` has no sections.
+- `end`, `else`, `and`, and `opt` are reserved keywords and cannot be used as participant IDs.
 
 **Function call message format:** `sender --> receiver: InterfaceId:functionId(param: type, param2: type?)`
 - Parameter types default to `any` if omitted
@@ -364,7 +369,7 @@ Integra is a single-page web application that allows users to model software sys
 5. **Cross-component references** — participants can reference nodes in other components by path; if the target node does not exist it is auto-created (including intermediate missing components); referenced nodes cannot be deleted while the reference exists
 6. **Self-referencing** — a sequence diagram can declare a participant with the same id as its owning component (treated as a self-reference, not a new child)
 7. **Use case references in messages** — sequence diagram messages can reference use cases via `UseCase:ucId` (local) or `UseCase:path/to/comp/ucId` (cross-component); referenced use cases cannot be deleted
-8. **Block constructs** — sequence diagrams support `loop`, `alt`/`else`, and `par`/`and` structural blocks (fully nestable); interface specs are derived from messages at any nesting depth
+8. **Block constructs** — sequence diagrams support `loop`, `alt`/`else`, `opt`, and `par`/`and` structural blocks (fully nestable); interface specs are derived from messages at any nesting depth
 9. **Function update flow** — when a function signature changes, the user is prompted to update all affected sequence diagrams or add an overload
 9. **Orphan detection** — actors and components not referenced by any diagram are deletable; otherwise the delete button is hidden
 10. **Syntax highlighting** — the diagram specification editor (CodeMirror 6) highlights known tokens (keywords, participants, interfaces, functions, use case references) in real time using a Chevrotain-based decoration pass

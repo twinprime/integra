@@ -50,7 +50,7 @@ export interface SeqBlockSection {
 }
 
 export interface SeqBlock {
-  kind: "loop" | "alt" | "par"
+  kind: "loop" | "alt" | "par" | "opt"
   sections: SeqBlockSection[]
 }
 
@@ -174,8 +174,8 @@ class SequenceDiagramVisitor extends BaseVisitor {
   }
 
   seqBlock(ctx: Record<string, unknown[]>): SeqBlock {
-    const kindToken = (ctx.Loop ?? ctx.Alt ?? ctx.Par) as { image: string }[]
-    const kind = kindToken[0].image as "loop" | "alt" | "par"
+    const kindToken = (ctx.Loop ?? ctx.Alt ?? ctx.Par ?? ctx.Opt) as { image: string }[]
+    const kind = kindToken[0].image as "loop" | "alt" | "par" | "opt"
     const guard = (ctx.BlockConditionText as { image: string }[] | undefined)?.[0]?.image?.trim() ?? null
 
     const firstSectionStatements = this._visitSectionStatements(ctx)

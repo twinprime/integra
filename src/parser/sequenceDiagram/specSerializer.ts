@@ -51,7 +51,7 @@ function serializeNote(note: SeqNote): string {
   return `${posStr}: ${note.text}`
 }
 
-function sectionKeyword(kind: "loop" | "alt" | "par"): string {
+function sectionKeyword(kind: "loop" | "alt" | "par" | "opt"): string {
   return kind === "alt" ? "else" : "and"
 }
 

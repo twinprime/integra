@@ -16,7 +16,7 @@ export type Suggestion = {
 export type DiagramType = "sequence-diagram" | "use-case-diagram"
 
 const UC_KEYWORDS = ["actor", "component", "use case"]
-const SEQ_KEYWORDS = ["actor", "component", "loop", "alt", "par", "else", "and", "end"]
+const SEQ_KEYWORDS = ["actor", "component", "loop", "alt", "par", "opt", "else", "and", "end"]
 
 function parseDeclaredIds(content: string): string[] {
   const ids: string[] = []

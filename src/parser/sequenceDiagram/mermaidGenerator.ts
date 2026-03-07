@@ -50,7 +50,7 @@ function collectMessages(statements: SeqStatement[]): SeqMessage[] {
 }
 
 /** Emit Mermaid lines for a block section separator keyword. */
-function sectionKeyword(kind: "loop" | "alt" | "par"): string {
+function sectionKeyword(kind: "loop" | "alt" | "par" | "opt"): string {
   return kind === "alt" ? "else" : "and"
 }
 

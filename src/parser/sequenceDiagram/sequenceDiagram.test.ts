@@ -903,3 +903,74 @@ describe("sequence diagram block constructs — system updater", () => {
     expect(fn).toBeDefined()
   })
 })
+
+// ─── opt block construct ──────────────────────────────────────────────────────
+
+describe("sequence diagram opt block — visitor", () => {
+  it("parses an opt block with condition text", () => {
+    const block = parseBlock("actor A\nactor B\nopt if premium user\n  A --> B: upgrade\nend")
+    expect(block.kind).toBe("opt")
+    expect(block.sections).toHaveLength(1)
+    expect(block.sections[0].guard).toBe("if premium user")
+    const msg = block.sections[0].statements[0] as SeqMessage
+    expect(msg.from).toBe("A")
+    expect(msg.to).toBe("B")
+    expect(msg.label).toBe("upgrade")
+  })
+
+  it("parses an opt block without condition text", () => {
+    const block = parseBlock("actor A\nactor B\nopt\n  A --> B: ping\nend")
+    expect(block.kind).toBe("opt")
+    expect(block.sections[0].guard).toBeNull()
+  })
+
+  it("parses opt nested inside alt", () => {
+    const spec = "actor A\nactor B\nalt outer\n  opt inner\n    A --> B: ping\n  end\nend"
+    const { cst } = parseSequenceDiagramCst(spec)
+    const ast = buildSeqAst(cst)
+    const outer = ast.statements.find((s): s is SeqBlock => "sections" in s)!
+    expect(outer.kind).toBe("alt")
+    const inner = outer.sections[0].statements.find((s): s is SeqBlock => "sections" in s)!
+    expect(inner.kind).toBe("opt")
+  })
+})
+
+describe("sequence diagram opt block — mermaid generator", () => {
+  const mkOptComp = (uuid: string, id: string): ComponentNode => ({
+    uuid, id, name: id, type: "component",
+    actors: [], subComponents: [], useCaseDiagrams: [], interfaces: [],
+  })
+
+  it("emits opt block in mermaid output", () => {
+    const spec = "actor A\nactor B\nopt if premium\n  A --> B: upgrade\nend"
+    const { cst } = parseSequenceDiagramCst(spec)
+    const ast = buildSeqAst(cst)
+    const owner = mkOptComp("o", "owner")
+    const root = mkOptComp("r", "root")
+    root.subComponents = [owner]
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain("opt if premium")
+    expect(mermaidContent).toContain("end")
+    expect(mermaidContent).not.toContain("else")
+    expect(mermaidContent).not.toContain("and")
+  })
+})
+
+describe("sequence diagram opt block — spec serializer", () => {
+  it("round-trips an opt block", () => {
+    const { cst } = parseSequenceDiagramCst("actor A\nactor B\nopt condition\n  A --> B: ping\nend")
+    const ast = buildSeqAst(cst)
+    const spec = seqAstToSpec(ast)
+    expect(spec).toContain("opt condition")
+    expect(spec).toContain("end")
+    expect(spec).toContain("A --> B: ping")
+  })
+
+  it("renames participant ID inside an opt block", () => {
+    const input = "actor A\nactor B\nopt\n  A --> B: ping\nend"
+    const renamed = renameInSeqSpec(input, "A", "Alpha")
+    expect(renamed).toContain("actor Alpha")
+    expect(renamed).toContain("Alpha --> B: ping")
+    expect(renamed).not.toContain("A -->")
+  })
+})

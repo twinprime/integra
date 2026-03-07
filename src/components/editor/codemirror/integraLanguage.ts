@@ -67,6 +67,7 @@ const TOKEN_CLASS: Record<string, string> = {
   Loop:      CLS.keyword,
   Alt:       CLS.keyword,
   Par:       CLS.keyword,
+  Opt:       CLS.keyword,
   Else:      CLS.keyword,
   And:       CLS.keyword,
   End:       CLS.keyword,
