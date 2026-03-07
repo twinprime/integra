@@ -3,6 +3,7 @@ import type { DiagramNode } from "../store/types"
 import { UseCaseDiagram } from "./diagrams/UseCaseDiagram"
 import { SequenceDiagram } from "./diagrams/SequenceDiagram"
 import { UseCaseClassDiagram } from "./diagrams/UseCaseClassDiagram"
+import { ComponentClassDiagram } from "./diagrams/ComponentClassDiagram"
 
 export const DiagramPanel = () => {
   const selectedNodeId = useSystemStore((s) => s.selectedNodeId)
@@ -17,6 +18,9 @@ export const DiagramPanel = () => {
   }
   if (selectedNode?.type === "use-case") {
     return <UseCaseClassDiagram useCaseNode={selectedNode} />
+  }
+  if (selectedNode?.type === "component") {
+    return <ComponentClassDiagram componentNode={selectedNode} />
   }
   return (
     <div className="h-full flex items-center justify-center text-gray-500">

@@ -36,6 +36,7 @@ As you write sequence diagrams, Integra automatically derives:
 - **Interface specifications** (with typed functions and parameters) on the receiving component
 - **Use cases** listed under their use case diagram
 - **Use-case class diagram** — when a use-case node is selected, the bottom panel renders an auto-generated class diagram showing all actors, components, and interfaces used across its sequence diagrams, with realization (`..|>`) and dependency (`..>`) arrows
+- **Component class diagram** — when a component node is selected, the bottom panel renders an auto-generated class diagram showing the component's interfaces (with method signatures) and all other actors/components in the system that call those interfaces
 
 Navigate the tree to inspect generated nodes. Clicking a node or participant in the rendered diagram navigates to that node in the tree. Orphaned nodes (no longer referenced by any diagram) show a delete button on hover.
 
@@ -395,6 +396,7 @@ Integra is a single-page web application that allows users to model software sys
 11. **Navigation** — highlighted tokens in the specification editor are clickable and navigate to the corresponding node in the tree; entities in the rendered Mermaid diagram are also clickable for the same purpose
 12. **Persistence** — system state is persisted to `localStorage` and restored on page load; a clear button resets to the initial state; Save / Load buttons use the File System Access API to read/write YAML files
 13. **Auto-generated use-case class diagram** — selecting a use-case node renders a class diagram in the bottom panel derived from all its sequence diagrams, showing actors, components, interfaces (with methods), and realization / dependency relationships
+14. **Auto-generated component class diagram** — selecting a component node renders a class diagram showing the component's interfaces (with method signatures from its stored spec) and all actors/components anywhere in the system that call those interfaces, connected with dependency arrows
 
 ---
 
@@ -431,6 +433,7 @@ graph TD
     DiagramPanel -->|use-case-diagram| UseCaseDiagram
     DiagramPanel -->|sequence-diagram| SequenceDiagram
     DiagramPanel -->|use-case| UseCaseClassDiagram
+    DiagramPanel -->|component| ComponentClassDiagram
 ```
 
 **Panel roles:**
@@ -454,6 +457,7 @@ graph TD
 | `UseCaseDiagram` | Renders use-case-diagram spec via Mermaid; clickable entities |
 | `SequenceDiagram` | Renders sequence diagram spec via Mermaid; clickable participants and message labels |
 | `UseCaseClassDiagram` | Renders auto-generated class diagram for a use-case node; clickable classes |
+| `ComponentClassDiagram` | Renders auto-generated class diagram for a component node showing its interfaces and dependents; clickable classes |
 | `DiagramErrorBanner` | Displays Mermaid render errors with the raw spec source |
 
 #### Hooks
@@ -466,6 +470,7 @@ Rendering logic for Mermaid diagrams is extracted into custom hooks to keep comp
 | `useUseCaseDiagram` | `UseCaseDiagram` | Builds the use-case diagram transform and wires `__integraNavigate` |
 | `useSequenceDiagram` | `SequenceDiagram` | Builds the sequence diagram transform and wires `__integraNavigate` |
 | `useUseCaseClassDiagram` | `UseCaseClassDiagram` | Calls `buildUseCaseClassDiagram()`, renders via Mermaid, wires `__integraNavigate` |
+| `useComponentClassDiagram` | `ComponentClassDiagram` | Calls `buildComponentClassDiagram()`, renders via Mermaid, wires `__integraNavigate` |
 | `useAutoComplete` | `DiagramEditor` / `integraAutocomplete.ts` | Cursor-position-aware suggestion engine — `detectContext` and `buildSuggestions` pure functions are also consumed by the CodeMirror completion source |
 
 #### State Management
@@ -515,6 +520,34 @@ When a `use-case` node is selected, `buildUseCaseClassDiagram()` (`src/utils/use
 - `Sender ..> Interface` — dependency (sender calls via the interface)
 - `Sender ..> Receiver` — dependency for plain (non-interface, non-self) messages
 - Click handlers use `globalThis.__integraNavigate` to navigate to the clicked node
+
+#### Auto-generated Component Class Diagram
+
+When a `component` node is selected, `buildComponentClassDiagram()` (`src/utils/componentClassDiagram.ts`) reads the component's stored interface specifications and scans every sequence diagram in the entire system tree to produce a Mermaid `classDiagram`:
+
+- The component itself is shown as a class
+- Each of its interfaces (from `component.interfaces`) becomes a class with `<<interface>>` and all defined methods (including parameter types and optionality)
+- `Component ..|> Interface` — realization arrow for each interface the component provides
+- `Caller ..> Interface` — dependency arrow for each external actor or component that calls the interface in any sequence diagram
+- Callers are disambiguated by verifying the message receiver resolves to the target component's UUID, so an interface ID shared by multiple components is handled correctly
+- Self-references (the component calling its own interface) are excluded
+- Click handlers navigate to the clicked node in the tree
+- If the component has no interfaces, an empty-state message is shown instead
+
+Example output for a component `orderSvc` with interface `OrdersAPI` that is called by `client`:
+```
+classDiagram
+    class orderSvc["Order Service"]:::component
+    class OrdersAPI {
+        <<interface>>
+        +placeOrder(orderId: string, amount: number)
+    }
+    orderSvc ..|> OrdersAPI
+    class client["Client"]:::component
+    client ..> OrdersAPI
+    click orderSvc call __integraNavigate("orderSvc")
+    click client call __integraNavigate("client")
+```
 
 #### Parsers (`src/parser/`)
 
