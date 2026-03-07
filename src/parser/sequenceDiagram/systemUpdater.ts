@@ -10,7 +10,7 @@ import { findCompByUuid } from "../../nodes/nodeTree"
 import { findNodeByPath, isInScope } from "../../utils/nodeUtils"
 import { resolveUseCaseByPath, autoCreateByPath } from "../../utils/diagramResolvers"
 import { parseSequenceDiagramCst } from "./parser"
-import { buildSeqAst, flattenMessages, type SeqMessage, type SeqStatement } from "./visitor"
+import { buildSeqAst, flattenMessages } from "./visitor"
 
 // ─── Shared utilities (re-exported for callers) ───────────────────────────────
 

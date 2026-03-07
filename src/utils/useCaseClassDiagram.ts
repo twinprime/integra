@@ -3,7 +3,7 @@ import { findNode } from "../store/useSystemStore"
 import { findComponentByInterfaceId, resolveInOwner } from "./diagramResolvers"
 import { parseSequenceDiagramCst } from "../parser/sequenceDiagram/parser"
 import { buildSeqAst, flattenMessages } from "../parser/sequenceDiagram/visitor"
-import type { SeqAst, SeqMessage } from "../parser/sequenceDiagram/visitor"
+import type { SeqAst } from "../parser/sequenceDiagram/visitor"
 import { findNodeByPath } from "./nodeUtils"
 
 type ParticipantKind = "actor" | "component"
