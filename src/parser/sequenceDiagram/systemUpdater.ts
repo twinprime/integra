@@ -10,7 +10,7 @@ import { findCompByUuid } from "../../nodes/nodeTree"
 import { findNodeByPath, isInScope } from "../../utils/nodeUtils"
 import { resolveUseCaseByPath, autoCreateByPath } from "../../utils/diagramResolvers"
 import { parseSequenceDiagramCst } from "./parser"
-import { buildSeqAst, type SeqMessage, type SeqStatement } from "./visitor"
+import { buildSeqAst, flattenMessages, type SeqMessage, type SeqStatement } from "./visitor"
 
 // ─── Shared utilities (re-exported for callers) ───────────────────────────────
 
@@ -52,17 +52,7 @@ export type FunctionMatch = {
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
 /** Recursively extract all SeqMessage nodes from a statement list (including inside blocks). */
-function flattenMessages(statements: SeqStatement[]): SeqMessage[] {
-  const result: SeqMessage[] = []
-  for (const stmt of statements) {
-    if ("sections" in stmt) {
-      for (const section of stmt.sections) result.push(...flattenMessages(section.statements))
-    } else if ("functionRef" in stmt) {
-      result.push(stmt as SeqMessage)
-    }
-  }
-  return result
-}
+
 
 function findFunctionInTree(
   root: ComponentNode,

@@ -76,6 +76,9 @@ const seqDiagram: SequenceDiagramNode = {
     "component OrderService",
     "User ->> AuthService: IAuth:login()",
     "AuthService -->> User: done",
+    "opt if order pending",
+    "  User ->> AuthService: IAuth:login()",
+    "end",
     "User ->> OrderService: UseCase:OrderService/PlaceOrder:Place an order",
   ].join("\n"),
 }
@@ -172,4 +175,41 @@ export function makeLocalStorageValueWithEmptySeq(): string {
   }
 
   return JSON.stringify({ state: { rootComponent: systemWithEmptySeq }, version: 0 })
+}
+
+/**
+ * Variant fixture where AuthService's IAuth interface is called ONLY inside an opt block.
+ * Used to verify that block-nested messages are included in the component class diagram.
+ */
+export function makeLocalStorageValueWithBlockOnlyCall(): string {
+  const blockOnlySeq: SequenceDiagramNode = {
+    uuid: "block-only-seq-uuid",
+    id: "BlockFlow",
+    name: "Block Flow",
+    type: "sequence-diagram",
+    ownerComponentUuid: UUIDS.root,
+    referencedNodeIds: [UUIDS.authComp],
+    referencedFunctionUuids: [UUIDS.fn],
+    content: [
+      "actor User",
+      "component AuthService",
+      "opt if refresh needed",
+      "  User ->> AuthService: IAuth:login()",
+      "end",
+    ].join("\n"),
+  }
+
+  const systemWithBlockOnly: ComponentNode = {
+    ...sampleSystem,
+    // Replace the Login Flow with one that only calls IAuth inside a block
+    useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
+      ...ucd,
+      useCases: ucd.useCases.map((uc) => ({
+        ...uc,
+        sequenceDiagrams: [blockOnlySeq],
+      })),
+    })),
+  }
+
+  return JSON.stringify({ state: { rootComponent: systemWithBlockOnly }, version: 0 })
 }

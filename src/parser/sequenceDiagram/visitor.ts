@@ -207,6 +207,19 @@ class SequenceDiagramVisitor extends BaseVisitor {
 // Singleton visitor
 const visitor = new SequenceDiagramVisitor()
 
+/** Recursively collects all SeqMessage nodes from a statement list, including those inside blocks. */
+export function flattenMessages(statements: SeqStatement[]): SeqMessage[] {
+  const result: SeqMessage[] = []
+  for (const stmt of statements) {
+    if ("sections" in stmt) {
+      for (const section of (stmt as SeqBlock).sections) result.push(...flattenMessages(section.statements))
+    } else if ("functionRef" in stmt) {
+      result.push(stmt as SeqMessage)
+    }
+  }
+  return result
+}
+
 export function buildSeqAst(cst: ReturnType<typeof import("./parser").seqParser.sequenceDiagram>): SeqAst {
   return visitor.visit(cst) as SeqAst
 }

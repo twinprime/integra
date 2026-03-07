@@ -2,8 +2,7 @@ import type { ComponentNode, SequenceDiagramNode } from "../store/types"
 import { findNode } from "../store/useSystemStore"
 import { resolveInOwner } from "./diagramResolvers"
 import { parseSequenceDiagramCst } from "../parser/sequenceDiagram/parser"
-import { buildSeqAst } from "../parser/sequenceDiagram/visitor"
-import type { SeqMessage } from "../parser/sequenceDiagram/visitor"
+import { buildSeqAst, flattenMessages } from "../parser/sequenceDiagram/visitor"
 import { findNodeByPath } from "./nodeUtils"
 import { collectAllDiagrams } from "../nodes/nodeTree"
 
@@ -79,7 +78,7 @@ export function buildComponentClassDiagram(
     const aliasToUuid = new Map<string, string>()
     registerParticipants(ast, ownerComp, rootComponent, participantsMap, aliasToUuid)
 
-    const messages = ast.statements.filter((s): s is SeqMessage => "functionRef" in s)
+    const messages = flattenMessages(ast.statements)
 
     for (const msg of messages) {
       if (!msg.functionRef) continue

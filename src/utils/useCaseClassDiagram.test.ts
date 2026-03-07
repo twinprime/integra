@@ -212,4 +212,30 @@ describe("buildUseCaseClassDiagram", () => {
     expect(result.mermaidContent).toContain('class compB["Component B"]:::component')
     expect(result.mermaidContent).toContain("compA ..> compB")
   })
+
+  it("includes interface calls inside a loop block", () => {
+    const content = [
+      "actor user",
+      "component compA",
+      "loop poll",
+      "  user ->> compA: IFoo:doSomething(id: string)",
+      "end",
+    ].join("\n")
+    const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
+    expect(result.mermaidContent).toContain("class IFoo {")
+    expect(result.mermaidContent).toContain("user ..> IFoo")
+    expect(result.mermaidContent).toContain("compA ..|> IFoo")
+  })
+
+  it("includes interface calls inside an opt block", () => {
+    const content = [
+      "actor user",
+      "component compA",
+      "opt if premium",
+      "  user ->> compA: IFoo:doSomething(id: string)",
+      "end",
+    ].join("\n")
+    const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
+    expect(result.mermaidContent).toContain("user ..> IFoo")
+  })
 })

@@ -289,4 +289,44 @@ describe("buildComponentClassDiagram", () => {
     expect(result.mermaidContent).toContain("+doSomething(id: string)")
     expect(result.mermaidContent).not.toContain("+doSomething(id: string?)")
   })
+
+  it("finds callers inside an opt block", () => {
+    const sd = makeSeqDiagram(
+      ["actor user", "component compA", "opt if needed", "  user ->> compA: IFoo:doSomething(id: string)", "end"].join(
+        "\n",
+      ),
+    )
+    const root = makeRoot([sd])
+    const result = buildComponentClassDiagram(getCompA(root), root)
+    expect(result.mermaidContent).toContain("user ..> IFoo")
+  })
+
+  it("finds callers inside a loop block", () => {
+    const sd = makeSeqDiagram(
+      ["component compB", "component compA", "loop retry", "  compB ->> compA: IFoo:doSomething(id: string)", "end"].join(
+        "\n",
+      ),
+    )
+    const root = makeRoot([sd])
+    const result = buildComponentClassDiagram(getCompA(root), root)
+    expect(result.mermaidContent).toContain("compB ..> IFoo")
+  })
+
+  it("finds callers inside an alt/else block", () => {
+    const sd = makeSeqDiagram(
+      [
+        "actor user",
+        "component compA",
+        "alt happy path",
+        "  user ->> compA: IFoo:doSomething(id: string)",
+        "else fallback",
+        "  user ->> compA: IBar:getAll()",
+        "end",
+      ].join("\n"),
+    )
+    const root = makeRoot([sd])
+    const result = buildComponentClassDiagram(getCompA(root), root)
+    expect(result.mermaidContent).toContain("user ..> IFoo")
+    expect(result.mermaidContent).toContain("user ..> IBar")
+  })
 })
