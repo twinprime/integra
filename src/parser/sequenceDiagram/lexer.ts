@@ -2,13 +2,15 @@
  * lexer.ts — multi-mode Chevrotain lexer for sequence diagrams.
  *
  * Modes:
- *  - default_mode: structural tokens (declarations, message arrows)
+ *  - default_mode: structural tokens (declarations, message arrows, block keywords)
  *  - text_mode: activated after `:` — captures FUNCTION_REF or LABEL_TEXT / NOTE_TEXT
+ *  - block_header_mode: activated after a block keyword (loop/alt/par/else/and) —
+ *    captures optional rest-of-line condition text, then pops back on newline
  *
- * text_mode pops back to default_mode on NEWLINE.
+ * text_mode and block_header_mode both pop back to default_mode on NEWLINE.
  */
 import { createToken, Lexer } from "chevrotain"
-import { sharedTokens, Colon as SharedColon, Newline, WhiteSpace } from "../tokens"
+import { sharedTokens, Colon as SharedColon, Newline, WhiteSpace, Identifier } from "../tokens"
 
 // ─── Label / note text tokens (only in text_mode) ─────────────────────────────
 
@@ -61,28 +63,70 @@ export const SeqColon = createToken({
   push_mode: "text_mode",
 })
 
+// ─── Block keywords (sequence-diagram-specific) ───────────────────────────────
+
+/**
+ * Block keywords must be listed BEFORE Identifier so the lexer gives them
+ * priority. loop/alt/par/else/and push block_header_mode to capture
+ * optional condition text. end stays in default_mode (no condition text).
+ */
+export const Loop = createToken({ name: "Loop", pattern: /loop(?![a-zA-Z0-9_-])/, push_mode: "block_header_mode" })
+export const Alt  = createToken({ name: "Alt",  pattern: /alt(?![a-zA-Z0-9_-])/,  push_mode: "block_header_mode" })
+export const Par  = createToken({ name: "Par",  pattern: /par(?![a-zA-Z0-9_-])/,  push_mode: "block_header_mode" })
+export const Else = createToken({ name: "Else", pattern: /else(?![a-zA-Z0-9_-])/, push_mode: "block_header_mode" })
+export const And  = createToken({ name: "And",  pattern: /and(?![a-zA-Z0-9_-])/,  push_mode: "block_header_mode" })
+export const End  = createToken({ name: "End",  pattern: /end(?![a-zA-Z0-9_-])/ })
+
+// ─── block_header_mode tokens ─────────────────────────────────────────────────
+
+/** Optional rest-of-line condition/label text after a block keyword. */
+export const BlockConditionText = createToken({
+  name: "BlockConditionText",
+  pattern: /[^\r\n]+/,
+})
+
+/** Newline that pops block_header_mode back to default_mode. */
+const BlockNewlineExit = createToken({
+  name: "BlockNewlineExit",
+  pattern: /\r?\n/,
+  line_breaks: true,
+  pop_mode: true,
+  categories: [Newline], // treated as Newline by the parser
+})
+
 // ─── Lexer definition ─────────────────────────────────────────────────────────
 
-// default_mode: sharedTokens with Colon replaced by SeqColon
-const defaultModeTokens = sharedTokens.map((t) => (t === SharedColon ? SeqColon : t))
+// Shared tokens with Colon replaced by SeqColon
+const sharedWithSeqColon = sharedTokens.map((t) => (t === SharedColon ? SeqColon : t))
+
+// Insert block keywords before Identifier (so they have lexer priority)
+const identifierIdx = sharedWithSeqColon.indexOf(Identifier)
+const defaultModeTokens = [
+  ...sharedWithSeqColon.slice(0, identifierIdx),
+  Loop, Alt, Par, Else, And, End,
+  ...sharedWithSeqColon.slice(identifierIdx),
+]
 
 export const seqLexerDefinition = {
   modes: {
     default_mode: defaultModeTokens,
     text_mode: [NewlineExit, WhiteSpace, FunctionRef, UseCaseRef, LabelText],
+    block_header_mode: [BlockNewlineExit, WhiteSpace, BlockConditionText],
   },
   defaultMode: "default_mode",
 }
 
 export const SeqLexer = new Lexer(seqLexerDefinition)
 
-// All unique tokens (default + text mode, deduped) — needed by the CstParser
+// All unique tokens (all modes, deduped) — needed by the CstParser
 export const allSeqTokens = [
   ...defaultModeTokens,
   NewlineExit,
   FunctionRef,
   UseCaseRef,
   LabelText,
+  BlockNewlineExit,
+  BlockConditionText,
 ]
 
 export { Newline }

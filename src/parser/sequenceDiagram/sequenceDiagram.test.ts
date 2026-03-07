@@ -6,7 +6,7 @@ import { SeqLexer } from "./lexer"
 import { parseSequenceDiagramCst } from "./parser"
 import { buildSeqAst } from "./visitor"
 
-import type { SeqMessage, SeqNote } from "./visitor"
+import type { SeqMessage, SeqNote, SeqBlock } from "./visitor"
 
 function parse(input: string) {
   const { cst, lexErrors, parseErrors } = parseSequenceDiagramCst(input)
@@ -372,8 +372,6 @@ describe("parseSequenceDiagram — auto-create missing path nodes", () => {
 // ─── generateSequenceMermaidFromAst — participant display labels ──────────────
 
 import { generateSequenceMermaidFromAst } from "./mermaidGenerator"
-import { buildSeqAst } from "./visitor"
-import { parseSequenceDiagramCst } from "./parser"
 
 function parseAst(content: string) {
   const { cst } = parseSequenceDiagramCst(content)
@@ -712,5 +710,196 @@ describe("parseSequenceDiagram — function follows receiver", () => {
     // Function must NOT be on the parent "payment" component
     const paymentFn = updatedPayment.interfaces.find((i) => i.id === "REST")?.functions.find((f) => f.id === "getUser")
     expect(paymentFn).toBeUndefined()
+  })
+})
+
+// ─── Block constructs (loop / alt / par) ─────────────────────────────────────
+
+import { seqAstToSpec, renameInSeqSpec } from "./specSerializer"
+
+function parseBlock(input: string): SeqBlock {
+  const { cst } = parseSequenceDiagramCst(input)
+  const ast = buildSeqAst(cst)
+  const block = ast.statements.find((s): s is SeqBlock => "sections" in s)
+  if (!block) throw new Error("no SeqBlock found in AST")
+  return block
+}
+
+describe("sequence diagram block constructs — visitor", () => {
+  it("parses a loop block with condition text", () => {
+    const block = parseBlock("actor A\nactor B\nloop check every second\n  A --> B: ping\nend")
+    expect(block.kind).toBe("loop")
+    expect(block.sections).toHaveLength(1)
+    expect(block.sections[0].guard).toBe("check every second")
+    const msg = block.sections[0].statements[0] as SeqMessage
+    expect(msg.from).toBe("A")
+    expect(msg.to).toBe("B")
+  })
+
+  it("parses a loop block without condition text", () => {
+    const block = parseBlock("actor A\nactor B\nloop\n  A --> B: ping\nend")
+    expect(block.kind).toBe("loop")
+    expect(block.sections[0].guard).toBeNull()
+  })
+
+  it("parses an alt block with multiple else branches", () => {
+    const block = parseBlock(
+      "actor A\nactor B\nalt happy path\n  A --> B: ok\nelse error\n  A --> B: err\nelse\n  A --> B: default\nend"
+    )
+    expect(block.kind).toBe("alt")
+    expect(block.sections).toHaveLength(3)
+    expect(block.sections[0].guard).toBe("happy path")
+    expect(block.sections[1].guard).toBe("error")
+    expect(block.sections[2].guard).toBeNull()
+    expect((block.sections[0].statements[0] as SeqMessage).label).toBe("ok")
+    expect((block.sections[1].statements[0] as SeqMessage).label).toBe("err")
+    expect((block.sections[2].statements[0] as SeqMessage).label).toBe("default")
+  })
+
+  it("parses a par block with and sections", () => {
+    const block = parseBlock(
+      "actor A\nactor B\nactor C\nactor D\npar group 1\n  A --> B: msg1\nand group 2\n  C --> D: msg2\nend"
+    )
+    expect(block.kind).toBe("par")
+    expect(block.sections).toHaveLength(2)
+    expect(block.sections[0].guard).toBe("group 1")
+    expect(block.sections[1].guard).toBe("group 2")
+  })
+
+  it("parses nested blocks (loop inside alt)", () => {
+    const spec = "actor A\nactor B\nalt outer\n  loop inner\n    A --> B: ping\n  end\nend"
+    const { cst } = parseSequenceDiagramCst(spec)
+    const ast = buildSeqAst(cst)
+    const outer = ast.statements.find((s): s is SeqBlock => "sections" in s)!
+    expect(outer.kind).toBe("alt")
+    const inner = outer.sections[0].statements.find((s): s is SeqBlock => "sections" in s)!
+    expect(inner.kind).toBe("loop")
+    expect((inner.sections[0].statements[0] as SeqMessage).from).toBe("A")
+  })
+})
+
+describe("sequence diagram block constructs — mermaid generator", () => {
+  const mkComp = (uuid: string, id: string): ComponentNode => ({
+    uuid, id, name: id, type: "component",
+    actors: [], subComponents: [], useCaseDiagrams: [], interfaces: [],
+  })
+
+  it("emits loop block in mermaid output", () => {
+    const spec = "actor A\nactor B\nloop check\n  A --> B: ping\nend"
+    const { cst } = parseSequenceDiagramCst(spec)
+    const ast = buildSeqAst(cst)
+    const owner = mkComp("o", "owner")
+    const root = mkComp("r", "root")
+    root.subComponents = [owner]
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain("loop check")
+    expect(mermaidContent).toContain("end")
+    expect(mermaidContent).toContain("A->>B: ping")
+  })
+
+  it("emits alt/else/end in mermaid output", () => {
+    const spec = "actor A\nactor B\nalt good\n  A --> B: ok\nelse bad\n  A --> B: err\nend"
+    const { cst } = parseSequenceDiagramCst(spec)
+    const ast = buildSeqAst(cst)
+    const owner = mkComp("o", "owner")
+    const root = mkComp("r", "root")
+    root.subComponents = [owner]
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain("alt good")
+    expect(mermaidContent).toContain("else bad")
+    expect(mermaidContent).toContain("end")
+  })
+
+  it("emits par/and/end in mermaid output", () => {
+    const spec = "actor A\nactor B\nactor C\nactor D\npar g1\n  A --> B: m1\nand g2\n  C --> D: m2\nend"
+    const { cst } = parseSequenceDiagramCst(spec)
+    const ast = buildSeqAst(cst)
+    const owner = mkComp("o", "owner")
+    const root = mkComp("r", "root")
+    root.subComponents = [owner]
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain("par g1")
+    expect(mermaidContent).toContain("and g2")
+    expect(mermaidContent).toContain("end")
+  })
+
+  it("auto-declares participants referenced only inside a block", () => {
+    const spec = "actor A\nloop\n  A --> B: msg\nend"
+    const { cst } = parseSequenceDiagramCst(spec)
+    const ast = buildSeqAst(cst)
+    const owner = mkComp("o", "owner")
+    const root = mkComp("r", "root")
+    root.subComponents = [owner]
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
+    // B is not declared but should appear as a participant
+    expect(mermaidContent).toContain("B")
+  })
+})
+
+describe("sequence diagram block constructs — spec serializer", () => {
+  it("round-trips a loop block", () => {
+    const { cst } = parseSequenceDiagramCst("actor A\nactor B\nloop check\n  A --> B: ping\nend")
+    const ast = buildSeqAst(cst)
+    const spec = seqAstToSpec(ast)
+    expect(spec).toContain("loop check")
+    expect(spec).toContain("end")
+    expect(spec).toContain("A --> B: ping")
+  })
+
+  it("round-trips an alt block with else branches", () => {
+    const input = "actor A\nactor B\nalt good\n  A --> B: ok\nelse bad\n  A --> B: err\nend"
+    const { cst } = parseSequenceDiagramCst(input)
+    const ast = buildSeqAst(cst)
+    const spec = seqAstToSpec(ast)
+    expect(spec).toContain("alt good")
+    expect(spec).toContain("else bad")
+    expect(spec).toContain("end")
+  })
+
+  it("renames participant ID inside a block", () => {
+    const input = "actor A\nactor B\nloop\n  A --> B: ping\nend"
+    const renamed = renameInSeqSpec(input, "A", "Alpha")
+    expect(renamed).toContain("actor Alpha")
+    expect(renamed).toContain("Alpha --> B: ping")
+    expect(renamed).not.toContain("A -->")
+  })
+
+  it("renames participant ID inside nested blocks", () => {
+    const input = "actor A\nactor B\nalt outer\n  loop inner\n    A --> B: ping\n  end\nend"
+    const renamed = renameInSeqSpec(input, "B", "Beta")
+    expect(renamed).toContain("actor Beta")
+    expect(renamed).toContain("A --> Beta: ping")
+    expect(renamed).not.toContain("--> B:")
+  })
+})
+
+describe("sequence diagram block constructs — system updater", () => {
+  const mkComp2 = (uuid: string, id: string, subs: ComponentNode[] = []): ComponentNode => ({
+    uuid, id, name: id, type: "component",
+    actors: [], subComponents: subs, useCaseDiagrams: [], interfaces: [],
+  })
+
+  it("derives interface spec from messages inside a loop block", () => {
+    const child = mkComp2("child-uuid", "svc")
+    const owner = mkComp2("owner-uuid", "owner", [child])
+    const root = mkComp2("root-uuid", "root", [owner])
+    const spec = "component svc\nactor caller\nloop retry\n  caller --> svc: IFace:fn()\nend"
+    const result = parseSequenceDiagram(spec, root, owner.uuid, "diag-uuid")
+    const updatedOwner = result.subComponents.find((c) => c.uuid === owner.uuid)!
+    const updatedSvc = updatedOwner.subComponents.find((c) => c.id === "svc")!
+    const fn = updatedSvc.interfaces.find((i) => i.id === "IFace")?.functions.find((f) => f.id === "fn")
+    expect(fn).toBeDefined()
+  })
+
+  it("derives interface spec from messages inside nested blocks", () => {
+    const child = mkComp2("child-uuid", "svc")
+    const owner = mkComp2("owner-uuid", "owner", [child])
+    const root = mkComp2("root-uuid", "root", [owner])
+    const spec = "component svc\nactor caller\nalt branch\n  loop retry\n    caller --> svc: IFace:doWork()\n  end\nend"
+    const result = parseSequenceDiagram(spec, root, owner.uuid, "diag-uuid")
+    const updatedOwner = result.subComponents.find((c) => c.uuid === owner.uuid)!
+    const updatedSvc = updatedOwner.subComponents.find((c) => c.id === "svc")!
+    const fn = updatedSvc.interfaces.find((i) => i.id === "IFace")?.functions.find((f) => f.id === "doWork")
+    expect(fn).toBeDefined()
   })
 })

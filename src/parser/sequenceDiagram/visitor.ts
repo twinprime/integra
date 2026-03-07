@@ -42,10 +42,25 @@ export interface SeqNote {
   text: string
 }
 
+export interface SeqBlockSection {
+  /** Condition / label text, or null if omitted */
+  guard: string | null
+  /** Statements in this section — may contain nested SeqBlocks */
+  statements: SeqStatement[]
+}
+
+export interface SeqBlock {
+  kind: "loop" | "alt" | "par"
+  sections: SeqBlockSection[]
+}
+
+/** Union of all statement types that can appear in a sequence diagram body */
+export type SeqStatement = SeqMessage | SeqNote | SeqBlock
+
 export interface SeqAst {
   declarations: SeqDeclaration[]
-  /** Messages and notes in source order — preserves note positions between messages. */
-  statements: (SeqMessage | SeqNote)[]
+  /** Messages, notes, and blocks in source order. */
+  statements: SeqStatement[]
 }
 
 // ─── Visitor ──────────────────────────────────────────────────────────────────
@@ -58,20 +73,21 @@ class SequenceDiagramVisitor extends BaseVisitor {
 
   sequenceDiagram(ctx: Record<string, unknown[]>): SeqAst {
     const declarations: SeqDeclaration[] = []
-    const statements: (SeqMessage | SeqNote)[] = []
+    const statements: SeqStatement[] = []
 
     for (const stmt of ctx.seqStatement ?? []) {
-      const result = this.visit(stmt as never) as SeqDeclaration | SeqMessage | SeqNote | undefined
+      const result = this.visit(stmt as never) as SeqDeclaration | SeqStatement | undefined
       if (!result) continue
       if ("entityType" in result) declarations.push(result as SeqDeclaration)
-      else statements.push(result as SeqMessage | SeqNote)
+      else statements.push(result as SeqStatement)
     }
     return { declarations, statements }
   }
 
-  seqStatement(ctx: Record<string, unknown[]>): SeqDeclaration | SeqMessage | SeqNote {
+  seqStatement(ctx: Record<string, unknown[]>): SeqDeclaration | SeqStatement {
     if (ctx.seqDeclaration) return this.visit(ctx.seqDeclaration as never) as SeqDeclaration
     if (ctx.seqNote) return this.visit(ctx.seqNote as never) as SeqNote
+    if (ctx.seqBlock) return this.visit(ctx.seqBlock as never) as SeqBlock
     return this.visit(ctx.seqMessage as never) as SeqMessage
   }
 
@@ -155,6 +171,33 @@ class SequenceDiagramVisitor extends BaseVisitor {
       useCaseRef: null,
       label: rawLabel ? rawLabel.replace(/\\n/g, "\n") : null,
     }
+  }
+
+  seqBlock(ctx: Record<string, unknown[]>): SeqBlock {
+    const kindToken = (ctx.Loop ?? ctx.Alt ?? ctx.Par) as { image: string }[]
+    const kind = kindToken[0].image as "loop" | "alt" | "par"
+    const guard = (ctx.BlockConditionText as { image: string }[] | undefined)?.[0]?.image?.trim() ?? null
+
+    const firstSectionStatements = this._visitSectionStatements(ctx)
+    const sections: SeqBlockSection[] = [{ guard, statements: firstSectionStatements }]
+
+    for (const sectionNode of ctx.seqBlockSection ?? []) {
+      sections.push(this.visit(sectionNode as never) as SeqBlockSection)
+    }
+
+    return { kind, sections }
+  }
+
+  seqBlockSection(ctx: Record<string, unknown[]>): SeqBlockSection {
+    const guard = (ctx.BlockConditionText as { image: string }[] | undefined)?.[0]?.image?.trim() ?? null
+    const statements = this._visitSectionStatements(ctx)
+    return { guard, statements }
+  }
+
+  private _visitSectionStatements(ctx: Record<string, unknown[]>): SeqStatement[] {
+    return (ctx.seqStatement ?? []).map(
+      (s) => this.visit(s as never) as SeqStatement,
+    ).filter(Boolean)
   }
 }
 

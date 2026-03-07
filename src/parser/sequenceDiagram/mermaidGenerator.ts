@@ -10,7 +10,7 @@ import { findNodeByPath } from "../../utils/nodeUtils"
 import { findComponentByInterfaceId, resolveUseCaseByPath } from "../../utils/diagramResolvers"
 import { findNode } from "../../store/useSystemStore"
 import { parseSequenceDiagramCst } from "./parser"
-import { buildSeqAst, type SeqAst } from "./visitor"
+import { buildSeqAst, type SeqAst, type SeqStatement, type SeqMessage, type SeqNote } from "./visitor"
 
 function escapeLabel(text: string): string {
   return text.replace(/\n/g, "<br/>")
@@ -34,6 +34,24 @@ function resolveParticipantUuid(
       ?? null
   }
   return findNodeByPath(root, path.join("/"))
+}
+
+/** Recursively collect all SeqMessage nodes from a statement list (including inside blocks). */
+function collectMessages(statements: SeqStatement[]): SeqMessage[] {
+  const result: SeqMessage[] = []
+  for (const stmt of statements) {
+    if ("sections" in stmt) {
+      for (const section of stmt.sections) result.push(...collectMessages(section.statements))
+    } else if (!("position" in stmt)) {
+      result.push(stmt as SeqMessage)
+    }
+  }
+  return result
+}
+
+/** Emit Mermaid lines for a block section separator keyword. */
+function sectionKeyword(kind: "loop" | "alt" | "par"): string {
+  return kind === "alt" ? "else" : "and"
 }
 
 export function generateSequenceMermaidFromAst(
@@ -60,11 +78,9 @@ export function generateSequenceMermaidFromAst(
     mermaidContent += `participant ${mermaidId} as ${stereotype}<br/>${displayName}\n`
   }
 
-  // Auto-declare any undeclared participants referenced in messages so Mermaid
-  // shows the original name (with spaces) instead of the sanitized id (underscores).
-  for (const stmt of ast.statements) {
-    if ("position" in stmt) continue
-    for (const raw of [stmt.from, stmt.to]) {
+  // Auto-declare any undeclared participants referenced in messages (including inside blocks).
+  for (const msg of collectMessages(ast.statements)) {
+    for (const raw of [msg.from, msg.to]) {
       const mermaidId = sanitizeMermaidId(raw)
       if (!declaredMermaidIds.has(mermaidId)) {
         declaredMermaidIds.add(mermaidId)
@@ -73,31 +89,61 @@ export function generateSequenceMermaidFromAst(
     }
   }
 
-  // ─── Messages and notes in source order ──────────────────────────────────────
-  for (const stmt of ast.statements) {
-    if ("position" in stmt) {
+  // ─── Messages, notes, and blocks in source order ──────────────────────────────
+  mermaidContent += emitStatements(ast.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid)
+
+  return { mermaidContent, idToUuid, messageLabelToUuid }
+}
+
+function emitStatements(
+  statements: SeqStatement[],
+  ownerComp: ComponentNode | null,
+  root: ComponentNode,
+  ownerCompUuid: string | undefined,
+  messageLabelToUuid: Record<string, string>,
+  indent = "",
+): string {
+  let out = ""
+  for (const stmt of statements) {
+    if ("sections" in stmt) {
+      // Block construct
+      const { kind, sections } = stmt
+      const firstSection = sections[0]
+      const guardText = firstSection.guard ? ` ${firstSection.guard}` : ""
+      out += `${indent}${kind}${guardText}\n`
+      out += emitStatements(firstSection.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, indent + "  ")
+      for (const section of sections.slice(1)) {
+        const secKw = sectionKeyword(kind)
+        const secGuard = section.guard ? ` ${section.guard}` : ""
+        out += `${indent}${secKw}${secGuard}\n`
+        out += emitStatements(section.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, indent + "  ")
+      }
+      out += `${indent}end\n`
+    } else if ("position" in stmt) {
       // Note
-      const text = escapeLabel(stmt.text)
-      if (stmt.position.kind === "side") {
-        mermaidContent += `note ${stmt.position.side} of ${sanitizeMermaidId(stmt.position.participant)}: ${text}\n`
+      const note = stmt as SeqNote
+      const text = escapeLabel(note.text)
+      if (note.position.kind === "side") {
+        out += `${indent}note ${note.position.side} of ${sanitizeMermaidId(note.position.participant)}: ${text}\n`
       } else {
-        const [p1, p2] = stmt.position.participants
-        mermaidContent += p2
-          ? `note over ${sanitizeMermaidId(p1)}, ${sanitizeMermaidId(p2)}: ${text}\n`
-          : `note over ${sanitizeMermaidId(p1)}: ${text}\n`
+        const [p1, p2] = note.position.participants
+        out += p2
+          ? `${indent}note over ${sanitizeMermaidId(p1)}, ${sanitizeMermaidId(p2)}: ${text}\n`
+          : `${indent}note over ${sanitizeMermaidId(p1)}: ${text}\n`
       }
     } else {
       // Message
-      const fromId = sanitizeMermaidId(stmt.from)
-      const toId = sanitizeMermaidId(stmt.to)
-      if (stmt.functionRef) {
-        const { interfaceId, functionId, rawParams } = stmt.functionRef
+      const msg = stmt as SeqMessage
+      const fromId = sanitizeMermaidId(msg.from)
+      const toId = sanitizeMermaidId(msg.to)
+      if (msg.functionRef) {
+        const { interfaceId, functionId, rawParams } = msg.functionRef
         const mermaidLabel = `${interfaceId}:${functionId}(${rawParams})`
         const compUuid = findComponentByInterfaceId(root, interfaceId)
         if (compUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = compUuid
-        mermaidContent += `${fromId}->>${toId}: ${mermaidLabel}\n`
-      } else if (stmt.useCaseRef) {
-        const { path, label: customLabel } = stmt.useCaseRef
+        out += `${indent}${fromId}->>${toId}: ${mermaidLabel}\n`
+      } else if (msg.useCaseRef) {
+        const { path, label: customLabel } = msg.useCaseRef
         const ucId = path[path.length - 1]
         const ucUuid = ownerComp && ownerCompUuid
           ? resolveUseCaseByPath(path, root, ownerComp, ownerCompUuid)
@@ -106,16 +152,15 @@ export function generateSequenceMermaidFromAst(
         const displayLabel = customLabel ?? ucNode?.name ?? ucId
         const renderedLabel = escapeLabel(displayLabel)
         if (ucUuid && !messageLabelToUuid[renderedLabel]) messageLabelToUuid[renderedLabel] = ucUuid
-        mermaidContent += `${fromId}->>${toId}: ${renderedLabel}\n`
-      } else if (stmt.label) {
-        mermaidContent += `${fromId}->>${toId}: ${escapeLabel(stmt.label)}\n`
+        out += `${indent}${fromId}->>${toId}: ${renderedLabel}\n`
+      } else if (msg.label) {
+        out += `${indent}${fromId}->>${toId}: ${escapeLabel(msg.label)}\n`
       } else {
-        mermaidContent += `${fromId}->>${toId}\n`
+        out += `${indent}${fromId}->>${toId}\n`
       }
     }
   }
-
-  return { mermaidContent, idToUuid, messageLabelToUuid }
+  return out
 }
 
 export function generateSequenceMermaid(

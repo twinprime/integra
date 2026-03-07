@@ -106,6 +106,8 @@ class SeqPositionedVisitorImpl extends BaseVisitor {
     if (decl) { this.visit(decl); return }
     const note = nodes(ctx, "seqNote")[0]
     if (note) { this.visit(note); return }
+    const block = nodes(ctx, "seqBlock")[0]
+    if (block) { this.visit(block); return }
     const msg = nodes(ctx, "seqMessage")[0]
     if (msg) this.visit(msg)
   }
@@ -176,6 +178,15 @@ class SeqPositionedVisitorImpl extends BaseVisitor {
   // nodePath and participantRef are accessed via .children directly, not via visit()
   nodePath(_ctx: ChildDict): void { /* no-op: accessed via children */ }
   participantRef(_ctx: ChildDict): void { /* no-op: accessed via _addParticipantRef */ }
+
+  seqBlock(ctx: ChildDict): void {
+    for (const stmt of nodes(ctx, "seqStatement")) this.visit(stmt)
+    for (const section of nodes(ctx, "seqBlockSection")) this.visit(section)
+  }
+
+  seqBlockSection(ctx: ChildDict): void {
+    for (const stmt of nodes(ctx, "seqStatement")) this.visit(stmt)
+  }
 }
 
 const seqPositionedVisitor = new SeqPositionedVisitorImpl()

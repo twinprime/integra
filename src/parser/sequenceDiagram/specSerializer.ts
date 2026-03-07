@@ -8,7 +8,11 @@
  *  - Comments are not preserved (not stored in AST)
  */
 import { parseSequenceDiagramCst } from "./parser"
-import { buildSeqAst, type SeqAst, type SeqDeclaration, type SeqMessage, type SeqNote } from "./visitor"
+import {
+  buildSeqAst,
+  type SeqAst, type SeqDeclaration, type SeqMessage, type SeqNote,
+  type SeqBlock, type SeqBlockSection, type SeqStatement,
+} from "./visitor"
 
 // ─── Serializer ───────────────────────────────────────────────────────────────
 
@@ -47,13 +51,38 @@ function serializeNote(note: SeqNote): string {
   return `${posStr}: ${note.text}`
 }
 
+function sectionKeyword(kind: "loop" | "alt" | "par"): string {
+  return kind === "alt" ? "else" : "and"
+}
+
+function serializeBlock(block: SeqBlock): string {
+  const lines: string[] = []
+  const [first, ...rest] = block.sections
+  const headerGuard = first.guard ? ` ${first.guard}` : ""
+  lines.push(`${block.kind}${headerGuard}`)
+  lines.push(...serializeStatements(first.statements))
+  for (const section of rest) {
+    const secGuard = section.guard ? ` ${section.guard}` : ""
+    lines.push(`${sectionKeyword(block.kind)}${secGuard}`)
+    lines.push(...serializeStatements(section.statements))
+  }
+  lines.push("end")
+  return lines.join("\n")
+}
+
+function serializeStatements(statements: SeqStatement[]): string[] {
+  return statements.map((stmt) => {
+    if ("sections" in stmt) return serializeBlock(stmt as SeqBlock)
+    if ("position" in stmt) return serializeNote(stmt as SeqNote)
+    return serializeMessage(stmt as SeqMessage)
+  })
+}
+
 /** Serialize a SeqAst back to DSL spec text. */
 export function seqAstToSpec(ast: SeqAst): string {
   const lines: string[] = [
     ...ast.declarations.map(serializeDeclaration),
-    ...ast.statements.map((stmt) =>
-      "position" in stmt ? serializeNote(stmt as SeqNote) : serializeMessage(stmt as SeqMessage),
-    ),
+    ...serializeStatements(ast.statements),
   ]
   return lines.join("\n")
 }
@@ -112,14 +141,25 @@ function renameNote(note: SeqNote, oldId: string, newId: string): SeqNote {
   }
 }
 
+function renameBlockSection(section: SeqBlockSection, oldId: string, newId: string): SeqBlockSection {
+  return { ...section, statements: renameStatements(section.statements, oldId, newId) }
+}
+
+function renameStatements(statements: SeqStatement[], oldId: string, newId: string): SeqStatement[] {
+  return statements.map((stmt) => {
+    if ("sections" in stmt) {
+      const block = stmt as SeqBlock
+      return { ...block, sections: block.sections.map((s) => renameBlockSection(s, oldId, newId)) }
+    }
+    if ("position" in stmt) return renameNote(stmt as SeqNote, oldId, newId)
+    return renameMessage(stmt as SeqMessage, oldId, newId)
+  })
+}
+
 function renameInSeqAst(ast: SeqAst, oldId: string, newId: string): SeqAst {
   return {
     declarations: ast.declarations.map((d) => renameDeclaration(d, oldId, newId)),
-    statements: ast.statements.map((stmt) =>
-      "position" in stmt
-        ? renameNote(stmt as SeqNote, oldId, newId)
-        : renameMessage(stmt as SeqMessage, oldId, newId),
-    ),
+    statements: renameStatements(ast.statements, oldId, newId),
   }
 }
 

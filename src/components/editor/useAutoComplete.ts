@@ -16,7 +16,7 @@ export type Suggestion = {
 export type DiagramType = "sequence-diagram" | "use-case-diagram"
 
 const UC_KEYWORDS = ["actor", "component", "use case"]
-const SEQ_KEYWORDS = ["actor", "component"]
+const SEQ_KEYWORDS = ["actor", "component", "loop", "alt", "par", "else", "and", "end"]
 
 function parseDeclaredIds(content: string): string[] {
   const ids: string[] = []
@@ -419,7 +419,8 @@ export function buildSuggestions(
   if (ctx.type === "keyword") {
     return ctx.keywords.map((kw) => ({
       label: kw,
-      insertText: kw + " ",
+      // "end" needs no trailing space; all other keywords expect text after them
+      insertText: kw === "end" ? kw : kw + " ",
       replaceFrom: ctx.replaceFrom,
     }))
   }

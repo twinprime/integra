@@ -10,7 +10,7 @@ import { findCompByUuid } from "../../nodes/nodeTree"
 import { findNodeByPath, isInScope } from "../../utils/nodeUtils"
 import { resolveUseCaseByPath, autoCreateByPath } from "../../utils/diagramResolvers"
 import { parseSequenceDiagramCst } from "./parser"
-import { buildSeqAst } from "./visitor"
+import { buildSeqAst, type SeqMessage, type SeqStatement } from "./visitor"
 
 // ─── Shared utilities (re-exported for callers) ───────────────────────────────
 
@@ -50,6 +50,19 @@ export type FunctionMatch = {
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
+
+/** Recursively extract all SeqMessage nodes from a statement list (including inside blocks). */
+function flattenMessages(statements: SeqStatement[]): SeqMessage[] {
+  const result: SeqMessage[] = []
+  for (const stmt of statements) {
+    if ("sections" in stmt) {
+      for (const section of stmt.sections) result.push(...flattenMessages(section.statements))
+    } else if ("functionRef" in stmt) {
+      result.push(stmt as SeqMessage)
+    }
+  }
+  return result
+}
 
 function findFunctionInTree(
   root: ComponentNode,
@@ -222,8 +235,8 @@ export function analyzeSequenceDiagramChanges(
   const matches: FunctionMatch[] = []
   const seen = new Set<string>()
 
-  for (const stmt of ast.statements) {
-    if (!("functionRef" in stmt) || !stmt.functionRef) continue
+  for (const stmt of flattenMessages(ast.statements)) {
+    if (!stmt.functionRef) continue
     const { interfaceId, functionId, rawParams } = stmt.functionRef
     const key = `${interfaceId}:${functionId}`
     if (seen.has(key)) continue
@@ -359,7 +372,7 @@ export function parseSequenceDiagram(
 
   // Apply messages: build a working components list [owner, ...subComponents]
   // keyed by treeNodeId for local participants; external participants are handled via UUID.
-  const astMessages = ast.statements.filter((s): s is import("./visitor").SeqMessage => "functionRef" in s)
+  const astMessages = flattenMessages(ast.statements)
   if (astMessages.length > 0 && updatedOwnerComp) {
     let workingComponents: ComponentNode[] = [updatedOwnerComp, ...updatedOwnerComp.subComponents]
 

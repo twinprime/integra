@@ -3,21 +3,31 @@
  *
  * Grammar (EBNF):
  *
- *   SequenceDiagram ::= NEWLINE* (SeqStatement (NEWLINE+ | EOF))*
- *   SeqStatement    ::= SeqDeclaration | SeqNote | SeqMessage
- *   SeqDeclaration  ::= (ACTOR | COMPONENT) NodePath (AS IDENTIFIER)?
- *   SeqNote         ::= NOTE SeqNotePosition COLON NOTE_TEXT
- *   SeqNotePosition ::= (RIGHT | LEFT) OF IDENTIFIER
- *                     | OVER IDENTIFIER (COMMA IDENTIFIER)?
- *   SeqMessage      ::= IDENTIFIER ARROW IDENTIFIER (COLON (FUNCTION_REF | LABEL_TEXT))?
- *   NodePath        ::= IDENTIFIER (SLASH IDENTIFIER)*
+ *   SequenceDiagram   ::= NEWLINE* (SeqStatement (NEWLINE+ | EOF))*
+ *   SeqStatement      ::= SeqDeclaration | SeqNote | SeqMessage | SeqBlock
+ *   SeqDeclaration    ::= (ACTOR | COMPONENT) NodePath (AS IDENTIFIER)?
+ *   SeqNote           ::= NOTE SeqNotePosition COLON NOTE_TEXT
+ *   SeqNotePosition   ::= (RIGHT | LEFT) OF IDENTIFIER
+ *                       | OVER IDENTIFIER (COMMA IDENTIFIER)?
+ *   SeqMessage        ::= IDENTIFIER ARROW IDENTIFIER (COLON (FUNCTION_REF | LABEL_TEXT))?
+ *   SeqBlock          ::= (LOOP | ALT | PAR) BlockConditionText? NEWLINE
+ *                         NEWLINE*
+ *                         (SeqStatement (NEWLINE+ | ε))*
+ *                         SeqBlockSection*
+ *                         END
+ *   SeqBlockSection   ::= (ELSE | AND) BlockConditionText? NEWLINE
+ *                         NEWLINE*
+ *                         (SeqStatement (NEWLINE+ | ε))*
  */
 import { CstParser } from "chevrotain"
 import {
   Actor, Component, As, Note, Right, Left, Of, Over,
   Arrow, Slash, Comma, Newline, Identifier, NumberToken,
 } from "../tokens"
-import { FunctionRef, UseCaseRef, LabelText, SeqLexer, SeqColon, allSeqTokens } from "./lexer"
+import {
+  FunctionRef, UseCaseRef, LabelText, SeqLexer, SeqColon, allSeqTokens,
+  Loop, Alt, Par, Else, And, End, BlockConditionText,
+} from "./lexer"
 
 export class SequenceDiagramParser extends CstParser {
   constructor() {
@@ -44,6 +54,7 @@ export class SequenceDiagramParser extends CstParser {
     this.OR([
       { ALT: () => this.SUBRULE(this.seqDeclaration) },
       { ALT: () => this.SUBRULE(this.seqNote) },
+      { ALT: () => this.SUBRULE(this.seqBlock) },
       { ALT: () => this.SUBRULE(this.seqMessage) },
     ])
   })
@@ -134,6 +145,56 @@ export class SequenceDiagramParser extends CstParser {
       ])
     })
   })
+
+  // ─── Block constructs (loop / alt / par) ──────────────────────────────────
+
+  seqBlock = this.RULE("seqBlock", () => {
+    // Opening keyword — lexer pushes block_header_mode
+    this.OR([
+      { ALT: () => this.CONSUME(Loop) },
+      { ALT: () => this.CONSUME(Alt) },
+      { ALT: () => this.CONSUME(Par) },
+    ])
+    // Optional condition text + newline (both in block_header_mode)
+    this.OPTION(() => this.CONSUME(BlockConditionText))
+    this.CONSUME(Newline)       // BlockNewlineExit pops block_header_mode
+    this.MANY(() => this.CONSUME2(Newline)) // skip blank lines before body
+
+    // First section body
+    this.MANY2(() => {
+      this.SUBRULE(this.seqStatement)
+      this.OR2([
+        { ALT: () => this.AT_LEAST_ONE(() => this.CONSUME3(Newline)) },
+        { ALT: () => {} }, // ε — statement immediately before else/and/end
+      ])
+    })
+
+    // Additional sections (else for alt, and for par)
+    this.MANY3(() => this.SUBRULE(this.seqBlockSection))
+
+    this.CONSUME(End)
+  })
+
+  seqBlockSection = this.RULE("seqBlockSection", () => {
+    // Section keyword — lexer pushes block_header_mode
+    this.OR([
+      { ALT: () => this.CONSUME(Else) },
+      { ALT: () => this.CONSUME(And) },
+    ])
+    // Optional condition text + newline (in block_header_mode)
+    this.OPTION(() => this.CONSUME(BlockConditionText))
+    this.CONSUME(Newline)
+    this.MANY(() => this.CONSUME2(Newline))
+
+    // Section body
+    this.MANY2(() => {
+      this.SUBRULE(this.seqStatement)
+      this.OR2([
+        { ALT: () => this.AT_LEAST_ONE(() => this.CONSUME3(Newline)) },
+        { ALT: () => {} },
+      ])
+    })
+  })
 }
 
 // Singleton instance — Chevrotain parsers are expensive to construct
@@ -151,4 +212,4 @@ export {
   Actor, Component, As, Note, Right, Left, Of, Over,
   Arrow, Slash, Comma, Newline, Identifier, NumberToken,
 } from "../tokens"
-export { FunctionRef, UseCaseRef, LabelText, SeqColon } from "./lexer"
+export { FunctionRef, UseCaseRef, LabelText, SeqColon, Loop, Alt, Par, Else, And, End, BlockConditionText } from "./lexer"
