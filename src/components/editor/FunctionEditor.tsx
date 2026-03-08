@@ -99,6 +99,7 @@ export const FunctionEditor = ({
             className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-900/20"
             title="Delete unreferenced function"
             onClick={onDelete}
+            data-testid="fn-delete-btn"
           >
             <Trash2 size={12} />
           </button>

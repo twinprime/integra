@@ -16,6 +16,7 @@ export const UUIDS = {
   seq: "test-seq-uuid",
   authComp: "test-auth-uuid",
   iface: "test-iface-uuid",
+  emptyIface: "test-empty-iface-uuid",
   fn: "test-fn-uuid",
   orderComp: "test-order-uuid",
   orderUcd: "test-order-ucd-uuid",
@@ -129,6 +130,13 @@ const authComp: ComponentNode = {
           parameters: [],
         },
       ],
+    },
+    {
+      uuid: UUIDS.emptyIface,
+      id: "IEmpty",
+      name: "IEmpty",
+      type: "other",
+      functions: [],
     },
   ],
 }

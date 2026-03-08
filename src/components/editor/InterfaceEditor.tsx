@@ -1,4 +1,5 @@
 import { useState } from "react"
+import { Trash2 } from "lucide-react"
 import type { InterfaceSpecification, InterfaceFunction } from "../../store/types"
 import { useSystemStore } from "../../store/useSystemStore"
 import { MarkdownEditor } from "./MarkdownEditor"
@@ -15,6 +16,7 @@ export const InterfaceEditor = ({
   onInterfaceUpdate,
   onFunctionUpdate,
   onDeleteFunction,
+  onDeleteInterface,
   onParamDescriptionUpdate,
   contextComponentUuid,
 }: {
@@ -25,6 +27,7 @@ export const InterfaceEditor = ({
   onInterfaceUpdate: (updates: Partial<InterfaceSpecification>) => void
   onFunctionUpdate: (fnIdx: number, updates: Partial<InterfaceFunction>) => void
   onDeleteFunction: (fnIdx: number) => void
+  onDeleteInterface?: () => void
   onParamDescriptionUpdate: (fnIdx: number, paramIdx: number, desc: string) => void
   contextComponentUuid?: string
 }) => {
@@ -80,6 +83,16 @@ export const InterfaceEditor = ({
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
+        {onDeleteInterface && (!iface.functions || iface.functions.length === 0) && (
+          <button
+            className="p-1 text-gray-500 hover:text-red-400 transition-colors"
+            title="Delete interface"
+            onClick={onDeleteInterface}
+            data-testid="delete-interface-btn"
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
       </div>
       <div className="mb-2">
         <div className="flex items-center gap-1.5">

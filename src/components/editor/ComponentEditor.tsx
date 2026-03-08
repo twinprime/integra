@@ -114,6 +114,15 @@ export const ComponentEditor = ({
     onUpdate({ interfaces: newInterfaces })
   }
 
+  const handleDeleteInterface = (ifaceIdx: number) => {
+    const removedUuid = node.interfaces[ifaceIdx]?.uuid
+    const newInterfaces = node.interfaces.filter((_, i) => i !== ifaceIdx)
+    onUpdate({ interfaces: newInterfaces })
+    if (activeTabUuid === removedUuid) {
+      setActiveTabUuid(newInterfaces[0]?.uuid ?? null)
+    }
+  }
+
   const handleParamDescriptionUpdate = (
     ifaceIdx: number,
     fnIdx: number,
@@ -238,6 +247,7 @@ export const ComponentEditor = ({
                   onInterfaceUpdate={(updates) => handleInterfaceUpdate(ifaceIdx, updates)}
                   onFunctionUpdate={(fnIdx, updates) => handleFunctionUpdate(ifaceIdx, fnIdx, updates)}
                   onDeleteFunction={(fnIdx) => handleDeleteFunction(ifaceIdx, fnIdx)}
+                  onDeleteInterface={() => handleDeleteInterface(ifaceIdx)}
                   onParamDescriptionUpdate={(fnIdx, paramIdx, desc) =>
                     handleParamDescriptionUpdate(ifaceIdx, fnIdx, paramIdx, desc)
                   }

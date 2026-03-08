@@ -124,3 +124,28 @@ test.describe("spec editor function link navigation", () => {
     await expect(page.getByTestId("interface-tab-IAuth")).toHaveClass(/border-blue-400/)
   })
 })
+
+// ─── Delete empty interface ───────────────────────────────────────────────────
+
+test.describe("delete empty interface", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/")
+    await page.getByRole("treeitem").filter({ hasText: "AuthService" }).first().click()
+    // Activate the empty interface tab
+    await page.getByTestId("interface-tab-IEmpty").click()
+  })
+
+  test("delete button is shown for interface with no functions", async ({ page }) => {
+    await expect(page.getByTestId("delete-interface-btn")).toBeVisible()
+  })
+
+  test("delete button is not shown for interface with functions", async ({ page }) => {
+    await page.getByTestId("interface-tab-IAuth").click()
+    await expect(page.getByTestId("delete-interface-btn")).not.toBeVisible()
+  })
+
+  test("clicking delete removes the interface tab", async ({ page }) => {
+    await page.getByTestId("delete-interface-btn").click()
+    await expect(page.getByTestId("interface-tab-IEmpty")).not.toBeVisible()
+  })
+})
