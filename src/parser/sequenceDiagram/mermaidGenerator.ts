@@ -7,7 +7,7 @@
  */
 import type { ComponentNode } from "../../store/types"
 import { findNodeByPath } from "../../utils/nodeUtils"
-import { findComponentByInterfaceId, resolveUseCaseByPath } from "../../utils/diagramResolvers"
+import { findComponentByInterfaceId, findInterfaceUuidByInterfaceId, resolveUseCaseByPath } from "../../utils/diagramResolvers"
 import { findNodeByUuid } from "../../nodes/nodeTree"
 import { parseSequenceDiagramCst } from "./parser"
 import { buildSeqAst, flattenMessages, type SeqAst, type SeqStatement, type SeqMessage, type SeqNote } from "./visitor"
@@ -61,9 +61,10 @@ export function generateSequenceMermaidFromAst(
   ownerComp: ComponentNode | null,
   root: ComponentNode,
   ownerCompUuid?: string,
-): { mermaidContent: string; idToUuid: Record<string, string>; messageLabelToUuid: Record<string, string> } {
+): { mermaidContent: string; idToUuid: Record<string, string>; messageLabelToUuid: Record<string, string>; messageLabelToInterfaceUuid: Record<string, string> } {
   const idToUuid: Record<string, string> = {}
   const messageLabelToUuid: Record<string, string> = {}
+  const messageLabelToInterfaceUuid: Record<string, string> = {}
 
   // ─── Participant lines ───────────────────────────────────────────────────────
   let mermaidContent = "sequenceDiagram\n"
@@ -92,9 +93,9 @@ export function generateSequenceMermaidFromAst(
   }
 
   // ─── Messages, notes, and blocks in source order ──────────────────────────────
-  mermaidContent += emitStatements(ast.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, new Map())
+  mermaidContent += emitStatements(ast.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, messageLabelToInterfaceUuid, new Map())
 
-  return { mermaidContent, idToUuid, messageLabelToUuid }
+  return { mermaidContent, idToUuid, messageLabelToUuid, messageLabelToInterfaceUuid }
 }
 
 // Maps each base label to a per-uuid rendered label assignment.
@@ -123,6 +124,7 @@ function emitStatements(
   root: ComponentNode,
   ownerCompUuid: string | undefined,
   messageLabelToUuid: Record<string, string>,
+  messageLabelToInterfaceUuid: Record<string, string>,
   labelMap: LabelMap,
   indent = "",
 ): string {
@@ -134,12 +136,12 @@ function emitStatements(
       const firstSection = sections[0]
       const guardText = firstSection.guard ? ` ${firstSection.guard}` : ""
       out += `${indent}${kind}${guardText}\n`
-      out += emitStatements(firstSection.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, labelMap, indent + "  ")
+      out += emitStatements(firstSection.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, messageLabelToInterfaceUuid, labelMap, indent + "  ")
       for (const section of sections.slice(1)) {
         const secKw = sectionKeyword(kind)
         const secGuard = section.guard ? ` ${section.guard}` : ""
         out += `${indent}${secKw}${secGuard}\n`
-        out += emitStatements(section.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, labelMap, indent + "  ")
+        out += emitStatements(section.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, messageLabelToInterfaceUuid, labelMap, indent + "  ")
       }
       out += `${indent}end\n`
     } else if ("position" in stmt) {
@@ -163,11 +165,13 @@ function emitStatements(
         const { interfaceId, functionId, rawParams, label } = msg.functionRef
         const baseLabel = label != null ? label : `${functionId}(${extractParamNames(rawParams)})`
         const compUuid = findComponentByInterfaceId(root, interfaceId)
+        const ifaceUuid = findInterfaceUuidByInterfaceId(root, interfaceId)
         // Use interfaceId:functionId as the dedup key so that two different functions
         // with the same name (on different interfaces) are treated as distinct.
         const fnKey = `${interfaceId}:${functionId}`
         const mermaidLabel = resolveLabel(baseLabel, fnKey, labelMap)
         if (compUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = compUuid
+        if (ifaceUuid && !messageLabelToInterfaceUuid[mermaidLabel]) messageLabelToInterfaceUuid[mermaidLabel] = ifaceUuid
         out += `${indent}${fromId}${msg.arrow}${toId}: ${mermaidLabel}\n`
       } else if (msg.useCaseRef) {
         const { path, label: customLabel } = msg.useCaseRef
@@ -196,10 +200,10 @@ export function generateSequenceMermaid(
   ownerComp: ComponentNode | null,
   root: ComponentNode,
   ownerCompUuid?: string,
-): { mermaidContent: string; idToUuid: Record<string, string>; messageLabelToUuid: Record<string, string> } {
+): { mermaidContent: string; idToUuid: Record<string, string>; messageLabelToUuid: Record<string, string>; messageLabelToInterfaceUuid: Record<string, string> } {
   const { cst, lexErrors } = parseSequenceDiagramCst(content)
   if (lexErrors.length) {
-    return { mermaidContent: "sequenceDiagram\n", idToUuid: {}, messageLabelToUuid: {} }
+    return { mermaidContent: "sequenceDiagram\n", idToUuid: {}, messageLabelToUuid: {}, messageLabelToInterfaceUuid: {} }
   }
   const ast = buildSeqAst(cst)
   return generateSequenceMermaidFromAst(ast, ownerComp, root, ownerCompUuid)

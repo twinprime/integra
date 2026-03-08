@@ -63,12 +63,23 @@ test.describe("sequence diagram entity clicks", () => {
     await page
       .locator(diagram())
       .locator("text.messageText")
-      .filter({ hasText: /IAuth:login/ })
+      .filter({ hasText: /^login\(\)$/ })
       .first()
       .click()
     // IAuth belongs to AuthService — that component should now be selected
     const authItem = page.getByRole("treeitem").filter({ hasText: "AuthService" }).first()
     await expect(authItem).toHaveAttribute("aria-selected", "true")
+  })
+
+  test("clicking function message label activates the corresponding interface tab", async ({ page }) => {
+    await page
+      .locator(diagram())
+      .locator("text.messageText")
+      .filter({ hasText: /^login\(\)$/ })
+      .first()
+      .click()
+    // AuthService should be selected and its IAuth tab should be active (blue border)
+    await expect(page.getByTestId("interface-tab-IAuth")).toHaveClass(/border-blue-400/)
   })
 })
 

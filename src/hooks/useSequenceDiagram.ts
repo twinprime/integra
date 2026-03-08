@@ -20,14 +20,17 @@ function findActorRect(target: Element, container: Element): Element | null {
 
 export function useSequenceDiagram(diagramNode: DiagramNode | null) {
   const selectNode = useSystemStore((s) => s.selectNode)
+  const selectInterface = useSystemStore((s) => s.selectInterface)
   const participantIdMapRef = useRef<Record<string, string>>({})
   const messageLabelUuidsRef = useRef<Record<string, string>>({})
+  const messageLabelInterfaceUuidsRef = useRef<Record<string, string>>({})
 
   const buildContent = useCallback(
     (content: string, ownerComp: ComponentNode | null, root: ComponentNode, ownerCompUuid: string) => {
-      const { mermaidContent, idToUuid, messageLabelToUuid } = generateSequenceMermaid(content, ownerComp, root, ownerCompUuid)
+      const { mermaidContent, idToUuid, messageLabelToUuid, messageLabelToInterfaceUuid } = generateSequenceMermaid(content, ownerComp, root, ownerCompUuid)
       participantIdMapRef.current = idToUuid
       messageLabelUuidsRef.current = messageLabelToUuid
+      messageLabelInterfaceUuidsRef.current = messageLabelToInterfaceUuid
       return { mermaidContent, idToUuid }
     },
     [],
@@ -59,8 +62,14 @@ export function useSequenceDiagram(diagramNode: DiagramNode | null) {
     // Message label click (function ref or use-case ref)
     const msgText = target.closest("text.messageText")
     if (msgText) {
-      const uuid = messageLabelUuidsRef.current[msgText.textContent?.trim() ?? ""]
-      if (uuid) { selectNode(uuid); return }
+      const label = msgText.textContent?.trim() ?? ""
+      const uuid = messageLabelUuidsRef.current[label]
+      if (uuid) {
+        selectNode(uuid)
+        const ifaceUuid = messageLabelInterfaceUuidsRef.current[label]
+        if (ifaceUuid) selectInterface(ifaceUuid)
+        return
+      }
     }
 
     // Actor box click: use participant name attribute for UUID lookup

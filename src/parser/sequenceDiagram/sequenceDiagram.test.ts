@@ -785,6 +785,23 @@ describe("generateSequenceMermaidFromAst — functionRef display label", () => {
     const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
     expect(mermaidContent).toContain("caller->>owner: doWork(userId, count)")
   })
+
+  it("populates messageLabelToInterfaceUuid with the interface uuid", () => {
+    const owner = makeCompWithIface2("owner-uuid", "owner")
+    const root = { uuid: "root-uuid", id: "root", name: "root", type: "component" as const, actors: [], subComponents: [owner], useCaseDiagrams: [], interfaces: [] }
+    const ast = parseAst("actor caller\ncaller ->> owner: IFace:doWork()")
+    const { messageLabelToInterfaceUuid } = generateSequenceMermaidFromAst(ast, owner, root)
+    // "owner-uuid-iface" is the iface uuid from makeCompWithIface2
+    expect(messageLabelToInterfaceUuid["doWork()"]).toBe("owner-uuid-iface")
+  })
+
+  it("does not populate messageLabelToInterfaceUuid for unresolved interface", () => {
+    const owner = makeCompWithIface2("owner-uuid", "owner")
+    const root = { uuid: "root-uuid", id: "root", name: "root", type: "component" as const, actors: [], subComponents: [owner], useCaseDiagrams: [], interfaces: [] }
+    const ast = parseAst("actor caller\ncaller ->> owner: IUnknown:doWork()")
+    const { messageLabelToInterfaceUuid } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(messageLabelToInterfaceUuid["doWork()"]).toBeUndefined()
+  })
 })
 
 // ─── parseSequenceDiagram — function-follows-receiver ────────────────────────

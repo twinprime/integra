@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { autoCreateByPath } from "./diagramResolvers"
+import { autoCreateByPath, findComponentByInterfaceId, findInterfaceUuidByInterfaceId } from "./diagramResolvers"
 import type { ComponentNode } from "../store/types"
 
 const makeComp = (uuid: string, id: string, subs: ComponentNode[] = []): ComponentNode => ({
@@ -73,5 +73,62 @@ describe("autoCreateByPath", () => {
     expect(result).not.toBeNull()
     // Two components with same id would exist — callers are responsible for checking
     expect(result!.updatedRoot.subComponents).toHaveLength(2)
+  })
+})
+
+// ─── findComponentByInterfaceId / findInterfaceUuidByInterfaceId ──────────────
+
+const makeCompWithIface = (
+  uuid: string,
+  id: string,
+  ifaceId: string,
+  ifaceUuid: string,
+  subs: ComponentNode[] = [],
+): ComponentNode => ({
+  uuid, id, name: id, type: "component",
+  subComponents: subs, actors: [], useCaseDiagrams: [],
+  interfaces: [{ uuid: ifaceUuid, id: ifaceId, name: ifaceId, type: "rest", functions: [] }],
+})
+
+describe("findComponentByInterfaceId", () => {
+  it("returns component uuid when interface is on root", () => {
+    const root = makeCompWithIface("root-uuid", "root", "IFace", "iface-uuid")
+    expect(findComponentByInterfaceId(root, "IFace")).toBe("root-uuid")
+  })
+
+  it("returns component uuid when interface is on a sub-component", () => {
+    const child = makeCompWithIface("child-uuid", "child", "IChild", "ichild-uuid")
+    const root = makeComp("root-uuid", "root", [child])
+    expect(findComponentByInterfaceId(root, "IChild")).toBe("child-uuid")
+  })
+
+  it("returns undefined when interface is not found", () => {
+    const root = makeComp("root-uuid", "root")
+    expect(findComponentByInterfaceId(root, "INotExist")).toBeUndefined()
+  })
+})
+
+describe("findInterfaceUuidByInterfaceId", () => {
+  it("returns interface uuid when interface is on root", () => {
+    const root = makeCompWithIface("root-uuid", "root", "IFace", "iface-uuid")
+    expect(findInterfaceUuidByInterfaceId(root, "IFace")).toBe("iface-uuid")
+  })
+
+  it("returns interface uuid when interface is on a sub-component", () => {
+    const child = makeCompWithIface("child-uuid", "child", "IChild", "ichild-uuid")
+    const root = makeComp("root-uuid", "root", [child])
+    expect(findInterfaceUuidByInterfaceId(root, "IChild")).toBe("ichild-uuid")
+  })
+
+  it("returns undefined when interface is not found", () => {
+    const root = makeComp("root-uuid", "root")
+    expect(findInterfaceUuidByInterfaceId(root, "INotExist")).toBeUndefined()
+  })
+
+  it("returns the interface uuid (not the component uuid)", () => {
+    const root = makeCompWithIface("comp-uuid", "comp", "IFace", "distinct-iface-uuid")
+    const result = findInterfaceUuidByInterfaceId(root, "IFace")
+    expect(result).toBe("distinct-iface-uuid")
+    expect(result).not.toBe("comp-uuid")
   })
 })

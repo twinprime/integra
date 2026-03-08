@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import type { ComponentNode, InterfaceSpecification, InterfaceFunction } from "../../store/types"
 import { useSystemStore } from "../../store/useSystemStore"
 import { collectReferencedFunctionUuids } from "../../utils/nodeUtils"
@@ -38,7 +38,24 @@ export const ComponentEditor = ({
 
   const rootComponent = useSystemStore((state) => state.rootComponent)
   const renameNodeId = useSystemStore((s) => s.renameNodeId)
+  const selectedInterfaceUuid = useSystemStore((s) => s.selectedInterfaceUuid)
   const referencedFunctionUuids = collectReferencedFunctionUuids(rootComponent)
+
+  // Active tab: uuid of the currently visible interface
+  const firstIfaceUuid = node.interfaces?.[0]?.uuid ?? null
+  const [activeTabUuid, setActiveTabUuid] = useState<string | null>(firstIfaceUuid)
+
+  // When the selected component changes, reset to the first tab
+  useEffect(() => {
+    setActiveTabUuid(node.interfaces?.[0]?.uuid ?? null)
+  }, [node.uuid]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When a function is clicked in the sequence diagram, switch to that interface's tab
+  useEffect(() => {
+    if (!selectedInterfaceUuid) return
+    const match = node.interfaces?.find((i) => i.uuid === selectedInterfaceUuid)
+    if (match) setActiveTabUuid(selectedInterfaceUuid)
+  }, [selectedInterfaceUuid, node.interfaces])
 
   const handleIdChange = (value: string) => {
     setLocalId(value)
@@ -178,33 +195,57 @@ export const ComponentEditor = ({
       </div>
 
       {node.interfaces && node.interfaces.length > 0 && (
-        <div className="mb-4">
-          <h3 className="text-sm font-medium text-gray-300 mb-3 flex items-center gap-2">
+        <div className="mb-4 flex flex-col min-h-0">
+          <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2 flex-shrink-0">
             Interface Specifications
             <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full border border-gray-700">
               {node.interfaces.length}
             </span>
           </h3>
-          <div className="space-y-4">
-            {node.interfaces.map((iface, ifaceIdx) => (
-              <InterfaceEditor
-                key={iface.uuid || iface.id}
-                iface={iface}
-                ifaceIdx={ifaceIdx}
-                referencedFunctionUuids={referencedFunctionUuids}
-                siblingInterfaceIds={node.interfaces
-                  .filter((_, i) => i !== ifaceIdx)
-                  .map((i) => i.id)}
-                onInterfaceUpdate={(updates) => handleInterfaceUpdate(ifaceIdx, updates)}
-                onFunctionUpdate={(fnIdx, updates) => handleFunctionUpdate(ifaceIdx, fnIdx, updates)}
-                onDeleteFunction={(fnIdx) => handleDeleteFunction(ifaceIdx, fnIdx)}
-                onParamDescriptionUpdate={(fnIdx, paramIdx, desc) =>
-                  handleParamDescriptionUpdate(ifaceIdx, fnIdx, paramIdx, desc)
-                }
-                contextComponentUuid={contextComponentUuid}
-              />
-            ))}
+
+          {/* Tab bar — horizontally scrollable */}
+          <div className="flex overflow-x-auto border-b border-gray-700 flex-shrink-0 scrollbar-thin scrollbar-thumb-gray-600">
+            {node.interfaces.map((iface) => {
+              const isActive = iface.uuid === activeTabUuid
+              return (
+                <button
+                  key={iface.uuid}
+                  data-testid={`interface-tab-${iface.id}`}
+                  onClick={() => setActiveTabUuid(iface.uuid)}
+                  className={`flex-shrink-0 whitespace-nowrap px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${
+                    isActive
+                      ? "border-blue-400 text-blue-300"
+                      : "border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500"
+                  }`}
+                >
+                  {iface.name || iface.id}
+                </button>
+              )
+            })}
           </div>
+
+          {/* Active interface panel */}
+          {node.interfaces.map((iface, ifaceIdx) =>
+            iface.uuid === activeTabUuid ? (
+              <div key={iface.uuid} data-testid="interface-tab-panel" className="mt-3">
+                <InterfaceEditor
+                  iface={iface}
+                  ifaceIdx={ifaceIdx}
+                  referencedFunctionUuids={referencedFunctionUuids}
+                  siblingInterfaceIds={node.interfaces
+                    .filter((_, i) => i !== ifaceIdx)
+                    .map((i) => i.id)}
+                  onInterfaceUpdate={(updates) => handleInterfaceUpdate(ifaceIdx, updates)}
+                  onFunctionUpdate={(fnIdx, updates) => handleFunctionUpdate(ifaceIdx, fnIdx, updates)}
+                  onDeleteFunction={(fnIdx) => handleDeleteFunction(ifaceIdx, fnIdx)}
+                  onParamDescriptionUpdate={(fnIdx, paramIdx, desc) =>
+                    handleParamDescriptionUpdate(ifaceIdx, fnIdx, paramIdx, desc)
+                  }
+                  contextComponentUuid={contextComponentUuid}
+                />
+              </div>
+            ) : null
+          )}
         </div>
       )}
     </div>
