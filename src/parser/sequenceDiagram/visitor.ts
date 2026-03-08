@@ -25,7 +25,13 @@ export interface SeqMessage {
   /** The arrow type as written in the DSL (e.g. `->>`, `-->>`, `->`, `-->`, `-x`, `--x`, `-)`, `--)`). Maps 1:1 to Mermaid sequence diagram arrow syntax. */
   arrow: string
   /** Populated when the label matches FUNCTION_REF */
-  functionRef: { interfaceId: string; functionId: string; rawParams: string } | null
+  functionRef: {
+    interfaceId: string
+    functionId: string
+    rawParams: string
+    /** Optional display label shown in the diagram instead of Interface:function(params) */
+    label: string | null
+  } | null
   /**
    * Populated when the label matches UseCase:<path>(:label)?.
    * `path` is an array of segments; last segment is the use case ID,
@@ -144,12 +150,17 @@ class SequenceDiagramVisitor extends BaseVisitor {
 
     if ((ctx.FunctionRef ?? []).length > 0) {
       const raw = (ctx.FunctionRef as { image: string }[])[0].image
-      // Parse: InterfaceId:FunctionId(rawParams)
-      const match = raw.match(/^([A-Za-z_]\w*):([A-Za-z_]\w*)\(([^)]*)\)$/)
+      // Parse: InterfaceId:FunctionId(rawParams) optionally followed by :display label
+      const match = raw.match(/^([A-Za-z_]\w*):([A-Za-z_]\w*)\(([^)]*)\)(?::(.+))?$/)
       if (match) {
         return {
           from, to, arrow,
-          functionRef: { interfaceId: match[1], functionId: match[2], rawParams: match[3] },
+          functionRef: {
+            interfaceId: match[1],
+            functionId: match[2],
+            rawParams: match[3],
+            label: match[4] ?? null,
+          },
           useCaseRef: null,
           label: null,
         }

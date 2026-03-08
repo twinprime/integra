@@ -116,12 +116,34 @@ describe("sequence diagram parser — messages", () => {
 
   it("parses a function ref with no parameters", () => {
     const { ast } = parse("a ->> b: IFace:trigger()")
-    expect(ast.messages[0].functionRef).toMatchObject({ interfaceId: "IFace", functionId: "trigger", rawParams: "" })
+    expect(ast.messages[0].functionRef).toMatchObject({ interfaceId: "IFace", functionId: "trigger", rawParams: "", label: null })
   })
 
   it("parses a function ref with multiple parameters", () => {
     const { ast } = parse("a ->> b: IFace:fn(x: string, y: number)")
     expect(ast.messages[0].functionRef?.rawParams).toBe("x: string, y: number")
+  })
+
+  it("parses a function ref with a display label suffix", () => {
+    const { ast } = parse("a ->> b: IFace:login(x: string):my custom label")
+    expect(ast.messages[0].functionRef).toMatchObject({
+      interfaceId: "IFace",
+      functionId: "login",
+      rawParams: "x: string",
+      label: "my custom label",
+    })
+  })
+
+  it("tokenises function-ref with display label as a single FunctionRef token", () => {
+    const { errors, tokens } = SeqLexer.tokenize("a ->> b: IFace:fn():do the thing")
+    expect(errors).toHaveLength(0)
+    const fnTok = tokens.find((t) => t.tokenType.name === "FunctionRef")
+    expect(fnTok?.image).toBe("IFace:fn():do the thing")
+  })
+
+  it("function-ref without display label has null label", () => {
+    const { ast } = parse("a ->> b: IFace:trigger()")
+    expect(ast.messages[0].functionRef?.label).toBeNull()
   })
 
   it("parses a self-referencing message", () => {
@@ -671,6 +693,42 @@ describe("generateSequenceMermaidFromAst — UseCaseRef messages", () => {
     // Key is the rendered display label (use case name), NOT the raw spec string
     expect(messageLabelToUuid["Place Order"]).toBe("owner-uuid-placeOrder-uuid")
     expect(messageLabelToUuid["UseCase:placeOrder"]).toBeUndefined()
+  })
+})
+
+// ─── generateSequenceMermaidFromAst — functionRef display label ───────────────
+
+describe("generateSequenceMermaidFromAst — functionRef display label", () => {
+  const makeCompWithIface2 = (uuid: string, id: string): ComponentNode => ({
+    uuid, id, name: id, type: "component",
+    actors: [], subComponents: [], useCaseDiagrams: [],
+    interfaces: [{ uuid: `${uuid}-iface`, id: "IFace", name: "IFace", type: "rest" as const, functions: [{ uuid: `${uuid}-fn`, id: "doWork", parameters: [] }] }],
+  })
+
+  it("uses Interface:function(params) as label when no display label suffix", () => {
+    const owner = makeCompWithIface2("owner-uuid", "owner")
+    const root = { uuid: "root-uuid", id: "root", name: "root", type: "component" as const, actors: [], subComponents: [owner], useCaseDiagrams: [], interfaces: [] }
+    const ast = parseAst("actor caller\ncaller ->> owner: IFace:doWork()")
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain("caller->>owner: IFace:doWork()")
+  })
+
+  it("uses display label suffix as mermaid label when present", () => {
+    const owner = makeCompWithIface2("owner-uuid", "owner")
+    const root = { uuid: "root-uuid", id: "root", name: "root", type: "component" as const, actors: [], subComponents: [owner], useCaseDiagrams: [], interfaces: [] }
+    const ast = parseAst("actor caller\ncaller ->> owner: IFace:doWork():process data")
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain("caller->>owner: process data")
+    expect(mermaidContent).not.toContain("IFace:doWork()")
+  })
+
+  it("populates messageLabelToUuid using the display label as key when present", () => {
+    const owner = makeCompWithIface2("owner-uuid", "owner")
+    const root = { uuid: "root-uuid", id: "root", name: "root", type: "component" as const, actors: [], subComponents: [owner], useCaseDiagrams: [], interfaces: [] }
+    const ast = parseAst("actor caller\ncaller ->> owner: IFace:doWork():custom label")
+    const { messageLabelToUuid } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(messageLabelToUuid["custom label"]).toBeDefined()
+    expect(messageLabelToUuid["IFace:doWork()"]).toBeUndefined()
   })
 })
 

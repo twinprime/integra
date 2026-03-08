@@ -135,6 +135,7 @@ note over orderSvc, paymentSvc: payment handshake
 | `component path/to/node` | Reference an existing component by path (no new node created) |
 | `component path/to/node as alias` | Reference with an alias |
 | `sender ->> receiver: Interface:function(param: type)` | Function call message — derives interface on receiver |
+| `sender ->> receiver: Interface:function(param: type):display label` | Function call message with a custom display label (diagram shows only the label) |
 | `sender ->> receiver: label text` | Plain message label |
 | `sender ->> receiver` | Bare arrow (no label) |
 | `sender ->> receiver: UseCase:useCaseId` | Use case reference (local — receiver's component) |
@@ -201,6 +202,7 @@ end
 **Function call message format:** `sender ->> receiver: InterfaceId:functionId(param: type, param2: type?)`
 - Parameter types default to `any` if omitted
 - Append `?` to mark a parameter as optional (e.g. `name: string?`)
+- Append `:display label` after the closing `)` to show a custom label in the diagram instead of `Interface:function(params)` (e.g. `IAuth:login(user: string):sign in`)
 - For `kafka`-type interfaces, the **sender** owns the interface
 - Use `\n` in a label or note text for a line break (renders as `<br/>` in Mermaid)
 

@@ -124,8 +124,8 @@ function emitStatements(
       const fromId = sanitizeMermaidId(msg.from)
       const toId = sanitizeMermaidId(msg.to)
       if (msg.functionRef) {
-        const { interfaceId, functionId, rawParams } = msg.functionRef
-        const mermaidLabel = `${interfaceId}:${functionId}(${rawParams})`
+        const { interfaceId, functionId, rawParams, label } = msg.functionRef
+        const mermaidLabel = label != null ? label : `${interfaceId}:${functionId}(${rawParams})`
         const compUuid = findComponentByInterfaceId(root, interfaceId)
         if (compUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = compUuid
         out += `${indent}${fromId}${msg.arrow}${toId}: ${mermaidLabel}\n`

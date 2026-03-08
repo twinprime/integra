@@ -14,10 +14,13 @@ import { sharedTokens, Colon as SharedColon, Arrow as SharedArrow, Newline, Whit
 
 // ─── Label / note text tokens (only in text_mode) ─────────────────────────────
 
-/** Matches `InterfaceId:FunctionId(params)` — tried first in text_mode */
+/**
+ * Matches `InterfaceId:FunctionId(params)` optionally followed by `:display label`
+ * (e.g. `IAuth:login():my label`).  Tried first in text_mode.
+ */
 export const FunctionRef = createToken({
   name: "FunctionRef",
-  pattern: /[A-Za-z_]\w*:[A-Za-z_]\w*\([^)]*\)/,
+  pattern: /[A-Za-z_]\w*:[A-Za-z_]\w*\([^)]*\)(?::[^\r\n]*)?/,
 })
 
 /**

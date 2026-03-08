@@ -38,6 +38,16 @@ describe("seqAstToSpec — round-trip", () => {
     expect(roundTrip("a ->> b: REST:getUser(id: string)")).toBe("a ->> b: REST:getUser(id: string)")
   })
 
+  it("round-trips a function-ref message with display label suffix", () => {
+    expect(roundTrip("a ->> b: REST:getUser(id: string):fetch user")).toBe(
+      "a ->> b: REST:getUser(id: string):fetch user",
+    )
+  })
+
+  it("round-trips a function-ref message with empty params and display label", () => {
+    expect(roundTrip("a ->> b: IFace:doWork():do the work")).toBe("a ->> b: IFace:doWork():do the work")
+  })
+
   it("round-trips a UseCase-ref message", () => {
     expect(roundTrip("a ->> b: UseCase:root/orders/placeOrder")).toBe(
       "a ->> b: UseCase:root/orders/placeOrder",

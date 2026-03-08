@@ -25,8 +25,9 @@ function serializeDeclaration(decl: SeqDeclaration): string {
 function serializeMessage(msg: SeqMessage): string {
   const base = `${msg.from} ${msg.arrow} ${msg.to}`
   if (msg.functionRef) {
-    const { interfaceId, functionId, rawParams } = msg.functionRef
-    return `${base}: ${interfaceId}:${functionId}(${rawParams})`
+    const { interfaceId, functionId, rawParams, label } = msg.functionRef
+    const labelSuffix = label != null ? `:${label}` : ""
+    return `${base}: ${interfaceId}:${functionId}(${rawParams})${labelSuffix}`
   }
   if (msg.useCaseRef) {
     const pathStr = msg.useCaseRef.path.join("/")
