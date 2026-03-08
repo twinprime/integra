@@ -16,6 +16,21 @@ function escapeLabel(text: string): string {
   return text.replace(/\n/g, "<br/>")
 }
 
+/**
+ * Extract only the parameter names from a raw parameter string.
+ * e.g. "p1: string, p2: integer?" → "p1, p2"
+ */
+function extractParamNames(rawParams: string): string {
+  if (!rawParams.trim()) return ""
+  return rawParams
+    .split(",")
+    .map((p) => {
+      const colonIdx = p.indexOf(":")
+      return colonIdx === -1 ? p.trim() : p.slice(0, colonIdx).trim()
+    })
+    .join(", ")
+}
+
 /** Mermaid participant IDs cannot contain spaces — replace with underscores. */
 function sanitizeMermaidId(id: string): string {
   return id.replace(/\s+/g, "_")
@@ -77,7 +92,7 @@ export function generateSequenceMermaidFromAst(
   }
 
   // ─── Messages, notes, and blocks in source order ──────────────────────────────
-  mermaidContent += emitStatements(ast.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid)
+  mermaidContent += emitStatements(ast.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, new Map())
 
   return { mermaidContent, idToUuid, messageLabelToUuid }
 }
@@ -88,6 +103,7 @@ function emitStatements(
   root: ComponentNode,
   ownerCompUuid: string | undefined,
   messageLabelToUuid: Record<string, string>,
+  labelCount: Map<string, number>,
   indent = "",
 ): string {
   let out = ""
@@ -98,12 +114,12 @@ function emitStatements(
       const firstSection = sections[0]
       const guardText = firstSection.guard ? ` ${firstSection.guard}` : ""
       out += `${indent}${kind}${guardText}\n`
-      out += emitStatements(firstSection.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, indent + "  ")
+      out += emitStatements(firstSection.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, labelCount, indent + "  ")
       for (const section of sections.slice(1)) {
         const secKw = sectionKeyword(kind)
         const secGuard = section.guard ? ` ${section.guard}` : ""
         out += `${indent}${secKw}${secGuard}\n`
-        out += emitStatements(section.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, indent + "  ")
+        out += emitStatements(section.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, labelCount, indent + "  ")
       }
       out += `${indent}end\n`
     } else if ("position" in stmt) {
@@ -125,7 +141,10 @@ function emitStatements(
       const toId = sanitizeMermaidId(msg.to)
       if (msg.functionRef) {
         const { interfaceId, functionId, rawParams, label } = msg.functionRef
-        const mermaidLabel = label != null ? label : `${interfaceId}:${functionId}(${rawParams})`
+        const baseLabel = label != null ? label : `${functionId}(${extractParamNames(rawParams)})`
+        const count = (labelCount.get(baseLabel) ?? 0) + 1
+        labelCount.set(baseLabel, count)
+        const mermaidLabel = count > 1 ? `${baseLabel} (${count})` : baseLabel
         const compUuid = findComponentByInterfaceId(root, interfaceId)
         if (compUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = compUuid
         out += `${indent}${fromId}${msg.arrow}${toId}: ${mermaidLabel}\n`
@@ -136,8 +155,11 @@ function emitStatements(
           ? resolveUseCaseByPath(path, root, ownerComp, ownerCompUuid)
           : undefined
         const ucNode = ucUuid ? findNodeByUuid([root], ucUuid) : null
-        const displayLabel = customLabel ?? ucNode?.name ?? ucId
-        const renderedLabel = escapeLabel(displayLabel)
+        const baseLabel = customLabel ?? ucNode?.name ?? ucId
+        const count = (labelCount.get(baseLabel) ?? 0) + 1
+        labelCount.set(baseLabel, count)
+        const mermaidLabel = count > 1 ? `${baseLabel} (${count})` : baseLabel
+        const renderedLabel = escapeLabel(mermaidLabel)
         if (ucUuid && !messageLabelToUuid[renderedLabel]) messageLabelToUuid[renderedLabel] = ucUuid
         out += `${indent}${fromId}${msg.arrow}${toId}: ${renderedLabel}\n`
       } else if (msg.label) {

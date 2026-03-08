@@ -711,12 +711,13 @@ describe("generateSequenceMermaidFromAst — functionRef display label", () => {
     interfaces: [{ uuid: `${uuid}-iface`, id: "IFace", name: "IFace", type: "rest" as const, functions: [{ uuid: `${uuid}-fn`, id: "doWork", parameters: [] }] }],
   })
 
-  it("uses Interface:function(params) as label when no display label suffix", () => {
+  it("uses function(paramNames) as default label when no display label suffix", () => {
     const owner = makeCompWithIface2("owner-uuid", "owner")
     const root = { uuid: "root-uuid", id: "root", name: "root", type: "component" as const, actors: [], subComponents: [owner], useCaseDiagrams: [], interfaces: [] }
     const ast = parseAst("actor caller\ncaller ->> owner: IFace:doWork()")
     const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
-    expect(mermaidContent).toContain("caller->>owner: IFace:doWork()")
+    expect(mermaidContent).toContain("caller->>owner: doWork()")
+    expect(mermaidContent).not.toContain("IFace:doWork()")
   })
 
   it("uses display label suffix as mermaid label when present", () => {
@@ -725,7 +726,7 @@ describe("generateSequenceMermaidFromAst — functionRef display label", () => {
     const ast = parseAst("actor caller\ncaller ->> owner: IFace:doWork():process data")
     const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
     expect(mermaidContent).toContain("caller->>owner: process data")
-    expect(mermaidContent).not.toContain("IFace:doWork()")
+    expect(mermaidContent).not.toContain("doWork()")
   })
 
   it("populates messageLabelToUuid using the display label as key when present", () => {
@@ -734,15 +735,38 @@ describe("generateSequenceMermaidFromAst — functionRef display label", () => {
     const ast = parseAst("actor caller\ncaller ->> owner: IFace:doWork():custom label")
     const { messageLabelToUuid } = generateSequenceMermaidFromAst(ast, owner, root)
     expect(messageLabelToUuid["custom label"]).toBeDefined()
+    expect(messageLabelToUuid["doWork()"]).toBeUndefined()
     expect(messageLabelToUuid["IFace:doWork()"]).toBeUndefined()
   })
 
-  it("falls back to Interface:function(params) when trailing colon produces empty label", () => {
+  it("falls back to function(paramNames) when trailing colon produces empty label", () => {
     const owner = makeCompWithIface2("owner-uuid", "owner")
     const root = { uuid: "root-uuid", id: "root", name: "root", type: "component" as const, actors: [], subComponents: [owner], useCaseDiagrams: [], interfaces: [] }
     const ast = parseAst("actor caller\ncaller ->> owner: IFace:doWork():")
     const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
-    expect(mermaidContent).toContain("caller->>owner: IFace:doWork()")
+    expect(mermaidContent).toContain("caller->>owner: doWork()")
+  })
+
+  it("appends (n) suffix when the same base label appears multiple times", () => {
+    const owner = makeCompWithIface2("owner-uuid", "owner")
+    const root = { uuid: "root-uuid", id: "root", name: "root", type: "component" as const, actors: [], subComponents: [owner], useCaseDiagrams: [], interfaces: [] }
+    // Two messages with the same function → same base label doWork()
+    const ast = parseAst("actor caller\ncaller ->> owner: IFace:doWork()\ncaller ->> owner: IFace:doWork()\ncaller ->> owner: IFace:doWork()")
+    const { mermaidContent, messageLabelToUuid } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain("caller->>owner: doWork()")
+    expect(mermaidContent).toContain("caller->>owner: doWork() (2)")
+    expect(mermaidContent).toContain("caller->>owner: doWork() (3)")
+    expect(messageLabelToUuid["doWork()"]).toBeDefined()
+    expect(messageLabelToUuid["doWork() (2)"]).toBeDefined()
+    expect(messageLabelToUuid["doWork() (3)"]).toBeDefined()
+  })
+
+  it("includes param names in default label", () => {
+    const owner = makeCompWithIface2("owner-uuid", "owner")
+    const root = { uuid: "root-uuid", id: "root", name: "root", type: "component" as const, actors: [], subComponents: [owner], useCaseDiagrams: [], interfaces: [] }
+    const ast = parseAst("actor caller\ncaller ->> owner: IFace:doWork(userId: string, count: integer?)")
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain("caller->>owner: doWork(userId, count)")
   })
 })
 
@@ -823,8 +847,6 @@ describe("parseSequenceDiagram — function follows receiver", () => {
     expect(paymentFn).toBeUndefined()
   })
 })
-
-// ─── Block constructs (loop / alt / par) ─────────────────────────────────────
 
 // ─── Block constructs (loop / alt / par) ─────────────────────────────────────
 
