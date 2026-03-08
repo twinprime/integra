@@ -107,9 +107,35 @@ describe("buildUseCaseClassDiagram", () => {
   it("generates interface class with <<interface>> and method", () => {
     const content = `actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething(id: string)`
     const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
-    expect(result.mermaidContent).toContain("class IFoo {")
+    expect(result.mermaidContent).toContain('class IFoo["IFoo"] {')
     expect(result.mermaidContent).toContain("<<interface>>")
     expect(result.mermaidContent).toContain("+doSomething(id: string)")
+  })
+
+  it("uses interface name (not id) as the class label", () => {
+    const root = makeRoot()
+    const rootWithNamedIface: ComponentNode = {
+      ...root,
+      subComponents: [
+        {
+          ...root.subComponents[0],
+          interfaces: [
+            {
+              uuid: "ifoo-uuid",
+              id: "IFoo",
+              name: "Foo Interface",
+              type: "rest",
+              functions: [{ uuid: "fn-uuid", id: "doSomething", parameters: [] }],
+            },
+          ],
+        },
+        ...root.subComponents.slice(1),
+      ],
+    }
+    const content = `actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething()`
+    const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), rootWithNamedIface)
+    expect(result.mermaidContent).toContain('class IFoo["Foo Interface"] {')
+    expect(result.mermaidContent).not.toContain('class IFoo {')
   })
 
   it("generates realization arrow from component to interface (..|>)", () => {
@@ -222,7 +248,7 @@ describe("buildUseCaseClassDiagram", () => {
       "end",
     ].join("\n")
     const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
-    expect(result.mermaidContent).toContain("class IFoo {")
+    expect(result.mermaidContent).toContain('class IFoo["IFoo"] {')
     expect(result.mermaidContent).toContain("user ..> IFoo")
     expect(result.mermaidContent).toContain("compA ..|> IFoo")
   })

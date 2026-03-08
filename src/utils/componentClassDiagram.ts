@@ -50,7 +50,7 @@ function registerParticipants(
 }
 
 function emitInterfaceClass(iface: InterfaceSpecification, lines: string[]): void {
-  lines.push(`    class ${iface.id} {`)
+  lines.push(`    class ${iface.id}["${iface.name}"] {`)
   lines.push(`        <<interface>>`)
   for (const fn of iface.functions) {
     const params = fn.parameters

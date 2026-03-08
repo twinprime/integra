@@ -1,6 +1,6 @@
 import type { ComponentNode, UseCaseNode } from "../store/types"
 import { findNode } from "../nodes/nodeTree"
-import { findComponentByInterfaceId, resolveInOwner } from "./diagramResolvers"
+import { findComponentByInterfaceId, resolveInOwner, findInterfaceNameByInterfaceId } from "./diagramResolvers"
 import { flattenMessages } from "../parser/sequenceDiagram/visitor"
 import type { SeqAst } from "../parser/sequenceDiagram/visitor"
 import { getCachedSeqAst } from "./seqAstCache"
@@ -16,7 +16,7 @@ type Participant = {
 }
 
 type Arrow = { fromNodeId: string; toNodeId: string }
-type InterfaceEntry = { componentNodeId: string; interfaceId: string }
+type InterfaceEntry = { componentNodeId: string; interfaceId: string; interfaceName: string }
 
 type ClassDiagramState = {
   interfacesSet: Set<string>
@@ -99,7 +99,8 @@ function processMessages(
         const key = `iface|${ownerComp.nodeId}|${interfaceId}`
         if (!state.interfacesSet.has(key)) {
           state.interfacesSet.add(key)
-          state.interfaces.push({ componentNodeId: ownerComp.nodeId, interfaceId })
+          const interfaceName = findInterfaceNameByInterfaceId(rootComponent, interfaceId) ?? interfaceId
+          state.interfaces.push({ componentNodeId: ownerComp.nodeId, interfaceId, interfaceName })
         }
       }
     } else {
@@ -138,8 +139,8 @@ function buildMermaidLines(
     }
   }
 
-  for (const { interfaceId } of interfaces) {
-    lines.push(`    class ${interfaceId} {`)
+  for (const { interfaceId, interfaceName } of interfaces) {
+    lines.push(`    class ${interfaceId}["${interfaceName}"] {`)
     lines.push(`        <<interface>>`)
     for (const method of interfaceMethods.get(interfaceId) ?? []) {
       lines.push(`        +${method}`)

@@ -159,11 +159,36 @@ describe("buildComponentClassDiagram", () => {
     const root = makeRoot()
     const result = buildComponentClassDiagram(getCompA(root), root)
     expect(result.mermaidContent).toContain('class compA["Component A"]')
-    expect(result.mermaidContent).toContain("class IFoo {")
+    expect(result.mermaidContent).toContain('class IFoo["IFoo"] {')
     expect(result.mermaidContent).toContain("<<interface>>")
     expect(result.mermaidContent).toContain("+doSomething(id: string)")
-    expect(result.mermaidContent).toContain("class IBar {")
+    expect(result.mermaidContent).toContain('class IBar["IBar"] {')
     expect(result.mermaidContent).toContain("+getAll(page: number?)")
+  })
+
+  it("uses interface name (not id) as the class label", () => {
+    const base = makeRoot()
+    const root: ComponentNode = {
+      ...base,
+      subComponents: [
+        {
+          ...base.subComponents[0],
+          interfaces: [
+            {
+              uuid: "ifoo-uuid",
+              id: "IFoo",
+              name: "Foo Interface",
+              type: "rest",
+              functions: [],
+            },
+          ],
+        },
+        base.subComponents[1],
+      ],
+    }
+    const result = buildComponentClassDiagram(root.subComponents[0], root)
+    expect(result.mermaidContent).toContain('class IFoo["Foo Interface"] {')
+    expect(result.mermaidContent).not.toContain('class IFoo {')
   })
 
   it("generates realization arrows from component to each interface", () => {
@@ -398,7 +423,7 @@ describe("buildComponentClassDiagram", () => {
     const root = makeRootWithCompBInterfaces([sd])
     const result = buildComponentClassDiagram(getCompA(root), root)
     // dependency interface class with methods
-    expect(result.mermaidContent).toContain("class IBaz {")
+    expect(result.mermaidContent).toContain('class IBaz["IBaz"] {')
     expect(result.mermaidContent).toContain("+process(data: string)")
     // receiver implements interface
     expect(result.mermaidContent).toContain("compB ..|> IBaz")

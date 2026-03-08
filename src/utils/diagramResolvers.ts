@@ -65,6 +65,19 @@ export function findInterfaceUuidByInterfaceId(
   return undefined
 }
 
+export function findInterfaceNameByInterfaceId(
+  root: ComponentNode,
+  ifaceId: string,
+): string | undefined {
+  const match = root.interfaces?.find((i) => i.id === ifaceId)
+  if (match) return match.name
+  for (const sub of root.subComponents) {
+    const found = findInterfaceNameByInterfaceId(sub, ifaceId)
+    if (found) return found
+  }
+  return undefined
+}
+
 /**
  * Auto-creates a missing node at the given path segments within the tree,
  * provided the parent location exists and is in scope for the diagram owner.
