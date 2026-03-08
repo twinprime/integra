@@ -12,6 +12,7 @@ import type { ComponentNode } from "../../store/types"
 import {
   resolveParticipant,
   findComponentByInterfaceId,
+  findInterfaceUuidByInterfaceId,
   resolveUseCaseByPath,
 } from "../../utils/diagramResolvers"
 
@@ -19,6 +20,7 @@ export interface NavEntry {
   from: number
   to: number
   uuid: string
+  ifaceUuid?: string
 }
 
 // ─── Type helpers ─────────────────────────────────────────────────────────────
@@ -148,8 +150,10 @@ class SeqPositionedVisitorImpl extends BaseVisitor {
     if (fnRef) {
       const match = fnRef.image.match(/^([A-Za-z_]\w*):/)
       if (match) {
-        const uuid = findComponentByInterfaceId(this._root, match[1])
-        if (uuid) this._entries.push({ from: fnRef.startOffset, to: tokenEnd(fnRef), uuid })
+        const ifaceId = match[1]
+        const uuid = findComponentByInterfaceId(this._root, ifaceId)
+        const ifaceUuid = findInterfaceUuidByInterfaceId(this._root, ifaceId)
+        if (uuid) this._entries.push({ from: fnRef.startOffset, to: tokenEnd(fnRef), uuid, ifaceUuid })
       }
     }
     // UseCaseRef → navigate to use case node

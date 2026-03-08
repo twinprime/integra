@@ -32,6 +32,7 @@ export interface AnnotatedSeg {
   to: number
   cls: string
   uuid?: string
+  ifaceUuid?: string
 }
 
 // ─── StateEffect to update context from React props ───────────────────────────
@@ -110,7 +111,7 @@ export function buildAnnotations(doc: string, ctx: DiagramContext): AnnotatedSeg
     for (const nav of navEntries) {
       const idx = byFrom.get(nav.from)
       if (idx !== undefined) {
-        anns[idx] = { ...anns[idx], uuid: nav.uuid }
+        anns[idx] = { ...anns[idx], uuid: nav.uuid, ifaceUuid: nav.ifaceUuid }
       }
     }
   }

@@ -96,3 +96,31 @@ test("clicking diagram entity does not navigate when uuid is unresolvable", asyn
   const loginFlowItem = page.getByRole("treeitem").filter({ hasText: "Login Flow" }).first()
   await expect(loginFlowItem).toHaveAttribute("aria-selected", "true")
 })
+
+// ─── Spec editor (CodeMirror) function link navigation ────────────────────────
+
+test.describe("spec editor function link navigation", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/")
+    // Select the Login Flow sequence diagram to show its spec in the editor
+    await page.getByRole("treeitem").filter({ hasText: "Login Flow" }).click()
+  })
+
+  test("clicking a function link in the spec editor navigates to the interface owner", async ({ page }) => {
+    // The spec editor renders syntax-highlighted tokens; IAuth:login() is a .cm-integra-fn token
+    const fnToken = page.locator(".cm-integra-fn").first()
+    await expect(fnToken).toBeVisible()
+    await fnToken.click()
+    // AuthService should now be selected in the tree
+    const authItem = page.getByRole("treeitem").filter({ hasText: "AuthService" }).first()
+    await expect(authItem).toHaveAttribute("aria-selected", "true")
+  })
+
+  test("clicking a function link in the spec editor activates the corresponding interface tab", async ({ page }) => {
+    const fnToken = page.locator(".cm-integra-fn").first()
+    await expect(fnToken).toBeVisible()
+    await fnToken.click()
+    // The IAuth tab in the component editor should be active
+    await expect(page.getByTestId("interface-tab-IAuth")).toHaveClass(/border-blue-400/)
+  })
+})

@@ -32,6 +32,7 @@ export const DiagramEditor = ({
     parseError,
     clearParseError,
     selectNode,
+    selectInterface,
   } = useSystemStore()
   const seqDiagrams = getSequenceDiagrams(rootComponent)
 
@@ -189,7 +190,10 @@ export const DiagramEditor = ({
               ownerComponentUuid={node.ownerComponentUuid}
               rootComponent={rootComponent}
               readonly={true}
-              onNavigate={selectNode}
+              onNavigate={(uuid, ifaceUuid) => {
+                selectNode(uuid)
+                if (ifaceUuid) selectInterface(ifaceUuid)
+              }}
               onEditRequest={() => setIsEditing(true)}
               className="h-full"
             />

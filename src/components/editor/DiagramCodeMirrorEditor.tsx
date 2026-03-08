@@ -45,7 +45,7 @@ export interface DiagramCodeMirrorEditorProps {
   /** Called when Shift+Enter is pressed in edit mode */
   onShiftEnter?: () => void
   /** Called when user clicks a navigable token in readonly mode */
-  onNavigate?: (uuid: string) => void
+  onNavigate?: (uuid: string, ifaceUuid?: string) => void
   /** Called when user clicks the readonly editor to request edit mode */
   onEditRequest?: () => void
   className?: string
@@ -53,7 +53,7 @@ export interface DiagramCodeMirrorEditorProps {
 
 // ─── Navigation ViewPlugin ────────────────────────────────────────────────────
 
-function makeNavPlugin(onNavigate: (uuid: string) => void, onEditRequest: () => void) {
+function makeNavPlugin(onNavigate: (uuid: string, ifaceUuid?: string) => void, onEditRequest: () => void) {
   return ViewPlugin.define(() => ({}), {
     eventHandlers: {
       mousedown(event, view) {
@@ -72,7 +72,7 @@ function makeNavPlugin(onNavigate: (uuid: string) => void, onEditRequest: () => 
         if (entry?.uuid) {
           event.preventDefault()
           event.stopPropagation()
-          onNavigate(entry.uuid)
+          onNavigate(entry.uuid, entry.ifaceUuid)
         } else {
           onEditRequest()
         }
@@ -167,7 +167,7 @@ export function DiagramCodeMirrorEditor({
     })
 
     const navPlugin = makeNavPlugin(
-      (uuid) => onNavigateRef.current?.(uuid),
+      (uuid, ifaceUuid) => onNavigateRef.current?.(uuid, ifaceUuid),
       () => onEditRequestRef.current?.(),
     )
 
