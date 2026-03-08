@@ -15,8 +15,9 @@
 import { useEffect, useRef, useMemo } from "react"
 import { EditorState, Compartment, Prec, type Extension } from "@codemirror/state"
 import { EditorView, keymap, ViewPlugin, type ViewUpdate } from "@codemirror/view"
-import { history, historyKeymap, defaultKeymap } from "@codemirror/commands"
+import { history, historyKeymap, defaultKeymap, indentWithTab } from "@codemirror/commands"
 import { closeBrackets } from "@codemirror/autocomplete"
+import { indentUnit } from "@codemirror/language"
 import type { ComponentNode } from "../../store/types"
 import {
   integraLanguage,
@@ -176,7 +177,8 @@ export function DiagramCodeMirrorEditor({
       integraAutocomplete(getCompletionContext),
       history(),
       closeBrackets(),
-      keymap.of([...defaultKeymap, ...historyKeymap]),
+      keymap.of([...defaultKeymap, ...historyKeymap, indentWithTab]),
+      indentUnit.of("  "),
       Prec.highest(shiftEnterKeymap),
       updateListener,
       navPlugin,
