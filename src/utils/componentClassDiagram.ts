@@ -1,8 +1,8 @@
 import type { ComponentNode, InterfaceSpecification, SequenceDiagramNode } from "../store/types"
-import { findNode } from "../store/useSystemStore"
+import { findNode } from "../nodes/nodeTree"
 import { resolveInOwner } from "./diagramResolvers"
-import { parseSequenceDiagramCst } from "../parser/sequenceDiagram/parser"
-import { buildSeqAst, flattenMessages } from "../parser/sequenceDiagram/visitor"
+import { flattenMessages } from "../parser/sequenceDiagram/visitor"
+import { getCachedSeqAst } from "./seqAstCache"
 import { findNodeByPath } from "./nodeUtils"
 import { collectAllDiagrams } from "../nodes/nodeTree"
 
@@ -84,8 +84,7 @@ export function buildComponentClassDiagram(
     const ownerNode = findNode([rootComponent], ownerComponentUuid)
     const ownerComp = ownerNode?.type === "component" ? (ownerNode as ComponentNode) : null
 
-    const { cst } = parseSequenceDiagramCst(seqDiagram.content)
-    const ast = buildSeqAst(cst)
+    const ast = getCachedSeqAst(seqDiagram.content)
 
     const participantsMap = new Map<string, Participant>()
     const aliasToUuid = new Map<string, string>()

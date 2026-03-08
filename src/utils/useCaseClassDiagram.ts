@@ -1,9 +1,9 @@
 import type { ComponentNode, UseCaseNode } from "../store/types"
-import { findNode } from "../store/useSystemStore"
+import { findNode } from "../nodes/nodeTree"
 import { findComponentByInterfaceId, resolveInOwner } from "./diagramResolvers"
-import { parseSequenceDiagramCst } from "../parser/sequenceDiagram/parser"
-import { buildSeqAst, flattenMessages } from "../parser/sequenceDiagram/visitor"
+import { flattenMessages } from "../parser/sequenceDiagram/visitor"
 import type { SeqAst } from "../parser/sequenceDiagram/visitor"
+import { getCachedSeqAst } from "./seqAstCache"
 import { findNodeByPath } from "./nodeUtils"
 
 type ParticipantKind = "actor" | "component"
@@ -28,8 +28,7 @@ type ClassDiagramState = {
 }
 
 function parseAst(content: string): SeqAst {
-  const { cst } = parseSequenceDiagramCst(content)
-  return buildSeqAst(cst)
+  return getCachedSeqAst(content)
 }
 
 /** Resolves a declaration's UUID using its path segments and owner component. */
