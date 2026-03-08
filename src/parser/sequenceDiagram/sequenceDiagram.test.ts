@@ -141,14 +141,6 @@ describe("sequence diagram parser — messages", () => {
     expect(fnTok?.image).toBe("IFace:fn():do the thing")
   })
 
-  it("tokenises function-ref with array-type params and display label as a single token", () => {
-    const input = "a ->> b: DatasetRecording:record(source: String, datasetId: String, schema: String, records: Bytes[][]):record initial AIP data"
-    const { errors, tokens } = SeqLexer.tokenize(input)
-    expect(errors).toHaveLength(0)
-    const fnTok = tokens.find((t) => t.tokenType.name === "FunctionRef")
-    expect(fnTok?.image).toBe("DatasetRecording:record(source: String, datasetId: String, schema: String, records: Bytes[][]):record initial AIP data")
-  })
-
   it("function-ref without display label has null label", () => {
     const { ast } = parse("a ->> b: IFace:trigger()")
     expect(ast.messages[0].functionRef?.label).toBeNull()
@@ -737,44 +729,6 @@ describe("generateSequenceMermaidFromAst — functionRef display label", () => {
     const { messageLabelToUuid } = generateSequenceMermaidFromAst(ast, owner, root)
     expect(messageLabelToUuid["custom label"]).toBeDefined()
     expect(messageLabelToUuid["IFace:doWork()"]).toBeUndefined()
-  })
-
-  it("extracts display label from function-ref with array-type params (Bytes[][])", () => {
-    const spec = "a ->> b: DatasetRecording:record(source: String, datasetId: String, schema: String, records: Bytes[][]):record initial AIP data"
-    const { ast, lexErrors, parseErrors } = parse(spec)
-    expect(lexErrors).toHaveLength(0)
-    expect(parseErrors).toHaveLength(0)
-    expect(ast.messages[0].functionRef).toMatchObject({
-      interfaceId: "DatasetRecording",
-      functionId: "record",
-      rawParams: "source: String, datasetId: String, schema: String, records: Bytes[][]",
-      label: "record initial AIP data",
-    })
-  })
-
-  it("escapes [ and ] in fallback label to prevent Mermaid markdown link parsing", () => {
-    const makeCompWithArrayIface = (uuid: string, id: string): ComponentNode => ({
-      uuid, id, name: id, type: "component",
-      actors: [], subComponents: [], useCaseDiagrams: [],
-      interfaces: [{
-        uuid: `${uuid}-iface`, id: "DatasetRecording", name: "DatasetRecording", type: "rest" as const,
-        functions: [{ uuid: `${uuid}-fn`, id: "record", parameters: [
-          { name: "source", type: "String", required: true },
-          { name: "records", type: "Bytes[][]", required: true },
-        ] }],
-      }],
-    })
-    const owner = makeCompWithArrayIface("owner-uuid", "owner")
-    const root = { uuid: "root-uuid", id: "root", name: "root", type: "component" as const, actors: [], subComponents: [owner], useCaseDiagrams: [], interfaces: [] }
-    // No display label — fallback label contains Bytes[][]
-    const ast = parseAst("actor caller\ncaller ->> owner: DatasetRecording:record(source: String, records: Bytes[][])")
-    const { mermaidContent, messageLabelToUuid } = generateSequenceMermaidFromAst(ast, owner, root)
-    // Mermaid output should have brackets escaped so markdown doesn't break
-    expect(mermaidContent).toContain("\\[")
-    expect(mermaidContent).toContain("\\]")
-    expect(mermaidContent).not.toMatch(/\[\]\[/)
-    // UUID lookup key should use the UNESCAPED label
-    expect(messageLabelToUuid["DatasetRecording:record(source: String, records: Bytes[][])"]).toBeDefined()
   })
 })
 

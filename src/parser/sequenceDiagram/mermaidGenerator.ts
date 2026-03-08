@@ -16,16 +16,6 @@ function escapeLabel(text: string): string {
   return text.replace(/\n/g, "<br/>")
 }
 
-/**
- * Escape characters that Mermaid's markdown renderer would otherwise interpret
- * as markup (e.g. `[` and `]` → markdown link syntax).  Backslash-escaping is
- * decoded by marked.js so the SVG text content shows the original characters,
- * keeping the click-navigation UUID lookup intact.
- */
-function escapeMermaidMarkdown(text: string): string {
-  return escapeLabel(text).replace(/\[/g, "\\[").replace(/\]/g, "\\]")
-}
-
 /** Mermaid participant IDs cannot contain spaces — replace with underscores. */
 function sanitizeMermaidId(id: string): string {
   return id.replace(/\s+/g, "_")
@@ -135,15 +125,10 @@ function emitStatements(
       const toId = sanitizeMermaidId(msg.to)
       if (msg.functionRef) {
         const { interfaceId, functionId, rawParams, label } = msg.functionRef
-        // UUID lookup key: plain text (matches SVG textContent after markdown decoding)
-        const labelKey = label ?? `${interfaceId}:${functionId}(${rawParams})`
-        // Mermaid output: escape [ ] so markdown doesn't treat them as link syntax
-        const mermaidOutput = label != null
-          ? escapeLabel(label)
-          : escapeMermaidMarkdown(`${interfaceId}:${functionId}(${rawParams})`)
+        const mermaidLabel = label != null ? label : `${interfaceId}:${functionId}(${rawParams})`
         const compUuid = findComponentByInterfaceId(root, interfaceId)
-        if (compUuid && !messageLabelToUuid[labelKey]) messageLabelToUuid[labelKey] = compUuid
-        out += `${indent}${fromId}${msg.arrow}${toId}: ${mermaidOutput}\n`
+        if (compUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = compUuid
+        out += `${indent}${fromId}${msg.arrow}${toId}: ${mermaidLabel}\n`
       } else if (msg.useCaseRef) {
         const { path, label: customLabel } = msg.useCaseRef
         const ucId = path[path.length - 1]
