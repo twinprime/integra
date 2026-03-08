@@ -747,18 +747,35 @@ describe("generateSequenceMermaidFromAst — functionRef display label", () => {
     expect(mermaidContent).toContain("caller->>owner: doWork()")
   })
 
-  it("appends (n) suffix when the same base label appears multiple times", () => {
+  it("does not append suffix when the same function is called multiple times", () => {
     const owner = makeCompWithIface2("owner-uuid", "owner")
     const root = { uuid: "root-uuid", id: "root", name: "root", type: "component" as const, actors: [], subComponents: [owner], useCaseDiagrams: [], interfaces: [] }
-    // Two messages with the same function → same base label doWork()
     const ast = parseAst("actor caller\ncaller ->> owner: IFace:doWork()\ncaller ->> owner: IFace:doWork()\ncaller ->> owner: IFace:doWork()")
     const { mermaidContent, messageLabelToUuid } = generateSequenceMermaidFromAst(ast, owner, root)
-    expect(mermaidContent).toContain("caller->>owner: doWork()")
-    expect(mermaidContent).toContain("caller->>owner: doWork() (2)")
-    expect(mermaidContent).toContain("caller->>owner: doWork() (3)")
+    // All three calls are the same function → no suffix on any of them
+    expect(mermaidContent.match(/caller->>owner: doWork\(\)/g)?.length).toBe(3)
+    expect(mermaidContent).not.toContain("doWork() (2)")
+    expect(mermaidContent).not.toContain("doWork() (3)")
     expect(messageLabelToUuid["doWork()"]).toBeDefined()
-    expect(messageLabelToUuid["doWork() (2)"]).toBeDefined()
-    expect(messageLabelToUuid["doWork() (3)"]).toBeDefined()
+  })
+
+  it("appends (n) suffix when different functions produce the same base label", () => {
+    // Two interfaces on the same component both have a function named "process"
+    const owner: ComponentNode = {
+      uuid: "owner-uuid", id: "owner", name: "owner", type: "component",
+      actors: [], subComponents: [], useCaseDiagrams: [],
+      interfaces: [
+        { uuid: "iface1-uuid", id: "IFace1", name: "IFace1", type: "rest" as const, functions: [{ uuid: "fn1-uuid", id: "process", parameters: [] }] },
+        { uuid: "iface2-uuid", id: "IFace2", name: "IFace2", type: "rest" as const, functions: [{ uuid: "fn2-uuid", id: "process", parameters: [] }] },
+      ],
+    }
+    const root = { uuid: "root-uuid", id: "root", name: "root", type: "component" as const, actors: [], subComponents: [owner], useCaseDiagrams: [], interfaces: [] }
+    const ast = parseAst("actor caller\ncaller ->> owner: IFace1:process()\ncaller ->> owner: IFace2:process()")
+    const { mermaidContent, messageLabelToUuid } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain("caller->>owner: process()")
+    expect(mermaidContent).toContain("caller->>owner: process() (2)")
+    expect(messageLabelToUuid["process()"]).toBeDefined()
+    expect(messageLabelToUuid["process() (2)"]).toBeDefined()
   })
 
   it("includes param names in default label", () => {

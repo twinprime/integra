@@ -97,13 +97,33 @@ export function generateSequenceMermaidFromAst(
   return { mermaidContent, idToUuid, messageLabelToUuid }
 }
 
+// Maps each base label to a per-uuid rendered label assignment.
+// Inner map key: uuid of the target (undefined for unresolved refs).
+// Inner map value: the rendered label (with suffix) assigned to that uuid.
+// This ensures: same label + same uuid → no suffix; same label + different uuid → numbered suffix.
+type LabelMap = Map<string, Map<string | undefined, string>>
+
+function resolveLabel(baseLabel: string, uuid: string | undefined, labelMap: LabelMap): string {
+  let byUuid = labelMap.get(baseLabel)
+  if (!byUuid) {
+    byUuid = new Map([[uuid, baseLabel]])
+    labelMap.set(baseLabel, byUuid)
+    return baseLabel
+  }
+  const existing = byUuid.get(uuid)
+  if (existing !== undefined) return existing
+  const rendered = `${baseLabel} (${byUuid.size + 1})`
+  byUuid.set(uuid, rendered)
+  return rendered
+}
+
 function emitStatements(
   statements: SeqStatement[],
   ownerComp: ComponentNode | null,
   root: ComponentNode,
   ownerCompUuid: string | undefined,
   messageLabelToUuid: Record<string, string>,
-  labelCount: Map<string, number>,
+  labelMap: LabelMap,
   indent = "",
 ): string {
   let out = ""
@@ -114,12 +134,12 @@ function emitStatements(
       const firstSection = sections[0]
       const guardText = firstSection.guard ? ` ${firstSection.guard}` : ""
       out += `${indent}${kind}${guardText}\n`
-      out += emitStatements(firstSection.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, labelCount, indent + "  ")
+      out += emitStatements(firstSection.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, labelMap, indent + "  ")
       for (const section of sections.slice(1)) {
         const secKw = sectionKeyword(kind)
         const secGuard = section.guard ? ` ${section.guard}` : ""
         out += `${indent}${secKw}${secGuard}\n`
-        out += emitStatements(section.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, labelCount, indent + "  ")
+        out += emitStatements(section.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, labelMap, indent + "  ")
       }
       out += `${indent}end\n`
     } else if ("position" in stmt) {
@@ -142,10 +162,11 @@ function emitStatements(
       if (msg.functionRef) {
         const { interfaceId, functionId, rawParams, label } = msg.functionRef
         const baseLabel = label != null ? label : `${functionId}(${extractParamNames(rawParams)})`
-        const count = (labelCount.get(baseLabel) ?? 0) + 1
-        labelCount.set(baseLabel, count)
-        const mermaidLabel = count > 1 ? `${baseLabel} (${count})` : baseLabel
         const compUuid = findComponentByInterfaceId(root, interfaceId)
+        // Use interfaceId:functionId as the dedup key so that two different functions
+        // with the same name (on different interfaces) are treated as distinct.
+        const fnKey = `${interfaceId}:${functionId}`
+        const mermaidLabel = resolveLabel(baseLabel, fnKey, labelMap)
         if (compUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = compUuid
         out += `${indent}${fromId}${msg.arrow}${toId}: ${mermaidLabel}\n`
       } else if (msg.useCaseRef) {
@@ -156,9 +177,7 @@ function emitStatements(
           : undefined
         const ucNode = ucUuid ? findNodeByUuid([root], ucUuid) : null
         const baseLabel = customLabel ?? ucNode?.name ?? ucId
-        const count = (labelCount.get(baseLabel) ?? 0) + 1
-        labelCount.set(baseLabel, count)
-        const mermaidLabel = count > 1 ? `${baseLabel} (${count})` : baseLabel
+        const mermaidLabel = resolveLabel(baseLabel, ucUuid, labelMap)
         const renderedLabel = escapeLabel(mermaidLabel)
         if (ucUuid && !messageLabelToUuid[renderedLabel]) messageLabelToUuid[renderedLabel] = ucUuid
         out += `${indent}${fromId}${msg.arrow}${toId}: ${renderedLabel}\n`
