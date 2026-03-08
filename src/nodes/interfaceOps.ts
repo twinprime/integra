@@ -8,9 +8,16 @@ export const updateFunctionParams = (
   ...comp,
   interfaces: comp.interfaces.map((iface) => ({
     ...iface,
-    functions: iface.functions.map((f) =>
-      f.uuid === functionUuid ? { ...f, parameters: newParams } : f,
-    ),
+    functions: iface.functions.map((f) => {
+      if (f.uuid !== functionUuid) return f
+      return {
+        ...f,
+        parameters: newParams.map((p) => {
+          const existing = f.parameters.find((ep) => ep.name === p.name)
+          return existing?.description ? { ...p, description: existing.description } : p
+        }),
+      }
+    }),
   })),
   subComponents: comp.subComponents.map((sub) =>
     updateFunctionParams(sub, functionUuid, newParams),
@@ -28,6 +35,9 @@ export const addFunctionToInterface = (
       i.functions.some((f) => f.uuid === existingFunctionUuid),
     ) ?? -1
   if (ifaceIdx >= 0) {
+    const originalFn = comp.interfaces[ifaceIdx].functions.find(
+      (f) => f.uuid === existingFunctionUuid,
+    )
     return {
       ...comp,
       interfaces: comp.interfaces.map((iface, idx) =>
@@ -36,7 +46,15 @@ export const addFunctionToInterface = (
               ...iface,
               functions: [
                 ...iface.functions,
-                { uuid: crypto.randomUUID(), id: functionId, parameters: newParams },
+                {
+                  uuid: crypto.randomUUID(),
+                  id: functionId,
+                  ...(originalFn?.description !== undefined && { description: originalFn.description }),
+                  parameters: newParams.map((p) => {
+                    const existing = originalFn?.parameters.find((ep) => ep.name === p.name)
+                    return existing?.description ? { ...p, description: existing.description } : p
+                  }),
+                },
               ],
             }
           : iface,
