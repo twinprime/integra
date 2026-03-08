@@ -707,5 +707,53 @@ describe("useSystemStore", () => {
       expect(otherDiag?.content).toContain("API:fn(id: number, name: string)")
       expect(result.current.parseError).toBeNull()
     })
+
+    it("update-existing updates ALL messages in the current diagram that reference the same function", () => {
+      // Regression test: when a diagram has multiple messages calling the same function and the
+      // user edits only one of them, choosing "update-existing" must update the remaining
+      // messages in the same diagram too.
+      const { result } = renderHook(() => useSystemStore())
+
+      act(() => {
+        useSystemStore.setState({ rootComponent: buildSharedFunctionSystem() })
+      })
+
+      const decision: FunctionDecision = {
+        kind: "compatible",
+        action: "update-existing",
+        interfaceId: "API",
+        functionId: "fn",
+        functionUuid: FN_UUID,
+        oldParams: [{ name: "id", type: "number", required: true }],
+        newParams: [
+          { name: "id", type: "number", required: true },
+          { name: "name", type: "string", required: true },
+        ],
+        affectedDiagramUuids: [],
+      }
+
+      // The pendingContent has two messages: the user already updated the first one,
+      // but the second still carries the old signature.
+      const pendingContent = [
+        "component a",
+        "component b",
+        "a ->> b: API:fn(id: number, name: string)",
+        "b ->> a: API:fn(id: number)",
+      ].join("\n")
+
+      act(() => {
+        result.current.applyFunctionUpdates([decision], CURRENT_DIAG, pendingContent)
+      })
+
+      const comp = result.current.rootComponent.subComponents[0]
+      const currentDiag = comp.useCaseDiagrams[0].useCases[0].sequenceDiagrams.find(
+        (d) => d.uuid === CURRENT_DIAG,
+      )
+      // Both calls must use the new signature
+      expect(currentDiag?.content).not.toContain("API:fn(id: number)")
+      const matches = currentDiag?.content.match(/API:fn\([^)]*\)/g) ?? []
+      expect(matches).toHaveLength(2)
+      matches.forEach((m) => expect(m).toBe("API:fn(id: number, name: string)"))
+    })
   })
 })

@@ -48,12 +48,14 @@ export const createDiagramSlice: StateCreator<SystemState, [], [], DiagramSlice>
   applyFunctionUpdates: (decisions, currentDiagramUuid, currentDiagramContent) =>
     set((state) => {
       let system = state.rootComponent
+      let updatedCurrentContent = currentDiagramContent
 
       for (const d of decisions) {
         if (d.action === "add-new") {
           system = addFunctionToInterface(system, d.functionUuid, d.functionId, d.newParams)
         } else {
           system = updateFunctionParams(system, d.functionUuid, d.newParams)
+          // Update all other diagrams that reference this function
           for (const diagUuid of d.affectedDiagramUuids) {
             system = upsertNodeInTree(system, diagUuid, (node) => {
               const diagramNode = node as SequenceDiagramNode
@@ -69,18 +71,27 @@ export const createDiagramSlice: StateCreator<SystemState, [], [], DiagramSlice>
               }
             })
           }
+          // Also update the current diagram's content so that any other messages
+          // referencing the same function (not just the one the user edited) are
+          // updated to the new signature.
+          updatedCurrentContent = replaceSignatureInContent(
+            updatedCurrentContent,
+            d.interfaceId,
+            d.functionId,
+            d.newParams,
+          )
         }
       }
 
       const updatedWithContent = upsertNodeInTree(
         system,
         currentDiagramUuid,
-        (node) => ({ ...node, content: currentDiagramContent }),
+        (node) => ({ ...node, content: updatedCurrentContent }),
       )
       return {
         past: pushPast(state.past, state.rootComponent),
         future: [],
-        ...tryReparseContent(currentDiagramContent, updatedWithContent, currentDiagramUuid),
+        ...tryReparseContent(updatedCurrentContent, updatedWithContent, currentDiagramUuid),
       }
     }),
 })
