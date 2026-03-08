@@ -13,7 +13,7 @@
  * highlighting, autocomplete, and CodeMirror's built-in undo/redo.
  */
 import { useEffect, useRef, useMemo } from "react"
-import { EditorState, Compartment, type Extension } from "@codemirror/state"
+import { EditorState, Compartment, Prec, type Extension } from "@codemirror/state"
 import { EditorView, keymap, ViewPlugin, type ViewUpdate } from "@codemirror/view"
 import { history, historyKeymap, defaultKeymap } from "@codemirror/commands"
 import { closeBrackets } from "@codemirror/autocomplete"
@@ -177,7 +177,7 @@ export function DiagramCodeMirrorEditor({
       history(),
       closeBrackets(),
       keymap.of([...defaultKeymap, ...historyKeymap]),
-      shiftEnterKeymap,
+      Prec.highest(shiftEnterKeymap),
       updateListener,
       navPlugin,
       readOnlyCompartment.current.of(EditorState.readOnly.of(readonly)),

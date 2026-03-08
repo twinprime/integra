@@ -51,7 +51,7 @@ The diagram spec editor provides context-aware suggestions as you type:
 - **Message receivers**: suggest participants when typing the receiver in a message line
 - **UseCase targets**: suggest use case IDs after `UseCase:` in a message label; for use cases in other components the suggestion includes the full path (e.g. `UseCase:orders/placeOrder`)
 
-Suggestions appear automatically as you type or can be triggered explicitly with `Tab`. They reflect nodes already defined in the current component (local-first ordering). Accept with `Tab` or `Enter`, dismiss with `Escape`.
+Suggestions appear automatically as you type. They reflect nodes already defined in the current component (local-first ordering). Accept with `Tab` or `Enter`, dismiss with `Escape`.
 
 #### Keyboard Shortcuts
 
@@ -60,7 +60,6 @@ Suggestions appear automatically as you type or can be triggered explicitly with
 | `Shift+Enter` | Save spec and preview diagram without leaving edit mode |
 | `Cmd/Ctrl+Z` | Undo in the diagram spec editor (CodeMirror history) *or* tree-level |
 | `Cmd/Ctrl+Shift+Z` / `Cmd/Ctrl+Y` | Redo |
-| `Tab` | Accept autocomplete suggestion (or trigger if no suggestions are showing) |
 
 Tree-level undo/redo is also accessible via the toolbar buttons above the system tree.
 The diagram spec editor uses CodeMirror's built-in history, fully independent from the tree-level history.
