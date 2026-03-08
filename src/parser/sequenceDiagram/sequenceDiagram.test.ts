@@ -146,6 +146,12 @@ describe("sequence diagram parser — messages", () => {
     expect(ast.messages[0].functionRef?.label).toBeNull()
   })
 
+  it("function-ref with trailing colon and empty label has null label", () => {
+    const { ast } = parse("a ->> b: IFace:trigger():")
+    expect(ast.messages[0].functionRef).not.toBeNull()
+    expect(ast.messages[0].functionRef?.label).toBeNull()
+  })
+
   it("parses a self-referencing message", () => {
     const { ast } = parse("a ->> a: IFace:fn()")
     expect(ast.messages[0]).toMatchObject({ from: "a", to: "a" })
@@ -729,6 +735,14 @@ describe("generateSequenceMermaidFromAst — functionRef display label", () => {
     const { messageLabelToUuid } = generateSequenceMermaidFromAst(ast, owner, root)
     expect(messageLabelToUuid["custom label"]).toBeDefined()
     expect(messageLabelToUuid["IFace:doWork()"]).toBeUndefined()
+  })
+
+  it("falls back to Interface:function(params) when trailing colon produces empty label", () => {
+    const owner = makeCompWithIface2("owner-uuid", "owner")
+    const root = { uuid: "root-uuid", id: "root", name: "root", type: "component" as const, actors: [], subComponents: [owner], useCaseDiagrams: [], interfaces: [] }
+    const ast = parseAst("actor caller\ncaller ->> owner: IFace:doWork():")
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain("caller->>owner: IFace:doWork()")
   })
 })
 

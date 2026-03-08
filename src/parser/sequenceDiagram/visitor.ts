@@ -151,7 +151,9 @@ class SequenceDiagramVisitor extends BaseVisitor {
     if ((ctx.FunctionRef ?? []).length > 0) {
       const raw = (ctx.FunctionRef as { image: string }[])[0].image
       // Parse: InterfaceId:FunctionId(rawParams) optionally followed by :display label
-      const match = raw.match(/^([A-Za-z_]\w*):([A-Za-z_]\w*)\(([^)]*)\)(?::(.+))?$/)
+      // Use (.*) instead of (.+) so a trailing colon with no text (e.g. "iface:fn():") is
+      // captured as an empty string, then normalised to null via || null.
+      const match = raw.match(/^([A-Za-z_]\w*):([A-Za-z_]\w*)\(([^)]*)\)(?::(.*))?$/)
       if (match) {
         return {
           from, to, arrow,
@@ -159,7 +161,7 @@ class SequenceDiagramVisitor extends BaseVisitor {
             interfaceId: match[1],
             functionId: match[2],
             rawParams: match[3],
-            label: match[4] ?? null,
+            label: match[4] || null,
           },
           useCaseRef: null,
           label: null,
