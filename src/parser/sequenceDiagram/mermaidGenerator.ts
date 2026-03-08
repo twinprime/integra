@@ -7,7 +7,7 @@
  */
 import type { ComponentNode } from "../../store/types"
 import { findNodeByPath } from "../../utils/nodeUtils"
-import { findComponentByInterfaceId, findInterfaceUuidByInterfaceId, resolveUseCaseByPath } from "../../utils/diagramResolvers"
+import { findComponentByInterfaceId, findInterfaceUuidByInterfaceId, findInterfaceOwnerPreferReceiver, findInterfaceUuidPreferReceiver, resolveUseCaseByPath } from "../../utils/diagramResolvers"
 import { findNodeByUuid } from "../../nodes/nodeTree"
 import { parseSequenceDiagramCst } from "./parser"
 import { buildSeqAst, flattenMessages, type SeqAst, type SeqStatement, type SeqMessage, type SeqNote } from "./visitor"
@@ -164,15 +164,20 @@ function emitStatements(
       if (msg.functionRef) {
         const { interfaceId, functionId, rawParams, label } = msg.functionRef
         const baseLabel = label != null ? label : `${functionId}(${extractParamNames(rawParams)})`
-        const compUuid = findComponentByInterfaceId(root, interfaceId)
-        const ifaceUuid = findInterfaceUuidByInterfaceId(root, interfaceId)
-        // Use interfaceId:functionId as the dedup key so that two different functions
-        // with the same name (on different interfaces) are treated as distinct.
-        const fnKey = `${interfaceId}:${functionId}`
+        // Prefer the receiver component's interface definition for navigation, so that
+        // two different receivers with the same interface id navigate to their respective components.
+        const compUuid = findInterfaceOwnerPreferReceiver(root, interfaceId, msg.to)
+        const ifaceUuid = findInterfaceUuidPreferReceiver(root, interfaceId, msg.to)
+        // Include receiver in the dedup key so that two calls to the same function on
+        // different receivers are treated as distinct and get a numbered suffix.
+        const fnKey = `${msg.to}:${interfaceId}:${functionId}`
         const mermaidLabel = resolveLabel(baseLabel, fnKey, labelMap)
+        // Store the clean label (pre-escape) as the navigation key so it matches the
+        // SVG textContent that the click handler reads. Use renderedLabel only for Mermaid output.
+        const renderedLabel = escapeLabel(mermaidLabel)
         if (compUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = compUuid
         if (ifaceUuid && !messageLabelToInterfaceUuid[mermaidLabel]) messageLabelToInterfaceUuid[mermaidLabel] = ifaceUuid
-        out += `${indent}${fromId}${msg.arrow}${toId}: ${mermaidLabel}\n`
+        out += `${indent}${fromId}${msg.arrow}${toId}: ${renderedLabel}\n`
       } else if (msg.useCaseRef) {
         const { path, label: customLabel } = msg.useCaseRef
         const ucId = path[path.length - 1]
@@ -182,8 +187,9 @@ function emitStatements(
         const ucNode = ucUuid ? findNodeByUuid([root], ucUuid) : null
         const baseLabel = customLabel ?? ucNode?.name ?? ucId
         const mermaidLabel = resolveLabel(baseLabel, ucUuid, labelMap)
+        // Store the clean label as the navigation key; escapeLabel only for Mermaid output.
         const renderedLabel = escapeLabel(mermaidLabel)
-        if (ucUuid && !messageLabelToUuid[renderedLabel]) messageLabelToUuid[renderedLabel] = ucUuid
+        if (ucUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = ucUuid
         out += `${indent}${fromId}${msg.arrow}${toId}: ${renderedLabel}\n`
       } else if (msg.label) {
         out += `${indent}${fromId}${msg.arrow}${toId}: ${escapeLabel(msg.label)}\n`

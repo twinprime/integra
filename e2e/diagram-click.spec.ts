@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test"
-import { makeLocalStorageValue } from "./fixtures/sample-system"
+import {
+  makeLocalStorageValue,
+  makeLocalStorageValueWithNewlineLabel,
+  makeLocalStorageValueWithSameFunctionDifferentReceivers,
+} from "./fixtures/sample-system"
 
 const diagram = () => '[data-testid="diagram-svg-container"]'
 
@@ -147,5 +151,77 @@ test.describe("delete empty interface", () => {
   test("clicking delete removes the interface tab", async ({ page }) => {
     await page.getByTestId("delete-interface-btn").click()
     await expect(page.getByTestId("interface-tab-IEmpty")).not.toBeVisible()
+  })
+})
+
+// ─── \n line break in function ref label ──────────────────────────────────────
+
+test.describe("function ref label with \\n line break", () => {
+  test.beforeEach(async ({ page }) => {
+    const lsValue = makeLocalStorageValueWithNewlineLabel()
+    await page.addInitScript((value) => {
+      localStorage.setItem("integra-system", value)
+    }, lsValue)
+    await page.goto("/")
+    await page.getByRole("treeitem").filter({ hasText: "Login Flow" }).first().click()
+    await page.locator('[data-testid="diagram-svg-container"] svg').waitFor()
+  })
+
+  test("renders \\n in function ref label as a visual line break in the diagram", async ({ page }) => {
+    // Mermaid renders <br/> as multiple tspan elements; both parts should appear in the SVG
+    const svg = page.locator('[data-testid="diagram-svg-container"]')
+    await expect(svg).toContainText("Sign")
+    await expect(svg).toContainText("In")
+    // No Mermaid error banner should be shown
+    await expect(page.locator('[data-testid="mermaid-error"]')).not.toBeVisible()
+  })
+
+  test("clicking the multi-line label navigates to the interface owner", async ({ page }) => {
+    // The SVG text.messageText for "Sign\nIn" — textContent after Mermaid renders tspans
+    const msgLabel = page.locator('[data-testid="diagram-svg-container"] text.messageText')
+      .filter({ hasText: /Sign/ })
+      .first()
+    await msgLabel.click()
+    const authItem = page.getByRole("treeitem").filter({ hasText: "AuthService" }).first()
+    await expect(authItem).toHaveAttribute("aria-selected", "true")
+  })
+})
+
+// ─── Numbered suffix for same function on different receivers ─────────────────
+
+test.describe("numbered suffix for same function on different receivers", () => {
+  test.beforeEach(async ({ page }) => {
+    const lsValue = makeLocalStorageValueWithSameFunctionDifferentReceivers()
+    await page.addInitScript((value) => {
+      localStorage.setItem("integra-system", value)
+    }, lsValue)
+    await page.goto("/")
+    // Select the Health Check sequence diagram
+    await page.getByRole("treeitem").filter({ hasText: "Health Check" }).first().click()
+    await page.locator('[data-testid="diagram-svg-container"] svg').waitFor()
+  })
+
+  test("renders numbered suffixes for the same function on different receivers", async ({ page }) => {
+    const svg = page.locator('[data-testid="diagram-svg-container"]')
+    await expect(svg).toContainText("ping()")
+    await expect(svg).toContainText("ping() (2)")
+  })
+
+  test("clicking first suffixed label navigates to AuthService", async ({ page }) => {
+    await page.locator('[data-testid="diagram-svg-container"] text.messageText')
+      .filter({ hasText: /^ping\(\)$/ })
+      .first()
+      .click()
+    const authItem = page.getByRole("treeitem").filter({ hasText: "AuthService" }).first()
+    await expect(authItem).toHaveAttribute("aria-selected", "true")
+  })
+
+  test("clicking second suffixed label navigates to OrderService", async ({ page }) => {
+    await page.locator('[data-testid="diagram-svg-container"] text.messageText')
+      .filter({ hasText: /^ping\(\) \(2\)$/ })
+      .first()
+      .click()
+    const orderItem = page.getByRole("treeitem").filter({ hasText: "OrderService" }).first()
+    await expect(orderItem).toHaveAttribute("aria-selected", "true")
   })
 })

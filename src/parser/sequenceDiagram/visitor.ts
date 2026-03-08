@@ -161,7 +161,7 @@ class SequenceDiagramVisitor extends BaseVisitor {
             interfaceId: match[1],
             functionId: match[2],
             rawParams: match[3],
-            label: match[4] || null,
+            label: match[4] ? match[4].replace(/\\n/g, "\n") : null,
           },
           useCaseRef: null,
           label: null,
@@ -175,7 +175,7 @@ class SequenceDiagramVisitor extends BaseVisitor {
       const withoutPrefix = raw.slice("UseCase:".length)
       const secondColonIdx = withoutPrefix.indexOf(":")
       const pathStr = secondColonIdx === -1 ? withoutPrefix : withoutPrefix.slice(0, secondColonIdx)
-      const label = secondColonIdx === -1 ? null : withoutPrefix.slice(secondColonIdx + 1) || null
+      const label = secondColonIdx === -1 ? null : (withoutPrefix.slice(secondColonIdx + 1) || null)?.replace(/\\n/g, "\n") ?? null
       const path = pathStr.split("/")
       return { from, to, arrow, functionRef: null, useCaseRef: { path, label }, label: null }
     }

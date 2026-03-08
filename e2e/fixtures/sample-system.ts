@@ -280,3 +280,93 @@ export function makeLocalStorageValueWithDependency(): string {
 
   return JSON.stringify({ state: { rootComponent: systemWithDep }, version: 0 })
 }
+
+/**
+ * Variant fixture where the seq diagram has a function ref message with a \n display label.
+ * Used to verify that \n in labels produces a <br/> visual line break in the diagram.
+ */
+export function makeLocalStorageValueWithNewlineLabel(): string {
+  const seqWithNewlineLabel: SequenceDiagramNode = {
+    ...seqDiagram,
+    content: [
+      "actor User",
+      "component AuthService",
+      "User ->> AuthService: IAuth:login():Sign\\nIn",
+    ].join("\n"),
+  }
+
+  const systemWithNewlineLabel: ComponentNode = {
+    ...sampleSystem,
+    useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
+      ...ucd,
+      useCases: ucd.useCases.map((uc) => ({
+        ...uc,
+        sequenceDiagrams: [seqWithNewlineLabel],
+      })),
+    })),
+  }
+
+  return JSON.stringify({ state: { rootComponent: systemWithNewlineLabel }, version: 0 })
+}
+
+/**
+ * Variant fixture where the same interface function is called on two different receivers.
+ * Both AuthService and OrderService have an IHealth interface with a ping() function.
+ * Used to verify that numbered label suffixes are added for different receivers.
+ */
+export function makeLocalStorageValueWithSameFunctionDifferentReceivers(): string {
+  const healthIfaceAuth = {
+    uuid: "health-iface-auth-uuid",
+    id: "IHealth",
+    name: "IHealth",
+    type: "other" as const,
+    functions: [{ uuid: "health-fn-auth-uuid", id: "ping", parameters: [] }],
+  }
+  const healthIfaceOrder = {
+    uuid: "health-iface-order-uuid",
+    id: "IHealth",
+    name: "IHealth",
+    type: "other" as const,
+    functions: [{ uuid: "health-fn-order-uuid", id: "ping", parameters: [] }],
+  }
+
+  const authWithHealth: ComponentNode = {
+    ...sampleSystem.subComponents[0],
+    interfaces: [...sampleSystem.subComponents[0].interfaces, healthIfaceAuth],
+  }
+  const orderWithHealth: ComponentNode = {
+    ...sampleSystem.subComponents[1],
+    interfaces: [healthIfaceOrder],
+  }
+
+  const multiReceiverSeq: SequenceDiagramNode = {
+    uuid: "multi-receiver-seq-uuid",
+    id: "HealthCheck",
+    name: "Health Check",
+    type: "sequence-diagram",
+    ownerComponentUuid: UUIDS.root,
+    referencedNodeIds: [UUIDS.authComp, UUIDS.orderComp],
+    referencedFunctionUuids: ["health-fn-auth-uuid", "health-fn-order-uuid"],
+    content: [
+      "actor User",
+      "component AuthService",
+      "component OrderService",
+      "User ->> AuthService: IHealth:ping()",
+      "User ->> OrderService: IHealth:ping()",
+    ].join("\n"),
+  }
+
+  const systemWithMultiReceiver: ComponentNode = {
+    ...sampleSystem,
+    subComponents: [authWithHealth, orderWithHealth],
+    useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
+      ...ucd,
+      useCases: ucd.useCases.map((uc) => ({
+        ...uc,
+        sequenceDiagrams: [...uc.sequenceDiagrams, multiReceiverSeq],
+      })),
+    })),
+  }
+
+  return JSON.stringify({ state: { rootComponent: systemWithMultiReceiver }, version: 0 })
+}

@@ -134,6 +134,11 @@ describe("sequence diagram parser — messages", () => {
     })
   })
 
+  it("converts \\n escape to newline in function ref display label", () => {
+    const { ast } = parse("a ->> b: IFace:login():Line1\\nLine2")
+    expect(ast.messages[0].functionRef?.label).toBe("Line1\nLine2")
+  })
+
   it("tokenises function-ref with display label as a single FunctionRef token", () => {
     const { errors, tokens } = SeqLexer.tokenize("a ->> b: IFace:fn():do the thing")
     expect(errors).toHaveLength(0)
@@ -565,6 +570,11 @@ describe("UseCaseRef — visitor (SeqMessage.useCaseRef)", () => {
     expect(ast.messages[0].useCaseRef).toEqual({ path: ["placeOrder"], label: "Place an order" })
   })
 
+  it("converts \\n escape to newline in use case ref custom label", () => {
+    const { ast } = parse("actor a\ncomponent b\na ->> b: UseCase:placeOrder:Place\\nOrder")
+    expect(ast.messages[0].useCaseRef?.label).toBe("Place\nOrder")
+  })
+
   it("does NOT set useCaseRef for FunctionRef messages", () => {
     const { ast } = parse("actor a\ncomponent b\na ->> b: IFace:fn()")
     expect(ast.messages[0].useCaseRef).toBeNull()
@@ -729,6 +739,16 @@ describe("generateSequenceMermaidFromAst — functionRef display label", () => {
     expect(mermaidContent).not.toContain("doWork()")
   })
 
+  it("converts \\n in function ref display label to <br/> in mermaid output", () => {
+    const owner = makeCompWithIface2("owner-uuid", "owner")
+    const root = { uuid: "root-uuid", id: "root", name: "root", type: "component" as const, actors: [], subComponents: [owner], useCaseDiagrams: [], interfaces: [] }
+    const ast = parseAst("actor caller\ncaller ->> owner: IFace:doWork():Line1\\nLine2")
+    const { mermaidContent, messageLabelToUuid } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain("caller->>owner: Line1<br/>Line2")
+    // Navigation key uses the clean label (with newline char, not <br/>) to match SVG textContent
+    expect(messageLabelToUuid["Line1\nLine2"]).toBeDefined()
+  })
+
   it("populates messageLabelToUuid using the display label as key when present", () => {
     const owner = makeCompWithIface2("owner-uuid", "owner")
     const root = { uuid: "root-uuid", id: "root", name: "root", type: "component" as const, actors: [], subComponents: [owner], useCaseDiagrams: [], interfaces: [] }
@@ -776,6 +796,27 @@ describe("generateSequenceMermaidFromAst — functionRef display label", () => {
     expect(mermaidContent).toContain("caller->>owner: process() (2)")
     expect(messageLabelToUuid["process()"]).toBeDefined()
     expect(messageLabelToUuid["process() (2)"]).toBeDefined()
+  })
+
+  it("appends (n) suffix when same function is called on different receivers", () => {
+    // Two components each have their own IFace interface with the same function
+    const compA: ComponentNode = {
+      uuid: "compa-uuid", id: "compA", name: "compA", type: "component",
+      actors: [], subComponents: [], useCaseDiagrams: [],
+      interfaces: [{ uuid: "ifaceA-uuid", id: "IFace", name: "IFace", type: "rest" as const, functions: [{ uuid: "fnA-uuid", id: "doWork", parameters: [] }] }],
+    }
+    const compB: ComponentNode = {
+      uuid: "compb-uuid", id: "compB", name: "compB", type: "component",
+      actors: [], subComponents: [], useCaseDiagrams: [],
+      interfaces: [{ uuid: "ifaceB-uuid", id: "IFace", name: "IFace", type: "rest" as const, functions: [{ uuid: "fnB-uuid", id: "doWork", parameters: [] }] }],
+    }
+    const root = { uuid: "root-uuid", id: "root", name: "root", type: "component" as const, actors: [], subComponents: [compA, compB], useCaseDiagrams: [], interfaces: [] }
+    const ast = parseAst("actor caller\ncaller ->> compA: IFace:doWork()\ncaller ->> compB: IFace:doWork()")
+    const { mermaidContent, messageLabelToUuid } = generateSequenceMermaidFromAst(ast, root, root)
+    expect(mermaidContent).toContain("caller->>compA: doWork()")
+    expect(mermaidContent).toContain("caller->>compB: doWork() (2)")
+    expect(messageLabelToUuid["doWork()"]).toBeDefined()
+    expect(messageLabelToUuid["doWork() (2)"]).toBeDefined()
   })
 
   it("includes param names in default label", () => {
