@@ -179,3 +179,5 @@ export const mergeLists = <T extends { id: string; name: string }>(
 export type { DiagramRef } from "./useCaseDiagramNode"
 export type { NodeHandler } from "./nodeHandler"
 export type { ComponentNode, Node, UseCaseDiagramNode, UseCaseNode, SequenceDiagramNode, ActorNode } from "../store/types"
+
+export const findNode = findNodeByUuid

@@ -1,4 +1,5 @@
-import { useSystemStore, findNode } from "../store/useSystemStore"
+import { useSystemStore } from "../store/useSystemStore"
+import { findNode } from "../nodes/nodeTree"
 import type { DiagramNode } from "../store/types"
 import { findNearestComponentAncestor } from "../utils/nodeUtils"
 import { CommonEditor } from "./editor/CommonEditor"

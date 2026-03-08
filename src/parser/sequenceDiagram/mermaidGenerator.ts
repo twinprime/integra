@@ -8,9 +8,9 @@
 import type { ComponentNode } from "../../store/types"
 import { findNodeByPath } from "../../utils/nodeUtils"
 import { findComponentByInterfaceId, resolveUseCaseByPath } from "../../utils/diagramResolvers"
-import { findNode } from "../../store/useSystemStore"
+import { findNodeByUuid } from "../../nodes/nodeTree"
 import { parseSequenceDiagramCst } from "./parser"
-import { buildSeqAst, type SeqAst, type SeqStatement, type SeqMessage, type SeqNote } from "./visitor"
+import { buildSeqAst, flattenMessages, type SeqAst, type SeqStatement, type SeqMessage, type SeqNote } from "./visitor"
 
 function escapeLabel(text: string): string {
   return text.replace(/\n/g, "<br/>")
@@ -36,19 +36,6 @@ function resolveParticipantUuid(
   return findNodeByPath(root, path.join("/"))
 }
 
-/** Recursively collect all SeqMessage nodes from a statement list (including inside blocks). */
-function collectMessages(statements: SeqStatement[]): SeqMessage[] {
-  const result: SeqMessage[] = []
-  for (const stmt of statements) {
-    if ("sections" in stmt) {
-      for (const section of stmt.sections) result.push(...collectMessages(section.statements))
-    } else if (!("position" in stmt)) {
-      result.push(stmt as SeqMessage)
-    }
-  }
-  return result
-}
-
 /** Emit Mermaid lines for a block section separator keyword. */
 function sectionKeyword(kind: "loop" | "alt" | "par" | "opt"): string {
   return kind === "alt" ? "else" : "and"
@@ -71,7 +58,7 @@ export function generateSequenceMermaidFromAst(
     declaredMermaidIds.add(mermaidId)
     const uuid = ownerComp ? resolveParticipantUuid(decl.path, ownerComp, root) : null
     if (uuid) idToUuid[mermaidId] = uuid
-    const node = uuid ? findNode([root], uuid) : null
+    const node = uuid ? findNodeByUuid([root], uuid) : null
     const lastSegment = decl.path[decl.path.length - 1]
     const stereotype = decl.entityType === "actor" ? "«actor»" : "«component»"
     const displayName = node?.name ?? lastSegment
@@ -79,7 +66,7 @@ export function generateSequenceMermaidFromAst(
   }
 
   // Auto-declare any undeclared participants referenced in messages (including inside blocks).
-  for (const msg of collectMessages(ast.statements)) {
+  for (const msg of flattenMessages(ast.statements)) {
     for (const raw of [msg.from, msg.to]) {
       const mermaidId = sanitizeMermaidId(raw)
       if (!declaredMermaidIds.has(mermaidId)) {
@@ -148,7 +135,7 @@ function emitStatements(
         const ucUuid = ownerComp && ownerCompUuid
           ? resolveUseCaseByPath(path, root, ownerComp, ownerCompUuid)
           : undefined
-        const ucNode = ucUuid ? findNode([root], ucUuid) : null
+        const ucNode = ucUuid ? findNodeByUuid([root], ucUuid) : null
         const displayLabel = customLabel ?? ucNode?.name ?? ucId
         const renderedLabel = escapeLabel(displayLabel)
         if (ucUuid && !messageLabelToUuid[renderedLabel]) messageLabelToUuid[renderedLabel] = ucUuid

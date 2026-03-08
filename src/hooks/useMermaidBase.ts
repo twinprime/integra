@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react"
 import mermaid from "mermaid"
-import { useSystemStore, findNode } from "../store/useSystemStore"
+import { useSystemStore } from "../store/useSystemStore"
+import { findNode } from "../nodes/nodeTree"
 import type { ComponentNode, DiagramNode } from "../store/types"
 
 declare global {

@@ -1,7 +1,8 @@
 import { useRef, useState, type ReactNode } from "react"
 import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from "react-resizable-panels"
 import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react"
-import { useSystemStore, findNode } from "../store/useSystemStore"
+import { useSystemStore } from "../store/useSystemStore"
+import { findNode } from "../nodes/nodeTree"
 
 interface MainLayoutProps {
   leftPanel: ReactNode

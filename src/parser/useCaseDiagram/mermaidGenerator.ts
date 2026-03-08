@@ -5,7 +5,7 @@
  */
 import type { ComponentNode } from "../../store/types"
 import { findNodeByPath } from "../../utils/nodeUtils"
-import { findNode } from "../../store/useSystemStore"
+import { findNodeByUuid } from "../../nodes/nodeTree"
 import { parseUseCaseDiagramCst } from "./parser"
 import { buildUcdAst, type UcdAst } from "./visitor"
 
@@ -48,7 +48,7 @@ export function generateUseCaseMermaidFromAst(
       : null
     if (uuid) idToUuid[decl.id] = uuid
 
-    const node = uuid ? findNode([root], uuid) : null
+    const node = uuid ? findNodeByUuid([root], uuid) : null
     const lastSegment = decl.path[decl.path.length - 1]
     const displayName = node?.name ?? lastSegment
 
