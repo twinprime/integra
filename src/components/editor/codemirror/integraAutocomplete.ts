@@ -11,7 +11,7 @@
 import { autocompletion, type CompletionSource, type CompletionResult } from "@codemirror/autocomplete"
 import type { Extension } from "@codemirror/state"
 import type { ComponentNode } from "../../../store/types"
-import { detectContext, buildSuggestions, type DiagramType } from "../useAutoComplete"
+import { detectContext, buildSuggestions, type DiagramType } from "../autoCompleteLogic"
 
 export interface CompletionContext {
   diagramType: DiagramType
