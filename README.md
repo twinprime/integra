@@ -469,17 +469,30 @@ Rendering logic for Mermaid diagrams is extracted into custom hooks to keep comp
 | `useMermaidBase` | `useUseCaseDiagram`, `useSequenceDiagram` | Shared Mermaid render loop — builds the diagram string, calls `mermaid.render()`, binds click handlers, exposes `svg`/`error`/`elementRef` |
 | `useUseCaseDiagram` | `UseCaseDiagram` | Builds the use-case diagram transform and wires `__integraNavigate` |
 | `useSequenceDiagram` | `SequenceDiagram` | Builds the sequence diagram transform and wires `__integraNavigate` |
-| `useUseCaseClassDiagram` | `UseCaseClassDiagram` | Calls `buildUseCaseClassDiagram()`, renders via Mermaid, wires `__integraNavigate` |
-| `useComponentClassDiagram` | `ComponentClassDiagram` | Calls `buildComponentClassDiagram()`, renders via Mermaid, wires `__integraNavigate` |
-| `useAutoComplete` | `DiagramEditor` / `integraAutocomplete.ts` | Cursor-position-aware suggestion engine — `detectContext` and `buildSuggestions` pure functions are also consumed by the CodeMirror completion source |
+| `useMermaidClassDiagram<T>` | `useUseCaseClassDiagram`, `useComponentClassDiagram` | Generic shared hook — accepts a `buildFn(node, rootComponent)` and an `idPrefix`; handles Mermaid render, click binding, error state, and the per-instance `idToUuidRef` (eliminates the `__integraIdMap` global) |
+| `useUseCaseClassDiagram` | `UseCaseClassDiagram` | Thin wrapper: calls `useMermaidClassDiagram(buildUseCaseClassDiagram, node, "uc-class")` |
+| `useComponentClassDiagram` | `ComponentClassDiagram` | Thin wrapper: calls `useMermaidClassDiagram(buildComponentClassDiagram, node, "comp-class")` |
+| `useAutoComplete` | `DiagramEditor` / `integraAutocomplete.ts` | Thin React hook — wires cursor position to suggestion results; pure logic (`detectContext`, `buildSuggestions`, etc.) lives in `autoCompleteLogic.ts` |
 
 #### State Management
 
-All application state lives in a single **Zustand** store (`useSystemStore`). Components subscribe selectively to avoid unnecessary re-renders.
+All application state lives in a single **Zustand** store (`useSystemStore`). Components subscribe selectively to avoid unnecessary re-renders. The store is composed from four slice files:
+
+```
+src/store/
+  useSystemStore.ts         ← composes slices + persist middleware (~60 lines)
+  systemOps.ts              ← pure helpers: rebuildSystemDiagrams, tryReparseContent,
+                               stripExclusiveFunctionContributions (independently testable)
+  slices/
+    historySlice.ts         ← past, future, undo, redo
+    uiSlice.ts              ← selectedNodeId, parseError, savedSnapshot, selectNode, markSaved
+    nodeOpsSlice.ts         ← addNode, updateNode, deleteNode, renameNodeId
+    diagramSlice.ts         ← setSystem, clearSystem, applyFunctionUpdates
+```
 
 ```mermaid
 graph LR
-    Store[("useSystemStore<br>Zustand + persist")]
+    Store[("useSystemStore<br>Zustand + persist<br>(composed from slices)")]
 
     Store -->|"rootComponent<br>selectedNodeId"| TreeView
     Store -->|"rootComponent<br>selectedNodeId"| EditorPanel
@@ -491,14 +504,14 @@ graph LR
     DiagramPanel -->|selectNode| Store
 ```
 
-Key store slices:
+Key state fields:
 
-| Slice | Type | Purpose |
-|---|---|---|
-| `rootComponent` | `ComponentNode` | Entire system tree |
-| `selectedNodeId` | `string \| null` | Currently selected node UUID |
-| `savedSnapshot` | `string \| null` | YAML snapshot at last save (for unsaved-changes detection) |
-| `past` / `future` | `ComponentNode[]` | Undo/redo history stacks |
+| Field | Type | Slice | Purpose |
+|---|---|---|---|
+| `rootComponent` | `ComponentNode` | top-level | Entire system tree |
+| `selectedNodeId` | `string \| null` | `uiSlice` | Currently selected node UUID |
+| `savedSnapshot` | `string \| null` | `uiSlice` | YAML snapshot at last save (for unsaved-changes detection) |
+| `past` / `future` | `ComponentNode[]` | `historySlice` | Undo/redo history stacks |
 
 #### Node Types
 
@@ -525,8 +538,8 @@ When a `use-case` node is selected, `buildUseCaseClassDiagram()` (`src/utils/use
 
 When a `component` node is selected, `buildComponentClassDiagram()` (`src/utils/componentClassDiagram.ts`) reads the component's stored interface specifications and scans every sequence diagram in the entire system tree to produce a Mermaid `classDiagram`:
 
-- The **subject component** is highlighted with a blue tint (`:::subject`)
-- Each of its **own interfaces** (from `component.interfaces`) is shown with `<<interface>>` and all defined methods (including parameter types and optionality), also highlighted (`:::subjectInterface`)
+- The **subject component** is highlighted in dark blue (`style` directive: `fill:#1d4ed8`)
+- Each of its **own interfaces** (from `component.interfaces`) is shown with `<<interface>>` and all defined methods (including parameter types and optionality), highlighted in light blue (`fill:#bfdbfe`)
 - `Component ..|> Interface` — realization arrow for each interface the component provides
 - **Dependents** (callers): `Caller ..> Interface` — dependency arrow for each external actor or component that calls the interface in any sequence diagram
 - **Dependencies** (outgoing calls): when this component sends messages to another component's interface in any sequence diagram:
@@ -541,27 +554,26 @@ When a `component` node is selected, `buildComponentClassDiagram()` (`src/utils/
 Example output for `orderSvc` (provides `OrdersAPI`, called by `client`, depends on `paymentSvc.PaymentsAPI`):
 ```
 classDiagram
-    classDef subject fill:#dbeafe,stroke:#2563eb,color:#1e3a5f
-    classDef subjectInterface fill:#eff6ff,stroke:#3b82f6,color:#1e3a5f
-    class orderSvc["Order Service"]:::subject
-    class OrdersAPI:::subjectInterface {
+    class orderSvc["Order Service"]
+    class OrdersAPI {
         <<interface>>
         +placeOrder(orderId: string, amount: number)
     }
     orderSvc ..|> OrdersAPI
-    class client["Client"]:::component
+    class client["Client"]
     client ..> OrdersAPI
     class PaymentsAPI {
         <<interface>>
         +charge(orderId: string, amount: number)
     }
-    class paymentSvc["Payment Service"]:::component
+    class paymentSvc["Payment Service"]
     paymentSvc ..|> PaymentsAPI
     orderSvc ..> PaymentsAPI
-    orderSvc ..> paymentSvc
     click orderSvc call __integraNavigate("orderSvc")
     click client call __integraNavigate("client")
     click paymentSvc call __integraNavigate("paymentSvc")
+    style orderSvc fill:#1d4ed8,stroke:#1e3a5f,color:#ffffff
+    style OrdersAPI fill:#bfdbfe,stroke:#2563eb,color:#1e3a5f
 ```
 
 #### Parsers (`src/parser/`)
@@ -576,22 +588,44 @@ src/parser/
     parser.ts                   ← CstParser
     visitor.ts                  ← CST → SeqAst { declarations[], statements[] }
     systemUpdater.ts            ← SeqAst → node tree update
-    mermaidGenerator.ts         ← SeqAst → Mermaid string + idToUuid map
+    mermaidGenerator.ts         ← SeqAst → Mermaid string + idToUuid map (uses nodeTree, not store)
     specSerializer.ts           ← SeqAst → spec text; AST-aware ID rename
   useCaseDiagram/
     lexer.ts                    ← single-mode lexer
     parser.ts                   ← CstParser
     visitor.ts                  ← CST → UcdAst { declarations[], links[] }
     systemUpdater.ts            ← UcdAst → node tree update
-    mermaidGenerator.ts         ← UcdAst → Mermaid string + idToUuid map
+    mermaidGenerator.ts         ← UcdAst → Mermaid string + idToUuid map (uses nodeTree, not store)
     specSerializer.ts           ← UcdAst → spec text; AST-aware ID rename
 ```
+
+The `mermaidGenerator` files are pure (no store imports) — they accept a `root: ComponentNode` and produce a Mermaid string using `findNodeByUuid` from `src/nodes/nodeTree` directly.
+
+#### Node Tree (`src/nodes/`)
+
+The component tree is managed through a typed dispatch layer:
+
+```
+src/nodes/
+  nodeTree.ts             ← generic tree ops (upsert, delete, find, collect) via NodeHandler dispatch
+  nodeHandler.ts          ← NodeHandler interface
+  componentNode.ts        ← componentHandler + re-exports from split modules
+  componentCRUD.ts        ← component/actor factory and structural mutation helpers
+  componentTraversal.ts   ← read-only search: findCompByUuid, findParent, getSiblingIds, etc.
+  interfaceOps.ts         ← interface/function mutations: addFunction, updateParams, removeFunctions
+  useCaseDiagramNode.ts   ← ucDiagHandler
+  useCaseNode.ts          ← useCaseHandler
+  sequenceDiagramNode.ts  ← leaf handler + replaceSignatureInContent
+  actorNode.ts            ← leaf handler
+```
+
+`nodeHandlers: Record<Node["type"], NodeHandler>` enforces exhaustiveness at compile time — adding a new node type without registering a handler is a TypeScript error.
 
 `SeqAst.statements` preserves source order for both messages and notes, so notes appear in the rendered diagram exactly where they were written.
 
 **Node ID renaming** uses an AST-aware parse → rename → serialize round-trip (`specSerializer.ts`) rather than regex replacement. This correctly handles IDs that contain hyphens (e.g. `api-gateway`) which a word-boundary regex would corrupt.
 
-
+**Parsed-AST caching**: `src/utils/seqAstCache.ts` provides a module-level `Map<content, SeqAst>` cache used by the class diagram builders. The same sequence diagram content is never re-parsed more than once per session, avoiding redundant Chevrotain full-parses on every React render.
 
 - `ownerComponentUuid` — the component that logically owns the diagram (set when created)
 - `referencedNodeIds` — UUIDs of all actors/components/use-cases referenced in the diagram spec
@@ -635,7 +669,7 @@ The spec editor uses **CodeMirror 6** (`DiagramCodeMirrorEditor`) for both edita
 
 Chevrotain lexer tokens defined in `src/parser/tokens.ts` are the authoritative token vocabulary; the CM highlight field follows the same pattern rules to keep behaviour in sync.
 
-Autocomplete is provided by `integraAutocomplete.ts`, a CodeMirror `CompletionSource` that delegates to the shared `detectContext` / `buildSuggestions` pure functions from `useAutoComplete.ts`.  CodeMirror manages the trigger delay and dropdown UI.
+Autocomplete is provided by `integraAutocomplete.ts`, a CodeMirror `CompletionSource` that delegates to the pure functions `detectContext` / `buildSuggestions` exported from `autoCompleteLogic.ts`. The React hook `useAutoComplete` is a thin wrapper that wires cursor position to those pure functions; `integraAutocomplete.ts` calls them directly without going through the hook. CodeMirror manages the trigger delay and dropdown UI.
 
 #### Tech Stack
 
