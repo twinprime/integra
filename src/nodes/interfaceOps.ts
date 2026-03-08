@@ -1,4 +1,4 @@
-import type { ComponentNode, Parameter } from "../store/types"
+import type { ComponentNode, InterfaceFunction, Parameter } from "../store/types"
 
 export const updateFunctionParams = (
   comp: ComponentNode,
@@ -14,7 +14,7 @@ export const updateFunctionParams = (
         ...f,
         parameters: newParams.map((p) => {
           const existing = f.parameters.find((ep) => ep.name === p.name)
-          return existing?.description ? { ...p, description: existing.description } : p
+          return existing ? { ...existing, ...p } : p
         }),
       }
     }),
@@ -38,25 +38,20 @@ export const addFunctionToInterface = (
     const originalFn = comp.interfaces[ifaceIdx].functions.find(
       (f) => f.uuid === existingFunctionUuid,
     )
+    const newFn: InterfaceFunction = {
+      ...(originalFn ?? {}),
+      uuid: crypto.randomUUID(),
+      id: functionId,
+      parameters: newParams.map((p) => {
+        const existing = originalFn?.parameters.find((ep) => ep.name === p.name)
+        return existing ? { ...existing, ...p } : p
+      }),
+    }
     return {
       ...comp,
       interfaces: comp.interfaces.map((iface, idx) =>
         idx === ifaceIdx
-          ? {
-              ...iface,
-              functions: [
-                ...iface.functions,
-                {
-                  uuid: crypto.randomUUID(),
-                  id: functionId,
-                  ...(originalFn?.description !== undefined && { description: originalFn.description }),
-                  parameters: newParams.map((p) => {
-                    const existing = originalFn?.parameters.find((ep) => ep.name === p.name)
-                    return existing?.description ? { ...p, description: existing.description } : p
-                  }),
-                },
-              ],
-            }
+          ? { ...iface, functions: [...iface.functions, newFn] }
           : iface,
       ),
     }

@@ -72,22 +72,20 @@ export function stripExclusiveFunctionContributions(
   return removeFunctionsFromInterfaces(system, toRemove)
 }
 
-type FunctionDescEntry = { description: string | undefined; params: Map<string, string | undefined> }
+type FunctionSnapshot = Map<string, InterfaceFunction>
 
-/** Walk the component tree and index every function's description by (compUuid, ifaceId, fnId). */
-function collectFunctionDescriptions(root: ComponentNode): Map<string, FunctionDescEntry> {
-  const map = new Map<string, FunctionDescEntry>()
+/**
+ * Walk the component tree and snapshot every InterfaceFunction, keyed by
+ * (compUuid, interfaceId, functionId). Used to restore user-authored attributes
+ * (descriptions, and any future fields) that are lost when functions are stripped
+ * from the tree and recreated from DSL content during reparse.
+ */
+function buildFunctionSnapshot(root: ComponentNode): FunctionSnapshot {
+  const map: FunctionSnapshot = new Map()
   const walk = (comp: ComponentNode) => {
     for (const iface of comp.interfaces ?? []) {
       for (const fn of iface.functions) {
-        const key = `${comp.uuid}:${iface.id}:${fn.id}`
-        const paramMap = new Map<string, string | undefined>()
-        for (const p of fn.parameters) {
-          if (p.description) paramMap.set(p.name, p.description)
-        }
-        if (fn.description !== undefined || paramMap.size > 0) {
-          map.set(key, { description: fn.description, params: paramMap })
-        }
+        map.set(`${comp.uuid}:${iface.id}:${fn.id}`, fn)
       }
     }
     for (const sub of comp.subComponents) walk(sub)
@@ -97,33 +95,35 @@ function collectFunctionDescriptions(root: ComponentNode): Map<string, FunctionD
 }
 
 /**
- * After a reparse that stripped and recreated functions, restore descriptions
- * that were lost. Matches functions by (compUuid, interfaceId, functionId).
+ * After a reparse that stripped and recreated functions, merge user-authored
+ * attributes back from the pre-strip snapshot. Matches by (compUuid, interfaceId, functionId).
+ *
+ * Merge strategy: `{ ...original, ...reparsed }` — parser-authoritative fields
+ * (uuid, id, parameters) from the reparsed object win; every other field (description,
+ * and any future attributes) from the original is preserved automatically.
+ * Parameters are merged the same way by name: `{ ...origParam, ...reparsedParam }`.
  */
-function restoreFunctionDescriptions(
-  root: ComponentNode,
-  descMap: Map<string, FunctionDescEntry>,
-): ComponentNode {
-  if (descMap.size === 0) return root
-  const restoreComp = (comp: ComponentNode): ComponentNode => {
-    const interfaces = comp.interfaces.map((iface) => {
-      const functions = iface.functions.map((fn): InterfaceFunction => {
-        const key = `${comp.uuid}:${iface.id}:${fn.id}`
-        const entry = descMap.get(key)
-        if (!entry) return fn
-        const description = fn.description ?? entry.description
-        const parameters = fn.parameters.map((p) => {
-          const paramDesc = p.description ?? entry.params.get(p.name)
-          return paramDesc !== undefined ? { ...p, description: paramDesc } : p
-        })
-        return { ...fn, description, parameters }
-      })
-      return { ...iface, functions }
-    })
-    const subComponents = comp.subComponents.map(restoreComp)
-    return { ...comp, interfaces, subComponents }
+function mergeFunctionAttributes(root: ComponentNode, snapshot: FunctionSnapshot): ComponentNode {
+  if (snapshot.size === 0) return root
+  const mergeComp = (comp: ComponentNode): ComponentNode => {
+    const interfaces = comp.interfaces.map((iface) => ({
+      ...iface,
+      functions: iface.functions.map((fn): InterfaceFunction => {
+        const original = snapshot.get(`${comp.uuid}:${iface.id}:${fn.id}`)
+        if (!original) return fn
+        return {
+          ...original,
+          ...fn,
+          parameters: fn.parameters.map((p) => {
+            const origParam = original.parameters.find((op) => op.name === p.name)
+            return origParam ? { ...origParam, ...p } : p
+          }),
+        }
+      }),
+    }))
+    return { ...comp, interfaces, subComponents: comp.subComponents.map(mergeComp) }
   }
-  return restoreComp(root)
+  return mergeComp(root)
 }
 
 export function tryReparseContent(
@@ -143,13 +143,11 @@ export function tryReparseContent(
         parseError: null,
       }
     }
-    // Capture descriptions before stripping so they can be restored after the
-    // re-parse recreates stripped functions without description metadata.
-    const descMap = collectFunctionDescriptions(system)
+    const snapshot = buildFunctionSnapshot(system)
     const cleanedSystem = stripExclusiveFunctionContributions(system, nodeUuid)
     const reparsedRoot = parseSequenceDiagram(content, cleanedSystem, node.ownerComponentUuid, nodeUuid)
     return {
-      rootComponent: restoreFunctionDescriptions(reparsedRoot, descMap),
+      rootComponent: mergeFunctionAttributes(reparsedRoot, snapshot),
       parseError: null,
     }
   } catch (err) {
