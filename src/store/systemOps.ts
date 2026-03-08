@@ -1,4 +1,4 @@
-import type { ComponentNode, SequenceDiagramNode } from "./types"
+import type { ComponentNode, InterfaceFunction, SequenceDiagramNode } from "./types"
 import { parseUseCaseDiagram } from "../parser/useCaseDiagram/systemUpdater"
 import { parseSequenceDiagram } from "../parser/sequenceDiagram/systemUpdater"
 import { collectAllDiagrams, upsertNodeInTree, findNode } from "../nodes/nodeTree"
@@ -72,6 +72,60 @@ export function stripExclusiveFunctionContributions(
   return removeFunctionsFromInterfaces(system, toRemove)
 }
 
+type FunctionDescEntry = { description: string | undefined; params: Map<string, string | undefined> }
+
+/** Walk the component tree and index every function's description by (compUuid, ifaceId, fnId). */
+function collectFunctionDescriptions(root: ComponentNode): Map<string, FunctionDescEntry> {
+  const map = new Map<string, FunctionDescEntry>()
+  const walk = (comp: ComponentNode) => {
+    for (const iface of comp.interfaces ?? []) {
+      for (const fn of iface.functions) {
+        const key = `${comp.uuid}:${iface.id}:${fn.id}`
+        const paramMap = new Map<string, string | undefined>()
+        for (const p of fn.parameters) {
+          if (p.description) paramMap.set(p.name, p.description)
+        }
+        if (fn.description !== undefined || paramMap.size > 0) {
+          map.set(key, { description: fn.description, params: paramMap })
+        }
+      }
+    }
+    for (const sub of comp.subComponents) walk(sub)
+  }
+  walk(root)
+  return map
+}
+
+/**
+ * After a reparse that stripped and recreated functions, restore descriptions
+ * that were lost. Matches functions by (compUuid, interfaceId, functionId).
+ */
+function restoreFunctionDescriptions(
+  root: ComponentNode,
+  descMap: Map<string, FunctionDescEntry>,
+): ComponentNode {
+  if (descMap.size === 0) return root
+  const restoreComp = (comp: ComponentNode): ComponentNode => {
+    const interfaces = comp.interfaces.map((iface) => {
+      const functions = iface.functions.map((fn): InterfaceFunction => {
+        const key = `${comp.uuid}:${iface.id}:${fn.id}`
+        const entry = descMap.get(key)
+        if (!entry) return fn
+        const description = fn.description ?? entry.description
+        const parameters = fn.parameters.map((p) => {
+          const paramDesc = p.description ?? entry.params.get(p.name)
+          return paramDesc !== undefined ? { ...p, description: paramDesc } : p
+        })
+        return { ...fn, description, parameters }
+      })
+      return { ...iface, functions }
+    })
+    const subComponents = comp.subComponents.map(restoreComp)
+    return { ...comp, interfaces, subComponents }
+  }
+  return restoreComp(root)
+}
+
 export function tryReparseContent(
   content: string,
   system: ComponentNode,
@@ -89,9 +143,13 @@ export function tryReparseContent(
         parseError: null,
       }
     }
+    // Capture descriptions before stripping so they can be restored after the
+    // re-parse recreates stripped functions without description metadata.
+    const descMap = collectFunctionDescriptions(system)
     const cleanedSystem = stripExclusiveFunctionContributions(system, nodeUuid)
+    const reparsedRoot = parseSequenceDiagram(content, cleanedSystem, node.ownerComponentUuid, nodeUuid)
     return {
-      rootComponent: parseSequenceDiagram(content, cleanedSystem, node.ownerComponentUuid, nodeUuid),
+      rootComponent: restoreFunctionDescriptions(reparsedRoot, descMap),
       parseError: null,
     }
   } catch (err) {

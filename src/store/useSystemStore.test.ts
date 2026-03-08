@@ -755,5 +755,112 @@ describe("useSystemStore", () => {
       expect(matches).toHaveLength(2)
       matches.forEach((m) => expect(m).toBe("API:fn(id: number, name: string)"))
     })
+
+    it("update-existing preserves function and parameter descriptions after reparse", () => {
+      // Regression test: the reparse step (tryReparseContent) strips functions that are
+      // exclusively referenced by the current diagram and then re-creates them from the
+      // DSL content. The re-created functions must carry over the descriptions from the
+      // pre-strip version of the system.
+      const { result } = renderHook(() => useSystemStore())
+
+      // Build a system where FN_UUID is referenced ONLY by CURRENT_DIAG so that
+      // stripExclusiveFunctionContributions will remove it, forcing re-creation during reparse.
+      const soloSystem: ComponentNode = {
+        uuid: "root-component-uuid",
+        id: "root",
+        name: "My System",
+        type: "component",
+        description: "Root",
+        subComponents: [
+          {
+            uuid: "comp-uuid",
+            id: "comp1",
+            name: "Comp",
+            type: "component",
+            subComponents: [],
+            actors: [],
+            interfaces: [
+              {
+                uuid: "api-iface-uuid",
+                id: "API",
+                name: "API",
+                type: "rest",
+                functions: [
+                  {
+                    uuid: FN_UUID,
+                    id: "fn",
+                    description: "The main function",
+                    parameters: [{ name: "id", type: "number", required: true, description: "The numeric ID" }],
+                  },
+                ],
+              },
+            ],
+            useCaseDiagrams: [
+              {
+                uuid: "uc-diag-uuid",
+                id: "ucd",
+                name: "UC",
+                type: "use-case-diagram",
+                content: "",
+                ownerComponentUuid: "comp-uuid",
+                referencedNodeIds: [],
+                useCases: [
+                  {
+                    uuid: "uc-uuid",
+                    id: "uc1",
+                    name: "UC",
+                    type: "use-case",
+                    sequenceDiagrams: [
+                      {
+                        uuid: CURRENT_DIAG,
+                        id: "seq1",
+                        name: "Current Diagram",
+                        type: "sequence-diagram",
+                        content: "component client\ncomponent comp1\nclient ->> comp1: API:fn(id: number)",
+                        ownerComponentUuid: "comp-uuid",
+                        referencedNodeIds: [],
+                        referencedFunctionUuids: [FN_UUID],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+        actors: [],
+        useCaseDiagrams: [],
+        interfaces: [],
+      }
+
+      act(() => {
+        useSystemStore.setState({ rootComponent: soloSystem })
+      })
+
+      const decision: FunctionDecision = {
+        kind: "compatible",
+        action: "update-existing",
+        interfaceId: "API",
+        functionId: "fn",
+        functionUuid: FN_UUID,
+        oldParams: [{ name: "id", type: "number", required: true }],
+        newParams: [{ name: "id", type: "string", required: true }],
+        affectedDiagramUuids: [],
+      }
+
+      act(() => {
+        result.current.applyFunctionUpdates(
+          [decision],
+          CURRENT_DIAG,
+          "component client\ncomponent comp1\nclient ->> comp1: API:fn(id: string)",
+        )
+      })
+
+      const comp = result.current.rootComponent.subComponents[0]
+      const fn = comp.interfaces[0].functions.find((f) => f.id === "fn")
+      expect(fn?.description).toBe("The main function")
+      expect(fn?.parameters[0].description).toBe("The numeric ID")
+      expect(result.current.parseError).toBeNull()
+    })
   })
 })
