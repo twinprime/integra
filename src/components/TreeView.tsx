@@ -1,20 +1,23 @@
 import { useState, useEffect } from "react"
-import {
-  Download,
-  Upload,
-  Trash2,
-  RotateCcw,
-  Undo2,
-  Redo2,
-} from "lucide-react"
+import { Download, Upload, RotateCcw, Undo2, Redo2 } from "lucide-react"
 import { useSystemStore } from "../store/useSystemStore"
-import type { Node, ComponentNode, UseCaseDiagramNode, SequenceDiagramNode } from "../store/types"
+import type {
+  Node,
+  ComponentNode,
+  UseCaseDiagramNode,
+  SequenceDiagramNode,
+} from "../store/types"
 import { ContextMenu } from "./ContextMenu"
 import yaml from "js-yaml"
 import { TreeNode } from "./tree/TreeNode"
 import { saveToDirectory, loadFromDirectory } from "../utils/systemFiles"
+import { findParentNode } from "../utils/nodeUtils"
 
-const DERIVED_KEYS = new Set(["ownerComponentUuid", "referencedNodeIds", "referencedFunctionUuids"])
+const DERIVED_KEYS = new Set([
+  "ownerComponentUuid",
+  "referencedNodeIds",
+  "referencedFunctionUuids",
+])
 
 export const TreeView = () => {
   const rootComponent = useSystemStore((state) => state.rootComponent)
@@ -29,7 +32,9 @@ export const TreeView = () => {
   const canUndo = useSystemStore((state) => state.past.length > 0)
   const canRedo = useSystemStore((state) => state.future.length > 0)
 
-  const [dirHandle, setDirHandle] = useState<FileSystemDirectoryHandle | null>(null)
+  const [dirHandle, setDirHandle] = useState<FileSystemDirectoryHandle | null>(
+    null,
+  )
 
   const [contextMenu, setContextMenu] = useState<{
     x: number
@@ -39,7 +44,11 @@ export const TreeView = () => {
 
   const serializeYaml = (comp: ComponentNode) =>
     yaml.dump(
-      JSON.parse(JSON.stringify(comp, (key, value) => DERIVED_KEYS.has(key) ? undefined : value)),
+      JSON.parse(
+        JSON.stringify(comp, (key, value) =>
+          DERIVED_KEYS.has(key) ? undefined : value,
+        ),
+      ),
       { indent: 2, noRefs: true, skipInvalid: true },
     )
 
@@ -53,10 +62,20 @@ export const TreeView = () => {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return
+      if (
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLInputElement
+      )
+        return
       const mod = e.metaKey || e.ctrlKey
-      if (mod && !e.shiftKey && e.key === "z") { e.preventDefault(); undo() }
-      if (mod && e.shiftKey && e.key === "z") { e.preventDefault(); redo() }
+      if (mod && !e.shiftKey && e.key === "z") {
+        e.preventDefault()
+        undo()
+      }
+      if (mod && e.shiftKey && e.key === "z") {
+        e.preventDefault()
+        redo()
+      }
     }
     document.addEventListener("keydown", onKeyDown)
     return () => document.removeEventListener("keydown", onKeyDown)
@@ -65,10 +84,13 @@ export const TreeView = () => {
   const handleSave = async () => {
     try {
       if (!("showDirectoryPicker" in window)) {
-        alert("Saving as a directory requires Chrome or Edge. Please use a supported browser.")
+        alert(
+          "Saving as a directory requires Chrome or Edge. Please use a supported browser.",
+        )
         return
       }
-      const handle = dirHandle ?? await window.showDirectoryPicker({ mode: "readwrite" })
+      const handle =
+        dirHandle ?? (await window.showDirectoryPicker({ mode: "readwrite" }))
       await saveToDirectory(handle, rootComponent)
       setDirHandle(handle)
       markSaved(serializeYaml(rootComponent))
@@ -82,12 +104,19 @@ export const TreeView = () => {
 
   const handleLoad = async () => {
     if (hasUnsavedChanges) {
-      if (!confirm("You have unsaved changes. Loading a new directory will discard them. Continue?")) return
+      if (
+        !confirm(
+          "You have unsaved changes. Loading a new directory will discard them. Continue?",
+        )
+      )
+        return
     }
 
     try {
       if (!("showDirectoryPicker" in window)) {
-        alert("Loading from a directory requires Chrome or Edge. Please use a supported browser.")
+        alert(
+          "Loading from a directory requires Chrome or Edge. Please use a supported browser.",
+        )
         return
       }
       const handle = await window.showDirectoryPicker({ mode: "readwrite" })
@@ -105,7 +134,12 @@ export const TreeView = () => {
 
   const handleClear = () => {
     if (hasUnsavedChanges) {
-      if (!confirm("You have unsaved changes. Clearing will discard them. Continue?")) return
+      if (
+        !confirm(
+          "You have unsaved changes. Clearing will discard them. Continue?",
+        )
+      )
+        return
     }
     clearSystem()
   }
@@ -128,15 +162,21 @@ export const TreeView = () => {
   const handleAddNode = (type: "use-case-diagram" | "sequence-diagram") => {
     if (!contextMenu) return
 
-    const label = type === "use-case-diagram" ? "use case diagram" : "sequence diagram"
+    const label =
+      type === "use-case-diagram" ? "use case diagram" : "sequence diagram"
     const id = prompt(`Enter ${label} ID (e.g. my-feature)`)?.trim()
     if (!id) return
     if (!/^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(id)) {
-      alert(`Invalid ID "${id}". Must start with a letter or _ and contain only letters, digits, _ or -.`)
+      alert(
+        `Invalid ID "${id}". Must start with a letter or _ and contain only letters, digits, _ or -.`,
+      )
       return
     }
 
-    const name = id.split(/[_-]/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+    const name = id
+      .split(/[_-]/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ")
     const uuid = crypto.randomUUID()
 
     const findOwnerComponent = (node: Node): string | null => {
@@ -149,15 +189,26 @@ export const TreeView = () => {
     let newNode: Node
     if (type === "use-case-diagram") {
       newNode = {
-        uuid, id, name, type,
-        content: "", description: "", referencedNodeIds: [],
+        uuid,
+        id,
+        name,
+        type,
+        content: "",
+        description: "",
+        referencedNodeIds: [],
         ownerComponentUuid: contextMenu.node.uuid,
         useCases: [],
       } satisfies UseCaseDiagramNode
     } else {
       newNode = {
-        uuid, id, name, type,
-        content: "", description: "", referencedNodeIds: [], referencedFunctionUuids: [],
+        uuid,
+        id,
+        name,
+        type,
+        content: "",
+        description: "",
+        referencedNodeIds: [],
+        referencedFunctionUuids: [],
         ownerComponentUuid: findOwnerComponent(contextMenu.node) ?? "",
       } satisfies SequenceDiagramNode
     }
@@ -166,7 +217,12 @@ export const TreeView = () => {
     selectNode(uuid)
   }
 
-  type MenuItem = { label: string; onClick: () => void; icon?: React.ReactNode; className?: string }
+  type MenuItem = {
+    label: string
+    onClick: () => void
+    icon?: React.ReactNode
+    className?: string
+  }
 
   const computeMenuItems = (node: Node): MenuItem[] => {
     const items: MenuItem[] = []
@@ -197,7 +253,12 @@ export const TreeView = () => {
         <span className="flex items-center gap-2">
           System Explorer
           {hasUnsavedChanges && (
-            <span className="text-xs font-normal text-yellow-500" title="Unsaved changes">●</span>
+            <span
+              className="text-xs font-normal text-yellow-500"
+              title="Unsaved changes"
+            >
+              ●
+            </span>
           )}
         </span>
         <div className="flex gap-1">

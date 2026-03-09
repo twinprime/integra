@@ -1,5 +1,16 @@
-import type { Node, ComponentNode, UseCaseDiagramNode, SequenceDiagramNode } from "../store/types"
-import { traversePath, findCompByUuid, getNodeChildren, getNodeHandler, collectAllDiagrams } from "../nodes/nodeTree"
+import type {
+  Node,
+  ComponentNode,
+  UseCaseDiagramNode,
+  SequenceDiagramNode,
+} from "../store/types"
+import {
+  traversePath,
+  findCompByUuid,
+  getNodeChildren,
+  getNodeHandler,
+  collectAllDiagrams,
+} from "../nodes/nodeTree"
 
 // Collect all referencedFunctionUuids from every sequence diagram in the entire component tree
 const collectFromUcDiag = (d: UseCaseDiagramNode, uuids: Set<string>): void => {
@@ -10,7 +21,9 @@ const collectFromUcDiag = (d: UseCaseDiagramNode, uuids: Set<string>): void => {
   })
 }
 
-export const collectReferencedFunctionUuids = (root: ComponentNode): Set<string> => {
+export const collectReferencedFunctionUuids = (
+  root: ComponentNode,
+): Set<string> => {
   const uuids = new Set<string>()
   const visitComp = (c: ComponentNode) => {
     c.useCaseDiagrams.forEach((d) => collectFromUcDiag(d, uuids))
@@ -21,7 +34,10 @@ export const collectReferencedFunctionUuids = (root: ComponentNode): Set<string>
 }
 
 // Check if a use case UUID is referenced in any sequence diagram across the entire tree
-export const isUseCaseReferenced = (root: ComponentNode, useCaseUuid: string): boolean => {
+export const isUseCaseReferenced = (
+  root: ComponentNode,
+  useCaseUuid: string,
+): boolean => {
   const check = (comp: ComponentNode): boolean => {
     for (const ucDiag of comp.useCaseDiagrams)
       for (const uc of ucDiag.useCases)
@@ -38,9 +54,15 @@ export const isUseCaseReferenced = (root: ComponentNode, useCaseUuid: string): b
  * This is automatically future-proof: new diagram types only need to register
  * a NodeHandler (already required for all tree operations) and extend DiagramNode.
  */
-const isNodeReferencedInAnyDiagram = (root: ComponentNode, nodeUuid: string): boolean => {
+const isNodeReferencedInAnyDiagram = (
+  root: ComponentNode,
+  nodeUuid: string,
+): boolean => {
   const walk = (node: Node): boolean => {
-    if ("referencedNodeIds" in node && (node.referencedNodeIds as string[]).includes(nodeUuid)) {
+    if (
+      "referencedNodeIds" in node &&
+      (node.referencedNodeIds as string[]).includes(nodeUuid)
+    ) {
       return true
     }
     return getNodeChildren(node).some(walk)
@@ -49,10 +71,7 @@ const isNodeReferencedInAnyDiagram = (root: ComponentNode, nodeUuid: string): bo
 }
 
 // Check if a node is safe to delete: must have canDelete on its handler and not be referenced anywhere
-export const isNodeOrphaned = (
-  node: Node,
-  root: ComponentNode
-): boolean => {
+export const isNodeOrphaned = (node: Node, root: ComponentNode): boolean => {
   if (!getNodeHandler(node.type).canDelete) return false
   return !isNodeReferencedInAnyDiagram(root, node.uuid)
 }
@@ -79,7 +98,10 @@ const findInUcDiag = (d: UseCaseDiagramNode, nodeId: string): Node | null => {
   return null
 }
 
-export const findNodeInComponent = (comp: ComponentNode, nodeId: string): Node | null => {
+export const findNodeInComponent = (
+  comp: ComponentNode,
+  nodeId: string,
+): Node | null => {
   for (const a of comp.actors || []) {
     if (a.id === nodeId) return a
   }
@@ -104,7 +126,7 @@ const isUcDiagDescendant = (d: UseCaseDiagramNode, uuid: string): boolean => {
 
 export const findNearestComponentAncestor = (
   root: ComponentNode,
-  targetUuid: string
+  targetUuid: string,
 ): ComponentNode | null => {
   const search = (comp: ComponentNode): ComponentNode | null => {
     const directChildren: Node[] = [
@@ -113,7 +135,8 @@ export const findNearestComponentAncestor = (
       ...comp.useCaseDiagrams,
     ]
     if (directChildren.some((c) => c.uuid === targetUuid)) return comp
-    if (comp.useCaseDiagrams.some((d) => isUcDiagDescendant(d, targetUuid))) return comp
+    if (comp.useCaseDiagrams.some((d) => isUcDiagDescendant(d, targetUuid)))
+      return comp
 
     for (const sub of comp.subComponents) {
       const found = search(sub)
@@ -135,9 +158,9 @@ export const findNearestComponentAncestor = (
 export const findNodeByPath = (
   root: ComponentNode,
   path: string,
-  contextComponentUuid?: string
+  contextComponentUuid?: string,
 ): string | null => {
-  const segments = path.split('/').filter(Boolean)
+  const segments = path.split("/").filter(Boolean)
   if (segments.length === 0) return null
 
   if (contextComponentUuid) {
@@ -166,7 +189,9 @@ export { findParentNode } from "../nodes/nodeTree"
  * Returns true when candidateCompUuid is any descendant of comp (recursive).
  */
 const isDescendantOf = (comp: ComponentNode, candidateUuid: string): boolean =>
-  comp.subComponents.some((c) => c.uuid === candidateUuid || isDescendantOf(c, candidateUuid))
+  comp.subComponents.some(
+    (c) => c.uuid === candidateUuid || isDescendantOf(c, candidateUuid),
+  )
 
 /**
  * Returns the ancestor chain of ownerComp from immediate parent up to (and including) root.
@@ -193,12 +218,19 @@ export const getAncestorComponentChain = (
  * Returns the absolute path from root to the component as a slash-joined string.
  * e.g. root → "root", root/svc/db → "root/svc/db"
  */
-export const getComponentAbsolutePath = (root: ComponentNode, compUuid: string): string => {
+export const getComponentAbsolutePath = (
+  root: ComponentNode,
+  compUuid: string,
+): string => {
   if (root.uuid === compUuid) return root.id
   const ancestors = getAncestorComponentChain(root, compUuid)
   const comp = findCompByUuid(root, compUuid)
   if (!comp) return ""
-  return [...ancestors].reverse().concat(comp).map((c) => c.id).join("/")
+  return [...ancestors]
+    .reverse()
+    .concat(comp)
+    .map((c) => c.id)
+    .join("/")
 }
 
 /**
@@ -219,7 +251,8 @@ export const isInScope = (
   const ancestors = getAncestorComponentChain(root, ownerCompUuid)
   for (const ancestor of ancestors) {
     if (ancestor.uuid === candidateCompUuid) return true
-    if (ancestor.subComponents.some((c) => c.uuid === candidateCompUuid)) return true
+    if (ancestor.subComponents.some((c) => c.uuid === candidateCompUuid))
+      return true
   }
   return false
 }
