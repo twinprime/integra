@@ -201,6 +201,7 @@ export function buildSeqNavEntries(
   ownerComp: ComponentNode | null,
   ownerCompUuid?: string,
 ): NavEntry[] {
+  if (!doc.trim()) return []
   const { cst } = parseSequenceDiagramCst(doc)
   return seqPositionedVisitor.run(cst as unknown as CstNode, root, ownerComp, ownerCompUuid)
 }

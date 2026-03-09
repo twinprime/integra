@@ -71,6 +71,7 @@ export function useMermaidBase(diagramNode: DiagramNode | null, buildContent: Bu
         setError("Invalid Diagram Syntax")
         setErrorDetails(err instanceof Error ? err.message : String(err))
         setSvg("")
+        console.error(err.stack)
       }
     }
     render()

@@ -213,6 +213,7 @@ export function analyzeSequenceDiagramChanges(
   diagramUuid: string,
   allSeqDiagrams: Array<{ uuid: string; referencedFunctionUuids: string[] }>,
 ): FunctionMatch[] {
+  if (!content.trim()) return []
   const { cst, lexErrors, parseErrors } = parseSequenceDiagramCst(content)
   if (lexErrors.length || parseErrors.length) return []
 
@@ -255,6 +256,7 @@ export function parseSequenceDiagram(
   ownerComponentUuid: string,
   diagramUuid: string,
 ): ComponentNode {
+  if (!content.trim()) return rootComponent
   const { cst, lexErrors, parseErrors } = parseSequenceDiagramCst(content)
   if (lexErrors.length || parseErrors.length) {
     const lexMessages = lexErrors.map((e) => {

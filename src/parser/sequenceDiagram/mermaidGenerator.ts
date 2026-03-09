@@ -225,6 +225,7 @@ export function generateSequenceMermaid(
   root: ComponentNode,
   ownerCompUuid?: string,
 ): { mermaidContent: string; idToUuid: Record<string, string>; messageLabelToUuid: Record<string, string>; messageLabelToInterfaceUuid: Record<string, string> } {
+  if (!content.trim()) return { mermaidContent: "sequenceDiagram\n", idToUuid: {}, messageLabelToUuid: {}, messageLabelToInterfaceUuid: {} }
   const { cst, lexErrors } = parseSequenceDiagramCst(content)
   if (lexErrors.length) {
     return { mermaidContent: "sequenceDiagram\n", idToUuid: {}, messageLabelToUuid: {}, messageLabelToInterfaceUuid: {} }
