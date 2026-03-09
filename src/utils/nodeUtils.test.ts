@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { collectReferencedFunctionUuids, isUseCaseReferenced, findNodeByPath, findNearestComponentAncestor, getAncestorComponentChain, isInScope, getComponentAbsolutePath } from "./nodeUtils"
+import { collectReferencedFunctionUuids, isUseCaseReferenced, isNodeOrphaned, findNodeByPath, findNearestComponentAncestor, getAncestorComponentChain, isInScope, getComponentAbsolutePath } from "./nodeUtils"
 import type { ComponentNode } from "../store/types"
 
 describe("collectReferencedFunctionUuids", () => {
@@ -292,6 +292,41 @@ describe("isUseCaseReferenced", () => {
       }],
     }]
     expect(isUseCaseReferenced(root, "uc-uuid")).toBe(true)
+  })
+})
+
+// ─── isNodeOrphaned ───────────────────────────────────────────────────────────
+
+describe("isNodeOrphaned", () => {
+  it("returns true when actor is not referenced in any diagram", () => {
+    const root = buildTree()
+    const actor = root.subComponents[0].actors[0]
+    expect(isNodeOrphaned(actor, root)).toBe(true)
+  })
+
+  it("returns false when actor is referenced in a use-case diagram referencedNodeIds", () => {
+    const root = buildTree()
+    const actor = root.subComponents[0].actors[0]
+    root.subComponents[0].useCaseDiagrams[0].referencedNodeIds = [actor.uuid]
+    expect(isNodeOrphaned(actor, root)).toBe(false)
+  })
+
+  it("returns false when actor is referenced in a sequence diagram referencedNodeIds", () => {
+    const root = buildTree()
+    const actor = root.subComponents[0].actors[0]
+    const uc = root.subComponents[0].useCaseDiagrams[0].useCases[0]
+    uc.sequenceDiagrams.push({
+      uuid: "seq-uuid", id: "seq", name: "Seq", type: "sequence-diagram",
+      content: "", description: "", ownerComponentUuid: "sub-uuid",
+      referencedNodeIds: [actor.uuid], referencedFunctionUuids: [],
+    })
+    expect(isNodeOrphaned(actor, root)).toBe(false)
+  })
+
+  it("returns false for non-actor/component node types", () => {
+    const root = buildTree()
+    const uc = root.subComponents[0].useCaseDiagrams[0].useCases[0]
+    expect(isNodeOrphaned(uc, root)).toBe(false)
   })
 })
 
