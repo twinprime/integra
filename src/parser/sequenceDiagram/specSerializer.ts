@@ -19,6 +19,11 @@ function assertNever(x: never): never {
   throw new Error(`Unhandled SeqMessageContent kind: ${JSON.stringify(x)}`)
 }
 
+/** Re-escape actual newline characters back to the literal \n escape sequence. */
+function escapeText(text: string): string {
+  return text.replace(/\n/g, "\\n")
+}
+
 // ─── Serializer ───────────────────────────────────────────────────────────────
 
 function serializeDeclaration(decl: SeqDeclaration): string {
@@ -32,19 +37,19 @@ function serializeMessage(msg: SeqMessage): string {
   const c = msg.content
   switch (c.kind) {
     case "functionRef": {
-      const labelSuffix = c.label != null ? `:${c.label}` : ""
+      const labelSuffix = c.label != null ? `:${escapeText(c.label)}` : ""
       return `${base}: ${c.interfaceId}:${c.functionId}(${c.rawParams})${labelSuffix}`
     }
     case "useCaseRef": {
-      const labelStr = c.label != null ? `:${c.label}` : ""
+      const labelStr = c.label != null ? `:${escapeText(c.label)}` : ""
       return `${base}: UseCase:${c.path.join("/")}${labelStr}`
     }
     case "seqDiagramRef": {
-      const labelStr = c.label != null ? `:${c.label}` : ""
+      const labelStr = c.label != null ? `:${escapeText(c.label)}` : ""
       return `${base}: Sequence:${c.path.join("/")}${labelStr}`
     }
     case "label":
-      return `${base}: ${c.text}`
+      return `${base}: ${escapeText(c.text)}`
     case "none":
       return base
     default:
@@ -61,7 +66,7 @@ function serializeNote(note: SeqNote): string {
     const [p1, p2] = pos.participants
     posStr = p2 != null ? `note over ${p1},${p2}` : `note over ${p1}`
   }
-  return `${posStr}: ${note.text}`
+  return `${posStr}: ${escapeText(note.text)}`
 }
 
 function sectionKeyword(kind: "loop" | "alt" | "par" | "opt"): string {
