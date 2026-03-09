@@ -181,8 +181,6 @@ export const findNodeByPath = (
   return traversePath(root, segments)
 }
 
-export { findParentNode } from "../nodes/nodeTree"
-
 // ─── Scope utilities ──────────────────────────────────────────────────────────
 
 /**

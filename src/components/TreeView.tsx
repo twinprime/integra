@@ -12,7 +12,7 @@ import { ContextMenu } from "./ContextMenu"
 import yaml from "js-yaml"
 import { TreeNode } from "./tree/TreeNode"
 import { saveToDirectory, loadFromDirectory } from "../utils/systemFiles"
-import { findParentNode } from "../utils/nodeUtils"
+import { findParentNode } from "../nodes/nodeTree"
 
 const DERIVED_KEYS = new Set([
   "ownerComponentUuid",
