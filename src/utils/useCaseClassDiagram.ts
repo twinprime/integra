@@ -77,8 +77,8 @@ function processMessages(
   const messages = flattenMessages(ast.statements)
 
   for (const msg of messages) {
-    if (msg.functionRef) {
-      const { interfaceId, functionId, rawParams } = msg.functionRef
+    if (msg.content.kind === "functionRef") {
+      const { interfaceId, functionId, rawParams } = msg.content
 
       if (!state.interfaceMethods.has(interfaceId)) state.interfaceMethods.set(interfaceId, new Set())
       state.interfaceMethods.get(interfaceId)!.add(`${functionId}(${rawParams})`)

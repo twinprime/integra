@@ -60,6 +60,18 @@ describe("seqAstToSpec — round-trip", () => {
     )
   })
 
+  it("round-trips a Sequence-ref message", () => {
+    expect(roundTrip("a ->> b: Sequence:auth/loginFlow")).toBe("a ->> b: Sequence:auth/loginFlow")
+  })
+
+  it("round-trips a Sequence-ref message with custom label", () => {
+    expect(roundTrip("a ->> b: Sequence:loginFlow:Log In")).toBe("a ->> b: Sequence:loginFlow:Log In")
+  })
+
+  it("round-trips a bare message with no label", () => {
+    expect(roundTrip("a ->> b")).toBe("a ->> b")
+  })
+
   it("round-trips a note right of", () => {
     expect(roundTrip("actor a\nnote right of a: some text")).toBe(
       "actor a\nnote right of a: some text",
@@ -164,6 +176,32 @@ describe("renameInSeqSpec — messages", () => {
         "createOrder",
       ),
     ).toBe("a ->> b: UseCase:root/orders/createOrder:Place an order")
+  })
+})
+
+describe("renameInSeqSpec — Sequence: references", () => {
+  it("renames a Sequence: reference ID", () => {
+    expect(renameInSeqSpec("a ->> b: Sequence:loginFlow", "loginFlow", "authFlow")).toBe(
+      "a ->> b: Sequence:authFlow",
+    )
+  })
+
+  it("renames a segment in Sequence: path reference", () => {
+    expect(
+      renameInSeqSpec("a ->> b: Sequence:auth/loginFlow", "auth", "identity"),
+    ).toBe("a ->> b: Sequence:identity/loginFlow")
+  })
+
+  it("renames a Sequence: reference with custom label without touching the label", () => {
+    expect(
+      renameInSeqSpec("a ->> b: Sequence:loginFlow:Log In", "loginFlow", "authFlow"),
+    ).toBe("a ->> b: Sequence:authFlow:Log In")
+  })
+
+  it("does NOT rename the custom label text even when it matches the old ID", () => {
+    expect(
+      renameInSeqSpec("a ->> b: Sequence:loginFlow:loginFlow", "loginFlow", "authFlow"),
+    ).toBe("a ->> b: Sequence:authFlow:loginFlow")
   })
 })
 

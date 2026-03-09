@@ -10,9 +10,14 @@
 import { parseSequenceDiagramCst } from "./parser"
 import {
   buildSeqAst,
-  type SeqAst, type SeqDeclaration, type SeqMessage, type SeqNote,
+  type SeqAst, type SeqDeclaration, type SeqMessage, type SeqMessageContent, type SeqNote,
   type SeqBlock, type SeqBlockSection, type SeqStatement,
 } from "./visitor"
+
+// Compile-time exhaustiveness guard
+function assertNever(x: never): never {
+  throw new Error(`Unhandled SeqMessageContent kind: ${JSON.stringify(x)}`)
+}
 
 // ─── Serializer ───────────────────────────────────────────────────────────────
 
@@ -24,20 +29,27 @@ function serializeDeclaration(decl: SeqDeclaration): string {
 
 function serializeMessage(msg: SeqMessage): string {
   const base = `${msg.from} ${msg.arrow} ${msg.to}`
-  if (msg.functionRef) {
-    const { interfaceId, functionId, rawParams, label } = msg.functionRef
-    const labelSuffix = label != null ? `:${label}` : ""
-    return `${base}: ${interfaceId}:${functionId}(${rawParams})${labelSuffix}`
+  const c = msg.content
+  switch (c.kind) {
+    case "functionRef": {
+      const labelSuffix = c.label != null ? `:${c.label}` : ""
+      return `${base}: ${c.interfaceId}:${c.functionId}(${c.rawParams})${labelSuffix}`
+    }
+    case "useCaseRef": {
+      const labelStr = c.label != null ? `:${c.label}` : ""
+      return `${base}: UseCase:${c.path.join("/")}${labelStr}`
+    }
+    case "seqDiagramRef": {
+      const labelStr = c.label != null ? `:${c.label}` : ""
+      return `${base}: Sequence:${c.path.join("/")}${labelStr}`
+    }
+    case "label":
+      return `${base}: ${c.text}`
+    case "none":
+      return base
+    default:
+      return assertNever(c)
   }
-  if (msg.useCaseRef) {
-    const pathStr = msg.useCaseRef.path.join("/")
-    const labelStr = msg.useCaseRef.label != null ? `:${msg.useCaseRef.label}` : ""
-    return `${base}: UseCase:${pathStr}${labelStr}`
-  }
-  if (msg.label != null) {
-    return `${base}: ${msg.label}`
-  }
-  return base
 }
 
 function serializeNote(note: SeqNote): string {
@@ -106,21 +118,32 @@ function renameDeclaration(decl: SeqDeclaration, oldId: string, newId: string): 
   }
 }
 
+function renameMessageContent(c: SeqMessageContent, oldId: string, newId: string): SeqMessageContent {
+  switch (c.kind) {
+    case "functionRef":
+      return {
+        ...c,
+        interfaceId: c.interfaceId === oldId ? newId : c.interfaceId,
+        functionId: c.functionId === oldId ? newId : c.functionId,
+      }
+    case "useCaseRef":
+      return { ...c, path: renamePathSegments(c.path, oldId, newId) }
+    case "seqDiagramRef":
+      return { ...c, path: renamePathSegments(c.path, oldId, newId) }
+    case "label":
+    case "none":
+      return c
+    default:
+      return assertNever(c)
+  }
+}
+
 function renameMessage(msg: SeqMessage, oldId: string, newId: string): SeqMessage {
   return {
     ...msg,
     from: msg.from === oldId ? newId : msg.from,
     to: msg.to === oldId ? newId : msg.to,
-    functionRef: msg.functionRef
-      ? {
-          ...msg.functionRef,
-          interfaceId: msg.functionRef.interfaceId === oldId ? newId : msg.functionRef.interfaceId,
-          functionId: msg.functionRef.functionId === oldId ? newId : msg.functionRef.functionId,
-        }
-      : null,
-    useCaseRef: msg.useCaseRef
-      ? { ...msg.useCaseRef, path: renamePathSegments(msg.useCaseRef.path, oldId, newId) }
-      : null,
+    content: renameMessageContent(msg.content, oldId, newId),
   }
 }
 

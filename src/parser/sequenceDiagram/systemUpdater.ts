@@ -226,8 +226,8 @@ export function analyzeSequenceDiagramChanges(
   const seen = new Set<string>()
 
   for (const stmt of flattenMessages(ast.statements)) {
-    if (!stmt.functionRef) continue
-    const { interfaceId, functionId, rawParams } = stmt.functionRef
+    if (stmt.content.kind !== "functionRef") continue
+    const { interfaceId, functionId, rawParams } = stmt.content
     const key = `${interfaceId}:${functionId}`
     if (seen.has(key)) continue
     seen.add(key)
@@ -371,8 +371,8 @@ export function parseSequenceDiagram(
     const pendingExternalFunctions: Array<{ ownerUuid: string; interfaceId: string; functionId: string; rawParams: string }> = []
 
     for (const msg of astMessages) {
-      if (!msg.functionRef) continue
-      const { interfaceId, functionId, rawParams } = msg.functionRef
+      if (msg.content.kind !== "functionRef") continue
+      const { interfaceId, functionId, rawParams } = msg.content
       const fromExtUuid = participantExternalUuidMap.get(msg.from)
       const toExtUuid = participantExternalUuidMap.get(msg.to)
 
@@ -415,34 +415,21 @@ export function parseSequenceDiagram(
   // Track referencedFunctionUuids
   const referencedFunctionUuids: string[] = []
   for (const msg of astMessages) {
-    if (!msg.functionRef) continue
-    const fnUuid = findFunctionUuidInTree(updatedRoot, msg.functionRef.interfaceId, msg.functionRef.functionId)
+    if (msg.content.kind !== "functionRef") continue
+    const fnUuid = findFunctionUuidInTree(updatedRoot, msg.content.interfaceId, msg.content.functionId)
     if (fnUuid && !referencedFunctionUuids.includes(fnUuid)) referencedFunctionUuids.push(fnUuid)
   }
 
-  // Add referenced use case UUIDs to referencedNodeIds
+  // Add referenced use case and sequence diagram UUIDs to referencedNodeIds
   if (updatedOwnerComp) {
     for (const msg of astMessages) {
-      if (!msg.useCaseRef) continue
-      const ucUuid = resolveUseCaseByPath(
-        msg.useCaseRef.path,
-        updatedRoot,
-        updatedOwnerComp,
-        ownerComponentUuid,
-      )
-      if (ucUuid && !referencedNodeIds.includes(ucUuid)) referencedNodeIds.push(ucUuid)
-    }
-
-    // Add referenced sequence diagram UUIDs to referencedNodeIds
-    for (const msg of astMessages) {
-      if (!msg.seqDiagramRef) continue
-      const seqUuid = resolveSeqDiagramByPath(
-        msg.seqDiagramRef.path,
-        updatedRoot,
-        updatedOwnerComp,
-        ownerComponentUuid,
-      )
-      if (seqUuid && !referencedNodeIds.includes(seqUuid)) referencedNodeIds.push(seqUuid)
+      if (msg.content.kind === "useCaseRef") {
+        const ucUuid = resolveUseCaseByPath(msg.content.path, updatedRoot, updatedOwnerComp, ownerComponentUuid)
+        if (ucUuid && !referencedNodeIds.includes(ucUuid)) referencedNodeIds.push(ucUuid)
+      } else if (msg.content.kind === "seqDiagramRef") {
+        const seqUuid = resolveSeqDiagramByPath(msg.content.path, updatedRoot, updatedOwnerComp, ownerComponentUuid)
+        if (seqUuid && !referencedNodeIds.includes(seqUuid)) referencedNodeIds.push(seqUuid)
+      }
     }
   }
 

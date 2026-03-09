@@ -24,31 +24,43 @@ export interface SeqMessage {
   to: string
   /** The arrow type as written in the DSL (e.g. `->>`, `-->>`, `->`, `-->`, `-x`, `--x`, `-)`, `--)`). Maps 1:1 to Mermaid sequence diagram arrow syntax. */
   arrow: string
-  /** Populated when the label matches FUNCTION_REF */
-  functionRef: {
-    interfaceId: string
-    functionId: string
-    rawParams: string
-    /** Optional display label shown in the diagram instead of Interface:function(params) */
-    label: string | null
-  } | null
   /**
-   * Populated when the label matches UseCase:<path>(:label)?.
-   * `path` is an array of segments; last segment is the use case ID,
-   * preceding segments (if any) are the path to the owning component.
-   * `label` is the custom label after the second colon, or null if omitted.
+   * Discriminated union covering all possible message content kinds.
+   * Adding a new kind here forces a compile error in every exhaustive switch consumer.
    */
-  useCaseRef: { path: string[]; label: string | null } | null
-  /**
-   * Populated when the label matches Sequence:<path>(:label)?.
-   * `path` is an array of segments; last segment is the sequence diagram ID,
-   * preceding segments (if any) are the path to the owning component.
-   * `label` is the custom label after the second colon, or null if omitted.
-   */
-  seqDiagramRef: { path: string[]; label: string | null } | null
-  /** Raw label text (undefined if no label) */
-  label: string | null
+  content: SeqMessageContent
 }
+
+/**
+ * Discriminated union for message label content.
+ * Use exhaustive switch + assertNever to ensure all kinds are handled.
+ */
+export type SeqMessageContent =
+  | {
+      kind: "functionRef"
+      interfaceId: string
+      functionId: string
+      rawParams: string
+      /** Optional display label shown instead of Interface:function(params) */
+      label: string | null
+    }
+  | {
+      /** UseCase:<path>(:label)? — path segments to a use case node */
+      kind: "useCaseRef"
+      path: string[]
+      label: string | null
+    }
+  | {
+      /** Sequence:<path>(:label)? — path segments to a sequence diagram node */
+      kind: "seqDiagramRef"
+      path: string[]
+      label: string | null
+    }
+  | {
+      kind: "label"
+      text: string
+    }
+  | { kind: "none" }
 
 export interface SeqNote {
   position:
@@ -157,56 +169,44 @@ class SequenceDiagramVisitor extends BaseVisitor {
 
     if ((ctx.FunctionRef ?? []).length > 0) {
       const raw = (ctx.FunctionRef as { image: string }[])[0].image
-      // Parse: InterfaceId:FunctionId(rawParams) optionally followed by :display label
-      // Use (.*) instead of (.+) so a trailing colon with no text (e.g. "iface:fn():") is
-      // captured as an empty string, then normalised to null via || null.
       const match = raw.match(/^([A-Za-z_]\w*):([A-Za-z_]\w*)\(([^)]*)\)(?::(.*))?$/)
       if (match) {
         return {
           from, to, arrow,
-          functionRef: {
+          content: {
+            kind: "functionRef",
             interfaceId: match[1],
             functionId: match[2],
             rawParams: match[3],
             label: match[4] ? match[4].replace(/\\n/g, "\n") : null,
           },
-          useCaseRef: null,
-          seqDiagramRef: null,
-          label: null,
         }
       }
     }
 
     if ((ctx.UseCaseRef ?? []).length > 0) {
       const raw = (ctx.UseCaseRef as { image: string }[])[0].image
-      // Format: UseCase:<path>(:label)? — strip "UseCase:" prefix
       const withoutPrefix = raw.slice("UseCase:".length)
       const secondColonIdx = withoutPrefix.indexOf(":")
       const pathStr = secondColonIdx === -1 ? withoutPrefix : withoutPrefix.slice(0, secondColonIdx)
       const label = secondColonIdx === -1 ? null : (withoutPrefix.slice(secondColonIdx + 1) || null)?.replace(/\\n/g, "\n") ?? null
       const path = pathStr.split("/")
-      return { from, to, arrow, functionRef: null, useCaseRef: { path, label }, seqDiagramRef: null, label: null }
+      return { from, to, arrow, content: { kind: "useCaseRef", path, label } }
     }
 
     if ((ctx.SequenceRef ?? []).length > 0) {
       const raw = (ctx.SequenceRef as { image: string }[])[0].image
-      // Format: Sequence:<path>(:label)? — strip "Sequence:" prefix
       const withoutPrefix = raw.slice("Sequence:".length)
       const secondColonIdx = withoutPrefix.indexOf(":")
       const pathStr = secondColonIdx === -1 ? withoutPrefix : withoutPrefix.slice(0, secondColonIdx)
       const label = secondColonIdx === -1 ? null : (withoutPrefix.slice(secondColonIdx + 1) || null)?.replace(/\\n/g, "\n") ?? null
       const path = pathStr.split("/")
-      return { from, to, arrow, functionRef: null, useCaseRef: null, seqDiagramRef: { path, label }, label: null }
+      return { from, to, arrow, content: { kind: "seqDiagramRef", path, label } }
     }
 
     const rawLabel = (ctx.LabelText as { image: string }[] | undefined)?.[0]?.image ?? null
-    return {
-      from, to, arrow,
-      functionRef: null,
-      useCaseRef: null,
-      seqDiagramRef: null,
-      label: rawLabel ? rawLabel.replace(/\\n/g, "\n") : null,
-    }
+    const text = rawLabel ? rawLabel.replace(/\\n/g, "\n") : null
+    return { from, to, arrow, content: text ? { kind: "label", text } : { kind: "none" } }
   }
 
   seqBlock(ctx: Record<string, unknown[]>): SeqBlock {
@@ -246,7 +246,7 @@ export function flattenMessages(statements: SeqStatement[]): SeqMessage[] {
   for (const stmt of statements) {
     if ("sections" in stmt) {
       for (const section of (stmt as SeqBlock).sections) result.push(...flattenMessages(section.statements))
-    } else if ("functionRef" in stmt) {
+    } else if ("content" in stmt) {
       result.push(stmt as SeqMessage)
     }
   }

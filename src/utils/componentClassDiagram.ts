@@ -93,8 +93,8 @@ export function buildComponentClassDiagram(
     const messages = flattenMessages(ast.statements)
 
     for (const msg of messages) {
-      if (!msg.functionRef) continue
-      const { interfaceId } = msg.functionRef
+      if (msg.content.kind !== "functionRef") continue
+      const { interfaceId } = msg.content
 
       const senderUuid = aliasToUuid.get(msg.from)
       const receiverUuid = aliasToUuid.get(msg.to)

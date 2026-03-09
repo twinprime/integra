@@ -10,7 +10,11 @@ import { findNodeByPath } from "../../utils/nodeUtils"
 import { findComponentByInterfaceId, findInterfaceUuidByInterfaceId, findInterfaceOwnerPreferReceiver, findInterfaceUuidPreferReceiver, resolveUseCaseByPath, resolveSeqDiagramByPath } from "../../utils/diagramResolvers"
 import { findNodeByUuid } from "../../nodes/nodeTree"
 import { parseSequenceDiagramCst } from "./parser"
-import { buildSeqAst, flattenMessages, type SeqAst, type SeqStatement, type SeqMessage, type SeqNote } from "./visitor"
+import { buildSeqAst, flattenMessages, type SeqAst, type SeqStatement, type SeqMessage, type SeqMessageContent, type SeqNote } from "./visitor"
+
+function assertNever(x: never): never {
+  throw new Error(`Unhandled SeqMessageContent kind: ${JSON.stringify(x)}`)
+}
 
 function escapeLabel(text: string): string {
   return text.replace(/\n/g, "<br/>")
@@ -161,52 +165,54 @@ function emitStatements(
       const msg = stmt as SeqMessage
       const fromId = sanitizeMermaidId(msg.from)
       const toId = sanitizeMermaidId(msg.to)
-      if (msg.functionRef) {
-        const { interfaceId, functionId, rawParams, label } = msg.functionRef
-        const baseLabel = label != null ? label : `${functionId}(${extractParamNames(rawParams)})`
-        // Prefer the receiver component's interface definition for navigation, so that
-        // two different receivers with the same interface id navigate to their respective components.
-        const compUuid = findInterfaceOwnerPreferReceiver(root, interfaceId, msg.to)
-        const ifaceUuid = findInterfaceUuidPreferReceiver(root, interfaceId, msg.to)
-        // Include receiver in the dedup key so that two calls to the same function on
-        // different receivers are treated as distinct and get a numbered suffix.
-        const fnKey = `${msg.to}:${interfaceId}:${functionId}`
-        const mermaidLabel = resolveLabel(baseLabel, fnKey, labelMap)
-        // Store the clean label (pre-escape) as the navigation key so it matches the
-        // SVG textContent that the click handler reads. Use renderedLabel only for Mermaid output.
-        const renderedLabel = escapeLabel(mermaidLabel)
-        if (compUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = compUuid
-        if (ifaceUuid && !messageLabelToInterfaceUuid[mermaidLabel]) messageLabelToInterfaceUuid[mermaidLabel] = ifaceUuid
-        out += `${indent}${fromId}${msg.arrow}${toId}: ${renderedLabel}\n`
-      } else if (msg.useCaseRef) {
-        const { path, label: customLabel } = msg.useCaseRef
-        const ucId = path[path.length - 1]
-        const ucUuid = ownerComp && ownerCompUuid
-          ? resolveUseCaseByPath(path, root, ownerComp, ownerCompUuid)
-          : undefined
-        const ucNode = ucUuid ? findNodeByUuid([root], ucUuid) : null
-        const baseLabel = customLabel ?? ucNode?.name ?? ucId
-        const mermaidLabel = resolveLabel(baseLabel, ucUuid, labelMap)
-        // Store the clean label as the navigation key; escapeLabel only for Mermaid output.
-        const renderedLabel = escapeLabel(mermaidLabel)
-        if (ucUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = ucUuid
-        out += `${indent}${fromId}${msg.arrow}${toId}: ${renderedLabel}\n`
-      } else if (msg.seqDiagramRef) {
-        const { path, label: customLabel } = msg.seqDiagramRef
-        const seqId = path[path.length - 1]
-        const seqUuid = ownerComp && ownerCompUuid
-          ? resolveSeqDiagramByPath(path, root, ownerComp, ownerCompUuid)
-          : undefined
-        const seqNode = seqUuid ? findNodeByUuid([root], seqUuid) : null
-        const baseLabel = customLabel ?? seqNode?.name ?? seqId
-        const mermaidLabel = resolveLabel(baseLabel, seqUuid, labelMap)
-        const renderedLabel = escapeLabel(mermaidLabel)
-        if (seqUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = seqUuid
-        out += `${indent}${fromId}${msg.arrow}${toId}: ${renderedLabel}\n`
-      } else if (msg.label) {
-        out += `${indent}${fromId}${msg.arrow}${toId}: ${escapeLabel(msg.label)}\n`
-      } else {
-        out += `${indent}${fromId}${msg.arrow}${toId}\n`
+      const c = msg.content
+      switch (c.kind) {
+        case "functionRef": {
+          const baseLabel = c.label != null ? c.label : `${c.functionId}(${extractParamNames(c.rawParams)})`
+          const compUuid = findInterfaceOwnerPreferReceiver(root, c.interfaceId, msg.to)
+          const ifaceUuid = findInterfaceUuidPreferReceiver(root, c.interfaceId, msg.to)
+          const fnKey = `${msg.to}:${c.interfaceId}:${c.functionId}`
+          const mermaidLabel = resolveLabel(baseLabel, fnKey, labelMap)
+          const renderedLabel = escapeLabel(mermaidLabel)
+          if (compUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = compUuid
+          if (ifaceUuid && !messageLabelToInterfaceUuid[mermaidLabel]) messageLabelToInterfaceUuid[mermaidLabel] = ifaceUuid
+          out += `${indent}${fromId}${msg.arrow}${toId}: ${renderedLabel}\n`
+          break
+        }
+        case "useCaseRef": {
+          const ucId = c.path[c.path.length - 1]
+          const ucUuid = ownerComp && ownerCompUuid
+            ? resolveUseCaseByPath(c.path, root, ownerComp, ownerCompUuid)
+            : undefined
+          const ucNode = ucUuid ? findNodeByUuid([root], ucUuid) : null
+          const baseLabel = c.label ?? ucNode?.name ?? ucId
+          const mermaidLabel = resolveLabel(baseLabel, ucUuid, labelMap)
+          const renderedLabel = escapeLabel(mermaidLabel)
+          if (ucUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = ucUuid
+          out += `${indent}${fromId}${msg.arrow}${toId}: ${renderedLabel}\n`
+          break
+        }
+        case "seqDiagramRef": {
+          const seqId = c.path[c.path.length - 1]
+          const seqUuid = ownerComp && ownerCompUuid
+            ? resolveSeqDiagramByPath(c.path, root, ownerComp, ownerCompUuid)
+            : undefined
+          const seqNode = seqUuid ? findNodeByUuid([root], seqUuid) : null
+          const baseLabel = c.label ?? seqNode?.name ?? seqId
+          const mermaidLabel = resolveLabel(baseLabel, seqUuid, labelMap)
+          const renderedLabel = escapeLabel(mermaidLabel)
+          if (seqUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = seqUuid
+          out += `${indent}${fromId}${msg.arrow}${toId}: ${renderedLabel}\n`
+          break
+        }
+        case "label":
+          out += `${indent}${fromId}${msg.arrow}${toId}: ${escapeLabel(c.text)}\n`
+          break
+        case "none":
+          out += `${indent}${fromId}${msg.arrow}${toId}\n`
+          break
+        default:
+          assertNever(c)
       }
     }
   }

@@ -370,3 +370,37 @@ export function makeLocalStorageValueWithSameFunctionDifferentReceivers(): strin
 
   return JSON.stringify({ state: { rootComponent: systemWithMultiReceiver }, version: 0 })
 }
+
+/**
+ * Variant with a sequence diagram that contains a Sequence:LoginFlow reference.
+ * Used to test that renaming LoginFlow updates the referencing diagram content.
+ */
+export function makeLocalStorageValueWithSeqRef(): string {
+  const refererSeq: SequenceDiagramNode = {
+    uuid: "seq-referer-uuid",
+    id: "MainFlow",
+    name: "Main Flow",
+    type: "sequence-diagram",
+    ownerComponentUuid: UUIDS.root,
+    referencedNodeIds: [UUIDS.seq],
+    referencedFunctionUuids: [],
+    content: [
+      "actor User",
+      "component AuthService",
+      "User ->> AuthService: Sequence:LoginFlow",
+    ].join("\n"),
+  }
+
+  const systemWithSeqRef: ComponentNode = {
+    ...sampleSystem,
+    useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
+      ...ucd,
+      useCases: ucd.useCases.map((uc) => ({
+        ...uc,
+        sequenceDiagrams: [...uc.sequenceDiagrams, refererSeq],
+      })),
+    })),
+  }
+
+  return JSON.stringify({ state: { rootComponent: systemWithSeqRef }, version: 0 })
+}
