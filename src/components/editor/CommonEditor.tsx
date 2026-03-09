@@ -2,7 +2,9 @@ import { useState } from "react"
 import type { Node } from "../../store/types"
 import { useSystemStore } from "../../store/useSystemStore"
 import { getNodeSiblingIds } from "../../nodes/nodeTree"
+import { findReferencingDiagrams } from "../../utils/nodeUtils"
 import { MarkdownEditor } from "./MarkdownEditor"
+import { NodeReferencesButton } from "./NodeReferencesButton"
 
 const ID_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_-]*$/
 
@@ -22,6 +24,7 @@ export const CommonEditor = ({
 
   const rootComponent = useSystemStore((s) => s.rootComponent)
   const renameNodeId = useSystemStore((s) => s.renameNodeId)
+  const referencingDiagrams = findReferencingDiagrams(rootComponent, node.uuid)
 
   const handleNameBlur = () => {
     if (name !== node.name && name.trim() !== "") {
@@ -87,6 +90,7 @@ export const CommonEditor = ({
               onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
               aria-label="Node ID"
             />
+            <NodeReferencesButton refs={referencingDiagrams} />
           </div>
           {idError && <p className="text-xs text-red-400 mt-0.5">{idError}</p>}
         </div>
