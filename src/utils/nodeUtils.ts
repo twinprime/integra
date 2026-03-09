@@ -1,5 +1,5 @@
 import type { Node, ComponentNode, UseCaseDiagramNode, SequenceDiagramNode } from "../store/types"
-import { traversePath, findCompByUuid } from "../nodes/nodeTree"
+import { traversePath, findCompByUuid, getNodeChildren } from "../nodes/nodeTree"
 
 // Collect all referencedFunctionUuids from every sequence diagram in the entire component tree
 const collectFromUcDiag = (d: UseCaseDiagramNode, uuids: Set<string>): void => {
@@ -32,19 +32,20 @@ export const isUseCaseReferenced = (root: ComponentNode, useCaseUuid: string): b
   return check(root)
 }
 
-// Check if an actor or component UUID appears in any diagram's referencedNodeIds
-// (both use-case diagrams and sequence diagrams) across the entire tree
+/**
+ * Walk the full node tree via the registered getNodeChildren handlers and
+ * check whether any node that carries referencedNodeIds references nodeUuid.
+ * This is automatically future-proof: new diagram types only need to register
+ * a NodeHandler (already required for all tree operations) and extend DiagramNode.
+ */
 const isNodeReferencedInAnyDiagram = (root: ComponentNode, nodeUuid: string): boolean => {
-  const check = (comp: ComponentNode): boolean => {
-    for (const ucDiag of comp.useCaseDiagrams) {
-      if (ucDiag.referencedNodeIds.includes(nodeUuid)) return true
-      for (const uc of ucDiag.useCases)
-        for (const seq of uc.sequenceDiagrams)
-          if (seq.referencedNodeIds.includes(nodeUuid)) return true
+  const walk = (node: Node): boolean => {
+    if ("referencedNodeIds" in node && (node.referencedNodeIds as string[]).includes(nodeUuid)) {
+      return true
     }
-    return comp.subComponents.some(check)
+    return getNodeChildren(node).some(walk)
   }
-  return check(root)
+  return walk(root)
 }
 
 // Check if an actor or component is referenced in any diagram across the entire tree
