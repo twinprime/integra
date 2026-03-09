@@ -9,10 +9,12 @@ import {
   analyzeSequenceDiagramChanges,
   type FunctionMatch,
 } from "../../parser/sequenceDiagram/systemUpdater"
+import { findReferencingDiagrams } from "../../utils/nodeUtils"
 import { FunctionUpdateDialog } from "../FunctionUpdateDialog"
 import { DiagramCodeMirrorEditor } from "./DiagramCodeMirrorEditor"
 import { MarkdownEditor } from "./MarkdownEditor"
 import { getNodeSiblingIds } from "../../nodes/nodeTree"
+import { NodeReferencesButton } from "./NodeReferencesButton"
 
 const ID_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_-]*$/
 
@@ -43,6 +45,7 @@ export const DiagramEditor = ({
     renameNodeId,
   } = useSystemStore()
   const seqDiagrams = getSequenceDiagrams(rootComponent)
+  const referencingDiagrams = findReferencingDiagrams(rootComponent, node.uuid)
 
   const ownerComp = useMemo((): ComponentNode | null => {
     const walk = (c: ComponentNode): ComponentNode | null => {
@@ -192,6 +195,7 @@ export const DiagramEditor = ({
               onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
               aria-label="Node ID"
             />
+            <NodeReferencesButton refs={referencingDiagrams} />
           </div>
           {idError && <p className="text-xs text-red-400 mt-0.5">{idError}</p>}
         </div>

@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react"
 import type { ComponentNode, InterfaceSpecification, InterfaceFunction } from "../../store/types"
 import { useSystemStore } from "../../store/useSystemStore"
-import { collectReferencedFunctionUuids } from "../../utils/nodeUtils"
+import { collectReferencedFunctionUuids, findReferencingDiagrams } from "../../utils/nodeUtils"
 import { getNodeSiblingIds } from "../../nodes/nodeTree"
 import { MarkdownEditor } from "./MarkdownEditor"
 import { InterfaceEditor } from "./InterfaceEditor"
+import { NodeReferencesButton } from "./NodeReferencesButton"
 
 const ID_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_-]*$/
 
@@ -40,6 +41,7 @@ export const ComponentEditor = ({
   const renameNodeId = useSystemStore((s) => s.renameNodeId)
   const selectedInterfaceUuid = useSystemStore((s) => s.selectedInterfaceUuid)
   const referencedFunctionUuids = collectReferencedFunctionUuids(rootComponent)
+  const referencingDiagrams = findReferencingDiagrams(rootComponent, node.uuid)
 
   // Active tab: uuid of the currently visible interface
   const firstIfaceUuid = node.interfaces?.[0]?.uuid ?? null
@@ -171,6 +173,7 @@ export const ComponentEditor = ({
               onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
               aria-label="Node ID"
             />
+            <NodeReferencesButton refs={referencingDiagrams} />
           </div>
           {idError && <p className="text-xs text-red-400 mt-0.5">{idError}</p>}
         </div>

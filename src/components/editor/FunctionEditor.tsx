@@ -1,8 +1,9 @@
 import { useState } from "react"
-import { Trash2, Link } from "lucide-react"
+import { Trash2 } from "lucide-react"
 import type { InterfaceFunction } from "../../store/types"
 import { MarkdownEditor } from "./MarkdownEditor"
 import { useSystemStore, getSequenceDiagrams } from "../../store/useSystemStore"
+import { NodeReferencesButton } from "./NodeReferencesButton"
 
 const ID_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_-]*$/
 
@@ -27,9 +28,8 @@ export const FunctionEditor = ({
   const [fnId, setFnId] = useState(fn.id)
   const [idError, setIdError] = useState<string | null>(null)
   const [fnDescription, setFnDescription] = useState(fn.description || "")
-  const [showDiagrams, setShowDiagrams] = useState(false)
 
-  const { rootComponent, selectNode, renameNodeId } = useSystemStore()
+  const { rootComponent, renameNodeId } = useSystemStore()
   const referencingDiagrams = getSequenceDiagrams(rootComponent).filter((d) =>
     d.referencedFunctionUuids.includes(fn.uuid),
   )
@@ -79,21 +79,10 @@ export const FunctionEditor = ({
           />
           {idError && <p className="text-xs text-red-400 mt-0.5">{idError}</p>}
         </div>
-        {referencingDiagrams.length > 0 && (
-          <button
-            type="button"
-            className={`flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border transition-colors ${
-              showDiagrams
-                ? "bg-blue-900/40 border-blue-600 text-blue-300"
-                : "border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-300"
-            }`}
-            title="Show referencing sequence diagrams"
-            onClick={() => setShowDiagrams((v) => !v)}
-          >
-            <Link size={10} />
-            <span>{referencingDiagrams.length}</span>
-          </button>
-        )}
+        <NodeReferencesButton
+          refs={referencingDiagrams}
+          title="Show referencing sequence diagrams"
+        />
         {isUnreferenced && (
           <button
             className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-900/20"
@@ -105,29 +94,6 @@ export const FunctionEditor = ({
           </button>
         )}
       </div>
-      {showDiagrams && (
-        <div className="mb-2 rounded border border-blue-900/50 bg-blue-950/20 px-2 py-1.5">
-          <p className="text-[0.65rem] font-medium text-gray-500 mb-1 uppercase tracking-wide">
-            Referenced in
-          </p>
-          <ul className="space-y-0.5">
-            {referencingDiagrams.map((d) => (
-              <li key={d.uuid}>
-                <button
-                  type="button"
-                  className="text-xs text-blue-400 hover:text-blue-300 hover:underline text-left w-full"
-                  onClick={() => {
-                    selectNode(d.uuid)
-                    setShowDiagrams(false)
-                  }}
-                >
-                  {d.name}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
       <MarkdownEditor
         value={fnDescription}
         onChange={setFnDescription}

@@ -1,5 +1,5 @@
 import type { Node, ComponentNode, UseCaseDiagramNode, SequenceDiagramNode } from "../store/types"
-import { traversePath, findCompByUuid, getNodeChildren, getNodeHandler } from "../nodes/nodeTree"
+import { traversePath, findCompByUuid, getNodeChildren, getNodeHandler, collectAllDiagrams } from "../nodes/nodeTree"
 
 // Collect all referencedFunctionUuids from every sequence diagram in the entire component tree
 const collectFromUcDiag = (d: UseCaseDiagramNode, uuids: Set<string>): void => {
@@ -56,6 +56,15 @@ export const isNodeOrphaned = (
   if (!getNodeHandler(node.type).canDelete) return false
   return !isNodeReferencedInAnyDiagram(root, node.uuid)
 }
+
+/** Return all diagrams (across the entire tree) whose referencedNodeIds includes nodeUuid. */
+export const findReferencingDiagrams = (
+  root: ComponentNode,
+  nodeUuid: string,
+): Array<{ uuid: string; name: string }> =>
+  collectAllDiagrams(root)
+    .filter(({ diagram }) => diagram.referencedNodeIds.includes(nodeUuid))
+    .map(({ diagram }) => ({ uuid: diagram.uuid, name: diagram.name }))
 
 // Find all direct children of a component that have a given id
 // Searches: actors, subComponents, useCaseDiagrams (and their use cases and sequence diagrams)
