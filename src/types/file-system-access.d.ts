@@ -13,6 +13,15 @@ interface FileSystemWritableFileStream {
   close(): Promise<void>
 }
 
+interface FileSystemDirectoryHandle {
+  readonly kind: "directory"
+  readonly name: string
+  getFileHandle(name: string, options?: { create?: boolean }): Promise<FileSystemFileHandle>
+  getDirectoryHandle(name: string, options?: { create?: boolean }): Promise<FileSystemDirectoryHandle>
+  removeEntry(name: string, options?: { recursive?: boolean }): Promise<void>
+  values(): AsyncIterableIterator<FileSystemFileHandle | FileSystemDirectoryHandle>
+}
+
 interface OpenFilePickerOptions {
   types?: Array<{ description?: string; accept: Record<string, string[]> }>
   multiple?: boolean
@@ -25,7 +34,13 @@ interface SaveFilePickerOptions {
   excludeAcceptAllOption?: boolean
 }
 
+interface DirectoryPickerOptions {
+  mode?: "read" | "readwrite"
+  startIn?: string | FileSystemFileHandle | FileSystemDirectoryHandle
+}
+
 interface Window {
   showOpenFilePicker(options?: OpenFilePickerOptions): Promise<FileSystemFileHandle[]>
   showSaveFilePicker(options?: SaveFilePickerOptions): Promise<FileSystemFileHandle>
+  showDirectoryPicker(options?: DirectoryPickerOptions): Promise<FileSystemDirectoryHandle>
 }

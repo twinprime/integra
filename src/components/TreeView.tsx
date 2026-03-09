@@ -13,8 +13,8 @@ import { ContextMenu } from "./ContextMenu"
 import yaml from "js-yaml"
 import { isNodeOrphaned, findParentNode } from "../utils/nodeUtils"
 import { TreeNode } from "./tree/TreeNode"
+import { saveToDirectory, loadFromDirectory } from "../utils/systemFiles"
 
-const YAML_FILE_TYPES = [{ description: "YAML files", accept: { "text/yaml": [".yaml", ".yml"] } }]
 const DERIVED_KEYS = new Set(["ownerComponentUuid", "referencedNodeIds", "referencedFunctionUuids"])
 
 export const TreeView = () => {
@@ -31,7 +31,7 @@ export const TreeView = () => {
   const canUndo = useSystemStore((state) => state.past.length > 0)
   const canRedo = useSystemStore((state) => state.future.length > 0)
 
-  const [fileHandle, setFileHandle] = useState<FileSystemFileHandle | null>(null)
+  const [dirHandle, setDirHandle] = useState<FileSystemDirectoryHandle | null>(null)
 
   const [contextMenu, setContextMenu] = useState<{
     x: number
@@ -66,28 +66,14 @@ export const TreeView = () => {
 
   const handleSave = async () => {
     try {
-      const yamlContent = serializeYaml(rootComponent)
-      const suggestedName = `${rootComponent.name.toLowerCase().replaceAll(/\s+/g, "-")}.yaml`
-
-      if ("showSaveFilePicker" in window) {
-        const handle = fileHandle ?? await window.showSaveFilePicker({ types: YAML_FILE_TYPES, suggestedName })
-        const writable = await handle.createWritable()
-        await writable.write(yamlContent)
-        await writable.close()
-        setFileHandle(handle)
-      } else {
-        // Fallback for browsers without File System Access API
-        const blob = new Blob([yamlContent], { type: "text/yaml" })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement("a")
-        a.href = url
-        a.download = suggestedName
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-        URL.revokeObjectURL(url)
+      if (!("showDirectoryPicker" in window)) {
+        alert("Saving as a directory requires Chrome or Edge. Please use a supported browser.")
+        return
       }
-      markSaved(yamlContent)
+      const handle = dirHandle ?? await window.showDirectoryPicker({ mode: "readwrite" })
+      await saveToDirectory(handle, rootComponent)
+      setDirHandle(handle)
+      markSaved(serializeYaml(rootComponent))
     } catch (error) {
       if ((error as DOMException).name !== "AbortError") {
         console.error("Failed to save system:", error)
@@ -98,37 +84,18 @@ export const TreeView = () => {
 
   const handleLoad = async () => {
     if (hasUnsavedChanges) {
-      if (!confirm("You have unsaved changes. Loading a new file will discard them. Continue?")) return
+      if (!confirm("You have unsaved changes. Loading a new directory will discard them. Continue?")) return
     }
 
     try {
-      let text: string
-
-      if ("showOpenFilePicker" in window) {
-        const [handle] = await window.showOpenFilePicker({ types: YAML_FILE_TYPES, multiple: false })
-        const file = await handle.getFile()
-        text = await file.text()
-        setFileHandle(handle)
-      } else {
-        // Fallback for browsers without File System Access API
-        text = await new Promise<string>((resolve, reject) => {
-          const input = document.createElement("input")
-          input.type = "file"
-          input.accept = ".yaml,.yml"
-          input.onchange = async (e) => {
-            const file = (e.target as HTMLInputElement).files?.[0]
-            if (!file) { reject(new Error("No file selected")); return }
-            resolve(await file.text())
-          }
-          input.click()
-        })
+      if (!("showDirectoryPicker" in window)) {
+        alert("Loading from a directory requires Chrome or Edge. Please use a supported browser.")
+        return
       }
-
-      const loadedSystem = yaml.load(text) as ComponentNode
-      if (!loadedSystem || typeof loadedSystem !== "object" || loadedSystem.type !== "component") {
-        throw new Error("Invalid system file format")
-      }
+      const handle = await window.showDirectoryPicker({ mode: "readwrite" })
+      const loadedSystem = await loadFromDirectory(handle)
       setSystem(loadedSystem)
+      setDirHandle(handle)
       markSaved(serializeYaml(loadedSystem))
     } catch (error) {
       if ((error as DOMException).name !== "AbortError") {
