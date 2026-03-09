@@ -1,5 +1,5 @@
 import type { Node, ComponentNode, UseCaseDiagramNode, SequenceDiagramNode } from "../store/types"
-import { traversePath, findCompByUuid, getNodeChildren } from "../nodes/nodeTree"
+import { traversePath, findCompByUuid, getNodeChildren, getNodeHandler } from "../nodes/nodeTree"
 
 // Collect all referencedFunctionUuids from every sequence diagram in the entire component tree
 const collectFromUcDiag = (d: UseCaseDiagramNode, uuids: Set<string>): void => {
@@ -48,14 +48,12 @@ const isNodeReferencedInAnyDiagram = (root: ComponentNode, nodeUuid: string): bo
   return walk(root)
 }
 
-// Check if an actor or component is referenced in any diagram across the entire tree
+// Check if a node is safe to delete: must have canDelete on its handler and not be referenced anywhere
 export const isNodeOrphaned = (
   node: Node,
   root: ComponentNode
 ): boolean => {
-  if (node.type !== "actor" && node.type !== "component") {
-    return false
-  }
+  if (!getNodeHandler(node.type).canDelete) return false
   return !isNodeReferencedInAnyDiagram(root, node.uuid)
 }
 

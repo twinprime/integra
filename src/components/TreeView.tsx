@@ -11,7 +11,6 @@ import { useSystemStore } from "../store/useSystemStore"
 import type { Node, ComponentNode, UseCaseDiagramNode, SequenceDiagramNode } from "../store/types"
 import { ContextMenu } from "./ContextMenu"
 import yaml from "js-yaml"
-import { isNodeOrphaned, findParentNode } from "../utils/nodeUtils"
 import { TreeNode } from "./tree/TreeNode"
 import { saveToDirectory, loadFromDirectory } from "../utils/systemFiles"
 
@@ -22,7 +21,6 @@ export const TreeView = () => {
   const setSystem = useSystemStore((state) => state.setSystem)
   const addNode = useSystemStore((state) => state.addNode)
   const selectNode = useSystemStore((state) => state.selectNode)
-  const deleteNode = useSystemStore((state) => state.deleteNode)
   const savedSnapshot = useSystemStore((state) => state.savedSnapshot)
   const markSaved = useSystemStore((state) => state.markSaved)
   const clearSystem = useSystemStore((state) => state.clearSystem)
@@ -185,30 +183,12 @@ export const TreeView = () => {
       })
     }
 
-    if (node.type === "actor" || node.type === "component") {
-      const nodeParent = findParentNode(rootComponent, node.uuid)
-      if (nodeParent?.type === "component" && isNodeOrphaned(node, rootComponent)) {
-        items.push({
-          label: "Delete",
-          onClick: () => handleDeleteNode(),
-          icon: <Trash2 size={14} />,
-          className: "text-red-400 hover:bg-red-900/20",
-        })
-      }
-    }
-
     return items
   }
 
   const getMenuItems = () => {
     if (!contextMenu) return []
     return computeMenuItems(contextMenu.node)
-  }
-
-  const handleDeleteNode = () => {
-    if (!contextMenu) return
-    deleteNode(contextMenu.node.uuid)
-    setContextMenu(null)
   }
 
   return (

@@ -55,6 +55,7 @@ export const findParentInUseCase = (useCase: UseCaseNode, targetUuid: string): N
 }
 
 export const useCaseHandler: NodeHandler = {
+  canDelete: true,
   getChildren: (node) => getUseCaseChildren(node as UseCaseNode),
   deleteChild: (node, uuid) => deleteFromUseCase(node as UseCaseNode, uuid),
   upsertChild: (node, _uuid, updater) => {

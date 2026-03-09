@@ -2,7 +2,7 @@ import { useState } from "react"
 import { ChevronRight, ChevronDown, Trash2 } from "lucide-react"
 import { useSystemStore } from "../../store/useSystemStore"
 import type { Node, ComponentNode } from "../../store/types"
-import { isNodeOrphaned, isUseCaseReferenced, findParentNode } from "../../utils/nodeUtils"
+import { isNodeOrphaned } from "../../utils/nodeUtils"
 import { NodeIcon } from "./NodeIcon"
 
 interface TreeNodeProps {
@@ -20,19 +20,7 @@ export const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
   const rootComponent = useSystemStore((state) => state.rootComponent)
 
   const isSelected = selectedNodeId === node.uuid
-  const isOrphaned = parent ? isNodeOrphaned(node, rootComponent) : false
-
-  const isDeletable = (() => {
-    if (node.uuid === rootComponent.uuid) return false
-    if (node.type === "actor" || node.type === "component") {
-      const nodeParent = parent ?? findParentNode(rootComponent, node.uuid) as ComponentNode | null
-      return nodeParent?.type === "component" && isNodeOrphaned(node, rootComponent)
-    }
-    if (node.type === "use-case") {
-      return !isUseCaseReferenced(rootComponent, node.uuid)
-    }
-    return true
-  })()
+  const isDeletable = node.uuid !== rootComponent.uuid && isNodeOrphaned(node, rootComponent)
 
   let children: Node[] = []
   if (node.type === "component") {
@@ -96,7 +84,7 @@ export const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
         </div>
         <div
           className={`flex-1 overflow-hidden text-ellipsis whitespace-nowrap ${
-            isOrphaned ? "line-through text-gray-500" : ""
+            isDeletable ? "line-through text-gray-500" : ""
           }`}
         >
           {node.name}

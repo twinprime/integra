@@ -8,7 +8,7 @@ import type { ComponentNode, InterfaceSpecification, Parameter } from "../../sto
 import { upsertNodeInTree, mergeLists } from "../../nodes/nodeTree"
 import { findCompByUuid } from "../../nodes/nodeTree"
 import { findNodeByPath, isInScope } from "../../utils/nodeUtils"
-import { resolveUseCaseByPath, autoCreateByPath } from "../../utils/diagramResolvers"
+import { resolveUseCaseByPath, resolveSeqDiagramByPath, autoCreateByPath } from "../../utils/diagramResolvers"
 import { parseSequenceDiagramCst } from "./parser"
 import { buildSeqAst, flattenMessages } from "./visitor"
 
@@ -431,6 +431,18 @@ export function parseSequenceDiagram(
         ownerComponentUuid,
       )
       if (ucUuid && !referencedNodeIds.includes(ucUuid)) referencedNodeIds.push(ucUuid)
+    }
+
+    // Add referenced sequence diagram UUIDs to referencedNodeIds
+    for (const msg of astMessages) {
+      if (!msg.seqDiagramRef) continue
+      const seqUuid = resolveSeqDiagramByPath(
+        msg.seqDiagramRef.path,
+        updatedRoot,
+        updatedOwnerComp,
+        ownerComponentUuid,
+      )
+      if (seqUuid && !referencedNodeIds.includes(seqUuid)) referencedNodeIds.push(seqUuid)
     }
   }
 

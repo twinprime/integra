@@ -40,6 +40,7 @@ const noopLeafHandler: NodeHandler = {
 
 const actorHandler: NodeHandler = {
   ...noopLeafHandler,
+  canDelete: true,
   addToComponent: (comp, node) => ({ ...comp, actors: [...comp.actors, node as ActorNode] }),
 }
 
@@ -48,8 +49,11 @@ const nodeHandlers: Record<Node["type"], NodeHandler> = {
   "use-case-diagram": ucDiagHandler,
   "use-case": useCaseHandler,
   actor: actorHandler,
-  "sequence-diagram": noopLeafHandler,
+  "sequence-diagram": { ...noopLeafHandler, canDelete: true },
 }
+
+/** Returns the NodeHandler for the given node type. */
+export const getNodeHandler = (type: Node["type"]): NodeHandler => nodeHandlers[type]
 
 // ─── Children ────────────────────────────────────────────────────────────────
 

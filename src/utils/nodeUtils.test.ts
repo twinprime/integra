@@ -323,10 +323,35 @@ describe("isNodeOrphaned", () => {
     expect(isNodeOrphaned(actor, root)).toBe(false)
   })
 
-  it("returns false for non-actor/component node types", () => {
+  it("returns true for an unreferenced use-case (use-case has canDelete)", () => {
     const root = buildTree()
     const uc = root.subComponents[0].useCaseDiagrams[0].useCases[0]
-    expect(isNodeOrphaned(uc, root)).toBe(false)
+    // use-case is not referenced anywhere → deletable
+    expect(isNodeOrphaned(uc, root)).toBe(true)
+  })
+
+  it("returns false for use-case-diagram node type (canDelete not set)", () => {
+    const root = buildTree()
+    const ucd = root.subComponents[0].useCaseDiagrams[0]
+    expect(isNodeOrphaned(ucd, root)).toBe(false)
+  })
+
+  it("returns false for unreferenced sequence-diagram that is itself referenced by another diagram", () => {
+    const root = buildTree()
+    const uc = root.subComponents[0].useCaseDiagrams[0].useCases[0]
+    const seq: import("../store/types").SequenceDiagramNode = {
+      uuid: "seq-target", id: "seqTarget", name: "Seq Target", type: "sequence-diagram",
+      content: "", description: "", ownerComponentUuid: "sub-uuid",
+      referencedNodeIds: [], referencedFunctionUuids: [],
+    }
+    uc.sequenceDiagrams.push(seq)
+    // Another seq diagram references seq-target
+    uc.sequenceDiagrams.push({
+      uuid: "seq-referencing", id: "seqReferencing", name: "Seq Ref", type: "sequence-diagram",
+      content: "", description: "", ownerComponentUuid: "sub-uuid",
+      referencedNodeIds: ["seq-target"], referencedFunctionUuids: [],
+    })
+    expect(isNodeOrphaned(seq, root)).toBe(false)
   })
 })
 

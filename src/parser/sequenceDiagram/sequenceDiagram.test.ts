@@ -664,6 +664,50 @@ describe("parseSequenceDiagram — UseCase referencedNodeIds", () => {
   })
 })
 
+describe("parseSequenceDiagram — Sequence: referencedNodeIds", () => {
+  it("adds target sequence diagram UUID to referencedNodeIds when Sequence: ref is used", () => {
+    // loginFlow is the target being referenced
+    const loginFlow = {
+      uuid: "login-flow-uuid", id: "loginFlow", name: "Login Flow", type: "sequence-diagram" as const,
+      ownerComponentUuid: "owner-uuid", referencedNodeIds: [], referencedFunctionUuids: [], content: "",
+    }
+    // refDiag is the diagram that contains the Sequence:loginFlow message — it already exists in the tree
+    const refDiag = {
+      uuid: "ref-diag-uuid", id: "refDiag", name: "Ref Diag", type: "sequence-diagram" as const,
+      ownerComponentUuid: "owner-uuid", referencedNodeIds: [], referencedFunctionUuids: [], content: "",
+    }
+    const owner: ComponentNode = {
+      uuid: "owner-uuid", id: "owner", name: "owner", type: "component",
+      actors: [], subComponents: [], interfaces: [],
+      useCaseDiagrams: [{
+        uuid: "ucd-uuid", id: "ucd", name: "ucd", type: "use-case-diagram",
+        ownerComponentUuid: "owner-uuid", referencedNodeIds: [], content: "",
+        useCases: [{
+          uuid: "uc-uuid", id: "login", name: "login", type: "use-case",
+          sequenceDiagrams: [loginFlow, refDiag],
+        }],
+      }],
+    }
+    const root: ComponentNode = {
+      uuid: "root-uuid", id: "root", name: "root", type: "component",
+      actors: [], subComponents: [owner], interfaces: [], useCaseDiagrams: [],
+    }
+
+    // Parse refDiag's content — it references loginFlow via Sequence:loginFlow
+    const updatedRoot = parseSequenceDiagram(
+      "actor a\na ->> a: Sequence:loginFlow",
+      root,
+      "owner-uuid",
+      "ref-diag-uuid",
+    )
+
+    const updatedDiag = updatedRoot.subComponents[0].useCaseDiagrams[0].useCases[0]
+      .sequenceDiagrams.find((s) => s.uuid === "ref-diag-uuid")
+    expect(updatedDiag).toBeDefined()
+    expect(updatedDiag!.referencedNodeIds).toContain("login-flow-uuid")
+  })
+})
+
 describe("generateSequenceMermaidFromAst — UseCaseRef messages", () => {
   const makeCompWithUcs3 = (uuid: string, id: string, ucIds: { id: string; name: string }[]): ComponentNode => ({
     uuid, id, name: id, type: "component",

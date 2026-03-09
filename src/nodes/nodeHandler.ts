@@ -9,6 +9,13 @@ import type { Node, ComponentNode } from "../store/types"
  * 2. Add one entry to nodeHandlers in nodeTree.ts
  */
 export interface NodeHandler {
+  /**
+   * When true, nodes of this type support deletion via the per-node delete icon.
+   * `isNodeOrphaned` uses this to decide whether to apply the reference check.
+   * Set this on any new node type that should be deletable.
+   */
+  canDelete?: boolean
+
   /** Return all direct children of this node. */
   getChildren(node: Node): Node[]
 
