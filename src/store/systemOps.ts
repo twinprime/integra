@@ -40,6 +40,13 @@ export function rebuildSystemDiagrams(system: ComponentNode): ComponentNode {
           // skip invalid diagrams on load
         }
       }
+    } else {
+      const defaults: Record<string, unknown> = { referencedNodeIds: [] }
+      if (diagram.type === "sequence-diagram") defaults.referencedFunctionUuids = []
+      updatedSystem = upsertNodeInTree(updatedSystem, diagram.uuid, (node) => ({
+        ...node,
+        ...defaults,
+      }))
     }
   })
 
