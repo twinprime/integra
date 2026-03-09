@@ -124,6 +124,8 @@ orderSvc ->> paymentSvc: PaymentsAPI:charge(orderId: string, amount: number, cur
 orderSvc ->> customer: UseCase:orderConfirmed
 orderSvc ->> customer: UseCase:orderService/orderConfirmed
 orderSvc ->> customer: UseCase:root/orders/orderConfirmed:Order confirmed
+orderSvc ->> customer: Sequence:orderConfirmedFlow
+orderSvc ->> customer: Sequence:auth/loginFlow:Log In
 
 note right of customer: initiates the flow
 note over orderSvc, paymentSvc: payment handshake
@@ -144,6 +146,9 @@ note over orderSvc, paymentSvc: payment handshake
 | `sender ->> receiver: UseCase:comp/useCaseId` | Use case reference by path (relative or absolute) |
 | `sender ->> receiver: UseCase:useCaseId:label` | Use case reference with a custom display label |
 | `sender ->> receiver: UseCase:comp/useCaseId:label` | Use case path reference with a custom label |
+| `sender ->> receiver: Sequence:seqDiagramId` | Sequence diagram reference (local — receiver's component) |
+| `sender ->> receiver: Sequence:comp/seqDiagramId` | Sequence diagram reference by path |
+| `sender ->> receiver: Sequence:seqDiagramId:label` | Sequence diagram reference with a custom display label |
 | `note right of id: text` | Note to the right of a participant |
 | `note left of id: text` | Note to the left of a participant |
 | `note over id: text` | Note spanning a single participant |
@@ -322,6 +327,8 @@ interfaces: [...]
 | `use-case-diagram` | `content` (spec text), `useCases[]` |
 | `use-case` | `sequenceDiagrams[]` |
 | `sequence-diagram` | `content` (spec text) |
+
+> All diagram types (`use-case-diagram` and `sequence-diagram`) support the `description` field.
 
 Interface specifications live directly on their owning component:
 

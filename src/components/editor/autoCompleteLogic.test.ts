@@ -161,3 +161,70 @@ describe("buildSuggestions", () => {
     expect(endSugg?.insertText).toBe("end")
   })
 })
+
+// ─── buildSuggestions — Sequence: autocomplete ───────────────────────────────
+
+describe("buildSuggestions — Sequence: suggestions", () => {
+  const makeSeq = (uuid: string, id: string, name = id) => ({
+    uuid, id, name, type: "sequence-diagram" as const,
+    ownerComponentUuid: "", referencedNodeIds: [], referencedFunctionUuids: [], content: "",
+  })
+  const makeUc = (uuid: string, id: string, seqs: ReturnType<typeof makeSeq>[]) => ({
+    uuid, id, name: id, type: "use-case" as const,
+    sequenceDiagrams: seqs,
+  })
+  const makeUcd = (uuid: string, ucs: ReturnType<typeof makeUc>[]) => ({
+    uuid, id: "ucd", name: "ucd", type: "use-case-diagram" as const,
+    ownerComponentUuid: "", referencedNodeIds: [], content: "",
+    useCases: ucs,
+  })
+
+  it("suggests Sequence: for local sequence diagrams", () => {
+    const seq = makeSeq("seq-uuid", "loginFlow", "Login Flow")
+    const uc = makeUc("uc-uuid", "login", [seq])
+    const owner = makeComp("owner-uuid", "owner", { useCaseDiagrams: [makeUcd("ucd-uuid", [uc])] })
+    const root = makeComp("root-uuid", "root", { subComponents: [owner] })
+
+    const content = "actor a\ncomponent owner\na ->> owner: "
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    expect(ctx?.type).toBe("function-ref")
+
+    const suggs = buildSuggestions(ctx!, content, owner, root, "sequence-diagram")
+    const seqSugg = suggs.find((s) => s.insertText === "Sequence:loginFlow")
+    expect(seqSugg).toBeDefined()
+    expect(seqSugg?.label).toBe("Sequence:loginFlow (Login Flow)")
+  })
+
+  it("suggests Sequence: with absolute path for remote component's sequence diagrams", () => {
+    const seq = makeSeq("seq-uuid", "loginFlow", "Login Flow")
+    const uc = makeUc("uc-uuid", "login", [seq])
+    const auth = makeComp("auth-uuid", "auth", { useCaseDiagrams: [makeUcd("ucd-uuid", [uc])] })
+    const owner = makeComp("owner-uuid", "owner")
+    const root = makeComp("root-uuid", "root", { subComponents: [owner, auth] })
+
+    const content = "actor a\ncomponent auth\na ->> auth: "
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    expect(ctx?.type).toBe("function-ref")
+
+    const suggs = buildSuggestions(ctx!, content, owner, root, "sequence-diagram")
+    // Absolute path includes root component id prefix (same convention as UseCase: refs)
+    const seqSugg = suggs.find((s) => s.insertText.startsWith("Sequence:") && s.insertText.endsWith("auth/loginFlow"))
+    expect(seqSugg).toBeDefined()
+  })
+
+  it("filters Sequence: suggestions by partial match", () => {
+    const seq1 = makeSeq("seq1-uuid", "loginFlow", "Login Flow")
+    const seq2 = makeSeq("seq2-uuid", "logoutFlow", "Logout Flow")
+    const uc = makeUc("uc-uuid", "auth", [seq1, seq2])
+    const owner = makeComp("owner-uuid", "owner", { useCaseDiagrams: [makeUcd("ucd-uuid", [uc])] })
+    const root = makeComp("root-uuid", "root", { subComponents: [owner] })
+
+    const content = "actor a\ncomponent owner\na ->> owner: Sequence:login"
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    expect(ctx?.type).toBe("function-ref")
+
+    const suggs = buildSuggestions(ctx!, content, owner, root, "sequence-diagram")
+    expect(suggs.find((s) => s.insertText === "Sequence:loginFlow")).toBeDefined()
+    expect(suggs.find((s) => s.insertText === "Sequence:logoutFlow")).toBeUndefined()
+  })
+})

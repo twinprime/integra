@@ -236,3 +236,48 @@ export function resolveUseCaseByPath(
   if (!comp) return undefined
   return resolveUseCaseInOwner(comp, ucId)
 }
+
+/**
+ * Searches all sequence diagrams nested within a component's use case diagrams.
+ */
+function resolveSeqDiagramInOwner(ownerComp: ComponentNode, seqId: string): string | undefined {
+  for (const ucDiag of ownerComp.useCaseDiagrams) {
+    for (const uc of ucDiag.useCases) {
+      const seq = uc.sequenceDiagrams?.find((s) => s.id === seqId)
+      if (seq) return seq.uuid
+    }
+  }
+  return undefined
+}
+
+/**
+ * Resolves a `Sequence:<path>` reference to a sequence diagram UUID.
+ *
+ * @param path - Segments from the Sequence reference (last = sequence diagram ID,
+ *               preceding = path to the owning component).
+ * @param root - Root component of the system tree.
+ * @param ownerComp - Component that owns the referencing sequence diagram (local scope).
+ * @param ownerCompUuid - UUID of ownerComp (used for relative path resolution).
+ * @returns The sequence diagram UUID, or undefined if it cannot be resolved.
+ */
+export function resolveSeqDiagramByPath(
+  path: string[],
+  root: ComponentNode,
+  ownerComp: ComponentNode,
+  ownerCompUuid: string,
+): string | undefined {
+  const seqId = path[path.length - 1]
+  const compPath = path.slice(0, -1)
+
+  if (compPath.length === 0) {
+    // Local reference — search within ownerComp
+    return resolveSeqDiagramInOwner(ownerComp, seqId)
+  }
+
+  // Path reference — resolve the component, then search its sequence diagrams
+  const compUuid = findNodeByPath(root, compPath.join("/"), ownerCompUuid)
+  if (!compUuid) return undefined
+  const comp = findCompByUuid(root, compUuid)
+  if (!comp) return undefined
+  return resolveSeqDiagramInOwner(comp, seqId)
+}

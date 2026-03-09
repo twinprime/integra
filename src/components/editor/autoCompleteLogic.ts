@@ -368,13 +368,8 @@ function buildFunctionRefSuggestions(
   for (const ucDiag of receiverComp.useCaseDiagrams) {
     for (const uc of ucDiag.useCases) {
       const isLocal = receiverComp.uuid === ownerComp.uuid
-      let ucPath: string
-      if (isLocal) {
-        ucPath = uc.id
-      } else {
-        const absPath = getComponentAbsolutePath(rootComponent, receiverComp.uuid)
-        ucPath = absPath ? `${absPath}/${uc.id}` : uc.id
-      }
+      const absPath = isLocal ? null : getComponentAbsolutePath(rootComponent, receiverComp.uuid)
+      const ucPath = isLocal ? uc.id : (absPath ? `${absPath}/${uc.id}` : uc.id)
       const insertText = `UseCase:${ucPath}`
       if (matchLower(insertText, ctx.partial)) {
         suggs.push({
@@ -382,6 +377,17 @@ function buildFunctionRefSuggestions(
           insertText,
           replaceFrom: ctx.replaceFrom,
         })
+      }
+      for (const seq of uc.sequenceDiagrams ?? []) {
+        const seqPath = isLocal ? seq.id : (absPath ? `${absPath}/${seq.id}` : seq.id)
+        const seqInsertText = `Sequence:${seqPath}`
+        if (matchLower(seqInsertText, ctx.partial)) {
+          suggs.push({
+            label: `${seqInsertText} (${seq.name})`,
+            insertText: seqInsertText,
+            replaceFrom: ctx.replaceFrom,
+          })
+        }
       }
     }
   }

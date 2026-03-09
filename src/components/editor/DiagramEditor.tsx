@@ -11,6 +11,7 @@ import {
 } from "../../parser/sequenceDiagram/systemUpdater"
 import { FunctionUpdateDialog } from "../FunctionUpdateDialog"
 import { DiagramCodeMirrorEditor } from "./DiagramCodeMirrorEditor"
+import { MarkdownEditor } from "./MarkdownEditor"
 
 export const DiagramEditor = ({
   node,
@@ -20,6 +21,7 @@ export const DiagramEditor = ({
   onUpdate: (updates: Partial<DiagramNode>) => void
 }) => {
   const [name, setName] = useState(node.name || "")
+  const [description, setDescription] = useState(node.description || "")
   const [content, setContent] = useState(node.content || "")
   const [pendingContent, setPendingContent] = useState<string | null>(null)
   const [functionMatches, setFunctionMatches] = useState<FunctionMatch[]>([])
@@ -61,14 +63,21 @@ export const DiagramEditor = ({
 
   useEffect(() => {
     setName(node.name || "")
+    setDescription(node.description || "")
     setContent(node.content || "")
-  }, [node.uuid, node.name, node.content])
+  }, [node.uuid, node.name, node.description, node.content])
 
   const handleNameBlur = () => {
     if (name !== node.name && name.trim() !== "") {
       onUpdate({ name: name.trim() })
     } else if (name.trim() === "") {
       setName(node.name)
+    }
+  }
+
+  const handleDescriptionBlur = () => {
+    if (description !== node.description) {
+      onUpdate({ description })
     }
   }
 
@@ -134,10 +143,7 @@ export const DiagramEditor = ({
       </div>
 
       <div className="mb-4">
-        <label
-          htmlFor="diagram-name-input"
-          className="block text-sm font-medium text-gray-300 mb-2"
-        >
+        <label className="block text-sm font-medium text-gray-300 mb-2">
           Name
         </label>
         <input
@@ -147,6 +153,20 @@ export const DiagramEditor = ({
           value={name}
           onChange={(e) => setName(e.target.value)}
           onBlur={handleNameBlur}
+        />
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-300 mb-2">
+          Description
+        </label>
+        <MarkdownEditor
+          value={description}
+          onChange={setDescription}
+          onBlur={handleDescriptionBlur}
+          height="120px"
+          placeholder="Add a description..."
+          contextComponentUuid={node.ownerComponentUuid}
         />
       </div>
 

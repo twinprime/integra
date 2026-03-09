@@ -25,7 +25,7 @@ import {
   Slash, Comma, Newline, Identifier, NumberToken,
 } from "../tokens"
 import {
-  FunctionRef, UseCaseRef, LabelText, SeqLexer, SeqColon, allSeqTokens,
+  FunctionRef, UseCaseRef, SequenceRef, LabelText, SeqLexer, SeqColon, allSeqTokens,
   SeqArrow, Loop, Alt, Par, Opt, Else, And, End, BlockConditionText,
 } from "./lexer"
 
@@ -141,6 +141,7 @@ export class SequenceDiagramParser extends CstParser {
       this.OR([
         { ALT: () => this.CONSUME(FunctionRef) },
         { ALT: () => this.CONSUME(UseCaseRef) },
+        { ALT: () => this.CONSUME(SequenceRef) },
         { ALT: () => this.CONSUME(LabelText) },
       ])
     })

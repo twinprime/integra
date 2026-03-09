@@ -34,6 +34,17 @@ export const UseCaseRef = createToken({
   pattern: /UseCase:[A-Za-z_][A-Za-z0-9_-]*(?:\/[A-Za-z_][A-Za-z0-9_-]*)*(?::[^\r\n]*)?/,
 })
 
+/**
+ * Matches `Sequence:<path>` or `Sequence:<path>:<label>` where <path> is one or
+ * more slash-separated identifiers (e.g. `Sequence:loginFlow` or
+ * `Sequence:auth/loginFlow:my label`).
+ * Tried before LabelText so it takes priority.
+ */
+export const SequenceRef = createToken({
+  name: "SequenceRef",
+  pattern: /Sequence:[A-Za-z_][A-Za-z0-9_-]*(?:\/[A-Za-z_][A-Za-z0-9_-]*)*(?::[^\r\n]*)?/,
+})
+
 /** Catch-all: rest of line text for plain message labels and note bodies */
 export const LabelText = createToken({
   name: "LabelText",
@@ -136,7 +147,7 @@ const defaultModeTokens = [
 export const seqLexerDefinition = {
   modes: {
     default_mode: defaultModeTokens,
-    text_mode: [NewlineExit, WhiteSpace, FunctionRef, UseCaseRef, LabelText],
+    text_mode: [NewlineExit, WhiteSpace, FunctionRef, UseCaseRef, SequenceRef, LabelText],
     block_header_mode: [BlockNewlineExit, WhiteSpace, BlockConditionText],
   },
   defaultMode: "default_mode",
@@ -150,6 +161,7 @@ export const allSeqTokens = [
   NewlineExit,
   FunctionRef,
   UseCaseRef,
+  SequenceRef,
   LabelText,
   BlockNewlineExit,
   BlockConditionText,

@@ -39,6 +39,13 @@ export interface SeqMessage {
    * `label` is the custom label after the second colon, or null if omitted.
    */
   useCaseRef: { path: string[]; label: string | null } | null
+  /**
+   * Populated when the label matches Sequence:<path>(:label)?.
+   * `path` is an array of segments; last segment is the sequence diagram ID,
+   * preceding segments (if any) are the path to the owning component.
+   * `label` is the custom label after the second colon, or null if omitted.
+   */
+  seqDiagramRef: { path: string[]; label: string | null } | null
   /** Raw label text (undefined if no label) */
   label: string | null
 }
@@ -164,6 +171,7 @@ class SequenceDiagramVisitor extends BaseVisitor {
             label: match[4] ? match[4].replace(/\\n/g, "\n") : null,
           },
           useCaseRef: null,
+          seqDiagramRef: null,
           label: null,
         }
       }
@@ -177,7 +185,18 @@ class SequenceDiagramVisitor extends BaseVisitor {
       const pathStr = secondColonIdx === -1 ? withoutPrefix : withoutPrefix.slice(0, secondColonIdx)
       const label = secondColonIdx === -1 ? null : (withoutPrefix.slice(secondColonIdx + 1) || null)?.replace(/\\n/g, "\n") ?? null
       const path = pathStr.split("/")
-      return { from, to, arrow, functionRef: null, useCaseRef: { path, label }, label: null }
+      return { from, to, arrow, functionRef: null, useCaseRef: { path, label }, seqDiagramRef: null, label: null }
+    }
+
+    if ((ctx.SequenceRef ?? []).length > 0) {
+      const raw = (ctx.SequenceRef as { image: string }[])[0].image
+      // Format: Sequence:<path>(:label)? — strip "Sequence:" prefix
+      const withoutPrefix = raw.slice("Sequence:".length)
+      const secondColonIdx = withoutPrefix.indexOf(":")
+      const pathStr = secondColonIdx === -1 ? withoutPrefix : withoutPrefix.slice(0, secondColonIdx)
+      const label = secondColonIdx === -1 ? null : (withoutPrefix.slice(secondColonIdx + 1) || null)?.replace(/\\n/g, "\n") ?? null
+      const path = pathStr.split("/")
+      return { from, to, arrow, functionRef: null, useCaseRef: null, seqDiagramRef: { path, label }, label: null }
     }
 
     const rawLabel = (ctx.LabelText as { image: string }[] | undefined)?.[0]?.image ?? null
@@ -185,6 +204,7 @@ class SequenceDiagramVisitor extends BaseVisitor {
       from, to, arrow,
       functionRef: null,
       useCaseRef: null,
+      seqDiagramRef: null,
       label: rawLabel ? rawLabel.replace(/\\n/g, "\n") : null,
     }
   }

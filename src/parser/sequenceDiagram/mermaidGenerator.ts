@@ -7,7 +7,7 @@
  */
 import type { ComponentNode } from "../../store/types"
 import { findNodeByPath } from "../../utils/nodeUtils"
-import { findComponentByInterfaceId, findInterfaceUuidByInterfaceId, findInterfaceOwnerPreferReceiver, findInterfaceUuidPreferReceiver, resolveUseCaseByPath } from "../../utils/diagramResolvers"
+import { findComponentByInterfaceId, findInterfaceUuidByInterfaceId, findInterfaceOwnerPreferReceiver, findInterfaceUuidPreferReceiver, resolveUseCaseByPath, resolveSeqDiagramByPath } from "../../utils/diagramResolvers"
 import { findNodeByUuid } from "../../nodes/nodeTree"
 import { parseSequenceDiagramCst } from "./parser"
 import { buildSeqAst, flattenMessages, type SeqAst, type SeqStatement, type SeqMessage, type SeqNote } from "./visitor"
@@ -190,6 +190,18 @@ function emitStatements(
         // Store the clean label as the navigation key; escapeLabel only for Mermaid output.
         const renderedLabel = escapeLabel(mermaidLabel)
         if (ucUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = ucUuid
+        out += `${indent}${fromId}${msg.arrow}${toId}: ${renderedLabel}\n`
+      } else if (msg.seqDiagramRef) {
+        const { path, label: customLabel } = msg.seqDiagramRef
+        const seqId = path[path.length - 1]
+        const seqUuid = ownerComp && ownerCompUuid
+          ? resolveSeqDiagramByPath(path, root, ownerComp, ownerCompUuid)
+          : undefined
+        const seqNode = seqUuid ? findNodeByUuid([root], seqUuid) : null
+        const baseLabel = customLabel ?? seqNode?.name ?? seqId
+        const mermaidLabel = resolveLabel(baseLabel, seqUuid, labelMap)
+        const renderedLabel = escapeLabel(mermaidLabel)
+        if (seqUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = seqUuid
         out += `${indent}${fromId}${msg.arrow}${toId}: ${renderedLabel}\n`
       } else if (msg.label) {
         out += `${indent}${fromId}${msg.arrow}${toId}: ${escapeLabel(msg.label)}\n`

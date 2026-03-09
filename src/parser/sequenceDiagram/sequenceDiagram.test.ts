@@ -1184,3 +1184,174 @@ describe("sequence diagram opt block — spec serializer", () => {
     expect(renamed).not.toContain("A ->>")
   })
 })
+
+// ─── SequenceRef token ─────────────────────────────────────────────────────────
+
+import { SequenceRef } from "./lexer"
+import { resolveSeqDiagramByPath } from "../../utils/diagramResolvers"
+
+describe("SequenceRef — lexer", () => {
+  it("tokenises local Sequence reference (no slash)", () => {
+    const result = SeqLexer.tokenize("actor sender\nsender ->> receiver: Sequence:loginFlow")
+    const toks = result.tokens.filter((t) => t.tokenType === SequenceRef)
+    expect(toks).toHaveLength(1)
+    expect(toks[0].image).toBe("Sequence:loginFlow")
+  })
+
+  it("tokenises path Sequence reference (with slashes)", () => {
+    const result = SeqLexer.tokenize("actor sender\nsender ->> receiver: Sequence:auth/loginFlow")
+    const toks = result.tokens.filter((t) => t.tokenType === SequenceRef)
+    expect(toks).toHaveLength(1)
+    expect(toks[0].image).toBe("Sequence:auth/loginFlow")
+  })
+
+  it("tokenises Sequence reference with custom label", () => {
+    const result = SeqLexer.tokenize("actor sender\nsender ->> receiver: Sequence:loginFlow:Log In")
+    const toks = result.tokens.filter((t) => t.tokenType === SequenceRef)
+    expect(toks).toHaveLength(1)
+    expect(toks[0].image).toBe("Sequence:loginFlow:Log In")
+  })
+
+  it("does NOT tokenise plain labels as SequenceRef", () => {
+    const result = SeqLexer.tokenize("actor sender\nsender ->> receiver: some plain label")
+    const toks = result.tokens.filter((t) => t.tokenType === SequenceRef)
+    expect(toks).toHaveLength(0)
+  })
+})
+
+describe("SequenceRef — visitor (SeqMessage.seqDiagramRef)", () => {
+  it("populates seqDiagramRef for local reference", () => {
+    const { ast } = parse("actor a\ncomponent b\na ->> b: Sequence:loginFlow")
+    expect(ast.messages[0].seqDiagramRef).toEqual({ path: ["loginFlow"], label: null })
+    expect(ast.messages[0].functionRef).toBeNull()
+    expect(ast.messages[0].useCaseRef).toBeNull()
+    expect(ast.messages[0].label).toBeNull()
+  })
+
+  it("populates seqDiagramRef for path reference", () => {
+    const { ast } = parse("actor a\ncomponent b\na ->> b: Sequence:auth/loginFlow")
+    expect(ast.messages[0].seqDiagramRef).toEqual({ path: ["auth", "loginFlow"], label: null })
+  })
+
+  it("populates seqDiagramRef with custom label", () => {
+    const { ast } = parse("actor a\ncomponent b\na ->> b: Sequence:loginFlow:Log In")
+    expect(ast.messages[0].seqDiagramRef).toEqual({ path: ["loginFlow"], label: "Log In" })
+  })
+
+  it("does NOT set seqDiagramRef for FunctionRef messages", () => {
+    const { ast } = parse("actor a\ncomponent b\na ->> b: IFace:fn()")
+    expect(ast.messages[0].seqDiagramRef).toBeNull()
+  })
+
+  it("does NOT set seqDiagramRef for UseCaseRef messages", () => {
+    const { ast } = parse("actor a\ncomponent b\na ->> b: UseCase:placeOrder")
+    expect(ast.messages[0].seqDiagramRef).toBeNull()
+    expect(ast.messages[0].useCaseRef).not.toBeNull()
+  })
+
+  it("does NOT set seqDiagramRef for plain label messages", () => {
+    const { ast } = parse("actor a\ncomponent b\na ->> b: hello world")
+    expect(ast.messages[0].seqDiagramRef).toBeNull()
+  })
+})
+
+describe("resolveSeqDiagramByPath", () => {
+  const makeSeq = (uuid: string, id: string, name = id) => ({
+    uuid, id, name, type: "sequence-diagram" as const,
+    ownerComponentUuid: "", referencedNodeIds: [], referencedFunctionUuids: [], content: "",
+  })
+  const makeUc = (uuid: string, id: string, seqIds: { id: string; name?: string }[]) => ({
+    uuid, id, name: id, type: "use-case" as const,
+    sequenceDiagrams: seqIds.map((s) => makeSeq(`${uuid}-${s.id}-uuid`, s.id, s.name ?? s.id)),
+  })
+  const makeUcd = (uuid: string, ucs: ReturnType<typeof makeUc>[]) => ({
+    uuid, id: "ucd", name: "ucd", type: "use-case-diagram" as const,
+    ownerComponentUuid: "", referencedNodeIds: [], content: "",
+    useCases: ucs,
+  })
+  const makeCompWithSeqs = (uuid: string, id: string, seqIds: { id: string; name?: string }[]): ComponentNode => ({
+    uuid, id, name: id, type: "component",
+    actors: [], subComponents: [], interfaces: [],
+    useCaseDiagrams: [makeUcd(`${uuid}-ucd`, [makeUc(`${uuid}-uc`, "uc", seqIds)])],
+  })
+
+  it("resolves local sequence diagram (no compPath)", () => {
+    const owner = makeCompWithSeqs("owner-uuid", "owner", [{ id: "loginFlow" }])
+    const root = makeNamedComp("root-uuid", "root", "root", [owner])
+    const result = resolveSeqDiagramByPath(["loginFlow"], root, owner, "owner-uuid")
+    expect(result).toBe("owner-uuid-uc-loginFlow-uuid")
+  })
+
+  it("resolves sequence diagram in a sibling component by absolute path", () => {
+    const auth = makeCompWithSeqs("auth-uuid", "auth", [{ id: "loginFlow" }])
+    const owner = makeNamedComp("owner-uuid", "owner", "owner")
+    const root = makeNamedComp("root-uuid", "root", "root", [owner, auth])
+    const result = resolveSeqDiagramByPath(["auth", "loginFlow"], root, owner, "owner-uuid")
+    expect(result).toBe("auth-uuid-uc-loginFlow-uuid")
+  })
+
+  it("returns undefined for unknown sequence diagram id", () => {
+    const owner = makeCompWithSeqs("owner-uuid", "owner", [{ id: "loginFlow" }])
+    const root = makeNamedComp("root-uuid", "root", "root", [owner])
+    const result = resolveSeqDiagramByPath(["unknown"], root, owner, "owner-uuid")
+    expect(result).toBeUndefined()
+  })
+
+  it("returns undefined for unknown component path", () => {
+    const owner = makeCompWithSeqs("owner-uuid", "owner", [{ id: "loginFlow" }])
+    const root = makeNamedComp("root-uuid", "root", "root", [owner])
+    const result = resolveSeqDiagramByPath(["nonexistent", "loginFlow"], root, owner, "owner-uuid")
+    expect(result).toBeUndefined()
+  })
+})
+
+describe("generateSequenceMermaidFromAst — SequenceRef messages", () => {
+  const makeCompWithSeqs2 = (uuid: string, id: string, seqs: { id: string; name: string }[]): ComponentNode => ({
+    uuid, id, name: id, type: "component",
+    actors: [], subComponents: [], interfaces: [],
+    useCaseDiagrams: [{
+      uuid: `${uuid}-ucd`, id: "ucd", name: "ucd", type: "use-case-diagram",
+      ownerComponentUuid: uuid, referencedNodeIds: [], content: "",
+      useCases: [{
+        uuid: `${uuid}-uc`, id: "uc", name: "uc", type: "use-case",
+        sequenceDiagrams: seqs.map((s) => ({
+          uuid: `${uuid}-uc-${s.id}-uuid`, id: s.id, name: s.name, type: "sequence-diagram" as const,
+          ownerComponentUuid: uuid, referencedNodeIds: [], referencedFunctionUuids: [], content: "",
+        })),
+      }],
+    }],
+  })
+
+  it("renders local SequenceRef using sequence diagram name as label", () => {
+    const owner = makeCompWithSeqs2("owner-uuid", "owner", [{ id: "loginFlow", name: "Login Flow" }])
+    const root = makeNamedComp("root-uuid", "root", "root", [owner])
+    const ast = parseAst("actor customer\ncustomer ->> customer: Sequence:loginFlow")
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root, "owner-uuid")
+    expect(mermaidContent).toContain("customer->>customer: Login Flow")
+  })
+
+  it("renders SequenceRef with custom label overriding sequence diagram name", () => {
+    const owner = makeCompWithSeqs2("owner-uuid", "owner", [{ id: "loginFlow", name: "Login Flow" }])
+    const root = makeNamedComp("root-uuid", "root", "root", [owner])
+    const ast = parseAst("actor customer\ncustomer ->> customer: Sequence:loginFlow:Custom Label")
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root, "owner-uuid")
+    expect(mermaidContent).toContain("customer->>customer: Custom Label")
+  })
+
+  it("falls back to seqId when sequence diagram is not in tree", () => {
+    const owner = makeNamedComp("owner-uuid", "owner", "owner")
+    const root = makeNamedComp("root-uuid", "root", "root", [owner])
+    const ast = parseAst("actor customer\ncustomer ->> customer: Sequence:unknownSeq")
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root, "owner-uuid")
+    expect(mermaidContent).toContain("customer->>customer: unknownSeq")
+  })
+
+  it("populates messageLabelToUuid for SequenceRef using the rendered display label as key", () => {
+    const owner = makeCompWithSeqs2("owner-uuid", "owner", [{ id: "loginFlow", name: "Login Flow" }])
+    const root = makeNamedComp("root-uuid", "root", "root", [owner])
+    const ast = parseAst("actor customer\ncustomer ->> customer: Sequence:loginFlow")
+    const { messageLabelToUuid } = generateSequenceMermaidFromAst(ast, owner, root, "owner-uuid")
+    expect(messageLabelToUuid["Login Flow"]).toBe("owner-uuid-uc-loginFlow-uuid")
+    expect(messageLabelToUuid["Sequence:loginFlow"]).toBeUndefined()
+  })
+})
