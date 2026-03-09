@@ -27,7 +27,7 @@ import {
   type DiagramContext,
   type AnnotatedSeg,
 } from "./codemirror/integraLanguage"
-import { integraTheme } from "./codemirror/integraTheme"
+import { integraTheme, integraLinkCursorTheme } from "./codemirror/integraTheme"
 import { integraAutocomplete, type CompletionContext } from "./codemirror/integraAutocomplete"
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -134,6 +134,7 @@ export function DiagramCodeMirrorEditor({
 
   // Compartments for runtime reconfiguration
   const readOnlyCompartment = useRef(new Compartment())
+  const linkCursorCompartment = useRef(new Compartment())
 
   // ── Create EditorView once on mount ────────────────────────────────────────
 
@@ -183,6 +184,7 @@ export function DiagramCodeMirrorEditor({
       updateListener,
       navPlugin,
       readOnlyCompartment.current.of(EditorState.readOnly.of(readonly)),
+      linkCursorCompartment.current.of(readonly ? integraLinkCursorTheme : []),
       EditorView.lineWrapping,
     ]
 
@@ -222,9 +224,10 @@ export function DiagramCodeMirrorEditor({
 
   useEffect(() => {
     viewRef.current?.dispatch({
-      effects: readOnlyCompartment.current.reconfigure(
-        EditorState.readOnly.of(readonly),
-      ),
+      effects: [
+        readOnlyCompartment.current.reconfigure(EditorState.readOnly.of(readonly)),
+        linkCursorCompartment.current.reconfigure(readonly ? integraLinkCursorTheme : []),
+      ],
     })
   }, [readonly])
 

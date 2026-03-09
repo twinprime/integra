@@ -19,10 +19,20 @@ export const integraHighlightTheme: Extension = EditorView.baseTheme({
   ".cm-integra-kw": { color: "#c084fc" },
   ".cm-integra-name": { color: "#fde047" },
   ".cm-integra-op": { color: "#9ca3af" },
-  ".cm-integra-id": { color: "#60a5fa", cursor: "pointer" },
-  ".cm-integra-fn": { color: "#4ade80", cursor: "pointer" },
+  ".cm-integra-id": { color: "#60a5fa" },
+  ".cm-integra-fn": { color: "#4ade80" },
   ".cm-integra-label": { color: "#fdba74" },
   ".cm-integra-default": { color: "#d1d5db" },
+})
+
+/**
+ * Adds pointer cursor to navigable token classes.
+ * Include this extension only when the editor is in readonly (preview) mode,
+ * so the cursor does not change when hovering over links in edit mode.
+ */
+export const integraLinkCursorTheme: Extension = EditorView.baseTheme({
+  ".cm-integra-id": { cursor: "pointer" },
+  ".cm-integra-fn": { cursor: "pointer" },
 })
 
 /** Styles the overall editor container to match the dark UI */
