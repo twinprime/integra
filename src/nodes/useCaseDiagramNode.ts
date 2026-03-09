@@ -4,7 +4,7 @@ import type {
   DiagramNode,
   Node,
 } from "../store/types"
-import { applyIdRenameInUseCase, findParentInUseCase } from "./useCaseNode"
+import { applyIdRenameInUseCase, deleteFromUseCase, findParentInUseCase } from "./useCaseNode"
 import { updateDescriptionRefs } from "../utils/renameNodeId"
 import { renameInUcdSpec } from "../parser/useCaseDiagram/specSerializer"
 import type { NodeHandler } from "./nodeHandler"
@@ -19,7 +19,9 @@ export const deleteFromUcDiag = (
   uuid: string,
 ): UseCaseDiagramNode => ({
   ...ucd,
-  useCases: ucd.useCases.filter((uc) => uc.uuid !== uuid),
+  useCases: ucd.useCases
+    .filter((uc) => uc.uuid !== uuid)
+    .map((uc) => deleteFromUseCase(uc, uuid)),
 })
 
 export const upsertInUcDiag = (
