@@ -16,6 +16,14 @@ export interface NodeHandler {
    */
   canDelete?: boolean
 
+  /**
+   * When true, an unreferenced node of this type is considered a dead-weight orphan
+   * and rendered with strikethrough styling in the tree.
+   * Absent/false = the node is deletable when unreferenced but not styled as an orphan
+   * (e.g. sequence diagrams are standalone artifacts, not dead weight).
+   */
+  orphanWhenUnreferenced?: boolean
+
   /** Return all direct children of this node. */
   getChildren(node: Node): Node[]
 

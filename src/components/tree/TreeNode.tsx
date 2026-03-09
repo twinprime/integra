@@ -3,6 +3,7 @@ import { ChevronRight, ChevronDown, Trash2 } from "lucide-react"
 import { useSystemStore } from "../../store/useSystemStore"
 import type { Node, ComponentNode } from "../../store/types"
 import { isNodeOrphaned } from "../../utils/nodeUtils"
+import { getNodeHandler } from "../../nodes/nodeTree"
 import { NodeIcon } from "./NodeIcon"
 
 interface TreeNodeProps {
@@ -21,6 +22,7 @@ export const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
 
   const isSelected = selectedNodeId === node.uuid
   const isDeletable = node.uuid !== rootComponent.uuid && isNodeOrphaned(node, rootComponent)
+  const isOrphaned = isDeletable && !!getNodeHandler(node.type).orphanWhenUnreferenced
 
   let children: Node[] = []
   if (node.type === "component") {
@@ -84,7 +86,7 @@ export const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
         </div>
         <div
           className={`flex-1 overflow-hidden text-ellipsis whitespace-nowrap ${
-            isDeletable ? "line-through text-gray-500" : ""
+            isOrphaned ? "line-through text-gray-500" : ""
           }`}
         >
           {node.name}

@@ -25,6 +25,7 @@ export const collectDiagramsFromComponent = (comp: ComponentNode): DiagramRef[] 
 
 export const componentHandler: NodeHandler = {
   canDelete: true,
+  orphanWhenUnreferenced: true,
   getChildren: (node) => getComponentChildren(node as ComponentNode),
   deleteChild: (node, uuid) => deleteFromComponent(node as ComponentNode, uuid),
   upsertChild: (node, _uuid, updater) => {

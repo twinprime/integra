@@ -41,6 +41,7 @@ const noopLeafHandler: NodeHandler = {
 const actorHandler: NodeHandler = {
   ...noopLeafHandler,
   canDelete: true,
+  orphanWhenUnreferenced: true,
   addToComponent: (comp, node) => ({ ...comp, actors: [...comp.actors, node as ActorNode] }),
 }
 
