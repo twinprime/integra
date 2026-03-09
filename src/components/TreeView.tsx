@@ -8,7 +8,7 @@ import {
   Redo2,
 } from "lucide-react"
 import { useSystemStore } from "../store/useSystemStore"
-import type { Node, ComponentNode, UseCaseDiagramNode, UseCaseNode, SequenceDiagramNode } from "../store/types"
+import type { Node, ComponentNode, UseCaseDiagramNode, SequenceDiagramNode } from "../store/types"
 import { ContextMenu } from "./ContextMenu"
 import yaml from "js-yaml"
 import { isNodeOrphaned, findParentNode } from "../utils/nodeUtils"
@@ -127,21 +127,18 @@ export const TreeView = () => {
     setContextMenu(null)
   }
 
-  const handleAddNode = (type: "use-case-diagram" | "use-case" | "sequence-diagram") => {
+  const handleAddNode = (type: "use-case-diagram" | "sequence-diagram") => {
     if (!contextMenu) return
 
-    let name: string | null
-    if (type === "use-case-diagram") {
-      name = prompt("Enter use case diagram name", "New Use Case Diagram")
-    } else if (type === "use-case") {
-      name = prompt("Enter use case name", "New Use Case")
-    } else {
-      name = prompt("Enter sequence diagram name", "New Sequence Diagram")
+    const label = type === "use-case-diagram" ? "use case diagram" : "sequence diagram"
+    const id = prompt(`Enter ${label} ID (e.g. my-feature)`)?.trim()
+    if (!id) return
+    if (!/^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(id)) {
+      alert(`Invalid ID "${id}". Must start with a letter or _ and contain only letters, digits, _ or -.`)
+      return
     }
-    
-    if (!name) return
 
-    const id = name.toLowerCase().replaceAll(/\s+/g, "-") + "-" + Date.now()
+    const name = id.split(/[_-]/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
     const uuid = crypto.randomUUID()
 
     const findOwnerComponent = (node: Node): string | null => {
@@ -159,12 +156,6 @@ export const TreeView = () => {
         ownerComponentUuid: contextMenu.node.uuid,
         useCases: [],
       } satisfies UseCaseDiagramNode
-    } else if (type === "use-case") {
-      newNode = {
-        uuid, id, name, type,
-        description: "",
-        sequenceDiagrams: [],
-      } satisfies UseCaseNode
     } else {
       newNode = {
         uuid, id, name, type,
