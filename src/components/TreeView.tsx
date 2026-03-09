@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react"
 import { Download, Upload, RotateCcw, Undo2, Redo2 } from "lucide-react"
+import integraLogo from "../assets/integra-logo.svg"
 import { useSystemStore } from "../store/useSystemStore"
 import type {
   Node,
@@ -250,8 +251,8 @@ export const TreeView = () => {
   return (
     <>
       <div className="p-4 border-b border-gray-800 font-semibold text-gray-300 bg-gray-800/50 backdrop-blur-sm flex items-center justify-between">
-        <span className="flex items-center gap-2">
-          System Explorer
+        <span className="flex items-center gap-2" title="Integra">
+          <img src={integraLogo} width={18} height={18} alt="Integra" />
           {hasUnsavedChanges && (
             <span
               className="text-xs font-normal text-yellow-500"
