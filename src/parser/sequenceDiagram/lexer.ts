@@ -12,6 +12,39 @@
 import { createToken, Lexer } from "chevrotain"
 import { sharedTokens, Colon as SharedColon, Arrow as SharedArrow, Newline, WhiteSpace, Identifier } from "../tokens"
 
+// ─── Indent token (default_mode only) ────────────────────────────────────────
+
+/**
+ * Matches leading whitespace at the start of a line (right after a \n).
+ * Returns null for blank lines (whitespace followed immediately by \n or \r\n)
+ * so they continue to be silently skipped by the WhiteSpace token.
+ * Must be placed before WhiteSpace in the token list so it gets priority.
+ */
+export const Indent = createToken({
+  name: "Indent",
+  pattern: (text, offset) => {
+    if (offset === 0 || text[offset - 1] !== "\n") return null
+    const match = /^[ \t]+/.exec(text.slice(offset))
+    if (!match) return null
+    const afterIndent = offset + match[0].length
+    if (afterIndent >= text.length || text[afterIndent] === "\n" || text[afterIndent] === "\r") return null
+    return match
+  },
+  line_breaks: false,
+})
+
+// ─── Comment token (default_mode only) ───────────────────────────────────────
+
+/**
+ * Matches a standalone comment starting with `#` through end-of-line.
+ * Comments may only appear on their own line (possibly preceded by an Indent).
+ * Must be placed before Identifier in the token list so it takes priority.
+ */
+export const Comment = createToken({
+  name: "Comment",
+  pattern: /#[^\r\n]*/,
+})
+
 // ─── Label / note text tokens (only in text_mode) ─────────────────────────────
 
 /**
@@ -136,11 +169,18 @@ const sharedWithSeqTokens = sharedTokens
   .map((t) => (t === SharedColon ? SeqColon : t))
   .map((t) => (t === SharedArrow ? SeqArrow : t))
 
-// Insert block keywords before Identifier (so they have lexer priority)
+// Insert block keywords before Identifier (so they have lexer priority).
+// Indent must come first (before WhiteSpace) so it wins at line starts.
+// Comment must come before Identifier so `#` is not misidentified.
+const whitespaceIdx = sharedWithSeqTokens.indexOf(WhiteSpace)
 const identifierIdx = sharedWithSeqTokens.indexOf(Identifier)
 const defaultModeTokens = [
-  ...sharedWithSeqTokens.slice(0, identifierIdx),
+  Indent,                                                          // before WhiteSpace
+  ...sharedWithSeqTokens.slice(0, whitespaceIdx),
+  WhiteSpace,
+  ...sharedWithSeqTokens.slice(whitespaceIdx + 1, identifierIdx),
   Loop, Alt, Par, Opt, Else, And, End,
+  Comment,                                                         // before Identifier
   ...sharedWithSeqTokens.slice(identifierIdx),
 ]
 

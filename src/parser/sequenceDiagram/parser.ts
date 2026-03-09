@@ -26,7 +26,7 @@ import {
 } from "../tokens"
 import {
   FunctionRef, UseCaseRef, SequenceRef, LabelText, SeqLexer, SeqColon, allSeqTokens,
-  SeqArrow, Loop, Alt, Par, Opt, Else, And, End, BlockConditionText,
+  SeqArrow, Loop, Alt, Par, Opt, Else, And, End, BlockConditionText, Indent, Comment,
 } from "./lexer"
 
 export class SequenceDiagramParser extends CstParser {
@@ -51,12 +51,18 @@ export class SequenceDiagramParser extends CstParser {
   })
 
   seqStatement = this.RULE("seqStatement", () => {
+    this.OPTION(() => this.CONSUME(Indent))
     this.OR([
       { ALT: () => this.SUBRULE(this.seqDeclaration) },
       { ALT: () => this.SUBRULE(this.seqNote) },
       { ALT: () => this.SUBRULE(this.seqBlock) },
+      { ALT: () => this.SUBRULE(this.seqComment) },
       { ALT: () => this.SUBRULE(this.seqMessage) },
     ])
+  })
+
+  seqComment = this.RULE("seqComment", () => {
+    this.CONSUME(Comment)
   })
 
   // ─── Declaration ────────────────────────────────────────────────────────────
@@ -174,17 +180,19 @@ export class SequenceDiagramParser extends CstParser {
     // Additional sections (else for alt, and for par)
     this.MANY3(() => this.SUBRULE(this.seqBlockSection))
 
+    this.OPTION2(() => this.CONSUME(Indent)) // consume indent before `end` (serializer reuses block.indent)
     this.CONSUME(End)
   })
 
   seqBlockSection = this.RULE("seqBlockSection", () => {
+    this.OPTION(() => this.CONSUME(Indent))
     // Section keyword — lexer pushes block_header_mode
     this.OR([
       { ALT: () => this.CONSUME(Else) },
       { ALT: () => this.CONSUME(And) },
     ])
     // Optional condition text + newline (in block_header_mode)
-    this.OPTION(() => this.CONSUME(BlockConditionText))
+    this.OPTION2(() => this.CONSUME(BlockConditionText))
     this.CONSUME(Newline)
     this.MANY(() => this.CONSUME2(Newline))
 
@@ -214,4 +222,4 @@ export {
   Actor, Component, As, Note, Right, Left, Of, Over,
   Arrow, Slash, Comma, Newline, Identifier, NumberToken,
 } from "../tokens"
-export { FunctionRef, UseCaseRef, LabelText, SeqColon, SeqArrow, Loop, Alt, Par, Opt, Else, And, End, BlockConditionText } from "./lexer"
+export { FunctionRef, UseCaseRef, LabelText, SeqColon, SeqArrow, Loop, Alt, Par, Opt, Else, And, End, BlockConditionText, Indent, Comment } from "./lexer"

@@ -285,3 +285,69 @@ describe("renameInSeqSpec — invalid spec fallback", () => {
     expect(renameInSeqSpec("", "login", "signIn")).toBe("")
   })
 })
+
+// ─── Indentation preservation ─────────────────────────────────────────────────
+
+describe("seqAstToSpec — indentation preservation", () => {
+  it("round-trips a loop with 2-space indented body", () => {
+    const spec = "actor a\nloop\n  a ->> b: call\nend"
+    expect(roundTrip(spec)).toBe(spec)
+  })
+
+  it("round-trips a loop with 4-space indented body", () => {
+    const spec = "actor a\nopt condition\n    a ->> b: call\nend"
+    expect(roundTrip(spec)).toBe(spec)
+  })
+
+  it("round-trips a loop with tab-indented body", () => {
+    const spec = "actor a\nloop\n\ta ->> b: call\nend"
+    expect(roundTrip(spec)).toBe(spec)
+  })
+
+  it("round-trips a nested block preserving both indent levels", () => {
+    const spec = "actor a\nloop outer\n  opt inner\n    a ->> b: call\n  end\nend"
+    expect(roundTrip(spec)).toBe(spec)
+  })
+
+  it("round-trips an alt with else preserving all indents", () => {
+    const spec = "actor a\nalt success\n  a ->> b: ok\nelse failure\n  a ->> b: fail\nend"
+    expect(roundTrip(spec)).toBe(spec)
+  })
+
+  it("preserves indentation of notes inside a block", () => {
+    const spec = "actor a\nloop\n  note right of a: some text\nend"
+    expect(roundTrip(spec)).toBe(spec)
+  })
+
+  it("preserves indentation when renaming a participant inside an indented block", () => {
+    const input  = "actor a\nloop\n  a ->> b: call\nend"
+    const output = "actor user\nloop\n  user ->> b: call\nend"
+    expect(renameInSeqSpec(input, "a", "user")).toBe(output)
+  })
+})
+
+// ─── Comment preservation ─────────────────────────────────────────────────────
+
+describe("seqAstToSpec — comment preservation", () => {
+  it("round-trips a top-level comment line", () => {
+    const spec = "actor a\n# this is a comment\na ->> b: call"
+    expect(roundTrip(spec)).toBe(spec)
+  })
+
+  it("round-trips an indented comment inside a block", () => {
+    const spec = "actor a\nloop\n  # fetch data\n  a ->> b: call\nend"
+    expect(roundTrip(spec)).toBe(spec)
+  })
+
+  it("round-trips a comment between messages", () => {
+    const spec = "actor a\na ->> b: first\n# mid-flow comment\na ->> b: second"
+    expect(roundTrip(spec)).toBe(spec)
+  })
+
+  it("does not alter comment text when renaming a matching ID", () => {
+    const spec = "actor a\n# participant a sends a message\na ->> b: call"
+    expect(renameInSeqSpec(spec, "a", "user")).toBe(
+      "actor user\n# participant a sends a message\nuser ->> b: call",
+    )
+  })
+})

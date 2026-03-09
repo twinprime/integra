@@ -11,7 +11,7 @@ import { parseSequenceDiagramCst } from "./parser"
 import {
   buildSeqAst,
   type SeqAst, type SeqDeclaration, type SeqMessage, type SeqMessageContent, type SeqNote,
-  type SeqBlock, type SeqBlockSection, type SeqStatement,
+  type SeqBlock, type SeqBlockSection, type SeqStatement, type SeqComment,
 } from "./visitor"
 
 // Compile-time exhaustiveness guard
@@ -74,25 +74,28 @@ function sectionKeyword(kind: "loop" | "alt" | "par" | "opt"): string {
 }
 
 function serializeBlock(block: SeqBlock): string {
+  const bi = block.indent ?? ""
   const lines: string[] = []
   const [first, ...rest] = block.sections
   const headerGuard = first.guard ? ` ${first.guard}` : ""
-  lines.push(`${block.kind}${headerGuard}`)
+  lines.push(`${bi}${block.kind}${headerGuard}`)
   lines.push(...serializeStatements(first.statements))
   for (const section of rest) {
     const secGuard = section.guard ? ` ${section.guard}` : ""
-    lines.push(`${sectionKeyword(block.kind)}${secGuard}`)
+    const si = section.indent ?? bi
+    lines.push(`${si}${sectionKeyword(block.kind)}${secGuard}`)
     lines.push(...serializeStatements(section.statements))
   }
-  lines.push("end")
+  lines.push(`${bi}end`)
   return lines.join("\n")
 }
 
 function serializeStatements(statements: SeqStatement[]): string[] {
   return statements.map((stmt) => {
     if ("sections" in stmt) return serializeBlock(stmt as SeqBlock)
-    if ("position" in stmt) return serializeNote(stmt as SeqNote)
-    return serializeMessage(stmt as SeqMessage)
+    if ("position" in stmt) return (stmt.indent ?? "") + serializeNote(stmt as SeqNote)
+    if (!("from" in stmt)) return ((stmt as SeqComment).indent ?? "") + (stmt as SeqComment).text
+    return (stmt.indent ?? "") + serializeMessage(stmt as SeqMessage)
   })
 }
 
@@ -181,6 +184,7 @@ function renameStatements(statements: SeqStatement[], oldId: string, newId: stri
       return { ...block, sections: block.sections.map((s) => renameBlockSection(s, oldId, newId)) }
     }
     if ("position" in stmt) return renameNote(stmt as SeqNote, oldId, newId)
+    if (!("from" in stmt)) return stmt // SeqComment — no IDs to rename, pass through unchanged
     return renameMessage(stmt as SeqMessage, oldId, newId)
   })
 }

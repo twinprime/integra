@@ -29,6 +29,8 @@ export interface SeqMessage {
    * Adding a new kind here forces a compile error in every exhaustive switch consumer.
    */
   content: SeqMessageContent
+  /** Leading whitespace from the original source line, preserved for round-trip fidelity. */
+  indent?: string
 }
 
 /**
@@ -67,6 +69,8 @@ export interface SeqNote {
     | { kind: "side"; side: "right" | "left"; participant: string }
     | { kind: "over"; participants: [string, string | null] }
   text: string
+  /** Leading whitespace from the original source line, preserved for round-trip fidelity. */
+  indent?: string
 }
 
 export interface SeqBlockSection {
@@ -74,15 +78,26 @@ export interface SeqBlockSection {
   guard: string | null
   /** Statements in this section — may contain nested SeqBlocks */
   statements: SeqStatement[]
+  /** Leading whitespace of the `else`/`and` keyword line, preserved for round-trip fidelity. */
+  indent?: string
 }
 
 export interface SeqBlock {
   kind: "loop" | "alt" | "par" | "opt"
   sections: SeqBlockSection[]
+  /** Leading whitespace of the block header and `end` line, preserved for round-trip fidelity. */
+  indent?: string
+}
+
+export interface SeqComment {
+  /** Full comment text including the leading `#` */
+  text: string
+  /** Leading whitespace from the original source line, preserved for round-trip fidelity. */
+  indent?: string
 }
 
 /** Union of all statement types that can appear in a sequence diagram body */
-export type SeqStatement = SeqMessage | SeqNote | SeqBlock
+export type SeqStatement = SeqMessage | SeqNote | SeqBlock | SeqComment
 
 export interface SeqAst {
   declarations: SeqDeclaration[]
@@ -112,10 +127,18 @@ class SequenceDiagramVisitor extends BaseVisitor {
   }
 
   seqStatement(ctx: Record<string, unknown[]>): SeqDeclaration | SeqStatement {
+    const indent = (ctx.Indent as Array<{ image: string }> | undefined)?.[0]?.image
     if (ctx.seqDeclaration) return this.visit(ctx.seqDeclaration as never) as SeqDeclaration
-    if (ctx.seqNote) return this.visit(ctx.seqNote as never) as SeqNote
-    if (ctx.seqBlock) return this.visit(ctx.seqBlock as never) as SeqBlock
-    return this.visit(ctx.seqMessage as never) as SeqMessage
+    const stmt: SeqStatement =
+      ctx.seqNote    ? this.visit(ctx.seqNote as never) as SeqNote :
+      ctx.seqBlock   ? this.visit(ctx.seqBlock as never) as SeqBlock :
+      ctx.seqComment ? this.visit(ctx.seqComment as never) as SeqComment :
+                       this.visit(ctx.seqMessage as never) as SeqMessage
+    return indent ? { ...stmt, indent } : stmt
+  }
+
+  seqComment(ctx: Record<string, { image: string }[]>): SeqComment {
+    return { text: ctx.Comment[0].image }
   }
 
   seqDeclaration(ctx: Record<string, { image: string }[]>): SeqDeclaration {
@@ -221,13 +244,17 @@ class SequenceDiagramVisitor extends BaseVisitor {
       sections.push(this.visit(sectionNode as never) as SeqBlockSection)
     }
 
+    // Indent is stored on the block itself (used for header + `end` line)
+    // Note: the Indent before `end` is consumed by the parser but not stored separately —
+    // the serializer reuses block.indent for the `end` line.
     return { kind, sections }
   }
 
   seqBlockSection(ctx: Record<string, unknown[]>): SeqBlockSection {
+    const indent = (ctx.Indent as Array<{ image: string }> | undefined)?.[0]?.image
     const guard = (ctx.BlockConditionText as { image: string }[] | undefined)?.[0]?.image?.trim() ?? null
     const statements = this._visitSectionStatements(ctx)
-    return { guard, statements }
+    return indent ? { guard, statements, indent } : { guard, statements }
   }
 
   private _visitSectionStatements(ctx: Record<string, unknown[]>): SeqStatement[] {
