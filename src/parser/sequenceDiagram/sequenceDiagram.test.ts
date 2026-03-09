@@ -120,7 +120,7 @@ describe("sequence diagram parser — messages", () => {
 
   it("parses a function ref with multiple parameters", () => {
     const { ast } = parse("a ->> b: IFace:fn(x: string, y: number)")
-    expect((ast.messages[0].content as any).rawParams).toBe("x: string, y: number")
+    expect((ast.messages[0].content as { rawParams: string }).rawParams).toBe("x: string, y: number")
   })
 
   it("parses a function ref with a display label suffix", () => {
@@ -136,7 +136,7 @@ describe("sequence diagram parser — messages", () => {
 
   it("converts \\n escape to newline in function ref display label", () => {
     const { ast } = parse("a ->> b: IFace:login():Line1\\nLine2")
-    expect((ast.messages[0].content as any).label).toBe("Line1\nLine2")
+    expect((ast.messages[0].content as { label: string | null }).label).toBe("Line1\nLine2")
   })
 
   it("tokenises function-ref with display label as a single FunctionRef token", () => {
@@ -148,13 +148,13 @@ describe("sequence diagram parser — messages", () => {
 
   it("function-ref without display label has null label", () => {
     const { ast } = parse("a ->> b: IFace:trigger()")
-    expect((ast.messages[0].content as any).label).toBeNull()
+    expect((ast.messages[0].content as { label: string | null }).label).toBeNull()
   })
 
   it("function-ref with trailing colon and empty label has null label", () => {
     const { ast } = parse("a ->> b: IFace:trigger():")
     expect(ast.messages[0].content.kind).toBe("functionRef")
-    expect((ast.messages[0].content as any).label).toBeNull()
+    expect((ast.messages[0].content as { label: string | null }).label).toBeNull()
   })
 
   it("parses a self-referencing message", () => {
@@ -175,9 +175,9 @@ adict ->> adict: stop event recording and remove recorded data`
     expect(parseErrors).toHaveLength(0)
     expect(ast.declarations).toHaveLength(3)
     expect(ast.messages).toHaveLength(4)
-    expect((ast.messages[0].content as any).text).toBe("view running simulations")
-    expect((ast.messages[2].content as any).interfaceId).toBe("EventRecording")
-    expect((ast.messages[3].content as any).text).toBe("stop event recording and remove recorded data")
+    expect((ast.messages[0].content as { text: string }).text).toBe("view running simulations")
+    expect((ast.messages[2].content as { interfaceId: string }).interfaceId).toBe("EventRecording")
+    expect((ast.messages[3].content as { text: string }).text).toBe("stop event recording and remove recorded data")
   })
 })
 
@@ -213,7 +213,7 @@ describe("sequence diagram parser — notes", () => {
 describe("sequence diagram parser — label escapes", () => {
   it("replaces \\n with newline in plain-text labels", () => {
     const { ast } = parse("a ->> b: first\\nsecond")
-    expect((ast.messages[0].content as any).text).toBe("first\nsecond")
+    expect((ast.messages[0].content as { text: string }).text).toBe("first\nsecond")
   })
 })
 
@@ -344,7 +344,7 @@ describe("sequence diagram parser — edge cases", () => {
   it("handles input without trailing newline after labeled message", () => {
     const { ast, parseErrors } = parse("a ->> b: some label")
     expect(parseErrors).toHaveLength(0)
-    expect((ast.messages[0].content as any).text).toBe("some label")
+    expect((ast.messages[0].content as { text: string }).text).toBe("some label")
   })
 })
 
@@ -572,7 +572,7 @@ describe("UseCaseRef — visitor (SeqMessage.useCaseRef)", () => {
 
   it("converts \\n escape to newline in use case ref custom label", () => {
     const { ast } = parse("actor a\ncomponent b\na ->> b: UseCase:placeOrder:Place\\nOrder")
-    expect((ast.messages[0].content as any).label).toBe("Place\nOrder")
+    expect((ast.messages[0].content as { label: string | null }).label).toBe("Place\nOrder")
   })
 
   it("does NOT set useCaseRef for FunctionRef messages", () => {
@@ -584,7 +584,7 @@ describe("UseCaseRef — visitor (SeqMessage.useCaseRef)", () => {
   it("does NOT set useCaseRef for plain label messages", () => {
     const { ast } = parse("actor a\ncomponent b\na ->> b: hello world")
     expect(ast.messages[0].content.kind).not.toBe("useCaseRef")
-    expect((ast.messages[0].content as any).text).toBe("hello world")
+    expect((ast.messages[0].content as { text: string }).text).toBe("hello world")
   })
 })
 
@@ -1005,9 +1005,9 @@ describe("sequence diagram block constructs — visitor", () => {
     expect(block.sections[0].guard).toBe("happy path")
     expect(block.sections[1].guard).toBe("error")
     expect(block.sections[2].guard).toBeNull()
-    expect(((block.sections[0].statements[0] as SeqMessage).content as any).text).toBe("ok")
-    expect(((block.sections[1].statements[0] as SeqMessage).content as any).text).toBe("err")
-    expect(((block.sections[2].statements[0] as SeqMessage).content as any).text).toBe("default")
+    expect(((block.sections[0].statements[0] as SeqMessage).content as { text: string }).text).toBe("ok")
+    expect(((block.sections[1].statements[0] as SeqMessage).content as { text: string }).text).toBe("err")
+    expect(((block.sections[2].statements[0] as SeqMessage).content as { text: string }).text).toBe("default")
   })
 
   it("parses a par block with and sections", () => {
@@ -1169,7 +1169,7 @@ describe("sequence diagram opt block — visitor", () => {
     const msg = block.sections[0].statements[0] as SeqMessage
     expect(msg.from).toBe("A")
     expect(msg.to).toBe("B")
-    expect((msg.content as any).text).toBe("upgrade")
+    expect((msg.content as { text: string }).text).toBe("upgrade")
   })
 
   it("parses an opt block without condition text", () => {

@@ -133,6 +133,7 @@ note over orderSvc, paymentSvc: payment handshake
 
 | Syntax | Purpose |
 |---|---|
+| `# comment text` | Line comment — ignored by the parser; preserved through ID rename |
 | `actor id` | Declare a local actor participant |
 | `actor id as alias` | Declare a local actor; use `alias` in message lines |
 | `component id` | Declare a local component participant |
@@ -212,6 +213,8 @@ end
 - Append `:display label` after the closing `)` to show a custom label in the diagram instead of `Interface:function(params)` (e.g. `IAuth:login(user: string):sign in`)
 - For `kafka`-type interfaces, the **sender** owns the interface
 - Use `\n` in a label or note text for a line break (renders as `<br/>` in Mermaid)
+
+**Round-trip fidelity:** When a participant ID is renamed (e.g. via the rename action in the tree), the spec is re-generated from the AST. Line indentation (leading spaces and tabs inside blocks) and `#` comment lines are stored in the AST and reproduced verbatim — the only normalisation is that blank lines between statements are not preserved.
 
 **Multi-word participant names** are supported — declare as `actor Output Topics` and reference the same name in messages.
 
@@ -476,7 +479,7 @@ graph TD
 | Component | Role |
 |---|---|
 | `MainLayout` | Split-panel layout with draggable resize handles and expand/collapse buttons |
-| `TreeView` | System tree with add/delete/rename; Save, Load, Clear, Undo/Redo toolbar |
+| `TreeView` | System tree with add/delete/rename; Save, Load, Clear, Undo/Redo toolbar; Integra app icon in header |
 | `TreeNode` | Recursive node row — renders label, type icon, +/delete buttons, selection highlight |
 | `ContextMenu` | Right-click menu for node-level actions |
 | `EditorPanel` | Routes to the correct editor based on the selected node's type |
@@ -619,12 +622,13 @@ Diagram specs are parsed by **Chevrotain**-based lexer + CstParser + CST visitor
 src/parser/
   tokens.ts                     ← shared token definitions
   sequenceDiagram/
-    lexer.ts                    ← multi-mode lexer (label mode, text mode)
+    lexer.ts                    ← multi-mode lexer; Indent token (line-start whitespace) and Comment token (# prefix)
     parser.ts                   ← CstParser
     visitor.ts                  ← CST → SeqAst { declarations[], statements[] }
+                                   statement types carry optional `indent?: string`; SeqComment preserves # lines
     systemUpdater.ts            ← SeqAst → node tree update
     mermaidGenerator.ts         ← SeqAst → Mermaid string + idToUuid map (uses nodeTree, not store)
-    specSerializer.ts           ← SeqAst → spec text; AST-aware ID rename
+    specSerializer.ts           ← SeqAst → spec text; AST-aware ID rename; reproduces original indentation and comments
   useCaseDiagram/
     lexer.ts                    ← single-mode lexer
     parser.ts                   ← CstParser

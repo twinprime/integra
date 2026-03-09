@@ -7,10 +7,10 @@
  */
 import type { ComponentNode } from "../../store/types"
 import { findNodeByPath } from "../../utils/nodeUtils"
-import { findComponentByInterfaceId, findInterfaceUuidByInterfaceId, findInterfaceOwnerPreferReceiver, findInterfaceUuidPreferReceiver, resolveUseCaseByPath, resolveSeqDiagramByPath } from "../../utils/diagramResolvers"
+import { findInterfaceOwnerPreferReceiver, findInterfaceUuidPreferReceiver, resolveUseCaseByPath, resolveSeqDiagramByPath } from "../../utils/diagramResolvers"
 import { findNodeByUuid } from "../../nodes/nodeTree"
 import { parseSequenceDiagramCst } from "./parser"
-import { buildSeqAst, flattenMessages, type SeqAst, type SeqStatement, type SeqMessage, type SeqMessageContent, type SeqNote } from "./visitor"
+import { buildSeqAst, flattenMessages, type SeqAst, type SeqStatement, type SeqMessage, type SeqNote } from "./visitor"
 
 function assertNever(x: never): never {
   throw new Error(`Unhandled SeqMessageContent kind: ${JSON.stringify(x)}`)

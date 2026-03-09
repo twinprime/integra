@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest"
+import { describe, it, expect, vi } from "vitest"
 import type { ComponentNode } from "../store/types"
 import {
   rootFilename,
@@ -174,7 +174,7 @@ function makeFSDirectoryHandle(
         kind: "directory",
         name: dirName,
         values: () => yieldEntries(dirFiles),
-        getFileHandle: vi.fn().mockImplementation(async (name: string, opts?: { create?: boolean }) => {
+        getFileHandle: vi.fn().mockImplementation(async (name: string, _opts?: { create?: boolean }) => {
           return {
             kind: "file",
             name,

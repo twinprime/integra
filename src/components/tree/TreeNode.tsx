@@ -12,7 +12,7 @@ interface TreeNodeProps {
   parent?: ComponentNode
 }
 
-export const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
+export const TreeNode = ({ node, onContextMenu }: TreeNodeProps) => {
   const [expanded, setExpanded] = useState(true)
   const [hovered, setHovered] = useState(false)
   const selectedNodeId = useSystemStore((state) => state.selectedNodeId)

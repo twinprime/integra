@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import type { ComponentNode, InterfaceSpecification, InterfaceFunction } from "../../store/types"
 import { useSystemStore } from "../../store/useSystemStore"
 import { collectReferencedFunctionUuids, findReferencingDiagrams } from "../../utils/nodeUtils"
@@ -43,21 +43,29 @@ export const ComponentEditor = ({
   const referencedFunctionUuids = collectReferencedFunctionUuids(rootComponent)
   const referencingDiagrams = findReferencingDiagrams(rootComponent, node.uuid)
 
-  // Active tab: uuid of the currently visible interface
+  // Active tab: uuid of the currently visible interface.
+  // Both tab-sync effects use React's render-time state adjustment pattern
+  // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  // instead of useEffect to avoid react-hooks/set-state-in-effect errors.
   const firstIfaceUuid = node.interfaces?.[0]?.uuid ?? null
   const [activeTabUuid, setActiveTabUuid] = useState<string | null>(firstIfaceUuid)
 
-  // When the selected component changes, reset to the first tab
-  useEffect(() => {
+  // Reset to first tab when the selected node changes
+  const [prevNodeUuid, setPrevNodeUuid] = useState<string>(node.uuid)
+  if (node.uuid !== prevNodeUuid) {
+    setPrevNodeUuid(node.uuid)
     setActiveTabUuid(node.interfaces?.[0]?.uuid ?? null)
-  }, [node.uuid]) // eslint-disable-line react-hooks/exhaustive-deps
+  }
 
-  // When a function is clicked in the sequence diagram, switch to that interface's tab
-  useEffect(() => {
-    if (!selectedInterfaceUuid) return
-    const match = node.interfaces?.find((i) => i.uuid === selectedInterfaceUuid)
-    if (match) setActiveTabUuid(selectedInterfaceUuid)
-  }, [selectedInterfaceUuid, node.interfaces])
+  // Switch to the clicked interface's tab when a function is clicked in the sequence diagram
+  const [prevSelectedIfaceUuid, setPrevSelectedIfaceUuid] = useState<string | null>(selectedInterfaceUuid)
+  if (selectedInterfaceUuid !== prevSelectedIfaceUuid) {
+    setPrevSelectedIfaceUuid(selectedInterfaceUuid)
+    if (selectedInterfaceUuid) {
+      const match = node.interfaces?.find((i) => i.uuid === selectedInterfaceUuid)
+      if (match) setActiveTabUuid(selectedInterfaceUuid)
+    }
+  }
 
   const handleIdChange = (value: string) => {
     setLocalId(value)
