@@ -353,44 +353,46 @@ function buildFunctionRefSuggestions(
   ownerComp: ComponentNode,
   rootComponent: ComponentNode,
 ): Suggestion[] {
-  const receiverComp = resolveReceiverComp(ctx, ownerComp, rootComponent)
-  if (!receiverComp) return []
-
   const suggs: Suggestion[] = []
-  for (const iface of receiverComp.interfaces) {
-    for (const fn of iface.functions) {
-      const insertText = `${iface.id}:${fn.id}(${paramsToString(fn.parameters)})`
-      if (matchLower(insertText, ctx.partial)) {
-        suggs.push({ label: insertText, insertText, replaceFrom: ctx.replaceFrom })
-      }
-    }
-  }
-  for (const ucDiag of receiverComp.useCaseDiagrams) {
-    for (const uc of ucDiag.useCases) {
-      const isLocal = receiverComp.uuid === ownerComp.uuid
-      const absPath = isLocal ? null : getComponentAbsolutePath(rootComponent, receiverComp.uuid)
-      const ucPath = isLocal ? uc.id : (absPath ? `${absPath}/${uc.id}` : uc.id)
-      const insertText = `UseCase:${ucPath}`
-      if (matchLower(insertText, ctx.partial)) {
-        suggs.push({
-          label: `${insertText} (${uc.name})`,
-          insertText,
-          replaceFrom: ctx.replaceFrom,
-        })
-      }
-      for (const seq of uc.sequenceDiagrams ?? []) {
-        const seqPath = isLocal ? seq.id : (absPath ? `${absPath}/${seq.id}` : seq.id)
-        const seqInsertText = `Sequence:${seqPath}`
-        if (matchLower(seqInsertText, ctx.partial)) {
-          suggs.push({
-            label: `${seqInsertText} (${seq.name})`,
-            insertText: seqInsertText,
-            replaceFrom: ctx.replaceFrom,
-          })
+
+  // Interface/function suggestions are receiver-specific (calling a method on the receiver)
+  const receiverComp = resolveReceiverComp(ctx, ownerComp, rootComponent)
+  if (receiverComp) {
+    for (const iface of receiverComp.interfaces) {
+      for (const fn of iface.functions) {
+        const insertText = `${iface.id}:${fn.id}(${paramsToString(fn.parameters)})`
+        if (matchLower(insertText, ctx.partial)) {
+          suggs.push({ label: insertText, insertText, replaceFrom: ctx.replaceFrom })
         }
       }
     }
   }
+
+  // UseCase/Sequence refs are navigation links — scan the entire component tree so
+  // suggestions appear regardless of which component receives the message arrow.
+  const walkComp = (comp: ComponentNode) => {
+    const isLocal = comp.uuid === ownerComp.uuid
+    const absPath = isLocal ? null : getComponentAbsolutePath(rootComponent, comp.uuid)
+    for (const ucDiag of comp.useCaseDiagrams) {
+      for (const uc of ucDiag.useCases) {
+        const ucPath = isLocal ? uc.id : (absPath ? `${absPath}/${uc.id}` : uc.id)
+        const insertText = `UseCase:${ucPath}`
+        if (matchLower(insertText, ctx.partial)) {
+          suggs.push({ label: `${insertText} (${uc.name})`, insertText, replaceFrom: ctx.replaceFrom })
+        }
+        for (const seq of uc.sequenceDiagrams ?? []) {
+          const seqPath = isLocal ? seq.id : (absPath ? `${absPath}/${seq.id}` : seq.id)
+          const seqInsertText = `Sequence:${seqPath}`
+          if (matchLower(seqInsertText, ctx.partial)) {
+            suggs.push({ label: `${seqInsertText} (${seq.name})`, insertText: seqInsertText, replaceFrom: ctx.replaceFrom })
+          }
+        }
+      }
+    }
+    for (const sub of comp.subComponents) walkComp(sub)
+  }
+  walkComp(rootComponent)
+
   return suggs
 }
 

@@ -212,6 +212,43 @@ describe("buildSuggestions — Sequence: suggestions", () => {
     expect(seqSugg).toBeDefined()
   })
 
+  it("suggests UseCase: and Sequence: even when receiver has no use cases (tree-wide search)", () => {
+    // The receiver (AuthService) has NO use cases, but another component (OrderService) does.
+    // UseCase: and Sequence: refs are navigation links — they should come from the full tree.
+    const seq = makeSeq("seq-uuid", "placeOrderFlow", "Place Order Flow")
+    const uc = makeUc("uc-uuid", "placeOrder", [seq])
+    const order = makeComp("order-uuid", "OrderService", { useCaseDiagrams: [makeUcd("ucd-uuid", [uc])] })
+    const auth = makeComp("auth-uuid", "AuthService")
+    const owner = makeComp("owner-uuid", "owner")
+    const root = makeComp("root-uuid", "root", { subComponents: [owner, auth, order] })
+
+    // Arrow points at AuthService (no use cases) — empty partial so all refs are candidates
+    const content = "actor a\ncomponent AuthService\na ->> AuthService: "
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    expect(ctx?.type).toBe("function-ref")
+
+    const suggs = buildSuggestions(ctx!, content, owner, root, "sequence-diagram")
+    const ucSugg = suggs.find((s) => s.insertText.includes("UseCase:") && s.insertText.includes("placeOrder"))
+    expect(ucSugg).toBeDefined()
+    const seqSugg = suggs.find((s) => s.insertText.includes("Sequence:") && s.insertText.includes("placeOrderFlow"))
+    expect(seqSugg).toBeDefined()
+  })
+
+  it("suggests UseCase: from another component when typing UseCase: prefix", () => {
+    // Receiver has no use cases but another component does — UseCase: partial should match.
+    const uc = makeUc("uc-uuid", "placeOrder", [])
+    const order = makeComp("order-uuid", "OrderService", { useCaseDiagrams: [makeUcd("ucd-uuid", [uc])] })
+    const owner = makeComp("owner-uuid", "owner")
+    const root = makeComp("root-uuid", "root", { subComponents: [owner, order] })
+
+    const content = "actor a\ncomponent OrderService\na ->> OrderService: UseCase:"
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    expect(ctx?.type).toBe("function-ref")
+
+    const suggs = buildSuggestions(ctx!, content, owner, root, "sequence-diagram")
+    expect(suggs.find((s) => s.insertText.includes("UseCase:") && s.insertText.includes("placeOrder"))).toBeDefined()
+  })
+
   it("filters Sequence: suggestions by partial match", () => {
     const seq1 = makeSeq("seq1-uuid", "loginFlow", "Login Flow")
     const seq2 = makeSeq("seq2-uuid", "logoutFlow", "Logout Flow")
