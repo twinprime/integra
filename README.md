@@ -19,7 +19,9 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 #### 2. Save and load your model
 
-Use the **Save** / **Load** buttons in the toolbar to persist your model as a YAML file via the browser's File System Access API. Changes are also auto-saved to `localStorage` and restored on page load.
+Use the **Save** / **Load** buttons in the toolbar to persist your model as a **directory of YAML files** via the browser's File System Access API. Each component is saved as its own `.yaml` file inside a chosen directory. Changes are also auto-saved to `localStorage` and restored on page load.
+
+> **Browser support:** Save/Load requires Chrome or Edge (File System Access API). Firefox and Safari are not supported.
 
 #### 3. Build your system model
 
@@ -276,19 +278,36 @@ Clicking a node link navigates to that node in the tree.
 
 ### YAML File Format
 
-Integra saves and loads your model as a **YAML file** (`.yaml` / `.yml`). The file is a direct serialisation of the root `ComponentNode` tree — the same structure held in memory. It can be read, authored, or version-controlled by hand, though the app manages certain fields automatically (see notes below).
+Integra saves and loads your model as a **directory of YAML files** — one file per component. The directory can be read, authored, or version-controlled by hand.
+
+#### Directory layout
+
+When you save a system whose root component has id `my-system`, you get:
+
+```
+my-system.yaml              ← root component (the load/save entry point)
+my-system/
+  my-system-gateway.yaml    ← direct child of root (parent-id: my-system)
+  gateway-auth.yaml         ← child of gateway (parent-id: gateway)
+  gateway-payments.yaml     ← another child of gateway
+```
+
+- The **root file** is `<root-id>.yaml` in the chosen directory.
+- **Descendant files** live in a flat `<root-id>/` subdirectory named `<parent-id>-<self-id>.yaml`.
+- The `subComponents` field in each file lists the **relative paths** of its children (relative to the chosen directory root), instead of inlining the child data.
 
 #### Top-level structure
 
-The file root is always a `component` node representing the root of your system:
+Each component YAML file has the following shape:
 
 ```yaml
 uuid: <globally-unique-id>
-id: root                      # must be "root" for the root component
+id: my-system               # must be "root" for the root component
 name: My System
 type: component
 description: Optional description   # supports Markdown
-subComponents: [...]
+subComponents:
+  - my-system/my-system-gateway.yaml   # relative path to child file
 actors: [...]
 useCaseDiagrams: [...]
 interfaces: [...]
@@ -298,7 +317,7 @@ interfaces: [...]
 
 | Node type | Key fields (beyond `uuid`, `id`, `name`, `type`, `description`) |
 |---|---|
-| `component` | `subComponents[]`, `actors[]`, `useCaseDiagrams[]`, `interfaces[]` |
+| `component` | `subComponents[]` (file paths), `actors[]`, `useCaseDiagrams[]`, `interfaces[]` |
 | `actor` | *(none)* |
 | `use-case-diagram` | `content` (spec text), `useCases[]` |
 | `use-case` | `sequenceDiagrams[]` |
@@ -314,34 +333,15 @@ Interface specifications live directly on their owning component:
 
 #### Example
 
+Root file — `e-commerce.yaml`:
+
 ```yaml
 uuid: a1b2c3d4-0001
-id: root
+id: e-commerce
 name: E-Commerce System
 type: component
 subComponents:
-  - uuid: a1b2c3d4-0010
-    id: orderSvc
-    name: Order Service
-    type: component
-    subComponents: []
-    actors: []
-    useCaseDiagrams: []
-    interfaces:
-      - uuid: a1b2c3d4-0011
-        id: OrdersAPI
-        name: OrdersAPI
-        type: rest
-        functions:
-          - uuid: a1b2c3d4-0012
-            id: placeOrder
-            parameters:
-              - name: orderId
-                type: string
-                required: true
-              - name: amount
-                type: number
-                required: true
+  - e-commerce/e-commerce-orderSvc.yaml
 actors:
   - uuid: a1b2c3d4-0020
     id: customer
@@ -371,6 +371,33 @@ useCaseDiagrams:
               component orderSvc
               customer ->> orderSvc: OrdersAPI:placeOrder(orderId: string, amount: number)
 interfaces: []
+```
+
+Child file — `e-commerce/e-commerce-orderSvc.yaml`:
+
+```yaml
+uuid: a1b2c3d4-0010
+id: orderSvc
+name: Order Service
+type: component
+subComponents: []
+actors: []
+useCaseDiagrams: []
+interfaces:
+  - uuid: a1b2c3d4-0011
+    id: OrdersAPI
+    name: OrdersAPI
+    type: rest
+    functions:
+      - uuid: a1b2c3d4-0012
+        id: placeOrder
+        parameters:
+          - name: orderId
+            type: string
+            required: true
+          - name: amount
+            type: number
+            required: true
 ```
 
 The only field you must ensure is unique is `uuid` — use any distinct string per node (e.g. standard UUIDs or simple incrementing IDs as in the example above).
