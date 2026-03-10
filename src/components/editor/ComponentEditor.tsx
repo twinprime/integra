@@ -44,10 +44,15 @@ export const ComponentEditor = ({
   const referencedFunctionUuids = collectReferencedFunctionUuids(rootComponent)
   const referencingDiagrams = findReferencingDiagrams(rootComponent, node.uuid)
 
-  // Derive parent interfaces for the "Inherits" selector in InterfaceEditor
+  // Derive parent interfaces available for inheritance
   const parentNode = findParentNode(rootComponent, node.uuid)
   const parentInterfaces: InterfaceSpecification[] =
     parentNode?.type === "component" ? (parentNode as ComponentNode).interfaces : []
+
+  // Parent interfaces not yet inherited by this component
+  const uninheritedParentInterfaces = parentInterfaces.filter(
+    (pi) => !node.interfaces.some((iface) => iface.parentInterfaceUuid === pi.uuid)
+  )
 
   // Wrap stored interfaces in InheritedInterface at render time when parentInterfaceUuid is set
   const resolvedInterfaces = node.interfaces.map((iface) => {
@@ -55,6 +60,21 @@ export const ComponentEditor = ({
     const parentIface = parentInterfaces.find((pi) => pi.uuid === iface.parentInterfaceUuid)
     return parentIface ? new InheritedInterface(iface, parentIface) : iface
   })
+
+  const handleInheritParentInterface = (parentUuid: string) => {
+    const parentIface = parentInterfaces.find((pi) => pi.uuid === parentUuid)
+    if (!parentIface) return
+    const newIface: InterfaceSpecification = {
+      uuid: crypto.randomUUID(),
+      id: parentIface.id,
+      name: parentIface.name,
+      type: parentIface.type,
+      functions: [],
+      parentInterfaceUuid: parentIface.uuid,
+    }
+    onUpdate({ interfaces: [...node.interfaces, newIface] })
+    setActiveTabUuid(newIface.uuid)
+  }
 
   // Active tab: uuid of the currently visible interface.
   // Both tab-sync effects use React's render-time state adjustment pattern
@@ -227,6 +247,24 @@ export const ComponentEditor = ({
         />
       </div>
 
+      {/* Inherit parent interface selector — above tabs, visible even with no interfaces yet */}
+      {uninheritedParentInterfaces.length > 0 && (
+        <div className="flex items-center gap-1.5 mb-3">
+          <span className="text-xs text-gray-500">Inherit parent interface:</span>
+          <select
+            className="text-xs bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-gray-300 focus:outline-none focus:border-blue-400"
+            value=""
+            onChange={(e) => { if (e.target.value) handleInheritParentInterface(e.target.value) }}
+            data-testid="inherit-parent-select"
+          >
+            <option value="" disabled>— select —</option>
+            {uninheritedParentInterfaces.map((pi) => (
+              <option key={pi.uuid} value={pi.uuid}>{pi.name || pi.id}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {node.interfaces && node.interfaces.length > 0 && (
         <div className="mb-4 flex flex-col min-h-0">
           <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center gap-2 flex-shrink-0">
@@ -288,7 +326,6 @@ export const ComponentEditor = ({
                     handleParamDescriptionUpdate(ifaceIdx, fnIdx, paramIdx, desc)
                   }
                   contextComponentUuid={contextComponentUuid}
-                  parentInterfaces={parentInterfaces}
                 />
               </div>
             ) : null
