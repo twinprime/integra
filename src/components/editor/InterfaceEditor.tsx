@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Trash2 } from "lucide-react"
 import type { InterfaceSpecification, InterfaceFunction } from "../../store/types"
+import { InheritedInterface } from "./InheritedInterface"
 import { useSystemStore } from "../../store/useSystemStore"
 import { MarkdownEditor } from "./MarkdownEditor"
 import { FunctionEditor } from "./FunctionEditor"
@@ -19,6 +20,7 @@ export const InterfaceEditor = ({
   onDeleteInterface,
   onParamDescriptionUpdate,
   contextComponentUuid,
+  parentInterfaces = [],
 }: {
   iface: InterfaceSpecification
   ifaceIdx: number
@@ -30,6 +32,7 @@ export const InterfaceEditor = ({
   onDeleteInterface?: () => void
   onParamDescriptionUpdate: (fnIdx: number, paramIdx: number, desc: string) => void
   contextComponentUuid?: string
+  parentInterfaces?: InterfaceSpecification[]
 }) => {
   const [name, setName] = useState(iface.name)
   const [description, setDescription] = useState(iface.description || "")
@@ -83,7 +86,7 @@ export const InterfaceEditor = ({
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
-        {onDeleteInterface && (!iface.functions || iface.functions.length === 0) && (
+        {onDeleteInterface && !iface.parentInterfaceUuid && (!iface.functions || iface.functions.length === 0) && (
           <button
             className="p-1 text-gray-500 hover:text-red-400 transition-colors"
             title="Delete interface"
@@ -94,6 +97,24 @@ export const InterfaceEditor = ({
           </button>
         )}
       </div>
+
+      {parentInterfaces.length > 0 && (
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className="text-xs text-gray-500">Inherits:</span>
+          <select
+            className="text-xs bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-gray-300 focus:outline-none focus:border-blue-400"
+            value={iface.parentInterfaceUuid ?? ""}
+            onChange={(e) => onInterfaceUpdate({ parentInterfaceUuid: e.target.value || undefined })}
+            data-testid="inherits-select"
+          >
+            <option value="">— none —</option>
+            {parentInterfaces.map((pi) => (
+              <option key={pi.uuid} value={pi.uuid}>{pi.name || pi.id}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="mb-2">
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-gray-500">ID:</span>
@@ -123,7 +144,47 @@ export const InterfaceEditor = ({
         contextComponentUuid={contextComponentUuid}
       />
 
-      {iface.functions && iface.functions.length > 0 && (
+      {/* Inherited functions (read-only) */}
+      {iface.parentInterfaceUuid && (() => {
+        const isInherited = iface instanceof InheritedInterface
+        if (!isInherited) {
+          return (
+            <p className="text-xs text-amber-400 mt-3" data-testid="dangling-inherit-notice">
+              ⚠ Referenced parent interface not found.
+            </p>
+          )
+        }
+        const fns = iface.functions
+        return fns.length > 0 ? (
+          <div className="space-y-2 mt-3">
+            <p className="text-xs font-medium text-gray-400">
+              Functions ({fns.length})
+              <span className="ml-2 text-[0.65rem] text-indigo-400 bg-indigo-900/30 px-1.5 py-0.5 rounded">
+                inherited
+              </span>
+            </p>
+            {fns.map((fn, fnIdx) => (
+              <FunctionEditor
+                key={fn.uuid || fn.id}
+                fn={fn}
+                fnIdx={fnIdx}
+                isUnreferenced={false}
+                siblingFunctionIds={fns.filter((_, j) => j !== fnIdx).map((f) => f.id)}
+                onUpdate={() => {}}
+                onDelete={() => {}}
+                onParamDescriptionUpdate={() => {}}
+                contextComponentUuid={contextComponentUuid}
+                readOnly={true}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500 mt-3 italic">No functions defined on parent interface.</p>
+        )
+      })()}
+
+      {/* Own (non-inherited) functions */}
+      {!iface.parentInterfaceUuid && iface.functions && iface.functions.length > 0 && (
         <div className="space-y-2 mt-3">
           <p className="text-xs font-medium text-gray-400">
             Functions ({iface.functions.length})

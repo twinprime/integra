@@ -404,3 +404,67 @@ export function makeLocalStorageValueWithSeqRef(): string {
 
   return JSON.stringify({ state: { rootComponent: systemWithSeqRef }, version: 0 })
 }
+
+/**
+ * Fixture for interface inheritance tests.
+ *
+ * Tree shape:
+ *   System (root)
+ *     interfaces:
+ *       - IRootService (uuid: "root-iface-uuid")  → functions: [doThing]
+ *       - IUnimplemented (uuid: "unimpl-iface-uuid") → functions: []  ← no sub-component inherits this
+ *     subComponents:
+ *       - AuthService
+ *           interfaces:
+ *             - IAuth (normal, no inheritance)
+ *             - IAuthDerived (uuid: "auth-derived-uuid", parentInterfaceUuid: "root-iface-uuid")
+ *               → inherits IRootService; functions: [] (resolved at render time via InheritedInterface)
+ *       - OrderService (unchanged)
+ *
+ * Expected UI behaviour:
+ * - On root component: IRootService tab has NO warning (AuthService inherits it)
+ *                      IUnimplemented tab HAS warning (no sub-component inherits it)
+ * - On AuthService: IAuthDerived tab shows "Inherits" selector set to IRootService,
+ *                   and shows doThing function as read-only (no edit input, no delete button)
+ */
+export function makeLocalStorageValueWithInheritance(): string {
+  const authWithInherited: ComponentNode = {
+    ...sampleSystem.subComponents[0], // AuthService
+    interfaces: [
+      ...sampleSystem.subComponents[0].interfaces,
+      {
+        uuid: "auth-derived-uuid",
+        id: "IAuthDerived",
+        name: "IAuthDerived",
+        type: "rest",
+        functions: [],
+        parentInterfaceUuid: "root-iface-uuid",
+      },
+    ],
+  }
+
+  const rootWithInterfaces: ComponentNode = {
+    ...sampleSystem,
+    subComponents: [authWithInherited, sampleSystem.subComponents[1]],
+    interfaces: [
+      {
+        uuid: "root-iface-uuid",
+        id: "IRootService",
+        name: "IRootService",
+        type: "rest",
+        functions: [
+          { uuid: "root-fn-uuid", id: "doThing", parameters: [] },
+        ],
+      },
+      {
+        uuid: "unimpl-iface-uuid",
+        id: "IUnimplemented",
+        name: "IUnimplemented",
+        type: "rest",
+        functions: [],
+      },
+    ],
+  }
+
+  return JSON.stringify({ state: { rootComponent: rootWithInterfaces }, version: 0 })
+}

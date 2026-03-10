@@ -23,6 +23,8 @@ export interface InterfaceSpecification {
   description?: string;
   type: 'kafka' | 'rest' | 'graphql' | 'other';
   functions: InterfaceFunction[];
+  /** UUID of the parent component's interface this interface inherits from. When set, functions are sourced from the parent interface. */
+  parentInterfaceUuid?: string;
 }
 
 export interface InterfaceFunction {

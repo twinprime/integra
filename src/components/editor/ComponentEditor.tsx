@@ -2,7 +2,8 @@ import { useState } from "react"
 import type { ComponentNode, InterfaceSpecification, InterfaceFunction } from "../../store/types"
 import { useSystemStore } from "../../store/useSystemStore"
 import { collectReferencedFunctionUuids, findReferencingDiagrams } from "../../utils/nodeUtils"
-import { getNodeSiblingIds } from "../../nodes/nodeTree"
+import { getNodeSiblingIds, findParentNode } from "../../nodes/nodeTree"
+import { InheritedInterface } from "./InheritedInterface"
 import { MarkdownEditor } from "./MarkdownEditor"
 import { InterfaceEditor } from "./InterfaceEditor"
 import { NodeReferencesButton } from "./NodeReferencesButton"
@@ -42,6 +43,18 @@ export const ComponentEditor = ({
   const selectedInterfaceUuid = useSystemStore((s) => s.selectedInterfaceUuid)
   const referencedFunctionUuids = collectReferencedFunctionUuids(rootComponent)
   const referencingDiagrams = findReferencingDiagrams(rootComponent, node.uuid)
+
+  // Derive parent interfaces for the "Inherits" selector in InterfaceEditor
+  const parentNode = findParentNode(rootComponent, node.uuid)
+  const parentInterfaces: InterfaceSpecification[] =
+    parentNode?.type === "component" ? (parentNode as ComponentNode).interfaces : []
+
+  // Wrap stored interfaces in InheritedInterface at render time when parentInterfaceUuid is set
+  const resolvedInterfaces = node.interfaces.map((iface) => {
+    if (!iface.parentInterfaceUuid) return iface
+    const parentIface = parentInterfaces.find((pi) => pi.uuid === iface.parentInterfaceUuid)
+    return parentIface ? new InheritedInterface(iface, parentIface) : iface
+  })
 
   // Active tab: uuid of the currently visible interface.
   // Both tab-sync effects use React's render-time state adjustment pattern
@@ -225,8 +238,13 @@ export const ComponentEditor = ({
 
           {/* Tab bar — horizontally scrollable */}
           <div className="flex overflow-x-auto border-b border-gray-700 flex-shrink-0 scrollbar-thin scrollbar-thumb-gray-600">
-            {node.interfaces.map((iface) => {
+            {resolvedInterfaces.map((iface) => {
               const isActive = iface.uuid === activeTabUuid
+              const hasSubComponents = node.subComponents.length > 0
+              const isInherited = node.subComponents.some((sub) =>
+                sub.interfaces.some((si) => si.parentInterfaceUuid === iface.uuid)
+              )
+              const showWarning = hasSubComponents && !isInherited
               return (
                 <button
                   key={iface.uuid}
@@ -239,13 +257,20 @@ export const ComponentEditor = ({
                   }`}
                 >
                   {iface.name || iface.id}
+                  {showWarning && (
+                    <span
+                      className="ml-1 text-amber-400"
+                      title="No sub-component inherits this interface"
+                      data-testid={`interface-tab-warning-${iface.id}`}
+                    >⚠</span>
+                  )}
                 </button>
               )
             })}
           </div>
 
           {/* Active interface panel */}
-          {node.interfaces.map((iface, ifaceIdx) =>
+          {resolvedInterfaces.map((iface, ifaceIdx) =>
             iface.uuid === activeTabUuid ? (
               <div key={iface.uuid} data-testid="interface-tab-panel" className="mt-3">
                 <InterfaceEditor
@@ -263,6 +288,7 @@ export const ComponentEditor = ({
                     handleParamDescriptionUpdate(ifaceIdx, fnIdx, paramIdx, desc)
                   }
                   contextComponentUuid={contextComponentUuid}
+                  parentInterfaces={parentInterfaces}
                 />
               </div>
             ) : null

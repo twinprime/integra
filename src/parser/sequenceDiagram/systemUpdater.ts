@@ -106,6 +106,12 @@ function applyFunctionToComponentByUuid(
     const newParams = parseParameters(rawParams)
     const exactMatch = iface.functions.findIndex((f) => f.id === functionId && paramsMatch(f.parameters, newParams))
     if (exactMatch === -1) {
+      if (iface.parentInterfaceUuid) {
+        throw new Error(
+          `Cannot add function "${functionId}" to interface "${interfaceId}": ` +
+          `this interface inherits from a parent and its functions are locked.`,
+        )
+      }
       const sameIdSameCount = iface.functions.find((f) => f.id === functionId && f.parameters.length === newParams.length)
       if (sameIdSameCount) {
         throw new Error(
@@ -189,6 +195,12 @@ function applyMessageToComponents(
   const exactMatchIdx = iface.functions.findIndex((f) => f.id === functionId && paramsMatch(f.parameters, newParams))
 
   if (exactMatchIdx === -1) {
+    if (iface.parentInterfaceUuid) {
+      throw new Error(
+        `Cannot add function "${functionId}" to interface "${interfaceId}": ` +
+        `this interface inherits from a parent and its functions are locked.`,
+      )
+    }
     const sameIdSameCount = iface.functions.find((f) => f.id === functionId && f.parameters.length === newParams.length)
     if (sameIdSameCount) {
       throw new Error(

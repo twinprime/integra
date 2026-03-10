@@ -15,6 +15,7 @@ export const FunctionEditor = ({
   onDelete,
   onParamDescriptionUpdate,
   contextComponentUuid,
+  readOnly = false,
 }: {
   fn: InterfaceFunction
   fnIdx: number
@@ -24,6 +25,7 @@ export const FunctionEditor = ({
   onDelete: () => void
   onParamDescriptionUpdate: (paramIdx: number, desc: string) => void
   contextComponentUuid?: string
+  readOnly?: boolean
 }) => {
   const [fnId, setFnId] = useState(fn.id)
   const [idError, setIdError] = useState<string | null>(null)
@@ -63,27 +65,33 @@ export const FunctionEditor = ({
     <div className="bg-gray-950 border border-gray-800 rounded p-2">
       <div className="flex items-start gap-2 mb-1">
         <div className="flex-1 min-w-0">
-          <input
-            className={`text-sm font-mono w-full bg-transparent border-b focus:outline-none ${
-              idError
-                ? "border-red-500 text-red-400"
-                : isUnreferenced
-                  ? "line-through text-gray-500 border-transparent hover:border-gray-600 focus:border-blue-400"
-                  : "text-blue-400 border-transparent hover:border-gray-600 focus:border-blue-400"
-            }`}
-            value={fnId}
-            onChange={(e) => handleIdChange(e.target.value)}
-            onBlur={handleIdBlur}
-            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
-            aria-label="Function ID"
-          />
-          {idError && <p className="text-xs text-red-400 mt-0.5">{idError}</p>}
+          {readOnly ? (
+            <span className="text-sm font-mono text-blue-400 select-text">{fn.id}</span>
+          ) : (
+            <>
+              <input
+                className={`text-sm font-mono w-full bg-transparent border-b focus:outline-none ${
+                  idError
+                    ? "border-red-500 text-red-400"
+                    : isUnreferenced
+                      ? "line-through text-gray-500 border-transparent hover:border-gray-600 focus:border-blue-400"
+                      : "text-blue-400 border-transparent hover:border-gray-600 focus:border-blue-400"
+                }`}
+                value={fnId}
+                onChange={(e) => handleIdChange(e.target.value)}
+                onBlur={handleIdBlur}
+                onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur() }}
+                aria-label="Function ID"
+              />
+              {idError && <p className="text-xs text-red-400 mt-0.5">{idError}</p>}
+            </>
+          )}
         </div>
         <NodeReferencesButton
           refs={referencingDiagrams}
           title="Show referencing sequence diagrams"
         />
-        {isUnreferenced && (
+        {!readOnly && isUnreferenced && (
           <button
             className="text-red-400 hover:text-red-300 p-1 rounded hover:bg-red-900/20"
             title="Delete unreferenced function"
