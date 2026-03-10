@@ -72,6 +72,29 @@ The split-panel layout can be adjusted by dragging the resize handles. Use the *
 
 ---
 
+### Interface Inheritance
+
+A sub-component can declare that one of its interfaces **inherits** a parent component's interface. This means the sub-component's interface shares the same contract (functions and types) as the parent interface, sourced live from the parent rather than duplicated.
+
+#### Setting up inheritance
+
+1. Select a sub-component in the tree.
+2. If its parent component defines interfaces, an **"Inherit parent interface:"** selector appears above the interface tabs.
+3. The dropdown lists all parent interfaces not yet inherited by this component. Select one to create a new inherited interface entry and activate its tab.
+
+#### Inherited interface behaviour
+
+- The inherited interface tab is **fully read-only** — name, type, ID, description, and functions are all locked and reflect the parent interface's values.
+- A badge shows which parent interface is being inherited (e.g. `inherited from IPaymentGateway`).
+- To remove the inheritance, click the **delete** button on the inherited interface tab.
+- Sequence diagrams **cannot add new functions** to an inherited interface. Parsing a `receiver: InheritedIface:newFn()` call that isn't already defined on the parent interface raises a parse error.
+
+#### Warning icon
+
+When a parent component's interface has no sub-component inheriting it, a **⚠** warning icon appears on the interface tab with the tooltip *"No sub-component inherits this interface"*. This is purely informational — it highlights interfaces that may be intended for inheritance but haven't been wired up yet.
+
+---
+
 ### Diagram Specifications
 
 #### Use Case Diagram
@@ -485,7 +508,7 @@ graph TD
 | `EditorPanel` | Routes to the correct editor based on the selected node's type |
 | `DiagramEditor` | Text editor for use-case and sequence diagram specs; syntax highlighting, autocomplete, undo/redo, Shift+Enter save |
 | `DiagramCodeMirrorEditor` | CodeMirror 6 editor wrapper used by `DiagramEditor`; handles both editable and read-only (preview) modes; Chevrotain-powered syntax highlighting; click-to-navigate tokens in preview mode |
-| `ComponentEditor` | Name, description, and interface list editor for component nodes |
+| `ComponentEditor` | Name, description, and interface list editor for component nodes; "Inherit parent interface" selector above tabs for sub-components |
 | `InterfaceEditor` | Interface name, type, and function list editor |
 | `FunctionEditor` | Function id, parameters, and description editor; shows referencing sequence diagrams |
 | `CommonEditor` | Minimal name + markdown description editor for actor, use-case, and sequence-diagram nodes |
@@ -695,6 +718,22 @@ Each `sender ->> receiver: InterfaceId:functionId(...)` message:
 1. Finds or creates an `InterfaceSpecification` with `id = InterfaceId` on the receiver (or sender for `kafka`)
 2. Finds or creates a function with `id = functionId` and the parsed parameter list
 3. If a function with the same id already exists with a **different** parameter count or types, the user is prompted via a dialog to update all affected diagrams or add as overload
+4. If the interface has `parentInterfaceUuid` set (**inherited interface**), adding a function that doesn't match the parent interface's exact signature raises a parse error — the inherited interface's contract is locked
+
+#### Interface Inheritance (view-layer class)
+
+Inheritance is stored as a single `parentInterfaceUuid?: string` field on `InterfaceSpecification`. Functions on an inherited interface are always `[]` in the store; the parent's functions are the source of truth.
+
+The `InheritedInterface` class (`src/components/editor/InheritedInterface.ts`) is a view-layer wrapper constructed at React render time only — never stored in Zustand or serialized:
+
+```typescript
+class InheritedInterface implements InterfaceSpecification {
+  get functions() { return this.parentIface.functions }  // reads from parent
+  set functions(_) {}  // no-op — prevents assignment errors from React internals
+}
+```
+
+`ComponentEditor` wraps stored plain-object interfaces in `InheritedInterface` when `parentInterfaceUuid` is set, so all downstream components (`InterfaceEditor`, `FunctionEditor`) receive the parent's functions transparently. **The class is never spread, stringified, or stored** — Zustand state always holds plain objects.
 
 #### Deletion Guards
 
