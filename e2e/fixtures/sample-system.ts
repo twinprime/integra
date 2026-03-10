@@ -468,3 +468,20 @@ export function makeLocalStorageValueWithInheritance(): string {
 
   return JSON.stringify({ state: { rootComponent: rootWithInterfaces }, version: 0 })
 }
+
+/**
+ * Variant of the base fixture where AuthService's interfaces are listed in [IEmpty, IAuth] order.
+ * This exposes the interface-tab activation bug: IAuth is NOT the first tab, so it must be
+ * explicitly activated by the navigation logic — it cannot be a lucky default.
+ */
+export function makeLocalStorageValueWithIfaceAsSecond(): string {
+  const reorderedAuthComp = {
+    ...sampleSystem.subComponents[0],
+    interfaces: [...sampleSystem.subComponents[0].interfaces].reverse(),
+  }
+  const system = {
+    ...sampleSystem,
+    subComponents: [reorderedAuthComp, ...sampleSystem.subComponents.slice(1)],
+  }
+  return JSON.stringify({ state: { rootComponent: system }, version: 0 })
+}

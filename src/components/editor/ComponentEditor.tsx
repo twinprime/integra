@@ -81,13 +81,24 @@ export const ComponentEditor = ({
   // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
   // instead of useEffect to avoid react-hooks/set-state-in-effect errors.
   const firstIfaceUuid = node.interfaces?.[0]?.uuid ?? null
-  const [activeTabUuid, setActiveTabUuid] = useState<string | null>(firstIfaceUuid)
+  // On initial mount, prefer selectedInterfaceUuid if it belongs to this component.
+  // This handles the case where selectNode + selectInterface are batched before the first render,
+  // making prevSelectedIfaceUuid === selectedInterfaceUuid on mount (so the sync below never fires).
+  const selectedIfaceMatchesNode =
+    selectedInterfaceUuid != null &&
+    node.interfaces?.some((i) => i.uuid === selectedInterfaceUuid)
+  const [activeTabUuid, setActiveTabUuid] = useState<string | null>(
+    selectedIfaceMatchesNode ? selectedInterfaceUuid : firstIfaceUuid
+  )
 
-  // Reset to first tab when the selected node changes
+  // Reset to first tab (or the already-selected interface) when the selected node changes
   const [prevNodeUuid, setPrevNodeUuid] = useState<string>(node.uuid)
   if (node.uuid !== prevNodeUuid) {
     setPrevNodeUuid(node.uuid)
-    setActiveTabUuid(node.interfaces?.[0]?.uuid ?? null)
+    const matchedOnNodeChange =
+      selectedInterfaceUuid != null &&
+      node.interfaces?.find((i) => i.uuid === selectedInterfaceUuid)
+    setActiveTabUuid(matchedOnNodeChange ? selectedInterfaceUuid : (node.interfaces?.[0]?.uuid ?? null))
   }
 
   // Switch to the clicked interface's tab when a function is clicked in the sequence diagram

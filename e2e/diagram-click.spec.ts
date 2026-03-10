@@ -3,6 +3,7 @@ import {
   makeLocalStorageValue,
   makeLocalStorageValueWithNewlineLabel,
   makeLocalStorageValueWithSameFunctionDifferentReceivers,
+  makeLocalStorageValueWithIfaceAsSecond,
 } from "./fixtures/sample-system"
 
 const diagram = () => '[data-testid="diagram-svg-container"]'
@@ -222,5 +223,38 @@ test.describe("numbered suffix for same function on different receivers", () => 
       .click()
     const orderItem = page.getByRole("treeitem").filter({ hasText: "OrderService" }).first()
     await expect(orderItem).toHaveAttribute("aria-selected", "true")
+  })
+})
+
+// ─── Interface tab activation regression (target interface is NOT first) ──────
+// These tests use a fixture where IEmpty is listed before IAuth so that the correct
+// tab cannot be activated by the "first tab" default — it must be explicitly set.
+
+test.describe("interface tab activation when target is not the first tab", () => {
+  test.beforeEach(async ({ page }) => {
+    const lsValue = makeLocalStorageValueWithIfaceAsSecond()
+    await page.addInitScript((value) => {
+      localStorage.setItem("integra-system", value)
+    }, lsValue)
+    await page.goto("/")
+    await page.getByRole("treeitem").filter({ hasText: "Login Flow" }).click()
+    await page.locator('[data-testid="diagram-svg-container"] svg').waitFor()
+  })
+
+  test("clicking function message label activates IAuth even when it is not the first tab", async ({ page }) => {
+    await page
+      .locator(diagram())
+      .locator("text.messageText")
+      .filter({ hasText: /^login\(\)$/ })
+      .first()
+      .click()
+    await expect(page.getByTestId("interface-tab-IAuth")).toHaveClass(/border-blue-400/)
+  })
+
+  test("clicking a function link in the spec editor activates IAuth even when it is not the first tab", async ({ page }) => {
+    const fnToken = page.locator(".cm-integra-fn").first()
+    await expect(fnToken).toBeVisible()
+    await fnToken.click()
+    await expect(page.getByTestId("interface-tab-IAuth")).toHaveClass(/border-blue-400/)
   })
 })
