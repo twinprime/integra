@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+IMAGE_NAME="${IMAGE_NAME:-integra}"
+TAG="${TAG:-latest}"
+
+echo "Building Docker image ${IMAGE_NAME}:${TAG} ..."
+docker build -t "${IMAGE_NAME}:${TAG}" .
+echo "Done. Run with: docker run -p 8080:80 ${IMAGE_NAME}:${TAG}"
