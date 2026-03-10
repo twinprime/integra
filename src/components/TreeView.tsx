@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { Download, Upload, RotateCcw, Undo2, Redo2 } from "lucide-react"
+import { Download, Upload, RotateCcw, Undo2, Redo2, ArrowLeft, ArrowRight } from "lucide-react"
 import integraLogo from "../assets/integra-logo.svg"
 import { useSystemStore } from "../store/useSystemStore"
 import type {
@@ -32,6 +32,10 @@ export const TreeView = () => {
   const redo = useSystemStore((state) => state.redo)
   const canUndo = useSystemStore((state) => state.past.length > 0)
   const canRedo = useSystemStore((state) => state.future.length > 0)
+  const goBack = useSystemStore((state) => state.goBack)
+  const goForward = useSystemStore((state) => state.goForward)
+  const canNavBack = useSystemStore((state) => state.canNavBack)
+  const canNavForward = useSystemStore((state) => state.canNavForward)
 
   const [dirHandle, setDirHandle] = useState<FileSystemDirectoryHandle | null>(
     null,
@@ -76,6 +80,14 @@ export const TreeView = () => {
       if (mod && e.shiftKey && e.key === "z") {
         e.preventDefault()
         redo()
+      }
+      if (e.altKey && e.key === "ArrowLeft") {
+        e.preventDefault()
+        goBack()
+      }
+      if (e.altKey && e.key === "ArrowRight") {
+        e.preventDefault()
+        goForward()
       }
     }
     document.addEventListener("keydown", onKeyDown)
@@ -263,6 +275,22 @@ export const TreeView = () => {
           )}
         </span>
         <div className="flex gap-1">
+          <button
+            onClick={goBack}
+            disabled={!canNavBack}
+            className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Go back (Alt+←)"
+          >
+            <ArrowLeft size={16} />
+          </button>
+          <button
+            onClick={goForward}
+            disabled={!canNavForward}
+            className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Go forward (Alt+→)"
+          >
+            <ArrowRight size={16} />
+          </button>
           <button
             onClick={undo}
             disabled={!canUndo}
