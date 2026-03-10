@@ -3,6 +3,7 @@ import { findNode } from "../nodes/nodeTree"
 import { resolveInOwner } from "./diagramResolvers"
 import { flattenMessages } from "../parser/sequenceDiagram/visitor"
 import { getCachedSeqAst } from "./seqAstCache"
+import type { SeqAst } from "../parser/sequenceDiagram/visitor"
 import { findNodeByPath } from "./nodeUtils"
 import { collectAllDiagrams } from "../nodes/nodeTree"
 
@@ -27,7 +28,7 @@ function resolveDeclarationUuid(
 }
 
 function registerParticipants(
-  ast: ReturnType<typeof buildSeqAst>,
+  ast: SeqAst,
   ownerComp: ComponentNode | null,
   root: ComponentNode,
   participantsMap: Map<string, Participant>,
