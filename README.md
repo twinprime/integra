@@ -62,9 +62,15 @@ Suggestions appear automatically as you type. They reflect nodes already defined
 | `Shift+Enter` | Save spec and preview diagram without leaving edit mode |
 | `Cmd/Ctrl+Z` | Undo in the diagram spec editor (CodeMirror history) *or* tree-level |
 | `Cmd/Ctrl+Shift+Z` / `Cmd/Ctrl+Y` | Redo |
+| `Alt+←` | Navigate back to the previously selected tree node |
+| `Alt+→` | Navigate forward (after going back) |
 
 Tree-level undo/redo is also accessible via the toolbar buttons above the system tree.
 The diagram spec editor uses CodeMirror's built-in history, fully independent from the tree-level history.
+
+#### Node Navigation History
+
+The toolbar above the system tree includes **← Back** and **→ Forward** buttons (before Undo/Redo). These work like browser navigation — clicking any node in the tree adds it to the history, and you can step backwards and forwards through your recent selections. The history is per-session and is not persisted across page reloads.
 
 #### Panel Layout
 
