@@ -14,6 +14,7 @@ import {
   findComponentByInterfaceId,
   findInterfaceUuidByInterfaceId,
   resolveUseCaseByPath,
+  resolveSeqDiagramByPath,
 } from "../../utils/diagramResolvers"
 
 export interface NavEntry {
@@ -166,6 +167,17 @@ class SeqPositionedVisitorImpl extends BaseVisitor {
       const path = pathStr.split("/")
       const uuid = resolveUseCaseByPath(path, this._root, this._ownerComp, this._ownerCompUuid)
       if (uuid) this._entries.push({ from: ucRef.startOffset, to: tokenEnd(ucRef), uuid })
+    }
+    // SequenceRef → navigate to sequence diagram node
+    const seqRef = toks(ctx, "SequenceRef")[0]
+    if (seqRef && this._ownerComp) {
+      // Strip "Sequence:" prefix, take path before optional second colon
+      const withoutPrefix = seqRef.image.slice("Sequence:".length)
+      const secondColonIdx = withoutPrefix.indexOf(":")
+      const pathStr = secondColonIdx === -1 ? withoutPrefix : withoutPrefix.slice(0, secondColonIdx)
+      const path = pathStr.split("/")
+      const uuid = resolveSeqDiagramByPath(path, this._root, this._ownerComp, this._ownerCompUuid)
+      if (uuid) this._entries.push({ from: seqRef.startOffset, to: tokenEnd(seqRef), uuid })
     }
   }
 

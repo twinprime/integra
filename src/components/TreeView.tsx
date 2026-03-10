@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Download, Upload, RotateCcw, Undo2, Redo2, ArrowLeft, ArrowRight } from "lucide-react"
 import integraLogo from "../assets/integra-logo.svg"
 import { useSystemStore } from "../store/useSystemStore"
@@ -36,6 +36,10 @@ export const TreeView = () => {
   const goForward = useSystemStore((state) => state.goForward)
   const canNavBack = useSystemStore((state) => state.canNavBack)
   const canNavForward = useSystemStore((state) => state.canNavForward)
+  const selectedNodeId = useSystemStore((state) => state.selectedNodeId)
+
+  const treeRef = useRef<HTMLDivElement>(null)
+  const treeActive = useRef(false)
 
   const [dirHandle, setDirHandle] = useState<FileSystemDirectoryHandle | null>(
     null,
@@ -65,6 +69,25 @@ export const TreeView = () => {
     markSaved(serializeYaml(rootComponent))
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Track whether the tree panel is "active" (last interacted with).
+  // Uses pointerdown so clicking toolbar buttons keeps the tree active.
+  useEffect(() => {
+    const onPointer = (e: PointerEvent) => {
+      treeActive.current = !!(
+        treeRef.current &&
+        e.target instanceof globalThis.Node &&
+        treeRef.current.contains(e.target)
+      )
+    }
+    document.addEventListener("pointerdown", onPointer)
+    return () => document.removeEventListener("pointerdown", onPointer)
+  }, [])
+
+  // Navigating to a node via a diagram link also activates the tree.
+  useEffect(() => {
+    if (selectedNodeId) treeActive.current = true
+  }, [selectedNodeId])
+
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (
@@ -81,11 +104,11 @@ export const TreeView = () => {
         e.preventDefault()
         redo()
       }
-      if (e.altKey && e.key === "ArrowLeft") {
+      if (e.altKey && e.key === "ArrowLeft" && treeActive.current) {
         e.preventDefault()
         goBack()
       }
-      if (e.altKey && e.key === "ArrowRight") {
+      if (e.altKey && e.key === "ArrowRight" && treeActive.current) {
         e.preventDefault()
         goForward()
       }
@@ -261,7 +284,7 @@ export const TreeView = () => {
   }
 
   return (
-    <>
+    <div ref={treeRef} className="contents">
       <div className="p-4 border-b border-gray-800 font-semibold text-gray-300 bg-gray-800/50 backdrop-blur-sm flex items-center justify-between">
         <span className="flex items-center gap-2" title="Integra">
           <img src={integraLogo} width={18} height={18} alt="Integra" />
@@ -341,6 +364,6 @@ export const TreeView = () => {
           />
         )}
       </div>
-    </>
+    </div>
   )
 }

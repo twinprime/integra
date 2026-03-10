@@ -81,6 +81,7 @@ const TOKEN_CLASS: Record<string, string> = {
   Slash:     CLS.operator,
   FunctionRef:        CLS.function,
   UseCaseRef:         CLS.function,
+  SequenceRef:        CLS.function,
   LabelText:          CLS.label,
   BlockConditionText: CLS.label,
 }
