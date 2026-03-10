@@ -82,6 +82,7 @@ export const findParentInUcDiag = (diagram: UseCaseDiagramNode, targetUuid: stri
 }
 
 export const ucDiagHandler: NodeHandler = {
+  canDelete: true,
   getChildren: (node) => getUcDiagChildren(node as UseCaseDiagramNode),
   deleteChild: (node, uuid) => deleteFromUcDiag(node as UseCaseDiagramNode, uuid),
   upsertChild: (node, _uuid, updater) => {

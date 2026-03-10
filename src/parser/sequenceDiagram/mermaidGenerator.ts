@@ -148,6 +148,9 @@ function emitStatements(
         out += emitStatements(section.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, messageLabelToInterfaceUuid, labelMap, indent + "  ")
       }
       out += `${indent}end\n`
+    } else if (!("from" in stmt)) {
+      // SeqComment — skip; comments are spec-only and don't produce Mermaid output
+      continue
     } else if ("position" in stmt) {
       // Note
       const note = stmt as SeqNote

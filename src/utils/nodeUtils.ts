@@ -73,6 +73,12 @@ const isNodeReferencedInAnyDiagram = (
 // Check if a node is safe to delete: must have canDelete on its handler and not be referenced anywhere
 export const isNodeOrphaned = (node: Node, root: ComponentNode): boolean => {
   if (!getNodeHandler(node.type).canDelete) return false
+  if (node.type === "use-case-diagram") {
+    // A use-case-diagram UUID is never stored in referencedNodeIds; instead, protect by
+    // checking whether any child use case is referenced in a sequence diagram.
+    const ucd = node as UseCaseDiagramNode
+    return ucd.useCases.every(uc => !isUseCaseReferenced(root, uc.uuid))
+  }
   return !isNodeReferencedInAnyDiagram(root, node.uuid)
 }
 

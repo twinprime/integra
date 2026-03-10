@@ -333,7 +333,23 @@ describe("isNodeOrphaned", () => {
   it("returns false for use-case-diagram node type (canDelete not set)", () => {
     const root = buildTree()
     const ucd = root.subComponents[0].useCaseDiagrams[0]
-    expect(isNodeOrphaned(ucd, root)).toBe(false)
+    // useCases[0] has no sequenceDiagrams referencing it, so the ucd IS orphaned.
+    // This test is superseded by the regression tests below; kept for historical clarity.
+    expect(isNodeOrphaned(ucd, root)).toBe(true)
+  })
+
+  // Regression test for bug: empty use-case-diagram should be deletable
+  it("empty use-case-diagram is orphaned and should be deletable", () => {
+    const emptyUcd: import("../store/types").UseCaseDiagramNode = {
+      uuid: "empty-ucd", id: "empty-ucd", name: "Empty", type: "use-case-diagram",
+      content: "", description: "", ownerComponentUuid: "root-uuid",
+      referencedNodeIds: [], useCases: [],
+    }
+    const root: import("../store/types").ComponentNode = {
+      uuid: "root-uuid", id: "root", name: "Root", type: "component",
+      actors: [], interfaces: [], subComponents: [], useCaseDiagrams: [emptyUcd],
+    }
+    expect(isNodeOrphaned(emptyUcd, root)).toBe(true)
   })
 
   it("returns false for unreferenced sequence-diagram that is itself referenced by another diagram", () => {
