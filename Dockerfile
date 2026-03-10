@@ -3,8 +3,11 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
-RUN npm ci
+COPY package.json package-lock.json .npmrc ./
+
+RUN --mount=type=secret,id=NPM_ARTIFACT_REPO_AUTH_CONFIG \
+    export NPM_ARTIFACT_REPO_AUTH_CONFIG=$(cat /run/secrets/NPM_ARTIFACT_REPO_AUTH_CONFIG) && \
+    npm ci
 
 COPY . .
 RUN npm run build
