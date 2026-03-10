@@ -22,12 +22,13 @@ RUN rm -rf /usr/share/nginx/html/*
 COPY --from=builder /app/dist /usr/share/nginx/html
 
 # SPA routing: serve index.html for all routes
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/nginx.conf
 
 # Allow the nginx user to write the pid file and cache dirs at runtime
 RUN mkdir -p /var/cache/nginx /tmp/nginx \
     && chown -R nginx:nginx \
         /var/cache/nginx \
+        /tmp/nginx \
         /var/run \
         /usr/share/nginx/html \
         /etc/nginx/conf.d
