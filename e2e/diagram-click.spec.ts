@@ -135,15 +135,14 @@ test.describe("delete empty interface", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/")
     await page.getByRole("treeitem").filter({ hasText: "AuthService" }).first().click()
-    // Activate the empty interface tab
     await page.getByTestId("interface-tab-IEmpty").click()
   })
 
-  test("delete button is shown for interface with no functions", async ({ page }) => {
+  test("delete button visibility follows interface-is-empty rule", async ({ page }) => {
+    // Shown for interface with no functions
     await expect(page.getByTestId("delete-interface-btn")).toBeVisible()
-  })
 
-  test("delete button is not shown for interface with functions", async ({ page }) => {
+    // Not shown for interface with functions
     await page.getByTestId("interface-tab-IAuth").click()
     await expect(page.getByTestId("delete-interface-btn")).not.toBeVisible()
   })

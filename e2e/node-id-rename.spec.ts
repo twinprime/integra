@@ -10,14 +10,18 @@ test.beforeEach(async ({ page }) => {
 })
 
 test.describe("node ID rename", () => {
-  test("ID field is visible and editable on a use-case node", async ({ page }) => {
-    // Select the Login use-case node in the tree
+  test("ID field is visible and editable on node types", async ({ page }) => {
+    // Use-case node
     await page.getByRole("treeitem").filter({ hasText: "Login" }).first().click()
-
-    // The editor panel should show the ID field
     const idInput = page.getByLabel("Node ID")
     await expect(idInput).toBeVisible()
     await expect(idInput).toHaveValue("Login")
+
+    // Component node
+    await page.getByRole("treeitem").filter({ hasText: "AuthService" }).first().click()
+    const componentIdInput = page.getByLabel("Node ID")
+    await expect(componentIdInput).toBeVisible()
+    await expect(componentIdInput).toHaveValue("AuthService")
   })
 
   test("renaming a use-case ID updates the use-case diagram content", async ({ page }) => {
@@ -39,8 +43,8 @@ test.describe("node ID rename", () => {
     await expect(diagramEditor).not.toContainText("use case Login")
   })
 
-  test("renaming an actor ID updates sequence diagram content", async ({ page }) => {
-    // The actor "User" appears in the sequence diagram as "as User" and "User->>AuthService:"
+  test("renaming an actor ID propagates to all referencing diagrams", async ({ page }) => {
+    // The actor "User" appears in both the sequence diagram and the use-case diagram
     await page.getByRole("treeitem").filter({ hasText: /^User$/ }).first().click()
 
     const idInput = page.getByLabel("Node ID")
@@ -48,13 +52,18 @@ test.describe("node ID rename", () => {
     await idInput.fill("Customer")
     await idInput.press("Enter")
 
-    // Navigate to the Login Flow sequence diagram
+    // Check the Login Flow sequence diagram
     await page.getByRole("treeitem").filter({ hasText: "Login Flow" }).click()
-
     const diagramEditor = page.getByLabel("Specification")
     await expect(diagramEditor).toContainText("actor Customer")
     await expect(diagramEditor).toContainText("Customer ->> AuthService")
     await expect(diagramEditor).not.toContainText("actor User")
+
+    // Check the Main Use Cases diagram as well
+    await page.getByRole("treeitem").filter({ hasText: "Main Use Cases" }).click()
+    const useCaseEditor = page.getByLabel("Specification")
+    await expect(useCaseEditor).toContainText("actor Customer")
+    await expect(useCaseEditor).not.toContainText("actor User")
   })
 
   test("invalid ID format shows inline error and does not save", async ({ page }) => {
@@ -81,29 +90,5 @@ test.describe("node ID rename", () => {
     // we can't conflict. Instead test format error as a proxy.
     const idInput = page.getByLabel("Node ID")
     await expect(idInput).toHaveValue("User")
-  })
-
-  test("ID field is editable for a component node", async ({ page }) => {
-    // AuthService is a subcomponent
-    await page.getByRole("treeitem").filter({ hasText: "AuthService" }).first().click()
-
-    const idInput = page.getByLabel("Node ID")
-    await expect(idInput).toBeVisible()
-    await expect(idInput).toHaveValue("AuthService")
-  })
-
-  test("renaming an actor ID updates diagram references", async ({ page }) => {
-    await page.getByRole("treeitem").filter({ hasText: /^User$/ }).first().click()
-
-    const idInput = page.getByLabel("Node ID")
-    await idInput.clear()
-    await idInput.fill("Customer")
-    await idInput.press("Enter")
-
-    // Navigate to the use-case diagram to check content
-    await page.getByRole("treeitem").filter({ hasText: "Main Use Cases" }).click()
-    const diagramEditor = page.getByLabel("Specification")
-    await expect(diagramEditor).toContainText("actor Customer")
-    await expect(diagramEditor).not.toContainText("actor User")
   })
 })
