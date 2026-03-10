@@ -9,7 +9,7 @@ RUN npm ci
 COPY . .
 RUN npm run build
 
-# Stage 2: serve with nginx
+# Stage 2: serve with nginx (non-root)
 FROM nginx:alpine
 
 # Remove default nginx static content
@@ -21,6 +21,16 @@ COPY --from=builder /app/dist /usr/share/nginx/html
 # SPA routing: serve index.html for all routes
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 80
+# Allow the nginx user to write the pid file and cache dirs at runtime
+RUN mkdir -p /var/cache/nginx /tmp/nginx \
+    && chown -R nginx:nginx \
+        /var/cache/nginx \
+        /var/run \
+        /usr/share/nginx/html \
+        /etc/nginx/conf.d
+
+USER nginx
+
+EXPOSE 8080
 
 CMD ["nginx", "-g", "daemon off;"]
