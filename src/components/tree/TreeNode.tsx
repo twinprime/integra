@@ -31,9 +31,6 @@ export const TreeNode = ({ node, onContextMenu, parent }: TreeNodeProps) => {
     if (node.type === "use-case") {
       return !isUseCaseReferenced(rootComponent, node.uuid)
     }
-    if (node.type === "use-case-diagram") {
-      return node.useCases.every(uc => !isUseCaseReferenced(rootComponent, uc.uuid))
-    }
     return true
   })()
 
