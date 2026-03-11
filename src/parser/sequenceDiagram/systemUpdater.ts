@@ -11,6 +11,7 @@ import { findNodeByPath, isInScope } from "../../utils/nodeUtils"
 import { resolveUseCaseByPath, resolveSeqDiagramByPath, autoCreateByPath } from "../../utils/diagramResolvers"
 import { parseSequenceDiagramCst } from "./parser"
 import { buildSeqAst, flattenMessages } from "./visitor"
+import { deriveNameFromId } from "../../utils/nameUtils"
 
 // ─── Shared utilities (re-exported for callers) ───────────────────────────────
 
@@ -305,10 +306,10 @@ export function parseSequenceDiagram(
     if (decl.path.length === 1) {
       // Local node
       if (decl.entityType === "actor") {
-        localActors.push({ uuid: crypto.randomUUID(), id: treeNodeId, name: decl.alias ?? treeNodeId, type: "actor", description: "" })
+        localActors.push({ uuid: crypto.randomUUID(), id: treeNodeId, name: decl.alias ?? deriveNameFromId(treeNodeId), type: "actor", description: "" })
       } else {
         localComponents.push({
-          uuid: crypto.randomUUID(), id: treeNodeId, name: decl.alias ?? treeNodeId, type: "component",
+          uuid: crypto.randomUUID(), id: treeNodeId, name: decl.alias ?? deriveNameFromId(treeNodeId), type: "component",
           description: "", subComponents: [], actors: [], useCaseDiagrams: [], interfaces: [],
         })
       }

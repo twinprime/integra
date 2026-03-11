@@ -1,6 +1,7 @@
 import type { ComponentNode, ActorNode } from "../store/types"
 import { findNodeByPath, isInScope } from "./nodeUtils"
 import { findCompByUuid, upsertNodeInTree } from "../nodes/nodeTree"
+import { deriveNameFromId } from "./nameUtils"
 
 export function resolveInOwner(
   ownerComp: ComponentNode,
@@ -185,7 +186,7 @@ export function autoCreateByPath(
   const newUuid = crypto.randomUUID()
   if (entityType === "actor") {
     const newActor: ActorNode = {
-      uuid: newUuid, id: terminalId, name: terminalId, type: "actor", description: "",
+      uuid: newUuid, id: terminalId, name: deriveNameFromId(terminalId), type: "actor", description: "",
     }
     updatedRoot = upsertNodeInTree(updatedRoot, parentUuid, (node) => {
       const comp = node as ComponentNode
@@ -193,7 +194,7 @@ export function autoCreateByPath(
     })
   } else {
     const newComp: ComponentNode = {
-      uuid: newUuid, id: terminalId, name: terminalId, type: "component",
+      uuid: newUuid, id: terminalId, name: deriveNameFromId(terminalId), type: "component",
       description: "", subComponents: [], actors: [], useCaseDiagrams: [], interfaces: [],
     }
     updatedRoot = upsertNodeInTree(updatedRoot, parentUuid, (node) => {

@@ -28,6 +28,7 @@ import { ucDiagHandler } from "./useCaseDiagramNode"
 import { useCaseHandler } from "./useCaseNode"
 import type { NodeHandler } from "./nodeHandler"
 import type { DiagramRef } from "./useCaseDiagramNode"
+import { deriveNameFromId } from "../utils/nameUtils"
 
 // ─── Handler registry ─────────────────────────────────────────────────────────
 
@@ -170,9 +171,11 @@ export const mergeLists = <T extends { id: string; name: string }>(
   incoming.forEach((item) => {
     const index = result.findIndex((e) => e.id === item.id)
     if (index >= 0) {
-      // Only update name if an explicit alias was provided (name differs from id).
-      // When name === id the parser defaulted to the id — preserve any user-set name.
-      if (item.name !== item.id) {
+      // Only update name if an explicit alias was provided.
+      // Treat both the raw id and the derived title-case name as "no alias"
+      // so that user-customised names are preserved on re-parse.
+      const isDefaultName = item.name === item.id || item.name === deriveNameFromId(item.id)
+      if (!isDefaultName) {
         result[index] = { ...result[index], name: item.name }
       }
     } else {

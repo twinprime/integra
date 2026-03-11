@@ -10,6 +10,7 @@ import { findCompByUuid } from "../../nodes/nodeTree"
 import { findNodeByPath, isInScope } from "../../utils/nodeUtils"
 import { autoCreateByPath } from "../../utils/diagramResolvers"
 import { parseUseCaseDiagramCst } from "./parser"
+import { deriveNameFromId } from "../../utils/nameUtils"
 import { buildUcdAst } from "./visitor"
 
 function findOwnerInTree(root: ComponentNode, uuid: string): ComponentNode | null {
@@ -60,18 +61,18 @@ export function parseUseCaseDiagram(
     if (decl.path.length === 1) {
       if (decl.entityType === "actor") {
         localActors.push({
-          uuid: crypto.randomUUID(), id: treeNodeId, name: decl.alias ?? treeNodeId,
+          uuid: crypto.randomUUID(), id: treeNodeId, name: decl.alias ?? deriveNameFromId(treeNodeId),
           type: "actor", description: "",
         })
       } else if (decl.entityType === "component") {
         localComponents.push({
-          uuid: crypto.randomUUID(), id: treeNodeId, name: decl.alias ?? treeNodeId,
+          uuid: crypto.randomUUID(), id: treeNodeId, name: decl.alias ?? deriveNameFromId(treeNodeId),
           type: "component", description: "", subComponents: [], actors: [], useCaseDiagrams: [], interfaces: [],
         })
       } else {
         // use-case
         localUseCases.push({
-          uuid: crypto.randomUUID(), id: treeNodeId, name: decl.alias ?? treeNodeId,
+          uuid: crypto.randomUUID(), id: treeNodeId, name: decl.alias ?? deriveNameFromId(treeNodeId),
           type: "use-case", description: "", sequenceDiagrams: [],
         })
         localUseCaseIds.push(decl.id)

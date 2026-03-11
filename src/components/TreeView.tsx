@@ -13,6 +13,7 @@ import yaml from "js-yaml"
 import { TreeNode } from "./tree/TreeNode"
 import { saveToDirectory, loadFromDirectory } from "../utils/systemFiles"
 import { findParentNode } from "../nodes/nodeTree"
+import { deriveNameFromId } from "../utils/nameUtils"
 
 const DERIVED_KEYS = new Set([
   "ownerComponentUuid",
@@ -207,10 +208,7 @@ export const TreeView = () => {
       return
     }
 
-    const name = id
-      .split(/_/)
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(" ")
+    const name = deriveNameFromId(id)
     const uuid = crypto.randomUUID()
 
     const newNode: ComponentNode = {
@@ -242,10 +240,7 @@ export const TreeView = () => {
       return
     }
 
-    const name = id
-      .split(/_/)
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(" ")
+    const name = deriveNameFromId(id)
     const uuid = crypto.randomUUID()
 
     const findOwnerComponent = (node: Node): string | null => {

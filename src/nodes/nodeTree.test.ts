@@ -12,7 +12,14 @@ describe("mergeLists — name preservation", () => {
     expect(result[0].name).toBe("Alice Smith")
   })
 
-  it("updates name when incoming has an explicit alias (name differs from id)", () => {
+  it("preserves existing custom name when incoming name equals deriveNameFromId (title-cased default)", () => {
+    const existing = [{ id: "my_service", name: "Custom Backend" }]
+    const incoming = [{ id: "my_service", name: "My Service" }] // derived default, not an explicit alias
+    const result = mergeLists(existing, incoming)
+    expect(result[0].name).toBe("Custom Backend")
+  })
+
+  it("updates name when incoming has an explicit alias (name differs from id and derived default)", () => {
     const existing = [{ id: "alice", name: "Alice Smith" }]
     const incoming = [{ id: "alice", name: "Lead" }] // explicit alias
     const result = mergeLists(existing, incoming)
