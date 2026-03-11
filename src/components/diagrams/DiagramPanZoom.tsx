@@ -1,13 +1,12 @@
 import { type ReactNode, useCallback, useEffect, useRef } from "react"
-import { TransformWrapper, TransformComponent, useControls, useTransformContext } from "react-zoom-pan-pinch"
+import { TransformWrapper, TransformComponent, useControls } from "react-zoom-pan-pinch"
 import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react"
 
 const btnClass =
   "bg-white/90 hover:bg-white border border-gray-200 rounded p-1 text-gray-600 hover:text-gray-900 shadow-sm transition-colors"
 
 const FitController = ({ fitRef }: { fitRef: React.MutableRefObject<() => void> }) => {
-  const { instance } = useTransformContext()
-  const { centerView } = useControls()
+  const { instance, centerView } = useControls()
 
   const fitDiagram = useCallback(() => {
     const wrapper = instance.wrapperComponent
