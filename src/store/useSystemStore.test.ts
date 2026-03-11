@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from "vitest"
 import { act, renderHook } from "@testing-library/react"

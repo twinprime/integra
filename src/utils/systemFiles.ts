@@ -82,7 +82,7 @@ export function flattenToFiles(root: ComponentNode): FileEntry[] {
  */
 export function serializeComponentYaml(comp: ComponentNode, childPaths: string[]): string {
   const plain = JSON.parse(
-    JSON.stringify(comp, (key, value) => DERIVED_KEYS.has(key) ? undefined : value),
+    JSON.stringify(comp, (key: string, value: unknown): unknown => DERIVED_KEYS.has(key) ? undefined : value),
   ) as Record<string, unknown>
   plain.subComponents = childPaths
   return yaml.dump(plain, { indent: 2, noRefs: true, skipInvalid: true })
@@ -131,7 +131,7 @@ export async function saveToDirectory(
   for await (const entry of subdir.values()) {
     if (entry.kind === "file" && entry.name.endsWith(".yaml")) {
       try {
-        const file = await (entry as FileSystemFileHandle).getFile()
+        const file = await (entry).getFile()
         const text = await file.text()
         const parsed = yaml.load(text) as Record<string, unknown> | null
         if (parsed && typeof parsed === "object" && parsed["type"] === "component") {
@@ -170,7 +170,7 @@ export async function loadFromDirectory(
   // Read top-level YAML files (the root lives here)
   for await (const entry of dir.values()) {
     if (entry.kind === "file" && entry.name.endsWith(".yaml")) {
-      const file = await (entry as FileSystemFileHandle).getFile()
+      const file = await (entry).getFile()
       const text = await file.text()
       const parsed = yaml.load(text) as RawComponent | null
       if (parsed && typeof parsed === "object" && parsed.type === "component") {
@@ -178,10 +178,10 @@ export async function loadFromDirectory(
       }
     } else if (entry.kind === "directory" && !entry.name.startsWith(".")) {
       // Read files inside the subdirectory
-      const subdir = entry as FileSystemDirectoryHandle
+      const subdir = entry
       for await (const child of subdir.values()) {
         if (child.kind === "file" && child.name.endsWith(".yaml")) {
-          const file = await (child as FileSystemFileHandle).getFile()
+          const file = await (child).getFile()
           const text = await file.text()
           const parsed = yaml.load(text) as RawComponent | null
           if (parsed && typeof parsed === "object" && parsed.type === "component") {

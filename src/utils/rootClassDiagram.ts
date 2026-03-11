@@ -7,17 +7,6 @@ import type { SeqAst } from "../parser/sequenceDiagram/visitor"
 import { findNodeByPath } from "./nodeUtils"
 import { collectAllDiagrams } from "../nodes/nodeTree"
 
-function resolveDeclarationUuid(
-  path: string[],
-  ownerComp: ComponentNode | null,
-  root: ComponentNode,
-): string | undefined {
-  if (path.length === 1) {
-    return ownerComp ? resolveInOwner(ownerComp, path[0]) : undefined
-  }
-  return findNodeByPath(root, path.join("/")) ?? undefined
-}
-
 function emitInterfaceClass(
   iface: InterfaceSpecification,
   lines: string[],
@@ -42,6 +31,7 @@ function emitInterfaceClass(
  * sub-components, their interfaces (filtered to functions referenced in
  * sequence diagram messages), and inter-component dependencies.
  */
+// eslint-disable-next-line complexity
 export function buildRootClassDiagram(
   rootComponent: ComponentNode,
 ): { mermaidContent: string; idToUuid: Record<string, string> } {
@@ -63,7 +53,7 @@ export function buildRootClassDiagram(
     if (!seqDiagram.content?.trim()) continue
 
     const ownerNode = findNode([rootComponent], ownerComponentUuid)
-    const ownerComp = ownerNode?.type === "component" ? (ownerNode as ComponentNode) : null
+    const ownerComp = ownerNode?.type === "component" ? (ownerNode) : null
 
     const ast: SeqAst = getCachedSeqAst(seqDiagram.content)
 

@@ -67,7 +67,7 @@ export const useCaseHandler: NodeHandler = {
   addChild: (node, child, ownerCompUuid) => {
     const uc = node as UseCaseNode
     if (child.type !== "sequence-diagram") return uc
-    const sd = child as SequenceDiagramNode
+    const sd = child
     return {
       ...uc,
       sequenceDiagrams: [

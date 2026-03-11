@@ -18,6 +18,7 @@ export const ComponentEditor = ({
   node: ComponentNode
   onUpdate: (updates: Partial<ComponentNode>) => void
   contextComponentUuid?: string
+// eslint-disable-next-line complexity
 }) => {
   const [name, setName] = useState(node.name || "")
   const [description, setDescription] = useState(node.description || "")
@@ -47,7 +48,7 @@ export const ComponentEditor = ({
   // Derive parent interfaces available for inheritance
   const parentNode = findParentNode(rootComponent, node.uuid)
   const parentInterfaces: InterfaceSpecification[] =
-    parentNode?.type === "component" ? (parentNode as ComponentNode).interfaces : []
+    parentNode?.type === "component" ? (parentNode).interfaces : []
 
   // Parent interfaces not yet inherited by this component
   const uninheritedParentInterfaces = parentInterfaces.filter(

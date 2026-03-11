@@ -11,7 +11,7 @@ import { parseSequenceDiagramCst } from "./parser"
 import {
   buildSeqAst,
   type SeqAst, type SeqDeclaration, type SeqMessage, type SeqMessageContent, type SeqNote,
-  type SeqBlock, type SeqBlockSection, type SeqStatement, type SeqComment,
+  type SeqBlock, type SeqBlockSection, type SeqStatement,
 } from "./visitor"
 
 // Compile-time exhaustiveness guard
@@ -92,10 +92,10 @@ function serializeBlock(block: SeqBlock): string {
 
 function serializeStatements(statements: SeqStatement[]): string[] {
   return statements.map((stmt) => {
-    if ("sections" in stmt) return serializeBlock(stmt as SeqBlock)
-    if ("position" in stmt) return (stmt.indent ?? "") + serializeNote(stmt as SeqNote)
-    if (!("from" in stmt)) return ((stmt as SeqComment).indent ?? "") + (stmt as SeqComment).text
-    return (stmt.indent ?? "") + serializeMessage(stmt as SeqMessage)
+    if ("sections" in stmt) return serializeBlock(stmt)
+    if ("position" in stmt) return (stmt.indent ?? "") + serializeNote(stmt)
+    if (!("from" in stmt)) return ((stmt).indent ?? "") + (stmt).text
+    return (stmt.indent ?? "") + serializeMessage(stmt)
   })
 }
 
@@ -180,12 +180,12 @@ function renameBlockSection(section: SeqBlockSection, oldId: string, newId: stri
 function renameStatements(statements: SeqStatement[], oldId: string, newId: string): SeqStatement[] {
   return statements.map((stmt) => {
     if ("sections" in stmt) {
-      const block = stmt as SeqBlock
+      const block = stmt
       return { ...block, sections: block.sections.map((s) => renameBlockSection(s, oldId, newId)) }
     }
-    if ("position" in stmt) return renameNote(stmt as SeqNote, oldId, newId)
+    if ("position" in stmt) return renameNote(stmt, oldId, newId)
     if (!("from" in stmt)) return stmt // SeqComment — no IDs to rename, pass through unchanged
-    return renameMessage(stmt as SeqMessage, oldId, newId)
+    return renameMessage(stmt, oldId, newId)
   })
 }
 

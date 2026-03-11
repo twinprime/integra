@@ -262,6 +262,7 @@ export function analyzeSequenceDiagramChanges(
   return matches
 }
 
+// eslint-disable-next-line complexity
 export function parseSequenceDiagram(
   content: string,
   rootComponent: ComponentNode,

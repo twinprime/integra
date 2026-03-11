@@ -120,8 +120,8 @@ class SequenceDiagramVisitor extends BaseVisitor {
     for (const stmt of ctx.seqStatement ?? []) {
       const result = this.visit(stmt as never) as SeqDeclaration | SeqStatement | undefined
       if (!result) continue
-      if ("entityType" in result) declarations.push(result as SeqDeclaration)
-      else statements.push(result as SeqStatement)
+      if ("entityType" in result) declarations.push(result)
+      else statements.push(result)
     }
     return { declarations, statements }
   }
@@ -184,6 +184,7 @@ class SequenceDiagramVisitor extends BaseVisitor {
     return { kind: "side", side, participant }
   }
 
+  // eslint-disable-next-line complexity
   seqMessage(ctx: Record<string, unknown[]>): SeqMessage {
     const [fromRef, toRef] = ctx.participantRef as never[]
     const from = this.visit(fromRef) as string
@@ -272,9 +273,9 @@ export function flattenMessages(statements: SeqStatement[]): SeqMessage[] {
   const result: SeqMessage[] = []
   for (const stmt of statements) {
     if ("sections" in stmt) {
-      for (const section of (stmt as SeqBlock).sections) result.push(...flattenMessages(section.statements))
+      for (const section of (stmt).sections) result.push(...flattenMessages(section.statements))
     } else if ("content" in stmt) {
-      result.push(stmt as SeqMessage)
+      result.push(stmt)
     }
   }
   return result

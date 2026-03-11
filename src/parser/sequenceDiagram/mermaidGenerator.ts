@@ -10,7 +10,7 @@ import { findNodeByPath } from "../../utils/nodeUtils"
 import { findInterfaceOwnerPreferReceiver, findInterfaceUuidPreferReceiver, resolveUseCaseByPath, resolveSeqDiagramByPath } from "../../utils/diagramResolvers"
 import { findNodeByUuid } from "../../nodes/nodeTree"
 import { parseSequenceDiagramCst } from "./parser"
-import { buildSeqAst, flattenMessages, type SeqAst, type SeqStatement, type SeqMessage, type SeqNote } from "./visitor"
+import { buildSeqAst, flattenMessages, type SeqAst, type SeqStatement, type SeqNote } from "./visitor"
 
 function assertNever(x: never): never {
   throw new Error(`Unhandled SeqMessageContent kind: ${JSON.stringify(x)}`)
@@ -122,6 +122,7 @@ function resolveLabel(baseLabel: string, uuid: string | undefined, labelMap: Lab
   return rendered
 }
 
+// eslint-disable-next-line complexity
 function emitStatements(
   statements: SeqStatement[],
   ownerComp: ComponentNode | null,
@@ -165,7 +166,7 @@ function emitStatements(
       }
     } else {
       // Message
-      const msg = stmt as SeqMessage
+      const msg = stmt
       const fromId = sanitizeMermaidId(msg.from)
       const toId = sanitizeMermaidId(msg.to)
       const c = msg.content

@@ -21,7 +21,7 @@ const NodeLink = ({
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault()
-    const uuid = findNodeByPath(rootComponent, href!, contextComponentUuid)
+    const uuid = findNodeByPath(rootComponent, href, contextComponentUuid)
     if (uuid) selectNode(uuid)
   }
 

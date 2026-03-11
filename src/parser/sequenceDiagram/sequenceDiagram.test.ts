@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 /**
  * Tests for the sequence diagram Chevrotain lexer, parser, and visitor.
  */

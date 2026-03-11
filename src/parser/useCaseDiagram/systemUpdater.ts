@@ -16,6 +16,7 @@ function findOwnerInTree(root: ComponentNode, uuid: string): ComponentNode | nul
   return findCompByUuid(root, uuid)
 }
 
+// eslint-disable-next-line complexity
 export function parseUseCaseDiagram(
   content: string,
   rootComponent: ComponentNode,

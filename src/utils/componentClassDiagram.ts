@@ -66,6 +66,7 @@ function emitInterfaceClass(iface: InterfaceSpecification, lines: string[], call
   lines.push(`    }`)
 }
 
+// eslint-disable-next-line complexity
 export function buildComponentClassDiagram(
   component: ComponentNode,
   rootComponent: ComponentNode,
@@ -94,7 +95,7 @@ export function buildComponentClassDiagram(
     if (!seqDiagram.content?.trim()) continue
 
     const ownerNode = findNode([rootComponent], ownerComponentUuid)
-    const ownerComp = ownerNode?.type === "component" ? (ownerNode as ComponentNode) : null
+    const ownerComp = ownerNode?.type === "component" ? (ownerNode) : null
 
     const ast = getCachedSeqAst(seqDiagram.content)
 

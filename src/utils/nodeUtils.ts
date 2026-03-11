@@ -61,7 +61,7 @@ const isNodeReferencedInAnyDiagram = (
   const walk = (node: Node): boolean => {
     if (
       "referencedNodeIds" in node &&
-      (node.referencedNodeIds as string[]).includes(nodeUuid)
+      (node.referencedNodeIds).includes(nodeUuid)
     ) {
       return true
     }
@@ -76,7 +76,7 @@ export const isNodeOrphaned = (node: Node, root: ComponentNode): boolean => {
   if (node.type === "use-case-diagram") {
     // A use-case-diagram UUID is never stored in referencedNodeIds; instead, protect by
     // checking whether any child use case is referenced in a sequence diagram.
-    const ucd = node as UseCaseDiagramNode
+    const ucd = node
     return ucd.useCases.every(uc => !isUseCaseReferenced(root, uc.uuid))
   }
   return !isNodeReferencedInAnyDiagram(root, node.uuid)

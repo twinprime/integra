@@ -61,7 +61,7 @@ export function useMermaidClassDiagram<T>(
       }
     }
 
-    render()
+    void render()
   }, [node, rootComponent, selectNode, buildFn, idPrefix])
 
   useEffect(() => {

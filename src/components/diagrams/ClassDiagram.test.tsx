@@ -9,7 +9,6 @@ import { render, screen } from "@testing-library/react"
 import { ComponentClassDiagram } from "./ComponentClassDiagram"
 import { UseCaseClassDiagram } from "./UseCaseClassDiagram"
 import type { ComponentNode, UseCaseNode, InterfaceSpecification, SequenceDiagramNode } from "../../store/types"
-import { useRef } from "react"
 
 // ─── Mock the hooks ───────────────────────────────────────────────────────────
 

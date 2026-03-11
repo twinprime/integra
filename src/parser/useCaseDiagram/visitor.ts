@@ -46,8 +46,8 @@ class UseCaseDiagramVisitor extends BaseVisitor {
     for (const stmt of ctx.ucdStatement ?? []) {
       const result = this.visit(stmt as never) as UcdDeclaration | UcdLink | undefined
       if (!result) continue
-      if ("entityType" in result) declarations.push(result as UcdDeclaration)
-      else links.push(result as UcdLink)
+      if ("entityType" in result) declarations.push(result)
+      else links.push(result)
     }
     return { declarations, links }
   }

@@ -9,6 +9,7 @@ export default defineConfig([
   globalIgnores(["dist"]),
   {
     files: ["**/*.{ts,tsx}"],
+    ignores: ["e2e/**", "playwright.config.ts"],
     extends: [
       js.configs.recommended,
       tseslint.configs.recommendedTypeChecked,
@@ -33,6 +34,32 @@ export default defineConfig([
         "warn",
         { max: 500, skipBlankLines: true, skipComments: true },
       ],
+    },
+  },
+  {
+    files: ["e2e/**/*.ts", "playwright.config.ts"],
+    extends: [
+      js.configs.recommended,
+      tseslint.configs.recommendedTypeChecked,
+    ],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: globals.node,
+      parserOptions: {
+        project: "./tsconfig.e2e.json",
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_" },
+      ],
+      // page.evaluate() inherently returns unknown; unsafe rules are too noisy for e2e tests
+      "@typescript-eslint/no-unsafe-assignment": "off",
+      "@typescript-eslint/no-unsafe-call": "off",
+      "@typescript-eslint/no-unsafe-member-access": "off",
+      "@typescript-eslint/no-unsafe-return": "off",
     },
   },
 ])

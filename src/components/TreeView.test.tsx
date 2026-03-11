@@ -1,4 +1,6 @@
 // @vitest-environment jsdom
+/* eslint-disable @typescript-eslint/unbound-method */
+/* eslint-disable @typescript-eslint/require-await */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
 import { render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"

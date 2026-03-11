@@ -31,6 +31,7 @@ export const InterfaceEditor = ({
   onDeleteInterface?: () => void
   onParamDescriptionUpdate: (fnIdx: number, paramIdx: number, desc: string) => void
   contextComponentUuid?: string
+// eslint-disable-next-line complexity
 }) => {
   const [name, setName] = useState(iface.name)
   const [description, setDescription] = useState(iface.description || "")
@@ -68,7 +69,7 @@ export const InterfaceEditor = ({
   }
 
   if (isInherited || isDangling) {
-    const parentName = isInherited ? (iface as InheritedInterface).parentIface.name || (iface as InheritedInterface).parentIface.id : null
+    const parentName = isInherited ? (iface).parentIface.name || (iface).parentIface.id : null
     const fns = isInherited ? iface.functions : []
     return (
       <div className="border border-indigo-800/50 rounded-md bg-gray-900/50 p-3">

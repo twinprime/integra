@@ -46,7 +46,7 @@ export function useMermaidBase(diagramNode: DiagramNode | null, buildContent: Bu
       try {
         const ownerNode = findNode([rootComponent], diagramNode.ownerComponentUuid)
         const ownerComp =
-          ownerNode?.type === "component" ? (ownerNode as ComponentNode) : null
+          ownerNode?.type === "component" ? (ownerNode) : null
         const { mermaidContent, idToUuid } = buildContent(
           diagramNode.content,
           ownerComp,
@@ -74,7 +74,7 @@ export function useMermaidBase(diagramNode: DiagramNode | null, buildContent: Bu
         console.error(err instanceof Error ? err.stack : err)
       }
     }
-    render()
+    void render()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [diagramNode, buildContent])
 

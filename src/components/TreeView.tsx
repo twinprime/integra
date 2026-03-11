@@ -54,7 +54,7 @@ export const TreeView = () => {
   const serializeYaml = (comp: ComponentNode) =>
     yaml.dump(
       JSON.parse(
-        JSON.stringify(comp, (key, value) =>
+        JSON.stringify(comp, (key: string, value: unknown): unknown =>
           DERIVED_KEYS.has(key) ? undefined : value,
         ),
       ),
@@ -115,7 +115,7 @@ export const TreeView = () => {
     }
     document.addEventListener("keydown", onKeyDown)
     return () => document.removeEventListener("keydown", onKeyDown)
-  }, [undo, redo])
+  }, [undo, redo, goBack, goForward])
 
   const handleSave = async () => {
     try {
@@ -331,14 +331,14 @@ export const TreeView = () => {
             <Redo2 size={16} />
           </button>
           <button
-            onClick={handleSave}
+            onClick={() => { void handleSave() }}
             className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-gray-200 transition-colors"
             title="Save system to YAML file"
           >
             <Download size={16} />
           </button>
           <button
-            onClick={handleLoad}
+            onClick={() => { void handleLoad() }}
             className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-gray-200 transition-colors"
             title="Load system from YAML file"
           >

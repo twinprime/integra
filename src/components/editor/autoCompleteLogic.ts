@@ -101,6 +101,7 @@ export function findComponentByIdInTree(
   return null
 }
 
+// eslint-disable-next-line complexity
 export function detectContext(
   content: string,
   cursorPos: number,

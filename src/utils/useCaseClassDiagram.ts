@@ -181,7 +181,7 @@ export function buildUseCaseClassDiagram(
   for (const seqDiagram of useCaseNode.sequenceDiagrams) {
     if (!seqDiagram.content?.trim()) continue
     const ownerNode = findNode([rootComponent], seqDiagram.ownerComponentUuid)
-    const ownerComp = ownerNode?.type === "component" ? (ownerNode as ComponentNode) : null
+    const ownerComp = ownerNode?.type === "component" ? (ownerNode) : null
     const aliasToUuid = new Map<string, string>()
     const ast = parseAst(seqDiagram.content)
     registerParticipants(ast, ownerComp, rootComponent, participantsMap, aliasToUuid)

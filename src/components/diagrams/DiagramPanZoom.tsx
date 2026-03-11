@@ -5,7 +5,7 @@ import { ZoomIn, ZoomOut, Maximize2 } from "lucide-react"
 const btnClass =
   "bg-white/90 hover:bg-white border border-gray-200 rounded p-1 text-gray-600 hover:text-gray-900 shadow-sm transition-colors"
 
-const FitController = ({ fitRef }: { fitRef: React.MutableRefObject<() => void> }) => {
+const FitController = ({ fitRef }: { fitRef: React.RefObject<() => void> }) => {
   const { instance, setTransform } = useControls()
 
   const fitDiagram = useCallback(() => {
@@ -27,7 +27,9 @@ const FitController = ({ fitRef }: { fitRef: React.MutableRefObject<() => void> 
     setTransform(posX, posY, fitScale, 0)
   }, [instance, setTransform])
 
-  fitRef.current = fitDiagram
+  useEffect(() => {
+    fitRef.current = fitDiagram
+  }, [fitRef, fitDiagram])
 
   useEffect(() => {
     const content = instance.contentComponent
@@ -42,7 +44,7 @@ const FitController = ({ fitRef }: { fitRef: React.MutableRefObject<() => void> 
   return null
 }
 
-const ZoomControls = ({ fitRef }: { fitRef: React.MutableRefObject<() => void> }) => {
+const ZoomControls = ({ fitRef }: { fitRef: React.RefObject<() => void> }) => {
   const { zoomIn, zoomOut } = useControls()
   return (
     <div className="absolute top-2 right-2 z-10 flex gap-1">
