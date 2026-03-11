@@ -6,7 +6,7 @@ import { useSystemStore } from "../../store/useSystemStore"
 import { MarkdownEditor } from "./MarkdownEditor"
 import { FunctionEditor } from "./FunctionEditor"
 
-const ID_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_-]*$/
+const ID_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_]*$/
 
 const INTERFACE_TYPES = ["rest", "graphql", "kafka", "other"] as const
 
@@ -47,7 +47,7 @@ export const InterfaceEditor = ({
     if (!value) {
       setIdError("ID cannot be empty")
     } else if (!ID_FORMAT.test(value)) {
-      setIdError("ID must start with a letter or _ and contain only letters, digits, _ or -")
+      setIdError("ID must start with a letter or _ and contain only letters, digits, or _")
     } else {
       setIdError(null)
     }

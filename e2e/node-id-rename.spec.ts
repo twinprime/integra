@@ -81,6 +81,21 @@ test.describe("node ID rename", () => {
     await expect(idInput).toHaveValue("Login")
   })
 
+  test("dashed ID is rejected and reverts", async ({ page }) => {
+    await page.getByRole("treeitem").filter({ hasText: "Login" }).first().click()
+
+    const idInput = page.getByLabel("Node ID")
+    await idInput.clear()
+    await idInput.fill("my-node")
+
+    // Error should appear — dashes are not allowed
+    await expect(page.getByText(/must start with/)).toBeVisible()
+
+    // After blur the field reverts to the original valid ID
+    await idInput.press("Enter")
+    await expect(idInput).toHaveValue("Login")
+  })
+
   test("duplicate ID shows inline error and does not save", async ({ page }) => {
     // Select the root actor "User"
     await page.getByRole("treeitem").filter({ hasText: /^User$/ }).first().click()

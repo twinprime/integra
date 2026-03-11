@@ -64,7 +64,7 @@ export const FunctionRef = createToken({
  */
 export const UseCaseRef = createToken({
   name: "UseCaseRef",
-  pattern: /UseCase:[A-Za-z_][A-Za-z0-9_-]*(?:\/[A-Za-z_][A-Za-z0-9_-]*)*(?::[^\r\n]*)?/,
+  pattern: /UseCase:[A-Za-z_][A-Za-z0-9_]*(?:\/[A-Za-z_][A-Za-z0-9_]*)*(?::[^\r\n]*)?/,
 })
 
 /**
@@ -75,7 +75,7 @@ export const UseCaseRef = createToken({
  */
 export const SequenceRef = createToken({
   name: "SequenceRef",
-  pattern: /Sequence:[A-Za-z_][A-Za-z0-9_-]*(?:\/[A-Za-z_][A-Za-z0-9_-]*)*(?::[^\r\n]*)?/,
+  pattern: /Sequence:[A-Za-z_][A-Za-z0-9_]*(?:\/[A-Za-z_][A-Za-z0-9_]*)*(?::[^\r\n]*)?/,
 })
 
 /** Catch-all: rest of line text for plain message labels and note bodies */
@@ -137,13 +137,13 @@ export const SeqArrow = createToken({
  * priority. loop/alt/par/opt/else/and push block_header_mode to capture
  * optional condition text. end stays in default_mode (no condition text).
  */
-export const Loop = createToken({ name: "Loop", pattern: /loop(?![a-zA-Z0-9_-])/, push_mode: "block_header_mode" })
-export const Alt  = createToken({ name: "Alt",  pattern: /alt(?![a-zA-Z0-9_-])/,  push_mode: "block_header_mode" })
-export const Par  = createToken({ name: "Par",  pattern: /par(?![a-zA-Z0-9_-])/,  push_mode: "block_header_mode" })
-export const Opt  = createToken({ name: "Opt",  pattern: /opt(?![a-zA-Z0-9_-])/,  push_mode: "block_header_mode" })
-export const Else = createToken({ name: "Else", pattern: /else(?![a-zA-Z0-9_-])/, push_mode: "block_header_mode" })
-export const And  = createToken({ name: "And",  pattern: /and(?![a-zA-Z0-9_-])/,  push_mode: "block_header_mode" })
-export const End  = createToken({ name: "End",  pattern: /end(?![a-zA-Z0-9_-])/ })
+export const Loop = createToken({ name: "Loop", pattern: /loop(?![a-zA-Z0-9_])/, push_mode: "block_header_mode" })
+export const Alt  = createToken({ name: "Alt",  pattern: /alt(?![a-zA-Z0-9_])/,  push_mode: "block_header_mode" })
+export const Par  = createToken({ name: "Par",  pattern: /par(?![a-zA-Z0-9_])/,  push_mode: "block_header_mode" })
+export const Opt  = createToken({ name: "Opt",  pattern: /opt(?![a-zA-Z0-9_])/,  push_mode: "block_header_mode" })
+export const Else = createToken({ name: "Else", pattern: /else(?![a-zA-Z0-9_])/, push_mode: "block_header_mode" })
+export const And  = createToken({ name: "And",  pattern: /and(?![a-zA-Z0-9_])/,  push_mode: "block_header_mode" })
+export const End  = createToken({ name: "End",  pattern: /end(?![a-zA-Z0-9_])/ })
 
 // ─── block_header_mode tokens ─────────────────────────────────────────────────
 

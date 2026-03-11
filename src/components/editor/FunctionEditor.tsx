@@ -5,7 +5,7 @@ import { MarkdownEditor } from "./MarkdownEditor"
 import { useSystemStore, getSequenceDiagrams } from "../../store/useSystemStore"
 import { NodeReferencesButton } from "./NodeReferencesButton"
 
-const ID_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_-]*$/
+const ID_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_]*$/
 
 export const FunctionEditor = ({
   fn,
@@ -41,7 +41,7 @@ export const FunctionEditor = ({
     if (!value) {
       setIdError("ID cannot be empty")
     } else if (!ID_FORMAT.test(value)) {
-      setIdError("ID must start with a letter or _ and contain only letters, digits, _ or -")
+      setIdError("ID must start with a letter or _ and contain only letters, digits, or _")
     } else {
       setIdError(null)
     }

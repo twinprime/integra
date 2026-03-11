@@ -29,22 +29,22 @@ export const Comma = createToken({ name: "Comma", pattern: /,/ })
 // IDENTIFIER must be listed AFTER all keywords. Chevrotain uses `longer_alt`
 // to ensure keywords are matched preferentially over identifiers.
 
-export const Identifier = createToken({ name: "Identifier", pattern: /[a-zA-Z_][a-zA-Z0-9_-]*/ })
+export const Identifier = createToken({ name: "Identifier", pattern: /[a-zA-Z_][a-zA-Z0-9_]*/ })
 
 // Numeric word token — allows digit-only words in participant references (e.g. "Output Topics 2")
 export const NumberToken = createToken({ name: "NumberToken", pattern: /\d+/ })
 
 // Wire longer_alt: keywords should fall back to Identifier if not matched
-Actor.PATTERN = /actor(?![a-zA-Z0-9_-])/
-Component.PATTERN = /component(?![a-zA-Z0-9_-])/
-Use.PATTERN = /use(?![a-zA-Z0-9_-])/
-Case.PATTERN = /case(?![a-zA-Z0-9_-])/
-As.PATTERN = /as(?![a-zA-Z0-9_-])/
-Note.PATTERN = /note(?![a-zA-Z0-9_-])/
-Right.PATTERN = /right(?![a-zA-Z0-9_-])/
-Left.PATTERN = /left(?![a-zA-Z0-9_-])/
-Of.PATTERN = /of(?![a-zA-Z0-9_-])/
-Over.PATTERN = /over(?![a-zA-Z0-9_-])/
+Actor.PATTERN = /actor(?![a-zA-Z0-9_])/
+Component.PATTERN = /component(?![a-zA-Z0-9_])/
+Use.PATTERN = /use(?![a-zA-Z0-9_])/
+Case.PATTERN = /case(?![a-zA-Z0-9_])/
+As.PATTERN = /as(?![a-zA-Z0-9_])/
+Note.PATTERN = /note(?![a-zA-Z0-9_])/
+Right.PATTERN = /right(?![a-zA-Z0-9_])/
+Left.PATTERN = /left(?![a-zA-Z0-9_])/
+Of.PATTERN = /of(?![a-zA-Z0-9_])/
+Over.PATTERN = /over(?![a-zA-Z0-9_])/
 
 // ─── Whitespace + newlines ────────────────────────────────────────────────────
 

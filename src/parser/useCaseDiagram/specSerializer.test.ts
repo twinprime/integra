@@ -113,19 +113,19 @@ describe("renameInUcdSpec — links", () => {
   })
 })
 
-describe("renameInUcdSpec — hyphen safety", () => {
-  it("does NOT corrupt a hyphenated ID when renaming a prefix", () => {
-    const spec = "actor api\ncomponent api-service\napi ->> api-service"
+describe("renameInUcdSpec — underscore prefix safety", () => {
+  it("does NOT corrupt an underscored ID when renaming a prefix", () => {
+    const spec = "actor api\ncomponent api_service\napi ->> api_service"
     const result = renameInUcdSpec(spec, "api", "gateway")
     expect(result).toContain("actor gateway")
-    expect(result).toContain("component api-service")
-    expect(result).toContain("gateway ->> api-service")
+    expect(result).toContain("component api_service")
+    expect(result).toContain("gateway ->> api_service")
   })
 
-  it("correctly renames a hyphenated ID itself", () => {
+  it("correctly renames an underscored ID itself", () => {
     const result = renameInUcdSpec(
-      "actor api-user\nuse case uc\napi-user ->> uc",
-      "api-user",
+      "actor api_user\nuse case uc\napi_user ->> uc",
+      "api_user",
       "customer",
     )
     expect(result).toContain("actor customer")

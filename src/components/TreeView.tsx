@@ -200,17 +200,17 @@ export const TreeView = () => {
 
     const label =
       type === "use-case-diagram" ? "use case diagram" : "sequence diagram"
-    const id = prompt(`Enter ${label} ID (e.g. my-feature)`)?.trim()
+    const id = prompt(`Enter ${label} ID (e.g. my_feature)`)?.trim()
     if (!id) return
-    if (!/^[a-zA-Z_][a-zA-Z0-9_-]*$/.test(id)) {
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(id)) {
       alert(
-        `Invalid ID "${id}". Must start with a letter or _ and contain only letters, digits, _ or -.`,
+        `Invalid ID "${id}". Must start with a letter or _ and contain only letters, digits, or _.`,
       )
       return
     }
 
     const name = id
-      .split(/[_-]/)
+      .split(/_/)
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(" ")
     const uuid = crypto.randomUUID()

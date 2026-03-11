@@ -231,19 +231,19 @@ describe("renameInSeqSpec — notes", () => {
   })
 })
 
-describe("renameInSeqSpec — hyphen safety (was broken with \\b regex)", () => {
-  it("does NOT rename a prefix when hyphenated sibling exists", () => {
-    const spec = "component api\ncomponent api-gateway\napi ->> api-gateway: REST:call()"
+describe("renameInSeqSpec — underscore prefix safety", () => {
+  it("does NOT rename a prefix when underscored sibling exists", () => {
+    const spec = "component api\ncomponent api_gateway\napi ->> api_gateway: REST:call()"
     const result = renameInSeqSpec(spec, "api", "service")
     expect(result).toContain("component service")
-    expect(result).toContain("component api-gateway")
-    expect(result).toContain("service ->> api-gateway")
+    expect(result).toContain("component api_gateway")
+    expect(result).toContain("service ->> api_gateway")
   })
 
-  it("correctly renames a hyphenated ID itself", () => {
+  it("correctly renames an underscored ID itself", () => {
     const result = renameInSeqSpec(
-      "component api-gateway\napi-gateway ->> svc: REST:get()",
-      "api-gateway",
+      "component api_gateway\napi_gateway ->> svc: REST:get()",
+      "api_gateway",
       "gateway",
     )
     expect(result).toContain("component gateway")
