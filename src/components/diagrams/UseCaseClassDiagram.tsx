@@ -7,7 +7,7 @@ interface UseCaseClassDiagramProps {
 }
 
 export const UseCaseClassDiagram = ({ useCaseNode }: UseCaseClassDiagramProps) => {
-  const { svg, error, elementRef } = useUseCaseClassDiagram(useCaseNode)
+  const { svg, error, mermaidSource, elementRef } = useUseCaseClassDiagram(useCaseNode)
 
   if (!useCaseNode.sequenceDiagrams.length) {
     return (
@@ -28,6 +28,10 @@ export const UseCaseClassDiagram = ({ useCaseNode }: UseCaseClassDiagramProps) =
           dangerouslySetInnerHTML={{ __html: svg }}
           style={{ minHeight: "100px" }}
         />
+      ) : error && mermaidSource ? (
+        <pre className="flex-1 overflow-auto p-4 text-xs text-gray-300 bg-gray-900 rounded-lg whitespace-pre-wrap font-mono">
+          {mermaidSource}
+        </pre>
       ) : (
         <div ref={elementRef} className="flex-1" style={{ minHeight: "100px" }} />
       )}

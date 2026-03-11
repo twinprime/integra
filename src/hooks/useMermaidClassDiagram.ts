@@ -11,7 +11,7 @@ export function useMermaidClassDiagram<T>(
   buildFn: (node: T, rootComponent: ComponentNode) => { mermaidContent: string; idToUuid: Record<string, string> },
   node: T | null,
   idPrefix: string,
-): { svg: string; error: string; elementRef: React.RefObject<HTMLDivElement | null> } {
+): { svg: string; error: string; mermaidSource: string; elementRef: React.RefObject<HTMLDivElement | null> } {
   const rootComponent = useSystemStore((s) => s.rootComponent)
   const selectNode = useSystemStore((s) => s.selectNode)
   const elementRef = useRef<HTMLDivElement>(null)
@@ -19,12 +19,14 @@ export function useMermaidClassDiagram<T>(
   const idToUuidRef = useRef<Record<string, string>>({})
   const [svg, setSvg] = useState("")
   const [error, setError] = useState("")
+  const [mermaidSource, setMermaidSource] = useState("")
 
   useEffect(() => {
     const render = async () => {
       if (!node) {
         setSvg("")
         setError("")
+        setMermaidSource("")
         return
       }
 
@@ -33,6 +35,7 @@ export function useMermaidClassDiagram<T>(
       if (!mermaidContent) {
         setSvg("")
         setError("")
+        setMermaidSource("")
         return
       }
 
@@ -42,6 +45,7 @@ export function useMermaidClassDiagram<T>(
         if (uuid) selectNode(uuid)
       }
 
+      setMermaidSource(mermaidContent)
       try {
         const { svg: renderedSvg, bindFunctions } = await mermaid.render(
           `mermaid-${idPrefix}-${Date.now()}`,
@@ -50,6 +54,7 @@ export function useMermaidClassDiagram<T>(
         bindFunctionsRef.current = bindFunctions
         setSvg(renderedSvg)
         setError("")
+        setMermaidSource("")
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err))
         setSvg("")
@@ -64,5 +69,5 @@ export function useMermaidClassDiagram<T>(
     bindFunctionsRef.current?.(elementRef.current)
   }, [svg])
 
-  return { svg, error, elementRef }
+  return { svg, error, mermaidSource, elementRef }
 }

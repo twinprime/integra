@@ -7,7 +7,7 @@ interface ComponentClassDiagramProps {
 }
 
 export const ComponentClassDiagram = ({ componentNode }: ComponentClassDiagramProps) => {
-  const { svg, error, elementRef } = useComponentClassDiagram(componentNode)
+  const { svg, error, mermaidSource, elementRef } = useComponentClassDiagram(componentNode)
 
   if (!svg && !error && !componentNode.interfaces?.length) {
     return (
@@ -28,6 +28,10 @@ export const ComponentClassDiagram = ({ componentNode }: ComponentClassDiagramPr
           dangerouslySetInnerHTML={{ __html: svg }}
           style={{ minHeight: "100px" }}
         />
+      ) : error && mermaidSource ? (
+        <pre className="flex-1 overflow-auto p-4 text-xs text-gray-300 bg-gray-900 rounded-lg whitespace-pre-wrap font-mono">
+          {mermaidSource}
+        </pre>
       ) : (
         <div ref={elementRef} className="flex-1" style={{ minHeight: "100px" }} />
       )}
