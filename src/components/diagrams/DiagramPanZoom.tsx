@@ -6,7 +6,7 @@ const btnClass =
   "bg-white/90 hover:bg-white border border-gray-200 rounded p-1 text-gray-600 hover:text-gray-900 shadow-sm transition-colors"
 
 const FitController = ({ fitRef }: { fitRef: React.MutableRefObject<() => void> }) => {
-  const { instance, centerView } = useControls()
+  const { instance, setTransform } = useControls()
 
   const fitDiagram = useCallback(() => {
     const wrapper = instance.wrapperComponent
@@ -14,12 +14,18 @@ const FitController = ({ fitRef }: { fitRef: React.MutableRefObject<() => void> 
     if (!wrapper || !content) return
     const wrapperW = wrapper.offsetWidth
     const wrapperH = wrapper.offsetHeight
-    const contentW = content.offsetWidth
-    const contentH = content.offsetHeight
-    if (contentW === 0 || contentH === 0) return
-    const fitScale = Math.min(wrapperW / contentW, wrapperH / contentH) * 0.9
-    centerView(fitScale, 0)
-  }, [instance, centerView])
+    // The react-transform-component has display:flex, so our children are flex items
+    // that shrink to their content size — NOT the full content div width.
+    // Use the first child's dimensions to get the actual diagram size.
+    const child = content.firstElementChild as HTMLElement | null
+    const naturalW = child?.offsetWidth ?? content.offsetWidth
+    const naturalH = child?.offsetHeight ?? content.offsetHeight
+    if (naturalW === 0 || naturalH === 0) return
+    const fitScale = Math.min(wrapperW / naturalW, wrapperH / naturalH) * 0.9
+    const posX = (wrapperW - naturalW * fitScale) / 2
+    const posY = (wrapperH - naturalH * fitScale) / 2
+    setTransform(posX, posY, fitScale, 0)
+  }, [instance, setTransform])
 
   fitRef.current = fitDiagram
 
