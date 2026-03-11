@@ -486,4 +486,81 @@ describe("buildComponentClassDiagram", () => {
     // no direct component arrow since interface arrow exists
     expect(result.mermaidContent).not.toContain("compA ..> compB")
   })
+
+  // ── Function filtering tests ───────────────────────────────────────────────
+
+  it("filters own interface to only the function called in a message", () => {
+    // Build compA with a single interface IFoo having both doSomething and getAll
+    const base = makeRoot()
+    const rootCustom: typeof base = {
+      ...base,
+      subComponents: [
+        {
+          ...base.subComponents[0],
+          interfaces: [
+            {
+              uuid: "ifoo-uuid",
+              id: "IFoo",
+              name: "IFoo",
+              type: "rest",
+              functions: [
+                { uuid: "fn1-uuid", id: "doSomething", parameters: [{ name: "id", type: "string", required: true }] },
+                { uuid: "fn2-uuid", id: "getAll", parameters: [{ name: "page", type: "number", required: false }] },
+              ],
+            },
+          ],
+        },
+        base.subComponents[1],
+      ],
+    }
+    // Only doSomething is called, not getAll
+    const sd = makeSeqDiagram(
+      "actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething(id: string)",
+    )
+    const root = { ...rootCustom, useCaseDiagrams: [makeUcd(makeUseCase(sd))] }
+    const result = buildComponentClassDiagram(root.subComponents[0], root)
+    expect(result.mermaidContent).toContain("+doSomething(id: string)")
+    expect(result.mermaidContent).not.toContain("+getAll(page: number?)")
+  })
+
+  it("shows all functions when no messages reference the interface (no callers)", () => {
+    // No sequence diagrams at all — fall back to showing all functions
+    const root = makeRoot()
+    const result = buildComponentClassDiagram(getCompA(root), root)
+    expect(result.mermaidContent).toContain("+doSomething(id: string)")
+    expect(result.mermaidContent).toContain("+getAll(page: number?)")
+  })
+
+  it("shows multiple called functions when multiple are referenced", () => {
+    const sd = makeSeqDiagram(
+      [
+        "actor user",
+        "component compA",
+        "user ->> compA: IFoo:doSomething(id: string)",
+        "user ->> compA: IFoo:getAll()",
+      ].join("\n"),
+    )
+    const root = makeRoot([sd])
+    const result = buildComponentClassDiagram(getCompA(root), root)
+    expect(result.mermaidContent).toContain("+doSomething(id: string)")
+    expect(result.mermaidContent).toContain("+getAll(page: number?)")
+  })
+
+  it("filters dependency interface to only the functions the subject calls", () => {
+    // compA only calls IBaz.process — and IBaz has only process — verify it's shown
+    const sd = makeSeqDiagram(
+      "component compA\ncomponent compB\ncompA ->> compB: IBaz:process(data: string)",
+    )
+    const root = makeRootWithCompBInterfaces([sd])
+    const result = buildComponentClassDiagram(getCompA(root), root)
+    expect(result.mermaidContent).toContain("+process(data: string)")
+  })
+
+  it("delegates to root diagram when component is the root", () => {
+    const root = makeRoot()
+    const result = buildComponentClassDiagram(root, root)
+    // Root diagram shows children, not the root itself as subject
+    expect(result.mermaidContent).toContain('class compA["Component A"]')
+    expect(result.mermaidContent).toContain('class compB["Component B"]')
+  })
 })

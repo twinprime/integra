@@ -6,6 +6,7 @@ import { getCachedSeqAst } from "./seqAstCache"
 import type { SeqAst } from "../parser/sequenceDiagram/visitor"
 import { findNodeByPath } from "./nodeUtils"
 import { collectAllDiagrams } from "../nodes/nodeTree"
+import { buildRootClassDiagram } from "./rootClassDiagram"
 
 type ParticipantKind = "actor" | "component"
 
@@ -50,10 +51,13 @@ function registerParticipants(
   }
 }
 
-function emitInterfaceClass(iface: InterfaceSpecification, lines: string[]): void {
+function emitInterfaceClass(iface: InterfaceSpecification, lines: string[], calledFunctionIds?: Set<string>): void {
   lines.push(`    class ${iface.id}["${iface.name}"] {`)
   lines.push(`        <<interface>>`)
-  for (const fn of iface.functions) {
+  const fns = calledFunctionIds
+    ? iface.functions.filter((fn) => calledFunctionIds.has(fn.id))
+    : iface.functions
+  for (const fn of fns) {
     const params = fn.parameters
       .map((p) => `${p.name}: ${p.type}${p.required ? "" : "?"}`)
       .join(", ")
@@ -66,6 +70,10 @@ export function buildComponentClassDiagram(
   component: ComponentNode,
   rootComponent: ComponentNode,
 ): { mermaidContent: string; idToUuid: Record<string, string> } {
+  if (component.uuid === rootComponent.uuid) {
+    return buildRootClassDiagram(rootComponent)
+  }
+
   const targetInterfaceIds = new Set((component.interfaces ?? []).map((i) => i.id))
 
   // dependents: participants that call INTO this component's interfaces
@@ -73,8 +81,11 @@ export function buildComponentClassDiagram(
   const depArrows: Array<{ fromNodeId: string; toNodeId: string }> = []
   const depArrowsSet = new Set<string>()
 
-  // dependencies: (receiverUuid → interfaceId[]) that this component calls out to
-  const outgoingByReceiver = new Map<string, Set<string>>()
+  // Track which functions are called on own interfaces (for filtering)
+  const calledOwnFunctions = new Map<string, Set<string>>() // interfaceId → Set<functionId>
+
+  // dependencies: (receiverUuid → interfaceId → Set<functionId>) that this component calls out to
+  const outgoingByReceiver = new Map<string, Map<string, Set<string>>>()
   const receiverParticipants = new Map<string, Participant>()
 
   for (const { diagram, ownerComponentUuid } of collectAllDiagrams(rootComponent)) {
@@ -95,7 +106,7 @@ export function buildComponentClassDiagram(
 
     for (const msg of messages) {
       if (msg.content.kind !== "functionRef") continue
-      const { interfaceId } = msg.content
+      const { interfaceId, functionId } = msg.content
 
       const senderUuid = aliasToUuid.get(msg.from)
       const receiverUuid = aliasToUuid.get(msg.to)
@@ -115,6 +126,10 @@ export function buildComponentClassDiagram(
           depArrowsSet.add(arrowKey)
           depArrows.push({ fromNodeId: sender.nodeId, toNodeId: interfaceId })
         }
+
+        // Track called function on own interface
+        if (!calledOwnFunctions.has(interfaceId)) calledOwnFunctions.set(interfaceId, new Set())
+        calledOwnFunctions.get(interfaceId)!.add(functionId)
       }
 
       // ── Dependencies: this component calls OUT to another component ────────
@@ -123,10 +138,12 @@ export function buildComponentClassDiagram(
         if (!receiver || receiver.kind !== "component") continue
 
         if (!outgoingByReceiver.has(receiverUuid)) {
-          outgoingByReceiver.set(receiverUuid, new Set())
+          outgoingByReceiver.set(receiverUuid, new Map())
           receiverParticipants.set(receiverUuid, receiver)
         }
-        outgoingByReceiver.get(receiverUuid)!.add(interfaceId)
+        const ifaceMap = outgoingByReceiver.get(receiverUuid)!
+        if (!ifaceMap.has(interfaceId)) ifaceMap.set(interfaceId, new Set())
+        ifaceMap.get(interfaceId)!.add(functionId)
       }
     }
   }
@@ -144,7 +161,7 @@ export function buildComponentClassDiagram(
 
   // ── Subject's own interfaces ───────────────────────────────────────────────
   for (const iface of component.interfaces ?? []) {
-    emitInterfaceClass(iface, lines)
+    emitInterfaceClass(iface, lines, calledOwnFunctions.get(iface.id))
   }
   for (const iface of component.interfaces ?? []) {
     lines.push(`    ${component.id} ..|> ${iface.id}`)
@@ -165,15 +182,15 @@ export function buildComponentClassDiagram(
   }
 
   // ── Dependencies (this component calls out to) ────────────────────────────
-  for (const [receiverUuid, interfaceIds] of outgoingByReceiver) {
+  for (const [receiverUuid, ifaceMap] of outgoingByReceiver) {
     const receiver = receiverParticipants.get(receiverUuid)!
     const receiverNode = findNode([rootComponent], receiverUuid) as ComponentNode | null
 
     let hasInterfaceArrow = false
-    for (const ifaceId of interfaceIds) {
+    for (const [ifaceId, calledFunctionIds] of ifaceMap) {
       const ifaceSpec = receiverNode?.interfaces?.find((i) => i.id === ifaceId)
       if (ifaceSpec) {
-        emitInterfaceClass(ifaceSpec, lines)
+        emitInterfaceClass(ifaceSpec, lines, calledFunctionIds)
         lines.push(`    ${receiver.nodeId} ..|> ${ifaceId}`)
         hasInterfaceArrow = true
       }
