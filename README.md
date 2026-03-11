@@ -129,7 +129,34 @@ admin ->> placeOrder
 | `use case id` | Declare a use case |
 | `component path/to/node` | Reference an existing component by path (no new node created) |
 | `component path/to/node as alias` | Reference with an alias |
-| `A ->> B` | Relationship arrow |
+| `A ->> B` | Relationship arrow (default — maps to `-->` in Mermaid) |
+| `A ->> B: label` | Relationship arrow with a link label |
+
+**Arrow types** — the arrow between two nodes maps directly to Mermaid flowchart syntax:
+
+| Arrow | Mermaid meaning |
+|---|---|
+| `->>` | Arrowhead (**default**, backward-compatible — renders as `-->`) |
+| `-->` | Arrowhead |
+| `---` | Open link, no arrowhead |
+| `--o` | Circle at end |
+| `--x` | Cross/X at end |
+| `<-->` | Bidirectional arrow |
+| `o--o` | Bidirectional circle |
+| `x--x` | Bidirectional cross |
+| `-.->` | Dotted arrow |
+| `-.-` | Dotted open link |
+| `==>` | Thick arrow |
+| `===` | Thick open link |
+| `~~~` | Invisible link |
+
+**Link labels** — append `: label text` to add a label displayed on the link:
+
+```
+customer ->> login: initiates
+admin --o placeOrder: extends
+customer <--> admin: interacts with
+```
 
 **Node IDs are scoped to the owning component.** The same ID can be reused in different components.
 

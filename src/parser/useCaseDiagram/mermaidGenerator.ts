@@ -33,6 +33,15 @@ function resolveUcdParticipantUuid(
   return findNodeByPath(root, path.join("/"))
 }
 
+/**
+ * Maps the DSL arrow to Mermaid graph syntax.
+ * `->>` is the backward-compatible default; it renders as `-->` (arrow with head).
+ * All other arrows pass through unchanged — they are valid Mermaid graph arrows.
+ */
+function toMermaidArrow(dslArrow: string): string {
+  return dslArrow === "->>" ? "-->" : dslArrow
+}
+
 export function generateUseCaseMermaidFromAst(
   ast: UcdAst,
   ownerComp: ComponentNode | null,
@@ -61,7 +70,12 @@ export function generateUseCaseMermaidFromAst(
   }
 
   for (const link of ast.links) {
-    mermaidContent += `    ${link.from} --> ${link.to}\n`
+    const mermaidArrow = toMermaidArrow(link.arrow)
+    if (link.label != null) {
+      mermaidContent += `    ${link.from} ${mermaidArrow}|${link.label}| ${link.to}\n`
+    } else {
+      mermaidContent += `    ${link.from} ${mermaidArrow} ${link.to}\n`
+    }
   }
 
   // Click directives for navigation

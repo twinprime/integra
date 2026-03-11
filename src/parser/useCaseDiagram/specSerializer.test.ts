@@ -40,6 +40,18 @@ describe("ucdAstToSpec — round-trip", () => {
     )
   })
 
+  it("round-trips a link with non-default arrow type", () => {
+    expect(roundTrip("user --> login")).toBe("user --> login")
+  })
+
+  it("round-trips a link with a label", () => {
+    expect(roundTrip("user ->> login: initiates")).toBe("user ->> login: initiates")
+  })
+
+  it("round-trips a link with arrow type and label", () => {
+    expect(roundTrip("user --o login: extends")).toBe("user --o login: extends")
+  })
+
   it("normalizes blank lines (acceptable trade-off)", () => {
     expect(roundTrip("actor user\n\nuse case login")).toBe("actor user\nuse case login")
   })
@@ -86,6 +98,18 @@ describe("renameInUcdSpec — links", () => {
     expect(
       renameInUcdSpec("actor user\nuse case placeOrder\nuser ->> placeOrder", "placeOrder", "createOrder"),
     ).toBe("actor user\nuse case createOrder\nuser ->> createOrder")
+  })
+
+  it("preserves arrow type when renaming", () => {
+    expect(
+      renameInUcdSpec("actor user\nuse case login\nuser --o login", "login", "signIn"),
+    ).toBe("actor user\nuse case signIn\nuser --o signIn")
+  })
+
+  it("preserves label when renaming", () => {
+    expect(
+      renameInUcdSpec("actor user\nuse case login\nuser ->> login: initiates", "login", "signIn"),
+    ).toBe("actor user\nuse case signIn\nuser ->> signIn: initiates")
   })
 })
 

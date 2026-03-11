@@ -29,7 +29,7 @@ describe("use case diagram lexer", () => {
   it("tokenises a link", () => {
     const { errors, tokens } = UcdLexer.tokenize("user ->> login")
     expect(errors).toHaveLength(0)
-    expect(tokens.map((t) => t.tokenType.name)).toEqual(["Identifier", "Arrow", "Identifier"])
+    expect(tokens.map((t) => t.tokenType.name)).toEqual(["Identifier", "UcdArrow", "Identifier"])
   })
 
   it("produces no errors for multi-line input", () => {
@@ -82,13 +82,54 @@ describe("use case diagram parser — links", () => {
     const { ast, parseErrors } = parse("actor user\nuse case login\nuser ->> login")
     expect(parseErrors).toHaveLength(0)
     expect(ast.links).toHaveLength(1)
-    expect(ast.links[0]).toMatchObject({ from: "user", to: "login" })
+    expect(ast.links[0]).toMatchObject({ from: "user", to: "login", arrow: "->>", label: null })
   })
 
   it("parses multiple links", () => {
     const { ast } = parse("user ->> login\nuser ->> register")
     expect(ast.links).toHaveLength(2)
-    expect(ast.links[1]).toMatchObject({ from: "user", to: "register" })
+    expect(ast.links[1]).toMatchObject({ from: "user", to: "register", arrow: "->>", label: null })
+  })
+})
+
+describe("use case diagram parser — arrow types", () => {
+  const arrowTypes = ["-->>", "-->", "---", "--o", "--x", "<-->", "o--o", "x--x", "-.->" , "-.-", "==>", "===", "~~~"]
+  for (const arrow of arrowTypes) {
+    it(`parses arrow "${arrow}"`, () => {
+      const { ast, lexErrors, parseErrors } = parse(`user ${arrow} login`)
+      expect(lexErrors).toHaveLength(0)
+      expect(parseErrors).toHaveLength(0)
+      expect(ast.links[0]).toMatchObject({ from: "user", to: "login", arrow, label: null })
+    })
+  }
+
+  it("parses backward-compat ->> arrow", () => {
+    const { ast } = parse("user ->> login")
+    expect(ast.links[0].arrow).toBe("->>")
+  })
+})
+
+describe("use case diagram parser — link labels", () => {
+  it("parses a link with a label", () => {
+    const { ast, lexErrors, parseErrors } = parse("user ->> login: initiates")
+    expect(lexErrors).toHaveLength(0)
+    expect(parseErrors).toHaveLength(0)
+    expect(ast.links[0]).toMatchObject({ from: "user", to: "login", arrow: "->>", label: "initiates" })
+  })
+
+  it("parses a link with an arrow type and label", () => {
+    const { ast } = parse("admin --> placeOrder: extends")
+    expect(ast.links[0]).toMatchObject({ from: "admin", to: "placeOrder", arrow: "-->", label: "extends" })
+  })
+
+  it("parses a link with a multi-word label", () => {
+    const { ast } = parse("customer --o login: can also use")
+    expect(ast.links[0].label).toBe("can also use")
+  })
+
+  it("parses a link without a label as label null", () => {
+    const { ast } = parse("user --> login")
+    expect(ast.links[0].label).toBeNull()
   })
 })
 
@@ -277,5 +318,57 @@ describe("generateUseCaseMermaidFromAst — display labels", () => {
     const ast = parseUcdAst("component svc")
     const { mermaidContent } = generateUseCaseMermaidFromAst(ast, owner, owner)
     expect(mermaidContent).toContain('"Order Service"')
+  })
+})
+
+describe("generateUseCaseMermaidFromAst — arrow types and labels", () => {
+  const root = makeMermaidComp("root-uuid", "root", "Root")
+
+  it("maps ->> (compat default) to --> in Mermaid output", () => {
+    const ast = parseUcdAst("user ->> login")
+    const { mermaidContent } = generateUseCaseMermaidFromAst(ast, root, root)
+    expect(mermaidContent).toContain("user --> login")
+  })
+
+  it("passes --> through unchanged", () => {
+    const ast = parseUcdAst("user --> login")
+    const { mermaidContent } = generateUseCaseMermaidFromAst(ast, root, root)
+    expect(mermaidContent).toContain("user --> login")
+  })
+
+  it("renders --o (circle) arrow", () => {
+    const ast = parseUcdAst("user --o login")
+    const { mermaidContent } = generateUseCaseMermaidFromAst(ast, root, root)
+    expect(mermaidContent).toContain("user --o login")
+  })
+
+  it("renders --- (open) arrow", () => {
+    const ast = parseUcdAst("user --- login")
+    const { mermaidContent } = generateUseCaseMermaidFromAst(ast, root, root)
+    expect(mermaidContent).toContain("user --- login")
+  })
+
+  it("renders <--> (bidirectional) arrow", () => {
+    const ast = parseUcdAst("user <--> login")
+    const { mermaidContent } = generateUseCaseMermaidFromAst(ast, root, root)
+    expect(mermaidContent).toContain("user <--> login")
+  })
+
+  it("renders link label as |label| syntax", () => {
+    const ast = parseUcdAst("user ->> login: initiates")
+    const { mermaidContent } = generateUseCaseMermaidFromAst(ast, root, root)
+    expect(mermaidContent).toContain("user -->|initiates| login")
+  })
+
+  it("renders arrow with label for non-default arrow type", () => {
+    const ast = parseUcdAst("admin --o placeOrder: extends")
+    const { mermaidContent } = generateUseCaseMermaidFromAst(ast, root, root)
+    expect(mermaidContent).toContain("admin --o|extends| placeOrder")
+  })
+
+  it("omits | syntax when no label", () => {
+    const ast = parseUcdAst("user --> login")
+    const { mermaidContent } = generateUseCaseMermaidFromAst(ast, root, root)
+    expect(mermaidContent).not.toContain("|")
   })
 })

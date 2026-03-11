@@ -22,6 +22,8 @@ export interface UcdDeclaration {
 export interface UcdLink {
   from: string
   to: string
+  arrow: string
+  label: string | null
 }
 
 export interface UcdAst {
@@ -80,7 +82,9 @@ class UseCaseDiagramVisitor extends BaseVisitor {
 
   ucdLink(ctx: Record<string, { image: string }[]>): UcdLink {
     const ids = (ctx.Identifier ?? []).map((t) => t.image)
-    return { from: ids[0] ?? "", to: ids[1] ?? "" }
+    const arrow = (ctx.UcdArrow ?? [])[0]?.image ?? "->>"
+    const label = (ctx.UcdLabelText ?? [])[0]?.image?.trim() ?? null
+    return { from: ids[0] ?? "", to: ids[1] ?? "", arrow, label }
   }
 }
 

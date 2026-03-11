@@ -1,8 +1,8 @@
 import type { ComponentNode } from "../../store/types"
 import { paramsToString } from "../../parser/sequenceDiagram/systemUpdater"
 import { SeqLexer } from "../../parser/sequenceDiagram/lexer"
-import { UcdLexer } from "../../parser/useCaseDiagram/lexer"
-import { Actor, Component, Use, Case, Arrow, Identifier } from "../../parser/tokens"
+import { UcdLexer, UcdArrow } from "../../parser/useCaseDiagram/lexer"
+import { Actor, Component, Use, Case, Identifier } from "../../parser/tokens"
 import { SeqColon, SeqArrow } from "../../parser/sequenceDiagram/lexer"
 import { isInScope, getComponentAbsolutePath } from "../../utils/nodeUtils"
 
@@ -117,7 +117,7 @@ export function detectContext(
   // ─── Arrow contexts ────────────────────────────────────────────────────────
 
   const arrowIdx = toks.findIndex((t) =>
-    t.tokenType === (diagramType === "sequence-diagram" ? SeqArrow : Arrow)
+    t.tokenType === (diagramType === "sequence-diagram" ? SeqArrow : UcdArrow)
   )
 
   if (arrowIdx >= 0 && diagramType === "sequence-diagram") {

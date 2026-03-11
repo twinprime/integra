@@ -7,20 +7,19 @@
  *   UcdStatement    ::= UcdDeclaration | UcdLink
  *   UcdDeclaration  ::= UcdEntityType NodePath (AS IDENTIFIER)?
  *   UcdEntityType   ::= ACTOR | COMPONENT | (USE CASE)
- *   UcdLink         ::= IDENTIFIER ARROW IDENTIFIER
+ *   UcdLink         ::= IDENTIFIER UCDARROW IDENTIFIER (UCDCOLON UCDLABELTEXT)?
  *   NodePath        ::= IDENTIFIER (SLASH IDENTIFIER)*
  */
 import { CstParser } from "chevrotain"
 import {
   Actor, Component, Use, Case, As,
-  Arrow, Slash, Colon, Newline, Identifier,
+  Slash, Newline, Identifier,
 } from "../tokens"
-import { sharedTokens } from "../tokens"
-import { UcdLexer } from "./lexer"
+import { UcdLexer, UcdArrow, UcdColon, UcdLabelText, allUcdTokens } from "./lexer"
 
 export class UseCaseDiagramParser extends CstParser {
   constructor() {
-    super(sharedTokens, { recoveryEnabled: true })
+    super(allUcdTokens, { recoveryEnabled: true })
     this.performSelfAnalysis()
   }
 
@@ -80,8 +79,12 @@ export class UseCaseDiagramParser extends CstParser {
 
   ucdLink = this.RULE("ucdLink", () => {
     this.CONSUME(Identifier)
-    this.CONSUME(Arrow)
+    this.CONSUME(UcdArrow)
     this.CONSUME2(Identifier)
+    this.OPTION(() => {
+      this.CONSUME(UcdColon)
+      this.CONSUME(UcdLabelText)
+    })
   })
 }
 
@@ -94,6 +97,3 @@ export function parseUseCaseDiagramCst(input: string) {
   const cst = ucdParser.useCaseDiagram()
   return { cst, lexErrors: lexResult.errors, parseErrors: ucdParser.errors }
 }
-
-// Suppress unused import warning — Colon kept for future label support
-void Colon

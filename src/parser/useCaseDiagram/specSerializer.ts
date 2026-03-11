@@ -20,7 +20,8 @@ function serializeDeclaration(decl: UcdDeclaration): string {
 }
 
 function serializeLink(link: UcdLink): string {
-  return `${link.from} ->> ${link.to}`
+  const labelStr = link.label != null ? `: ${link.label}` : ""
+  return `${link.from} ${link.arrow} ${link.to}${labelStr}`
 }
 
 /** Serialize a UcdAst back to DSL spec text. */
@@ -51,6 +52,7 @@ function renameDeclaration(decl: UcdDeclaration, oldId: string, newId: string): 
 
 function renameLink(link: UcdLink, oldId: string, newId: string): UcdLink {
   return {
+    ...link,
     from: link.from === oldId ? newId : link.from,
     to: link.to === oldId ? newId : link.to,
   }
