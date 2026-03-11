@@ -1,10 +1,24 @@
 import { useState } from "react"
-import { ChevronRight, ChevronDown, Trash2 } from "lucide-react"
+import { ChevronRight, ChevronDown, Trash2, GripVertical } from "lucide-react"
 import { useSystemStore } from "../../store/useSystemStore"
 import type { Node, ComponentNode } from "../../store/types"
 import { isNodeOrphaned } from "../../utils/nodeUtils"
 import { getNodeHandler } from "../../nodes/nodeTree"
 import { NodeIcon } from "./NodeIcon"
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core"
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 
 interface TreeNodeProps {
   node: Node
@@ -19,6 +33,7 @@ export const TreeNode = ({ node, onContextMenu }: TreeNodeProps) => {
   const selectNode = useSystemStore((state) => state.selectNode)
   const deleteNode = useSystemStore((state) => state.deleteNode)
   const rootComponent = useSystemStore((state) => state.rootComponent)
+  const reorderNode = useSystemStore((state) => state.reorderNode)
 
   const isSelected = selectedNodeId === node.uuid
   const isDeletable = node.uuid !== rootComponent.uuid && isNodeOrphaned(node, rootComponent)
@@ -39,6 +54,25 @@ export const TreeNode = ({ node, onContextMenu }: TreeNodeProps) => {
 
   const hasChildren = children.length > 0
 
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: node.uuid })
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+  )
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    reorderNode(node.uuid, active.id as string, over.id as string)
+  }
+
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation()
     setExpanded(!expanded)
@@ -57,15 +91,73 @@ export const TreeNode = ({ node, onContextMenu }: TreeNodeProps) => {
     deleteNode(node.uuid)
   }
 
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  const renderSortableChildren = () => {
+    if (node.type === "component") {
+      return (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          {node.subComponents.length > 0 && (
+            <SortableContext items={node.subComponents.map((n) => n.uuid)} strategy={verticalListSortingStrategy}>
+              {node.subComponents.map((child) => (
+                <TreeNode key={child.uuid} node={child} onContextMenu={onContextMenu} />
+              ))}
+            </SortableContext>
+          )}
+          {node.actors.length > 0 && (
+            <SortableContext items={node.actors.map((n) => n.uuid)} strategy={verticalListSortingStrategy}>
+              {node.actors.map((child) => (
+                <TreeNode key={child.uuid} node={child} onContextMenu={onContextMenu} />
+              ))}
+            </SortableContext>
+          )}
+          {node.useCaseDiagrams.length > 0 && (
+            <SortableContext items={node.useCaseDiagrams.map((n) => n.uuid)} strategy={verticalListSortingStrategy}>
+              {node.useCaseDiagrams.map((child) => (
+                <TreeNode key={child.uuid} node={child} onContextMenu={onContextMenu} />
+              ))}
+            </SortableContext>
+          )}
+        </DndContext>
+      )
+    }
+    if (node.type === "use-case-diagram") {
+      return (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={node.useCases.map((n) => n.uuid)} strategy={verticalListSortingStrategy}>
+            {node.useCases.map((child) => (
+              <TreeNode key={child.uuid} node={child} onContextMenu={onContextMenu} />
+            ))}
+          </SortableContext>
+        </DndContext>
+      )
+    }
+    if (node.type === "use-case") {
+      return (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={node.sequenceDiagrams.map((n) => n.uuid)} strategy={verticalListSortingStrategy}>
+            {node.sequenceDiagrams.map((child) => (
+              <TreeNode key={child.uuid} node={child} onContextMenu={onContextMenu} />
+            ))}
+          </SortableContext>
+        </DndContext>
+      )
+    }
+    return null
+  }
+
   return (
-    <div className="pl-4">
+    <div className="pl-4" ref={setNodeRef} style={style} {...attributes}>
       <div
         role="treeitem"
         aria-selected={isSelected}
         tabIndex={0}
-        className={`flex items-center py-1 px-2 cursor-pointer rounded select-none text-[0.9rem] text-gray-300 hover:bg-gray-800 ${
+        className={`group flex items-center py-1 px-2 cursor-pointer rounded select-none text-[0.9rem] text-gray-300 hover:bg-gray-800 ${
           isSelected ? "bg-sky-900/50 text-sky-300" : ""
-        }`}
+        } ${isDragging ? "opacity-40" : ""}`}
         onClick={handleClick}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleClick() }}
         onContextMenu={handleContextMenu}
@@ -100,18 +192,18 @@ export const TreeNode = ({ node, onContextMenu }: TreeNodeProps) => {
             <Trash2 size={12} />
           </button>
         )}
+        <span
+          {...listeners}
+          className="ml-1 p-0.5 text-gray-600 hover:text-gray-400 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity"
+          title="Drag to reorder"
+        >
+          <GripVertical size={12} />
+        </span>
       </div>
 
       {hasChildren && expanded && (
         <div>
-          {children.map((child) => (
-            <TreeNode
-              key={child.uuid}
-              node={child}
-              onContextMenu={onContextMenu}
-              parent={node as ComponentNode}
-            />
-          ))}
+          {renderSortableChildren()}
         </div>
       )}
     </div>

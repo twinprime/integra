@@ -12,6 +12,8 @@ import type {
   ComponentNode,
   Node,
   ActorNode,
+  UseCaseDiagramNode,
+  UseCaseNode,
 } from "../store/types"
 import {
   collectDiagramsFromComponent,
@@ -179,6 +181,67 @@ export const mergeLists = <T extends { id: string; name: string }>(
   })
   return result
 }
+
+// ─── Reorder ──────────────────────────────────────────────────────────────────
+
+const moveItem = <T>(arr: T[], fromIndex: number, toIndex: number): T[] => {
+  if (fromIndex === toIndex) return arr
+  const result = [...arr]
+  const [item] = result.splice(fromIndex, 1)
+  result.splice(toIndex, 0, item)
+  return result
+}
+
+const reorderInNode = (node: Node, activeUuid: string, overUuid: string): Node => {
+  if (node.type === "component") {
+    const comp = node as ComponentNode
+    const fromSub = comp.subComponents.findIndex((n) => n.uuid === activeUuid)
+    const toSub = comp.subComponents.findIndex((n) => n.uuid === overUuid)
+    if (fromSub !== -1 && toSub !== -1)
+      return { ...comp, subComponents: moveItem(comp.subComponents, fromSub, toSub) }
+    const fromAct = comp.actors.findIndex((n) => n.uuid === activeUuid)
+    const toAct = comp.actors.findIndex((n) => n.uuid === overUuid)
+    if (fromAct !== -1 && toAct !== -1)
+      return { ...comp, actors: moveItem(comp.actors, fromAct, toAct) }
+    const fromUcd = comp.useCaseDiagrams.findIndex((n) => n.uuid === activeUuid)
+    const toUcd = comp.useCaseDiagrams.findIndex((n) => n.uuid === overUuid)
+    if (fromUcd !== -1 && toUcd !== -1)
+      return { ...comp, useCaseDiagrams: moveItem(comp.useCaseDiagrams, fromUcd, toUcd) }
+    return comp
+  }
+  if (node.type === "use-case-diagram") {
+    const ucd = node as UseCaseDiagramNode
+    const fromIdx = ucd.useCases.findIndex((n) => n.uuid === activeUuid)
+    const toIdx = ucd.useCases.findIndex((n) => n.uuid === overUuid)
+    if (fromIdx !== -1 && toIdx !== -1)
+      return { ...ucd, useCases: moveItem(ucd.useCases, fromIdx, toIdx) }
+    return ucd
+  }
+  if (node.type === "use-case") {
+    const uc = node as UseCaseNode
+    const fromIdx = uc.sequenceDiagrams.findIndex((n) => n.uuid === activeUuid)
+    const toIdx = uc.sequenceDiagrams.findIndex((n) => n.uuid === overUuid)
+    if (fromIdx !== -1 && toIdx !== -1)
+      return { ...uc, sequenceDiagrams: moveItem(uc.sequenceDiagrams, fromIdx, toIdx) }
+    return uc
+  }
+  return node
+}
+
+/**
+ * Reorders a child within its typed array inside the specified parent node.
+ * Both activeUuid and overUuid must be siblings in the same typed array of
+ * parentUuid; otherwise the tree is returned unchanged.
+ */
+export const reorderChildInParent = (
+  root: ComponentNode,
+  parentUuid: string,
+  activeUuid: string,
+  overUuid: string,
+): ComponentNode =>
+  upsertNodeInTree(root, parentUuid, (parent) =>
+    reorderInNode(parent, activeUuid, overUuid),
+  ) as ComponentNode
 
 // Re-export types for convenience
 export type { DiagramRef } from "./useCaseDiagramNode"

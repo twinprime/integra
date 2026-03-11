@@ -2,7 +2,7 @@ import type { Node, ComponentNode } from "../types"
 import type { StateCreator } from "zustand"
 import type { SystemState } from "../useSystemStore"
 import { pushPast } from "./historySlice"
-import { findOwnerComponentUuid, upsertNodeInTree, addChildToNode, deleteNodeFromTree, findIdByUuid } from "../../nodes/nodeTree"
+import { findOwnerComponentUuid, upsertNodeInTree, addChildToNode, deleteNodeFromTree, findIdByUuid, reorderChildInParent } from "../../nodes/nodeTree"
 import { tryReparseContent, rebuildSystemDiagrams } from "../systemOps"
 import { applyIdRename } from "../../utils/renameNodeId"
 
@@ -11,6 +11,7 @@ export type NodeOpsSlice = {
   updateNode: (nodeId: string, updates: Record<string, unknown>) => void
   deleteNode: (nodeId: string) => void
   renameNodeId: (uuid: string, newId: string) => void
+  reorderNode: (parentUuid: string, activeUuid: string, overUuid: string) => void
 }
 
 export const createNodeOpsSlice: StateCreator<SystemState, [], [], NodeOpsSlice> = (set) => ({
@@ -61,4 +62,10 @@ export const createNodeOpsSlice: StateCreator<SystemState, [], [], NodeOpsSlice>
         rootComponent: rebuilt,
       }
     }),
+  reorderNode: (parentUuid, activeUuid, overUuid) =>
+    set((state) => ({
+      past: pushPast(state.past, state.rootComponent),
+      future: [],
+      rootComponent: reorderChildInParent(state.rootComponent, parentUuid, activeUuid, overUuid),
+    })),
 })
