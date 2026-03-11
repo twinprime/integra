@@ -30,6 +30,59 @@ function makeBaseSystem(overrides?: Partial<ComponentNode>): ComponentNode {
   }
 }
 
+/**
+ * Simulate a system as it exists immediately after YAML load:
+ * DERIVED_KEYS (referencedNodeIds, referencedFunctionUuids) are stripped,
+ * so both fields are undefined on every diagram node.
+ */
+function makeLoadedSystem(seqContent = ""): ComponentNode {
+  return makeBaseSystem({
+    subComponents: [
+      {
+        uuid: COMP_UUID,
+        id: "comp",
+        name: "comp",
+        type: "component",
+        description: "",
+        subComponents: [],
+        actors: [],
+        interfaces: [],
+        useCaseDiagrams: [
+          {
+            uuid: UC_DIAG_UUID,
+            id: "ucd1",
+            name: "UC Diag",
+            type: "use-case-diagram",
+            content: "",
+            ownerComponentUuid: COMP_UUID,
+            referencedNodeIds: undefined as unknown as string[],
+            useCases: [
+              {
+                uuid: UC_UUID,
+                id: "uc1",
+                name: "Use Case",
+                type: "use-case",
+                sequenceDiagrams: [
+                  {
+                    uuid: SEQ_UUID,
+                    id: "seq1",
+                    name: "Seq",
+                    type: "sequence-diagram",
+                    content: seqContent,
+                    ownerComponentUuid: COMP_UUID,
+                    referencedNodeIds: undefined as unknown as string[],
+                    referencedFunctionUuids: undefined as unknown as string[],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  })
+}
+
 /** A system with one comp → ucDiagram → useCase → seqDiagram */
 function makeSystemWithSeqDiagram(
   seqContent: string,
@@ -237,6 +290,31 @@ describe("rebuildSystemDiagrams", () => {
     const system = makeSystemWithSeqDiagram(invalidContent)
 
     expect(() => rebuildSystemDiagrams(system)).not.toThrow()
+  })
+
+  it("ensures referencedNodeIds is [] (not undefined) on a diagram with no content after load", () => {
+    // Reproduces the bug: DERIVED_KEYS are stripped on save, so after loading from
+    // YAML the fields are undefined. rebuildSystemDiagrams must initialize them.
+    const system = makeLoadedSystem("")
+
+    const result = rebuildSystemDiagrams(system)
+
+    const ucd = result.subComponents[0].useCaseDiagrams[0]
+    const seq = ucd.useCases[0].sequenceDiagrams[0]
+    expect(ucd.referencedNodeIds).toEqual([])
+    expect(seq.referencedNodeIds).toEqual([])
+    expect(seq.referencedFunctionUuids).toEqual([])
+  })
+
+  it("ensures referencedNodeIds is [] (not undefined) even when sequence diagram parse throws", () => {
+    // Reproduces the bug: if parsing throws and is caught, fields must not stay undefined.
+    const system = makeLoadedSystem("@@@@invalid content@@@@")
+
+    const result = rebuildSystemDiagrams(system)
+
+    const seq = result.subComponents[0].useCaseDiagrams[0].useCases[0].sequenceDiagrams[0]
+    expect(seq.referencedNodeIds).toEqual([])
+    expect(seq.referencedFunctionUuids).toEqual([])
   })
 })
 

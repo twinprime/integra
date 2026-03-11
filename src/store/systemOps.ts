@@ -19,34 +19,41 @@ export function rebuildSystemDiagrams(system: ComponentNode): ComponentNode {
     }
   })
 
+  // Initialize derived fields on every diagram so they are never undefined,
+  // even if the subsequent parse step throws or is skipped.
+  allDiagrams.forEach(({ diagram }) => {
+    const defaults: Record<string, unknown> = { referencedNodeIds: [] }
+    if (diagram.type === "sequence-diagram") defaults.referencedFunctionUuids = []
+    updatedSystem = upsertNodeInTree(updatedSystem, diagram.uuid, (node) => ({
+      ...node,
+      ...defaults,
+    }))
+  })
+
   allDiagrams.forEach(({ diagram, ownerComponentUuid }) => {
-    if (diagram.content) {
-      if (diagram.type === "use-case-diagram") {
+    if (!diagram.content) return
+    if (diagram.type === "use-case-diagram") {
+      try {
         updatedSystem = parseUseCaseDiagram(
           diagram.content,
           updatedSystem,
           ownerComponentUuid,
           diagram.uuid,
         )
-      } else if (diagram.type === "sequence-diagram") {
-        try {
-          updatedSystem = parseSequenceDiagram(
-            diagram.content,
-            updatedSystem,
-            ownerComponentUuid,
-            diagram.uuid,
-          )
-        } catch {
-          // skip invalid diagrams on load
-        }
+      } catch (err) {
+        console.error(`Failed to parse use-case diagram ${diagram.uuid}:`, err)
       }
-    } else {
-      const defaults: Record<string, unknown> = { referencedNodeIds: [] }
-      if (diagram.type === "sequence-diagram") defaults.referencedFunctionUuids = []
-      updatedSystem = upsertNodeInTree(updatedSystem, diagram.uuid, (node) => ({
-        ...node,
-        ...defaults,
-      }))
+    } else if (diagram.type === "sequence-diagram") {
+      try {
+        updatedSystem = parseSequenceDiagram(
+          diagram.content,
+          updatedSystem,
+          ownerComponentUuid,
+          diagram.uuid,
+        )
+      } catch (err) {
+        console.error(`Failed to parse sequence diagram ${diagram.uuid}:`, err)
+      }
     }
   })
 
