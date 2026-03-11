@@ -195,6 +195,39 @@ export const TreeView = () => {
     setContextMenu(null)
   }
 
+  const handleAddSubComponent = () => {
+    if (!contextMenu) return
+
+    const id = prompt("Enter sub-component ID (e.g. my_service)")?.trim()
+    if (!id) return
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(id)) {
+      alert(
+        `Invalid ID "${id}". Must start with a letter or _ and contain only letters, digits, or _.`,
+      )
+      return
+    }
+
+    const name = id
+      .split(/_/)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ")
+    const uuid = crypto.randomUUID()
+
+    const newNode: ComponentNode = {
+      uuid,
+      id,
+      name,
+      type: "component",
+      subComponents: [],
+      actors: [],
+      useCaseDiagrams: [],
+      interfaces: [],
+    }
+
+    addNode(contextMenu.node.uuid, newNode)
+    selectNode(uuid)
+  }
+
   const handleAddNode = (type: "use-case-diagram" | "sequence-diagram") => {
     if (!contextMenu) return
 
@@ -264,6 +297,10 @@ export const TreeView = () => {
     const items: MenuItem[] = []
 
     if (node.type === "component") {
+      items.push({
+        label: "Add Sub-component",
+        onClick: () => handleAddSubComponent(),
+      })
       items.push({
         label: "Add Use Case Diagram",
         onClick: () => handleAddNode("use-case-diagram"),
