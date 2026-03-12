@@ -12,6 +12,7 @@ import { resolveUseCaseByPath, resolveSeqDiagramByPath, autoCreateByPath } from 
 import { parseSequenceDiagramCst } from "./parser"
 import { buildSeqAst, flattenMessages } from "./visitor"
 import { deriveNameFromId } from "../../utils/nameUtils"
+import { normalizeComponent } from "../../nodes/interfaceOps"
 
 // ─── Shared utilities (re-exported for callers) ───────────────────────────────
 
@@ -159,7 +160,7 @@ function applyFunctionToComponentByUuid(
       iface.functions.push({ uuid: crypto.randomUUID(), id: functionId, parameters: newParams })
     }
     interfaces[ifaceIdx] = iface
-    return { ...comp, interfaces }
+    return normalizeComponent({ ...comp, interfaces })
   })
 }
 
@@ -254,7 +255,7 @@ function applyMessageToComponents(
 
   interfaces[ifaceIdx] = iface
   targetComp.interfaces = interfaces
-  result[ownerIdx] = targetComp
+  result[ownerIdx] = normalizeComponent(targetComp)
   return result
 }
 

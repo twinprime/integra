@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { updateFunctionParams, addFunctionToInterface } from "./interfaceOps"
+import { updateFunctionParams, addFunctionToInterface, normalizeComponent, normalizeComponentDeep } from "./interfaceOps"
 import type { ComponentNode } from "../store/types"
 
 const FN_UUID = "fn-uuid"
@@ -167,5 +167,106 @@ describe("addFunctionToInterface", () => {
     const fns = result.subComponents[0].interfaces[0].functions
     expect(fns).toHaveLength(2)
     expect(fns[1].description).toBe("Does something useful")
+  })
+})
+
+// ─── normalizeComponent ────────────────────────────────────────────────────────
+
+describe("normalizeComponent", () => {
+  it("sorts interfaces alphabetically by name", () => {
+    const comp: ComponentNode = {
+      uuid: "c", id: "c", name: "C", type: "component", description: "",
+      subComponents: [], actors: [], useCaseDiagrams: [],
+      interfaces: [
+        { uuid: "i2", id: "IZoo", name: "Zoo", type: "rest", functions: [] },
+        { uuid: "i1", id: "IBar", name: "Bar", type: "rest", functions: [] },
+        { uuid: "i3", id: "IMid", name: "Mid", type: "rest", functions: [] },
+      ],
+    }
+    const result = normalizeComponent(comp)
+    expect(result.interfaces.map(i => i.id)).toEqual(["IBar", "IMid", "IZoo"])
+  })
+
+  it("sorts interfaces by name even when name differs from id", () => {
+    const comp: ComponentNode = {
+      uuid: "c", id: "c", name: "C", type: "component", description: "",
+      subComponents: [], actors: [], useCaseDiagrams: [],
+      interfaces: [
+        { uuid: "i1", id: "IZoo", name: "Alpha API", type: "rest", functions: [] },
+        { uuid: "i2", id: "IBar", name: "Zebra API", type: "rest", functions: [] },
+      ],
+    }
+    const result = normalizeComponent(comp)
+    // sorted by name: "Alpha API" < "Zebra API"
+    expect(result.interfaces[0].id).toBe("IZoo")
+    expect(result.interfaces[1].id).toBe("IBar")
+  })
+
+  it("sorts functions within each interface alphabetically by id", () => {
+    const comp: ComponentNode = {
+      uuid: "c", id: "c", name: "C", type: "component", description: "",
+      subComponents: [], actors: [], useCaseDiagrams: [],
+      interfaces: [
+        {
+          uuid: "i1", id: "API", name: "API", type: "rest",
+          functions: [
+            { uuid: "f3", id: "zoo", parameters: [] },
+            { uuid: "f1", id: "alpha", parameters: [] },
+            { uuid: "f2", id: "mid", parameters: [] },
+          ],
+        },
+      ],
+    }
+    const result = normalizeComponent(comp)
+    expect(result.interfaces[0].functions.map(f => f.id)).toEqual(["alpha", "mid", "zoo"])
+  })
+
+  it("does not mutate the input component", () => {
+    const comp = buildComp()
+    const original = JSON.stringify(comp)
+    normalizeComponent(comp)
+    expect(JSON.stringify(comp)).toBe(original)
+  })
+})
+
+describe("normalizeComponentDeep", () => {
+  it("sorts interfaces in nested subComponents", () => {
+    const root: ComponentNode = {
+      uuid: "r", id: "r", name: "R", type: "component", description: "",
+      actors: [], useCaseDiagrams: [], interfaces: [],
+      subComponents: [
+        {
+          uuid: "c", id: "c", name: "C", type: "component", description: "",
+          subComponents: [], actors: [], useCaseDiagrams: [],
+          interfaces: [
+            { uuid: "i2", id: "IZ", name: "Z", type: "rest", functions: [] },
+            { uuid: "i1", id: "IA", name: "A", type: "rest", functions: [] },
+          ],
+        },
+      ],
+    }
+    const result = normalizeComponentDeep(root)
+    expect(result.subComponents[0].interfaces.map(i => i.id)).toEqual(["IA", "IZ"])
+  })
+})
+
+describe("addFunctionToInterface normalizes order", () => {
+  it("returns functions sorted by id after adding a new function", () => {
+    const comp: ComponentNode = {
+      uuid: "c", id: "c", name: "C", type: "component", description: "",
+      subComponents: [], actors: [], useCaseDiagrams: [],
+      interfaces: [
+        {
+          uuid: "i1", id: "API", name: "API", type: "rest",
+          functions: [
+            { uuid: "f1", id: "zoo", parameters: [] },
+            { uuid: "f2", id: "mid", parameters: [] },
+          ],
+        },
+      ],
+    }
+    // Add a function that should sort before existing ones
+    const result = addFunctionToInterface(comp, "f1", "alpha", [])
+    expect(result.interfaces[0].functions.map(f => f.id)).toEqual(["alpha", "mid", "zoo"])
   })
 })

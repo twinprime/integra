@@ -1596,3 +1596,51 @@ describe("sequence diagram activate/deactivate — mermaid generator", () => {
     expect(mermaidContent).toContain("a->>b: go")
   })
 })
+
+// ─── sorting enforcement ───────────────────────────────────────────────────────
+
+describe("parseSequenceDiagram — interface and function ordering", () => {
+  it("sorts functions alphabetically within an interface", () => {
+    const receiver = makeComp("rcv-uuid", "receiver")
+    const owner = makeComp("owner-uuid", "owner")
+    const root = makeComp("root-uuid", "root", [owner, receiver])
+    // Add 3 functions in reverse alphabetical order; diagram owned by root so both participants resolve
+    let updated = parseSequenceDiagram(
+      "component owner\ncomponent receiver\nowner ->> receiver: API:zoo(x: string)",
+      root, "root-uuid", "d1",
+    )
+    updated = parseSequenceDiagram(
+      "component owner\ncomponent receiver\nowner ->> receiver: API:alpha(y: number)",
+      updated, "root-uuid", "d2",
+    )
+    updated = parseSequenceDiagram(
+      "component owner\ncomponent receiver\nowner ->> receiver: API:mid(z: boolean)",
+      updated, "root-uuid", "d3",
+    )
+    const rcv = updated.subComponents.find((c) => c.uuid === "rcv-uuid")!
+    const fns = rcv.interfaces[0].functions.map((f) => f.id)
+    expect(fns).toEqual(["alpha", "mid", "zoo"])
+  })
+
+  it("sorts interfaces alphabetically by name when multiple are added", () => {
+    const receiver = makeComp("rcv-uuid", "receiver")
+    const owner = makeComp("owner-uuid", "owner")
+    const root = makeComp("root-uuid", "root", [owner, receiver])
+    let updated = parseSequenceDiagram(
+      "component owner\ncomponent receiver\nowner ->> receiver: ZooAPI:list()",
+      root, "root-uuid", "d1",
+    )
+    updated = parseSequenceDiagram(
+      "component owner\ncomponent receiver\nowner ->> receiver: AlphaAPI:create(name: string)",
+      updated, "root-uuid", "d2",
+    )
+    updated = parseSequenceDiagram(
+      "component owner\ncomponent receiver\nowner ->> receiver: MidAPI:update(id: number)",
+      updated, "root-uuid", "d3",
+    )
+    const rcv = updated.subComponents.find((c) => c.uuid === "rcv-uuid")!
+    const ifaceIds = rcv.interfaces.map((i) => i.id)
+    // Interfaces named same as id, sorted by name
+    expect(ifaceIds).toEqual(["AlphaAPI", "MidAPI", "ZooAPI"])
+  })
+})

@@ -5,6 +5,7 @@ import { pushPast } from "./historySlice"
 import { findOwnerComponentUuid, upsertNodeInTree, addChildToNode, deleteNodeFromTree, findIdByUuid, reorderChildInParent } from "../../nodes/nodeTree"
 import { tryReparseContent, rebuildSystemDiagrams } from "../systemOps"
 import { applyIdRename } from "../../utils/renameNodeId"
+import { normalizeComponent } from "../../nodes/interfaceOps"
 
 export type NodeOpsSlice = {
   addNode: (parentId: string, node: Node) => void
@@ -29,10 +30,10 @@ export const createNodeOpsSlice: StateCreator<SystemState, [], [], NodeOpsSlice>
     }),
   updateNode: (nodeUuid, updates) =>
     set((state) => {
-      const updatedSystem = upsertNodeInTree(state.rootComponent, nodeUuid, (node) => ({
-        ...node,
-        ...updates,
-      } as Node))
+      const updatedSystem = upsertNodeInTree(state.rootComponent, nodeUuid, (node) => {
+        const merged = { ...node, ...updates } as Node
+        return merged.type === "component" ? normalizeComponent(merged as ComponentNode) : merged
+      })
       const historyPush = { past: pushPast(state.past, state.rootComponent), future: [] }
       if (!updates.content) return { ...historyPush, rootComponent: updatedSystem }
       return {

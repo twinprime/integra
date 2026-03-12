@@ -1,4 +1,34 @@
-import type { ComponentNode, InterfaceFunction, Parameter } from "../store/types"
+import type { ComponentNode, InterfaceFunction, Parameter, InterfaceSpecification } from "../store/types"
+
+/**
+ * Normalises a single component's interfaces and functions into canonical order:
+ * - Interfaces sorted by display name (name || id), case-insensitive
+ * - Functions within each interface sorted by id, case-insensitive
+ *
+ * All ordering logic lives here — update this function to change ordering rules.
+ */
+export const normalizeComponent = (comp: ComponentNode): ComponentNode => ({
+  ...comp,
+  interfaces: [...(comp.interfaces ?? [])]
+    .sort((a: InterfaceSpecification, b: InterfaceSpecification) =>
+      (a.name || a.id).localeCompare(b.name || b.id),
+    )
+    .map((iface) => ({
+      ...iface,
+      functions: [...iface.functions].sort((a: InterfaceFunction, b: InterfaceFunction) =>
+        a.id.localeCompare(b.id),
+      ),
+    })),
+})
+
+/**
+ * Recursively normalises all components in the tree (used when loading data).
+ */
+export const normalizeComponentDeep = (comp: ComponentNode): ComponentNode =>
+  normalizeComponent({
+    ...comp,
+    subComponents: comp.subComponents.map(normalizeComponentDeep),
+  })
 
 export const updateFunctionParams = (
   comp: ComponentNode,
@@ -47,14 +77,14 @@ export const addFunctionToInterface = (
         return existing ? { ...existing, ...p } : p
       }),
     }
-    return {
+    return normalizeComponent({
       ...comp,
       interfaces: comp.interfaces.map((iface, idx) =>
         idx === ifaceIdx
           ? { ...iface, functions: [...iface.functions, newFn] }
           : iface,
       ),
-    }
+    })
   }
   return {
     ...comp,
