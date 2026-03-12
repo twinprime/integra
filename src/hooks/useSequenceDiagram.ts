@@ -50,7 +50,12 @@ export function useSequenceDiagram(diagramNode: DiagramNode | null) {
     elementRef.current.querySelectorAll<SVGTextElement>("text.messageText").forEach((el) => {
       if (labelMap[el.textContent?.trim() ?? ""]) {
         el.style.cursor = "pointer"
+        // Apply underline to tspan children as well: SVG text-decoration does not
+        // reliably cascade from <text> to <tspan> children in all browsers.
         el.style.textDecoration = "underline"
+        el.querySelectorAll<SVGTSpanElement>("tspan").forEach((tspan) => {
+          tspan.style.textDecoration = "underline"
+        })
       }
     })
   }, [svg, elementRef])
