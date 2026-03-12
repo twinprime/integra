@@ -266,3 +266,80 @@ describe("TreeView - Directory File System", () => {
     })
   })
 })
+
+// ─── Undo / Redo keyboard scope ───────────────────────────────────────────────
+
+describe("TreeView — undo/redo keyboard shortcuts", () => {
+  const pastSnapshot: ComponentNode = { ...initialSystem, name: "Past State" }
+
+  beforeEach(() => {
+    useSystemStore.setState({
+      rootComponent: { ...initialSystem },
+      past: [pastSnapshot],
+      future: [],
+    })
+  })
+
+  function fireKey(target: EventTarget, key: string, { ctrlKey = false, shiftKey = false } = {}) {
+    const event = new KeyboardEvent("keydown", { key, ctrlKey, shiftKey, bubbles: true, cancelable: true })
+    Object.defineProperty(event, "target", { value: target })
+    document.dispatchEvent(event)
+    return event
+  }
+
+  it("applies global undo when Ctrl+Z is pressed outside the editor", async () => {
+    render(<TreeView />)
+
+    fireKey(document.body, "z", { ctrlKey: true })
+
+    // past should have been consumed — rootComponent switches to pastSnapshot
+    const state = useSystemStore.getState()
+    expect(state.past).toHaveLength(0)
+    expect(state.rootComponent.name).toBe("Past State")
+  })
+
+  it("does NOT apply global undo when Ctrl+Z is pressed inside a .cm-editor element", async () => {
+    render(<TreeView />)
+
+    // Create a fake cm-editor element and append to body
+    const cmEditor = document.createElement("div")
+    cmEditor.className = "cm-editor"
+    const cmContent = document.createElement("div")
+    cmContent.className = "cm-content"
+    cmEditor.appendChild(cmContent)
+    document.body.appendChild(cmEditor)
+
+    fireKey(cmContent, "z", { ctrlKey: true })
+
+    // past should be untouched — global undo was not applied
+    const state = useSystemStore.getState()
+    expect(state.past).toHaveLength(1)
+    expect(state.rootComponent.name).toBe(initialSystem.name)
+
+    document.body.removeChild(cmEditor)
+  })
+
+  it("does NOT apply global redo when Ctrl+Shift+Z is pressed inside a .cm-editor element", async () => {
+    // Set up a future state to redo
+    useSystemStore.setState({
+      rootComponent: { ...initialSystem },
+      past: [],
+      future: [pastSnapshot],
+    })
+
+    render(<TreeView />)
+
+    const cmEditor = document.createElement("div")
+    cmEditor.className = "cm-editor"
+    const cmContent = document.createElement("div")
+    cmEditor.appendChild(cmContent)
+    document.body.appendChild(cmEditor)
+
+    fireKey(cmContent, "z", { ctrlKey: true, shiftKey: true })
+
+    // future should be untouched — global redo was not applied
+    expect(useSystemStore.getState().future).toHaveLength(1)
+
+    document.body.removeChild(cmEditor)
+  })
+})
