@@ -1,5 +1,9 @@
 import { type ReactNode, useCallback, useEffect, useRef } from "react"
-import { TransformWrapper, TransformComponent, useControls } from "react-zoom-pan-pinch"
+import {
+  TransformWrapper,
+  TransformComponent,
+  useControls,
+} from "react-zoom-pan-pinch"
 import { ZoomIn, ZoomOut, Maximize2, ArrowLeftRight } from "lucide-react"
 
 const btnClass =
@@ -21,7 +25,12 @@ const FitController = ({ fitRef, fitWidthRef }: FitRefs) => {
     const naturalW = child?.offsetWidth ?? content.offsetWidth
     const naturalH = child?.offsetHeight ?? content.offsetHeight
     if (naturalW === 0 || naturalH === 0) return null
-    return { wrapperW: wrapper.offsetWidth, wrapperH: wrapper.offsetHeight, naturalW, naturalH }
+    return {
+      wrapperW: wrapper.offsetWidth,
+      wrapperH: wrapper.offsetHeight,
+      naturalW,
+      naturalH,
+    }
   }, [instance])
 
   const fitDiagram = useCallback(() => {
@@ -44,8 +53,12 @@ const FitController = ({ fitRef, fitWidthRef }: FitRefs) => {
     setTransform(posX, posY, scale, 0)
   }, [getDimensions, setTransform])
 
-  useEffect(() => { fitRef.current = fitDiagram }, [fitRef, fitDiagram])
-  useEffect(() => { fitWidthRef.current = fitWidth }, [fitWidthRef, fitWidth])
+  useEffect(() => {
+    fitRef.current = fitDiagram
+  }, [fitRef, fitDiagram])
+  useEffect(() => {
+    fitWidthRef.current = fitWidth
+  }, [fitWidthRef, fitWidth])
 
   useEffect(() => {
     const content = instance.contentComponent
@@ -77,10 +90,18 @@ const ZoomControls = ({ fitRef, fitWidthRef }: FitRefs) => {
       <button onClick={() => zoomOut()} className={btnClass} title="Zoom out">
         <ZoomOut size={14} />
       </button>
-      <button onClick={() => fitWidthRef.current()} className={btnClass} title="Fit width">
+      <button
+        onClick={() => fitWidthRef.current()}
+        className={btnClass}
+        title="Fit width"
+      >
         <ArrowLeftRight size={14} />
       </button>
-      <button onClick={() => fitRef.current()} className={btnClass} title="Fit to screen">
+      <button
+        onClick={() => fitRef.current()}
+        className={btnClass}
+        title="Fit to screen"
+      >
         <Maximize2 size={14} />
       </button>
     </div>
@@ -100,7 +121,14 @@ export const DiagramPanZoom = ({ children }: DiagramPanZoomProps) => {
       className="relative flex-1 overflow-hidden bg-white rounded-lg"
       style={{ minHeight: "100px" }}
     >
-      <TransformWrapper initialScale={1} minScale={0.05} maxScale={20} limitToBounds={false} smooth={false} wheel={{ step: 0.3 }}>
+      <TransformWrapper
+        initialScale={1}
+        minScale={0.05}
+        maxScale={20}
+        limitToBounds={false}
+        smooth={false}
+        wheel={{ step: 0.5 }}
+      >
         <FitController fitRef={fitRef} fitWidthRef={fitWidthRef} />
         <ZoomControls fitRef={fitRef} fitWidthRef={fitWidthRef} />
         <TransformComponent
