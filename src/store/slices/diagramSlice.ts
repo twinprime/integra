@@ -7,6 +7,7 @@ import { upsertNodeInTree } from "../../nodes/nodeTree"
 import { addFunctionToInterface, updateFunctionParams } from "../../nodes/componentNode"
 import { replaceSignatureInContent } from "../../nodes/sequenceDiagramNode"
 import { rebuildSystemDiagrams, tryReparseContent } from "../systemOps"
+import { normalizeComponentDeep } from "../../nodes/interfaceOps"
 
 const initialSystem: ComponentNode = {
   uuid: "root-component-uuid",
@@ -35,7 +36,7 @@ export const createDiagramSlice: StateCreator<SystemState, [], [], DiagramSlice>
     set((state) => ({
       past: pushPast(state.past, state.rootComponent),
       future: [],
-      rootComponent: rebuildSystemDiagrams(rootComponent),
+      rootComponent: normalizeComponentDeep(rebuildSystemDiagrams(rootComponent)),
     })),
   clearSystem: () =>
     set((state) => ({
