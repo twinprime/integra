@@ -265,3 +265,85 @@ describe("buildSuggestions — Sequence: suggestions", () => {
     expect(suggs.find((s) => s.insertText === "Sequence:logoutFlow")).toBeUndefined()
   })
 })
+
+// ─── buildSuggestions — Sequence: inherited interface functions ───────────────
+
+describe("buildSuggestions — Sequence: inherited interface functions", () => {
+  it("suggests functions from a parent interface when receiver's interface inherits", () => {
+    // PaymentProcessor owns the interface with actual functions.
+    // CheckoutService is a subComponent of PaymentProcessor so PaymentProcessor
+    // is the parent node — matching how InheritedInterface works in ComponentEditor.
+    const parentIface = {
+      uuid: "iface-parent-uuid",
+      id: "PaymentService",
+      name: "PaymentService",
+      type: "rest" as const,
+      functions: [
+        { uuid: "fn-pay-uuid", id: "pay", parameters: [{ uuid: "p1", name: "amount", type: "decimal" }] },
+        { uuid: "fn-refund-uuid", id: "refund", parameters: [{ uuid: "p2", name: "txId", type: "string" }] },
+      ],
+    }
+
+    // CheckoutService has an inherited interface (functions: [])
+    const childIface = {
+      uuid: "iface-child-uuid",
+      id: "PaymentService",
+      name: "PaymentService",
+      type: "rest" as const,
+      functions: [],
+      parentInterfaceUuid: "iface-parent-uuid",
+    }
+    const checkout = makeComp("checkout-uuid", "CheckoutService", { interfaces: [childIface] })
+    const processor = makeComp("processor-uuid", "PaymentProcessor", {
+      interfaces: [parentIface],
+      subComponents: [checkout],
+    })
+
+    const owner = makeComp("owner-uuid", "owner")
+    const root = makeComp("root-uuid", "root", { subComponents: [owner, processor] })
+
+    const content = "actor a\ncomponent CheckoutService\na ->> CheckoutService: "
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    expect(ctx?.type).toBe("function-ref")
+
+    const suggs = buildSuggestions(ctx!, content, owner, root, "sequence-diagram")
+    expect(suggs.find((s) => s.insertText === "PaymentService:pay(amount: decimal?)")).toBeDefined()
+    expect(suggs.find((s) => s.insertText === "PaymentService:refund(txId: string?)")).toBeDefined()
+  })
+
+  it("does not duplicate inherited functions when parent also appears as receiver", () => {
+    const parentIface = {
+      uuid: "iface-parent-uuid",
+      id: "PaymentService",
+      name: "PaymentService",
+      type: "rest" as const,
+      functions: [
+        { uuid: "fn-pay-uuid", id: "pay", parameters: [{ uuid: "p1", name: "amount", type: "decimal" }] },
+      ],
+    }
+
+    const childIface = {
+      uuid: "iface-child-uuid",
+      id: "PaymentService",
+      name: "PaymentService",
+      type: "rest" as const,
+      functions: [],
+      parentInterfaceUuid: "iface-parent-uuid",
+    }
+    const checkout = makeComp("checkout-uuid", "CheckoutService", { interfaces: [childIface] })
+    const processor = makeComp("processor-uuid", "PaymentProcessor", {
+      interfaces: [parentIface],
+      subComponents: [checkout],
+    })
+
+    const owner = makeComp("owner-uuid", "owner")
+    const root = makeComp("root-uuid", "root", { subComponents: [owner, processor] })
+
+    const content = "actor a\ncomponent CheckoutService\na ->> CheckoutService: "
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    const suggs = buildSuggestions(ctx!, content, owner, root, "sequence-diagram")
+
+    const paySuggs = suggs.filter((s) => s.insertText === "PaymentService:pay(amount: decimal?)")
+    expect(paySuggs).toHaveLength(1)
+  })
+})

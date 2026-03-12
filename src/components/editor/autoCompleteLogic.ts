@@ -1,10 +1,11 @@
-import type { ComponentNode } from "../../store/types"
+import type { ComponentNode, InterfaceFunction, InterfaceSpecification } from "../../store/types"
 import { paramsToString } from "../../parser/sequenceDiagram/systemUpdater"
 import { SeqLexer } from "../../parser/sequenceDiagram/lexer"
 import { UcdLexer, UcdArrow } from "../../parser/useCaseDiagram/lexer"
 import { Actor, Component, Use, Case, Identifier } from "../../parser/tokens"
 import { SeqColon, SeqArrow } from "../../parser/sequenceDiagram/lexer"
 import { isInScope, getComponentAbsolutePath } from "../../utils/nodeUtils"
+import { findParentNode } from "../../nodes/nodeTree"
 
 export type Suggestion = {
   label: string
@@ -349,6 +350,22 @@ function resolveReceiverComp(
   return fromSubs ?? findComponentByIdInTree(rootComponent, ctx.receiverId)
 }
 
+/**
+ * Returns the effective functions for an interface, resolving inherited functions
+ * from the parent component when `parentInterfaceUuid` is set.
+ */
+function resolveEffectiveFunctions(
+  iface: InterfaceSpecification,
+  receiverComp: ComponentNode,
+  rootComponent: ComponentNode,
+): InterfaceFunction[] {
+  if (!iface.parentInterfaceUuid) return iface.functions
+  const parentNode = findParentNode(rootComponent, receiverComp.uuid)
+  if (parentNode?.type !== "component") return iface.functions
+  const parentIface = parentNode.interfaces.find((pi) => pi.uuid === iface.parentInterfaceUuid)
+  return parentIface?.functions ?? iface.functions
+}
+
 function buildFunctionRefSuggestions(
   ctx: Extract<Context, { type: "function-ref" }>,
   ownerComp: ComponentNode,
@@ -360,7 +377,7 @@ function buildFunctionRefSuggestions(
   const receiverComp = resolveReceiverComp(ctx, ownerComp, rootComponent)
   if (receiverComp) {
     for (const iface of receiverComp.interfaces) {
-      for (const fn of iface.functions) {
+      for (const fn of resolveEffectiveFunctions(iface, receiverComp, rootComponent)) {
         const insertText = `${iface.id}:${fn.id}(${paramsToString(fn.parameters)})`
         if (matchLower(insertText, ctx.partial)) {
           suggs.push({ label: insertText, insertText, replaceFrom: ctx.replaceFrom })
