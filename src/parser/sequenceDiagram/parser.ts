@@ -4,7 +4,7 @@
  * Grammar (EBNF):
  *
  *   SequenceDiagram   ::= NEWLINE* (SeqStatement (NEWLINE+ | EOF))*
- *   SeqStatement      ::= SeqDeclaration | SeqNote | SeqMessage | SeqBlock
+ *   SeqStatement      ::= SeqDeclaration | SeqNote | SeqMessage | SeqBlock | SeqComment | SeqActivation
  *   SeqDeclaration    ::= (ACTOR | COMPONENT) NodePath (AS IDENTIFIER)?
  *   SeqNote           ::= NOTE SeqNotePosition COLON NOTE_TEXT
  *   SeqNotePosition   ::= (RIGHT | LEFT) OF IDENTIFIER
@@ -27,6 +27,7 @@ import {
 import {
   FunctionRef, UseCaseRef, SequenceRef, LabelText, SeqLexer, SeqColon, allSeqTokens,
   SeqArrow, Loop, Alt, Par, Opt, Else, And, End, BlockConditionText, Indent, Comment,
+  Activate, Deactivate,
 } from "./lexer"
 
 export class SequenceDiagramParser extends CstParser {
@@ -57,12 +58,21 @@ export class SequenceDiagramParser extends CstParser {
       { ALT: () => this.SUBRULE(this.seqNote) },
       { ALT: () => this.SUBRULE(this.seqBlock) },
       { ALT: () => this.SUBRULE(this.seqComment) },
+      { ALT: () => this.SUBRULE(this.seqActivation) },
       { ALT: () => this.SUBRULE(this.seqMessage) },
     ])
   })
 
   seqComment = this.RULE("seqComment", () => {
     this.CONSUME(Comment)
+  })
+
+  seqActivation = this.RULE("seqActivation", () => {
+    this.OR([
+      { ALT: () => this.CONSUME(Activate) },
+      { ALT: () => this.CONSUME(Deactivate) },
+    ])
+    this.SUBRULE(this.participantRef)
   })
 
   // ─── Declaration ────────────────────────────────────────────────────────────
@@ -222,4 +232,4 @@ export {
   Actor, Component, As, Note, Right, Left, Of, Over,
   Arrow, Slash, Comma, Newline, Identifier, NumberToken,
 } from "../tokens"
-export { FunctionRef, UseCaseRef, LabelText, SeqColon, SeqArrow, Loop, Alt, Par, Opt, Else, And, End, BlockConditionText, Indent, Comment } from "./lexer"
+export { FunctionRef, UseCaseRef, LabelText, SeqColon, SeqArrow, Loop, Alt, Par, Opt, Else, And, End, BlockConditionText, Indent, Comment, Activate, Deactivate } from "./lexer"

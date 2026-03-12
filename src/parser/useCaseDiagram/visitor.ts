@@ -26,9 +26,19 @@ export interface UcdLink {
   label: string | null
 }
 
+export interface UcdComment {
+  /** Full comment text including the leading `#` */
+  text: string
+}
+
+/** Union of all statement types in a use case diagram body (in source order) */
+export type UcdStatement = UcdDeclaration | UcdLink | UcdComment
+
 export interface UcdAst {
   declarations: UcdDeclaration[]
   links: UcdLink[]
+  /** All statements in source order, including comments. Used by the serializer for round-trip fidelity. */
+  statements: UcdStatement[]
 }
 
 // ─── Visitor ──────────────────────────────────────────────────────────────────
@@ -42,19 +52,32 @@ class UseCaseDiagramVisitor extends BaseVisitor {
   useCaseDiagram(ctx: Record<string, unknown[]>): UcdAst {
     const declarations: UcdDeclaration[] = []
     const links: UcdLink[] = []
+    const statements: UcdStatement[] = []
 
     for (const stmt of ctx.ucdStatement ?? []) {
-      const result = this.visit(stmt as never) as UcdDeclaration | UcdLink | undefined
+      const result = this.visit(stmt as never) as UcdStatement | undefined
       if (!result) continue
-      if ("entityType" in result) declarations.push(result)
-      else links.push(result)
+      if ("entityType" in result) {
+        declarations.push(result)
+        statements.push(result)
+      } else if ("from" in result) {
+        links.push(result)
+        statements.push(result)
+      } else {
+        statements.push(result) // UcdComment
+      }
     }
-    return { declarations, links }
+    return { declarations, links, statements }
   }
 
-  ucdStatement(ctx: Record<string, unknown[]>): UcdDeclaration | UcdLink {
+  ucdStatement(ctx: Record<string, unknown[]>): UcdStatement {
     if (ctx.ucdDeclaration) return this.visit(ctx.ucdDeclaration as never) as UcdDeclaration
+    if (ctx.ucdComment) return this.visit(ctx.ucdComment as never) as UcdComment
     return this.visit(ctx.ucdLink as never) as UcdLink
+  }
+
+  ucdComment(ctx: Record<string, { image: string }[]>): UcdComment {
+    return { text: ctx.UcdComment[0].image }
   }
 
   ucdDeclaration(ctx: Record<string, unknown[]>): UcdDeclaration {

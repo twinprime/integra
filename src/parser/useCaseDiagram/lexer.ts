@@ -29,6 +29,7 @@ import {
   Colon as SharedColon,
   Newline,
   WhiteSpace,
+  Identifier,
 } from "../tokens"
 
 // ─── Arrow token (default_mode only) ─────────────────────────────────────────
@@ -45,6 +46,17 @@ export const UcdColon = createToken({
   name: "UcdColon",
   pattern: /:/,
   push_mode: "label_mode",
+})
+
+// ─── Comment token (default_mode only) ───────────────────────────────────────
+
+/**
+ * Matches a standalone comment starting with `#` through end-of-line.
+ * Must be placed before Identifier in the token list so it takes priority.
+ */
+export const UcdComment = createToken({
+  name: "UcdComment",
+  pattern: /#[^\r\n]*/,
 })
 
 // ─── label_mode tokens ────────────────────────────────────────────────────────
@@ -66,10 +78,18 @@ const LabelNewlineExit = createToken({
 
 // ─── Build default_mode token list ───────────────────────────────────────────
 // Replace shared Arrow with UcdArrow and shared Colon with UcdColon.
+// Insert UcdComment before Identifier so `#` is not misidentified.
 
-const defaultModeTokens = sharedTokens
+const defaultModeTokensBase = sharedTokens
   .map((t) => (t === SharedArrow ? UcdArrow : t))
   .map((t) => (t === SharedColon ? UcdColon : t))
+
+const identifierIdx = defaultModeTokensBase.indexOf(Identifier)
+const defaultModeTokens = [
+  ...defaultModeTokensBase.slice(0, identifierIdx),
+  UcdComment,
+  ...defaultModeTokensBase.slice(identifierIdx),
+]
 
 // ─── Lexer definition ─────────────────────────────────────────────────────────
 

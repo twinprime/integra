@@ -150,3 +150,39 @@ describe("renameInUcdSpec — invalid spec fallback", () => {
     expect(renameInUcdSpec("", "login", "signIn")).toBe("")
   })
 })
+
+// ─── UCD comment round-trip ───────────────────────────────────────────────────
+
+describe("ucdAstToSpec — comment round-trip", () => {
+  it("round-trips a standalone comment line", () => {
+    expect(roundTrip("# just a comment")).toBe("# just a comment")
+  })
+
+  it("preserves comment between declaration and link", () => {
+    const input = "actor user\n# a comment\nuser ->> login"
+    expect(roundTrip(input)).toBe(input)
+  })
+
+  it("preserves leading comment before any declarations", () => {
+    const input = "# header\nactor user\nuse case login"
+    expect(roundTrip(input)).toBe(input)
+  })
+
+  it("preserves trailing comment after all statements", () => {
+    const input = "actor user\nuse case login\n# footer"
+    expect(roundTrip(input)).toBe(input)
+  })
+
+  it("preserves multiple consecutive comments", () => {
+    const input = "# line 1\n# line 2\nactor user"
+    expect(roundTrip(input)).toBe(input)
+  })
+})
+
+describe("renameInUcdSpec — comment lines are preserved verbatim after rename", () => {
+  it("keeps comment lines unchanged when renaming an actor id", () => {
+    const spec = "actor user\n# this is a note\nuser ->> login"
+    const result = renameInUcdSpec(spec, "user", "customer")
+    expect(result).toBe("actor customer\n# this is a note\ncustomer ->> login")
+  })
+})

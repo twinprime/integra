@@ -96,8 +96,15 @@ export interface SeqComment {
   indent?: string
 }
 
+export interface SeqActivation {
+  action: "activate" | "deactivate"
+  participant: string
+  /** Leading whitespace from the original source line, preserved for round-trip fidelity. */
+  indent?: string
+}
+
 /** Union of all statement types that can appear in a sequence diagram body */
-export type SeqStatement = SeqMessage | SeqNote | SeqBlock | SeqComment
+export type SeqStatement = SeqMessage | SeqNote | SeqBlock | SeqComment | SeqActivation
 
 export interface SeqAst {
   declarations: SeqDeclaration[]
@@ -130,15 +137,23 @@ class SequenceDiagramVisitor extends BaseVisitor {
     const indent = (ctx.Indent as Array<{ image: string }> | undefined)?.[0]?.image
     if (ctx.seqDeclaration) return this.visit(ctx.seqDeclaration as never) as SeqDeclaration
     const stmt: SeqStatement =
-      ctx.seqNote    ? this.visit(ctx.seqNote as never) as SeqNote :
-      ctx.seqBlock   ? this.visit(ctx.seqBlock as never) as SeqBlock :
-      ctx.seqComment ? this.visit(ctx.seqComment as never) as SeqComment :
-                       this.visit(ctx.seqMessage as never) as SeqMessage
+      ctx.seqNote       ? this.visit(ctx.seqNote as never) as SeqNote :
+      ctx.seqBlock      ? this.visit(ctx.seqBlock as never) as SeqBlock :
+      ctx.seqComment    ? this.visit(ctx.seqComment as never) as SeqComment :
+      ctx.seqActivation ? this.visit(ctx.seqActivation as never) as SeqActivation :
+                          this.visit(ctx.seqMessage as never) as SeqMessage
     return indent ? { ...stmt, indent } : stmt
   }
 
   seqComment(ctx: Record<string, { image: string }[]>): SeqComment {
     return { text: ctx.Comment[0].image }
+  }
+
+  seqActivation(ctx: Record<string, unknown[]>): SeqActivation {
+    const action = (ctx.Activate ?? []).length > 0 ? "activate" : "deactivate"
+    const [partRef] = ctx.participantRef as never[]
+    const participant = this.visit(partRef) as string
+    return { action: action as "activate" | "deactivate", participant }
   }
 
   seqDeclaration(ctx: Record<string, { image: string }[]>): SeqDeclaration {

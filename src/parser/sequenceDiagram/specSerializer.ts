@@ -11,7 +11,7 @@ import { parseSequenceDiagramCst } from "./parser"
 import {
   buildSeqAst,
   type SeqAst, type SeqDeclaration, type SeqMessage, type SeqMessageContent, type SeqNote,
-  type SeqBlock, type SeqBlockSection, type SeqStatement,
+  type SeqBlock, type SeqBlockSection, type SeqStatement, type SeqActivation,
 } from "./visitor"
 
 // Compile-time exhaustiveness guard
@@ -94,8 +94,9 @@ function serializeStatements(statements: SeqStatement[]): string[] {
   return statements.map((stmt) => {
     if ("sections" in stmt) return serializeBlock(stmt)
     if ("position" in stmt) return (stmt.indent ?? "") + serializeNote(stmt)
-    if (!("from" in stmt)) return ((stmt).indent ?? "") + (stmt).text
-    return (stmt.indent ?? "") + serializeMessage(stmt)
+    if ("action" in stmt) return (stmt.indent ?? "") + `${(stmt as SeqActivation).action} ${(stmt as SeqActivation).participant}`
+    if ("from" in stmt) return (stmt.indent ?? "") + serializeMessage(stmt)
+    return (stmt.indent ?? "") + stmt.text // SeqComment
   })
 }
 
@@ -184,6 +185,10 @@ function renameStatements(statements: SeqStatement[], oldId: string, newId: stri
       return { ...block, sections: block.sections.map((s) => renameBlockSection(s, oldId, newId)) }
     }
     if ("position" in stmt) return renameNote(stmt, oldId, newId)
+    if ("action" in stmt) {
+      const activation = stmt as SeqActivation
+      return { ...activation, participant: activation.participant === oldId ? newId : activation.participant }
+    }
     if (!("from" in stmt)) return stmt // SeqComment — no IDs to rename, pass through unchanged
     return renameMessage(stmt, oldId, newId)
   })

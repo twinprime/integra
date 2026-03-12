@@ -145,6 +145,9 @@ export const Else = createToken({ name: "Else", pattern: /else(?![a-zA-Z0-9_])/,
 export const And  = createToken({ name: "And",  pattern: /and(?![a-zA-Z0-9_])/,  push_mode: "block_header_mode" })
 export const End  = createToken({ name: "End",  pattern: /end(?![a-zA-Z0-9_])/ })
 
+export const Activate   = createToken({ name: "Activate",   pattern: /activate(?![a-zA-Z0-9_])/ })
+export const Deactivate = createToken({ name: "Deactivate", pattern: /deactivate(?![a-zA-Z0-9_])/ })
+
 // ─── block_header_mode tokens ─────────────────────────────────────────────────
 
 /** Optional rest-of-line condition/label text after a block keyword. */
@@ -180,6 +183,7 @@ const defaultModeTokens = [
   WhiteSpace,
   ...sharedWithSeqTokens.slice(whitespaceIdx + 1, identifierIdx),
   Loop, Alt, Par, Opt, Else, And, End,
+  Activate, Deactivate,                                            // before Identifier
   Comment,                                                         // before Identifier
   ...sharedWithSeqTokens.slice(identifierIdx),
 ]

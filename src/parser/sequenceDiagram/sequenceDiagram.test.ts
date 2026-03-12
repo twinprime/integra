@@ -1428,3 +1428,102 @@ describe("sequence diagram comment lines — mermaid generator", () => {
     expect(mermaidContent).not.toContain("undefined")
   })
 })
+
+// ─── activate / deactivate support ───────────────────────────────────────────
+
+import type { SeqActivation } from "./visitor"
+
+describe("sequence diagram activate/deactivate — lexer", () => {
+  it("tokenises 'activate user' with Activate token", () => {
+    const { errors, tokens } = SeqLexer.tokenize("activate user")
+    expect(errors).toHaveLength(0)
+    const names = tokens.map((t) => t.tokenType.name)
+    expect(names).toContain("Activate")
+  })
+
+  it("tokenises 'deactivate user' with Deactivate token", () => {
+    const { errors, tokens } = SeqLexer.tokenize("deactivate user")
+    expect(errors).toHaveLength(0)
+    const names = tokens.map((t) => t.tokenType.name)
+    expect(names).toContain("Deactivate")
+  })
+
+  it("does not treat 'activateUser' as Activate keyword (no word-boundary leak)", () => {
+    const { errors, tokens } = SeqLexer.tokenize("activateUser ->> b: msg")
+    expect(errors).toHaveLength(0)
+    const names = tokens.map((t) => t.tokenType.name)
+    expect(names).not.toContain("Activate")
+  })
+
+  it("does not treat 'deactivateUser' as Deactivate keyword", () => {
+    const { errors, tokens } = SeqLexer.tokenize("deactivateUser ->> b: msg")
+    expect(errors).toHaveLength(0)
+    const names = tokens.map((t) => t.tokenType.name)
+    expect(names).not.toContain("Deactivate")
+  })
+})
+
+describe("sequence diagram activate/deactivate — visitor", () => {
+  it("parses 'activate p' as SeqActivation with action activate", () => {
+    const { cst } = parseSequenceDiagramCst("actor p\nactivate p")
+    const ast = buildSeqAst(cst)
+    const activations = ast.statements.filter((s): s is SeqActivation => "action" in s)
+    expect(activations).toHaveLength(1)
+    expect(activations[0]).toMatchObject<SeqActivation>({ action: "activate", participant: "p" })
+  })
+
+  it("parses 'deactivate p' as SeqActivation with action deactivate", () => {
+    const { cst } = parseSequenceDiagramCst("actor p\ndeactivate p")
+    const ast = buildSeqAst(cst)
+    const activations = ast.statements.filter((s): s is SeqActivation => "action" in s)
+    expect(activations).toHaveLength(1)
+    expect(activations[0]).toMatchObject<SeqActivation>({ action: "deactivate", participant: "p" })
+  })
+
+  it("parses activate followed by message then deactivate", () => {
+    const spec = "actor a\nactor b\nactivate a\na ->> b: hello\ndeactivate a"
+    const { cst } = parseSequenceDiagramCst(spec)
+    const ast = buildSeqAst(cst)
+    const activations = ast.statements.filter((s): s is SeqActivation => "action" in s)
+    expect(activations).toHaveLength(2)
+    expect(activations[0].action).toBe("activate")
+    expect(activations[1].action).toBe("deactivate")
+  })
+
+  it("activation nodes have no 'content' field (so flattenMessages excludes them)", () => {
+    const { cst } = parseSequenceDiagramCst("actor p\nactivate p\ndeactivate p")
+    const ast = buildSeqAst(cst)
+    const activations = ast.statements.filter((s): s is SeqActivation => "action" in s)
+    expect(activations).toHaveLength(2)
+    activations.forEach((s) => expect("content" in s).toBe(false))
+  })
+})
+
+describe("sequence diagram activate/deactivate — mermaid generator", () => {
+  const owner = makeNamedComp("owner-uuid", "owner", "owner")
+  const root = makeNamedComp("root-uuid", "root", "root", [owner])
+
+  it("emits 'activate <id>' in mermaid output", () => {
+    const { cst } = parseSequenceDiagramCst("actor user\nactivate user")
+    const ast = buildSeqAst(cst)
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain("activate user")
+  })
+
+  it("emits 'deactivate <id>' in mermaid output", () => {
+    const { cst } = parseSequenceDiagramCst("actor user\ndeactivate user")
+    const ast = buildSeqAst(cst)
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain("deactivate user")
+  })
+
+  it("emits activate/deactivate around a message inside a block", () => {
+    const spec = "actor a\nactor b\nloop retry\n  activate a\n  a ->> b: go\n  deactivate a\nend"
+    const { cst } = parseSequenceDiagramCst(spec)
+    const ast = buildSeqAst(cst)
+    const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
+    expect(mermaidContent).toContain("activate a")
+    expect(mermaidContent).toContain("deactivate a")
+    expect(mermaidContent).toContain("a->>b: go")
+  })
+})

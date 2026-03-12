@@ -4,7 +4,7 @@
  * Grammar (EBNF):
  *
  *   UseCaseDiagram  ::= NEWLINE* (UcdStatement (NEWLINE+ | EOF))*
- *   UcdStatement    ::= UcdDeclaration | UcdLink
+ *   UcdStatement    ::= UcdDeclaration | UcdLink | UcdComment
  *   UcdDeclaration  ::= UcdEntityType NodePath (AS IDENTIFIER)?
  *   UcdEntityType   ::= ACTOR | COMPONENT | (USE CASE)
  *   UcdLink         ::= IDENTIFIER UCDARROW IDENTIFIER (UCDCOLON UCDLABELTEXT)?
@@ -15,7 +15,7 @@ import {
   Actor, Component, Use, Case, As,
   Slash, Newline, Identifier,
 } from "../tokens"
-import { UcdLexer, UcdArrow, UcdColon, UcdLabelText, allUcdTokens } from "./lexer"
+import { UcdLexer, UcdArrow, UcdColon, UcdLabelText, UcdComment, allUcdTokens } from "./lexer"
 
 export class UseCaseDiagramParser extends CstParser {
   constructor() {
@@ -40,7 +40,12 @@ export class UseCaseDiagramParser extends CstParser {
     this.OR([
       { ALT: () => this.SUBRULE(this.ucdDeclaration) },
       { ALT: () => this.SUBRULE(this.ucdLink) },
+      { ALT: () => this.SUBRULE(this.ucdComment) },
     ])
+  })
+
+  ucdComment = this.RULE("ucdComment", () => {
+    this.CONSUME(UcdComment)
   })
 
   // ─── Declaration ────────────────────────────────────────────────────────────
