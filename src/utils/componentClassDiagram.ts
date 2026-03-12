@@ -1,5 +1,5 @@
 import type { ComponentNode, InterfaceSpecification, SequenceDiagramNode } from "../store/types"
-import { findNode } from "../nodes/nodeTree"
+import { findNode, findParentNode } from "../nodes/nodeTree"
 import { resolveInOwner } from "./diagramResolvers"
 import { flattenMessages } from "../parser/sequenceDiagram/visitor"
 import { getCachedSeqAst } from "./seqAstCache"
@@ -75,6 +75,16 @@ export function buildComponentClassDiagram(
     return buildRootClassDiagram(rootComponent)
   }
 
+  // Restrict visible participants to direct siblings of the target component
+  const parentNode = findParentNode(rootComponent, component.uuid)
+  const parentComp = parentNode?.type === "component" ? (parentNode as ComponentNode) : null
+  const siblingCompUuids = new Set<string>(
+    (parentComp?.subComponents ?? [])
+      .filter((c) => c.uuid !== component.uuid)
+      .map((c) => c.uuid),
+  )
+  const siblingActorUuids = new Set<string>((parentComp?.actors ?? []).map((a) => a.uuid))
+
   const targetInterfaceIds = new Set((component.interfaces ?? []).map((i) => i.id))
 
   // dependents: participants that call INTO this component's interfaces
@@ -115,6 +125,7 @@ export function buildComponentClassDiagram(
       // ── Dependents: someone calls INTO this component's interface ──────────
       if (targetInterfaceIds.has(interfaceId) && receiverUuid === component.uuid) {
         if (!senderUuid || senderUuid === component.uuid) continue
+        if (!siblingCompUuids.has(senderUuid) && !siblingActorUuids.has(senderUuid)) continue
 
         const sender = participantsMap.get(senderUuid)
         if (!sender) continue
@@ -137,6 +148,7 @@ export function buildComponentClassDiagram(
       if (senderUuid === component.uuid && receiverUuid && receiverUuid !== component.uuid) {
         const receiver = participantsMap.get(receiverUuid)
         if (!receiver || receiver.kind !== "component") continue
+        if (!siblingCompUuids.has(receiverUuid)) continue
 
         if (!outgoingByReceiver.has(receiverUuid)) {
           outgoingByReceiver.set(receiverUuid, new Map())

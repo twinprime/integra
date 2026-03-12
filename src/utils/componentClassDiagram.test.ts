@@ -109,6 +109,56 @@ const makeRoot = (extraSeqDiagrams: SequenceDiagramNode[] = []): ComponentNode =
 
 const getCompA = (root: ComponentNode) => root.subComponents[0]
 
+/**
+ * Root tree with a grandchild (compB1 nested inside compB):
+ *
+ *   root (uuid: root-uuid)
+ *   ├── actor: user (uuid: user-uuid)
+ *   └── subComponents:
+ *       ├── compA (uuid: compa-uuid)  ← target, interfaces: [IFoo, IBar]
+ *       └── compB (uuid: compb-uuid)
+ *           └── subComponents:
+ *               └── compB1 (uuid: compb1-uuid)  ← grandchild, NOT a sibling of compA
+ */
+const makeRootWithGrandchild = (extraSeqDiagrams: SequenceDiagramNode[] = []): ComponentNode => {
+  const base = makeRoot(extraSeqDiagrams)
+  return {
+    ...base,
+    subComponents: [
+      base.subComponents[0], // compA unchanged
+      {
+        ...base.subComponents[1],
+        subComponents: [
+          {
+            uuid: "compb1-uuid",
+            id: "compB1",
+            name: "Component B1",
+            type: "component",
+            subComponents: [],
+            actors: [],
+            useCaseDiagrams: [],
+            interfaces: [
+              {
+                uuid: "ib1-uuid",
+                id: "IB1",
+                name: "IB1",
+                type: "rest",
+                functions: [
+                  {
+                    uuid: "fnb1-uuid",
+                    id: "handle",
+                    parameters: [{ name: "x", type: "string", required: true }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  }
+}
+
 /** Root where compB has a defined interface IBaz */
 const makeRootWithCompBInterfaces = (extraSeqDiagrams: SequenceDiagramNode[] = []): ComponentNode => {
   const base = makeRoot(extraSeqDiagrams)
@@ -562,5 +612,39 @@ describe("buildComponentClassDiagram", () => {
     // Root diagram shows children, not the root itself as subject
     expect(result.mermaidContent).toContain('class compA["Component A"]')
     expect(result.mermaidContent).toContain('class compB["Component B"]')
+  })
+
+  describe("sibling restriction", () => {
+    it("excludes a descendant of a sibling that calls the target", () => {
+      // compB1 is a grandchild of root (child of compB) — not a sibling of compA
+      const sd = makeSeqDiagram(
+        "component compA\ncomponent compB/compB1\ncompB1 ->> compA: IFoo:doSomething(id: string)",
+      )
+      const root = makeRootWithGrandchild([sd])
+      const result = buildComponentClassDiagram(getCompA(root), root)
+      expect(result.mermaidContent).not.toContain("compB1")
+    })
+
+    it("excludes a descendant of a sibling that the target calls out to", () => {
+      // compA calls compB1 (grandchild of root) — should not appear as dependency
+      const sd = makeSeqDiagram(
+        "component compA\ncomponent compB/compB1\ncompA ->> compB1: IB1:handle(x: string)",
+      )
+      const root = makeRootWithGrandchild([sd])
+      const result = buildComponentClassDiagram(getCompA(root), root)
+      expect(result.mermaidContent).not.toContain("compB1")
+      expect(result.mermaidContent).not.toContain("IB1")
+    })
+
+    it("still includes a direct sibling that calls the target", () => {
+      // compB is a direct sibling of compA — should still appear
+      const sd = makeSeqDiagram(
+        "component compB\ncomponent compA\ncompB ->> compA: IFoo:doSomething(id: string)",
+      )
+      const root = makeRootWithGrandchild([sd])
+      const result = buildComponentClassDiagram(getCompA(root), root)
+      expect(result.mermaidContent).toContain('class compB["Component B"]')
+      expect(result.mermaidContent).toContain("compB ..> IFoo")
+    })
   })
 })

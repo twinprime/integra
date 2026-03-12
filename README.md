@@ -38,7 +38,7 @@ As you write sequence diagrams, Integra automatically derives:
 - **Interface specifications** (with typed functions and parameters) on the receiving component
 - **Use cases** listed under their use case diagram
 - **Use-case class diagram** — when a use-case node is selected, the bottom panel renders an auto-generated class diagram showing all actors, components, and interfaces used across its sequence diagrams, with realization (`..|>`) and dependency (`..>`) arrows
-- **Component class diagram** — when a component node is selected, the bottom panel renders an auto-generated class diagram showing the component's interfaces (with method signatures) and all other actors/components in the system that call those interfaces
+- **Component class diagram** — when a component node is selected, the bottom panel renders an auto-generated class diagram showing the component's interfaces (with method signatures), sibling actors/components that call those interfaces (dependents), and sibling components that this component calls out to (dependencies)
 
 Navigate the tree to inspect generated nodes. Clicking a node or participant in the rendered diagram navigates to that node in the tree. Orphaned nodes (no longer referenced by any diagram) show a delete button on hover.
 
@@ -490,7 +490,7 @@ Integra is a single-page web application that allows users to model software sys
 11. **Navigation** — highlighted tokens in the specification editor are clickable and navigate to the corresponding node in the tree; entities in the rendered Mermaid diagram are also clickable for the same purpose
 12. **Persistence** — system state is persisted to `localStorage` and restored on page load; a clear button resets to the initial state; Save / Load buttons use the File System Access API to read/write YAML files
 13. **Auto-generated use-case class diagram** — selecting a use-case node renders a class diagram in the bottom panel derived from all its sequence diagrams, showing actors, components, interfaces (with methods), and realization / dependency relationships
-14. **Auto-generated component class diagram** — selecting a component node renders a class diagram showing the component's interfaces (with method signatures from its stored spec), all actors/components that call those interfaces (dependents), and all interfaces/components that this component calls out to (dependencies), with distinct colors for the subject component and its own interfaces
+14. **Auto-generated component class diagram** — selecting a component node renders a class diagram showing: the component's own interfaces (with method signatures, filtered to only the methods actually called in diagrams); sibling actors/components that call those interfaces (dependents); and sibling components that this component calls out to (dependencies); with distinct colors for the subject component and its own interfaces; when the root component is selected, shows all direct children and relationships between them
 
 ---
 
@@ -630,20 +630,25 @@ When a `use-case` node is selected, `buildUseCaseClassDiagram()` (`src/utils/use
 
 #### Auto-generated Component Class Diagram
 
-When a `component` node is selected, `buildComponentClassDiagram()` (`src/utils/componentClassDiagram.ts`) reads the component's stored interface specifications and scans every sequence diagram in the entire system tree to produce a Mermaid `classDiagram`:
+When a `component` node is selected, `buildComponentClassDiagram()` (`src/utils/componentClassDiagram.ts`) reads the component's stored interface specifications and scans every sequence diagram in the entire system tree to produce a Mermaid `classDiagram`.
 
-- The **subject component** is highlighted in dark blue (`style` directive: `fill:#1d4ed8`)
-- Each of its **own interfaces** (from `component.interfaces`) is shown with `<<interface>>` and all defined methods (including parameter types and optionality), highlighted in light blue (`fill:#bfdbfe`)
+**When the root component is selected**, the function delegates to `buildRootClassDiagram()`, which shows only direct children of the root and the relationships between them.
+
+**For any other component**, the diagram shows:
+
+- The **subject component** highlighted in dark blue (`style` directive: `fill:#1d4ed8`)
+- Each of its **own interfaces** (from `component.interfaces`) with `<<interface>>` and the methods that are actually called in any sequence diagram (unused methods are omitted), highlighted in light blue (`fill:#bfdbfe`)
 - `Component ..|> Interface` — realization arrow for each interface the component provides
-- **Dependents** (callers): `Caller ..> Interface` — dependency arrow for each external actor or component that calls the interface in any sequence diagram
-- **Dependencies** (outgoing calls): when this component sends messages to another component's interface in any sequence diagram:
-  - The called interface class (with methods from the receiver's spec) is shown in the diagram
-  - `ReceiverComp ..|> Interface` — shows which component implements that interface
+- **Dependents** (callers into the subject's interfaces): only **direct siblings** of the subject (other direct children of the same parent, including actors) that call those interfaces are shown — descendants of siblings are excluded
+  - `Caller ..> Interface` — dependency arrow for each sibling that calls the interface
+- **Dependencies** (outgoing calls to other components): only **direct sibling components** that this component sends messages to are shown
+  - The called interface class (with called methods from the receiver's spec) is shown
+  - `ReceiverComp ..|> Interface` — shows which sibling implements that interface
   - `ThisComp ..> Interface` — interface-level dependency arrow
-  - `ThisComp ..> ReceiverComp` — direct component-to-component dependency arrow
-- Callers and receivers are disambiguated by verifying UUIDs, so an interface ID shared by multiple components is handled correctly
-- Self-references (the component calling its own interface) are excluded
+- Self-references (component calling its own interface) are excluded
 - Click handlers navigate to the clicked node in the tree
+
+The **sibling restriction** is the key scoping rule: participants are restricted to the direct children of the subject's parent node. This mirrors the scope in which the component operates — it interacts with its siblings, not with components buried deeper inside them.
 
 Example output for `orderSvc` (provides `OrdersAPI`, called by `client`, depends on `paymentSvc.PaymentsAPI`):
 ```
