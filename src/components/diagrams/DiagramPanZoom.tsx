@@ -33,13 +33,20 @@ const FitController = ({ fitRef }: { fitRef: React.RefObject<() => void> }) => {
 
   useEffect(() => {
     const content = instance.contentComponent
-    if (!content) return
+    const wrapper = instance.wrapperComponent
+    if (!content && !wrapper) return
+    let timer: ReturnType<typeof setTimeout>
     const observer = new ResizeObserver(() => {
-      setTimeout(fitDiagram, 50)
+      clearTimeout(timer)
+      timer = setTimeout(fitDiagram, 50)
     })
-    observer.observe(content)
-    return () => observer.disconnect()
-  }, [instance.contentComponent, fitDiagram])
+    if (content) observer.observe(content)
+    if (wrapper) observer.observe(wrapper)
+    return () => {
+      clearTimeout(timer)
+      observer.disconnect()
+    }
+  }, [instance.contentComponent, instance.wrapperComponent, fitDiagram])
 
   return null
 }
