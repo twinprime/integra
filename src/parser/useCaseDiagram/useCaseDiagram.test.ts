@@ -372,3 +372,76 @@ describe("generateUseCaseMermaidFromAst — arrow types and labels", () => {
     expect(mermaidContent).not.toContain("|")
   })
 })
+
+// ─── UCD comment support ──────────────────────────────────────────────────────
+
+import type { UcdComment } from "./visitor"
+
+describe("use case diagram — comment lexer", () => {
+  it("tokenises a full-line comment as UcdComment", () => {
+    const { errors, tokens } = UcdLexer.tokenize("# this is a comment")
+    expect(errors).toHaveLength(0)
+    expect(tokens.map((t) => t.tokenType.name)).toEqual(["UcdComment"])
+  })
+
+  it("tokenises an inline comment after a statement", () => {
+    const { errors, tokens } = UcdLexer.tokenize("actor user # inline")
+    expect(errors).toHaveLength(0)
+    const names = tokens.map((t) => t.tokenType.name)
+    expect(names).toContain("UcdComment")
+  })
+
+  it("tokenises a comment with no space after #", () => {
+    const { errors, tokens } = UcdLexer.tokenize("#noSpace")
+    expect(errors).toHaveLength(0)
+    expect(tokens.map((t) => t.tokenType.name)).toEqual(["UcdComment"])
+  })
+})
+
+describe("use case diagram — comment parser / visitor", () => {
+  it("includes a top-level comment in ast.statements as UcdComment", () => {
+    const { ast, lexErrors, parseErrors } = parse("# top comment")
+    expect(lexErrors).toHaveLength(0)
+    expect(parseErrors).toHaveLength(0)
+    expect(ast.statements).toHaveLength(1)
+    expect(ast.statements[0]).toMatchObject<UcdComment>({ text: "# top comment" })
+    expect(ast.declarations).toHaveLength(0)
+    expect(ast.links).toHaveLength(0)
+  })
+
+  it("preserves source order: comment between declaration and link", () => {
+    const { ast } = parse("actor user\n# a comment\nuser ->> login")
+    expect(ast.statements).toHaveLength(3)
+    expect(ast.statements[0]).toMatchObject({ entityType: "actor" })
+    expect(ast.statements[1]).toMatchObject({ text: "# a comment" })
+    expect(ast.statements[2]).toMatchObject({ from: "user" })
+  })
+
+  it("does NOT add comments to ast.declarations", () => {
+    const { ast } = parse("# comment\nactor user")
+    expect(ast.declarations).toHaveLength(1)
+    expect(ast.declarations[0]).toMatchObject({ entityType: "actor" })
+  })
+
+  it("does NOT add comments to ast.links", () => {
+    const { ast } = parse("user ->> login\n# trailing comment")
+    expect(ast.links).toHaveLength(1)
+  })
+})
+
+describe("use case diagram — comments in mermaid generator", () => {
+  const root = makeMermaidComp("root-uuid", "root", "Root")
+  it("does not emit comment lines in mermaid output", () => {
+    const ast = parseUcdAst("actor user\n# this is a comment\nuser ->> login")
+    const { mermaidContent } = generateUseCaseMermaidFromAst(ast, root, root)
+    expect(mermaidContent).not.toContain("#")
+    expect(mermaidContent).not.toContain("comment")
+  })
+
+  it("still emits surrounding declarations and links when comments are present", () => {
+    const ast = parseUcdAst("actor user\n# comment\nuser ->> login")
+    const { mermaidContent } = generateUseCaseMermaidFromAst(ast, root, root)
+    expect(mermaidContent).toContain("user")
+    expect(mermaidContent).toContain("login")
+  })
+})

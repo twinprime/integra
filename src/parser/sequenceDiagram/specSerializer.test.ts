@@ -351,3 +351,41 @@ describe("seqAstToSpec — comment preservation", () => {
     )
   })
 })
+
+// ─── activate / deactivate round-trip ────────────────────────────────────────
+
+describe("seqAstToSpec — activate/deactivate round-trip", () => {
+  it("round-trips a standalone activate statement", () => {
+    expect(roundTrip("actor user\nactivate user")).toBe("actor user\nactivate user")
+  })
+
+  it("round-trips a standalone deactivate statement", () => {
+    expect(roundTrip("actor user\ndeactivate user")).toBe("actor user\ndeactivate user")
+  })
+
+  it("round-trips activate / message / deactivate sequence", () => {
+    const spec = "actor a\nactor b\nactivate a\na ->> b: call\ndeactivate a"
+    expect(roundTrip(spec)).toBe(spec)
+  })
+
+  it("round-trips activate/deactivate inside a block (indentation preserved)", () => {
+    const spec = "actor a\nactor b\nloop retry\n  activate a\n  a ->> b: go\n  deactivate a\nend"
+    expect(roundTrip(spec)).toBe(spec)
+  })
+})
+
+describe("renameInSeqSpec — activate/deactivate participant rename", () => {
+  it("renames participant in activate statement", () => {
+    const spec = "actor user\nactivate user\ndeactivate user"
+    expect(renameInSeqSpec(spec, "user", "customer")).toBe(
+      "actor customer\nactivate customer\ndeactivate customer",
+    )
+  })
+
+  it("does not rename unrelated participants in activate", () => {
+    const spec = "actor a\nactor b\nactivate a\ndeactivate a"
+    expect(renameInSeqSpec(spec, "b", "service")).toBe(
+      "actor a\nactor service\nactivate a\ndeactivate a",
+    )
+  })
+})

@@ -5,10 +5,10 @@
  * Round-trip trade-offs (by design):
  *  - Blank lines between statements are normalized
  *  - Whitespace normalized
- *  - Comments not preserved (not stored in AST)
+ *  - Comments ARE preserved (stored in AST as UcdComment nodes)
  */
 import { parseUseCaseDiagramCst } from "./parser"
-import { buildUcdAst, type UcdAst, type UcdDeclaration, type UcdLink } from "./visitor"
+import { buildUcdAst, type UcdAst, type UcdDeclaration, type UcdLink, type UcdStatement } from "./visitor"
 
 // ─── Serializer ───────────────────────────────────────────────────────────────
 
@@ -24,13 +24,15 @@ function serializeLink(link: UcdLink): string {
   return `${link.from} ${link.arrow} ${link.to}${labelStr}`
 }
 
-/** Serialize a UcdAst back to DSL spec text. */
+function serializeStatement(stmt: UcdStatement): string {
+  if ("entityType" in stmt) return serializeDeclaration(stmt)
+  if ("from" in stmt) return serializeLink(stmt)
+  return stmt.text // UcdComment
+}
+
+/** Serialize a UcdAst back to DSL spec text. Preserves source order including comments. */
 export function ucdAstToSpec(ast: UcdAst): string {
-  const lines: string[] = [
-    ...ast.declarations.map(serializeDeclaration),
-    ...ast.links.map(serializeLink),
-  ]
-  return lines.join("\n")
+  return ast.statements.map(serializeStatement).join("\n")
 }
 
 // ─── AST rename ───────────────────────────────────────────────────────────────
@@ -58,10 +60,18 @@ function renameLink(link: UcdLink, oldId: string, newId: string): UcdLink {
   }
 }
 
+function renameUcdStatement(stmt: UcdStatement, oldId: string, newId: string): UcdStatement {
+  if ("entityType" in stmt) return renameDeclaration(stmt, oldId, newId)
+  if ("from" in stmt) return renameLink(stmt, oldId, newId)
+  return stmt // UcdComment — no IDs to rename
+}
+
 function renameInUcdAst(ast: UcdAst, oldId: string, newId: string): UcdAst {
+  const statements = ast.statements.map((s) => renameUcdStatement(s, oldId, newId))
   return {
-    declarations: ast.declarations.map((d) => renameDeclaration(d, oldId, newId)),
-    links: ast.links.map((l) => renameLink(l, oldId, newId)),
+    declarations: statements.filter((s): s is UcdDeclaration => "entityType" in s),
+    links: statements.filter((s): s is UcdLink => "from" in s),
+    statements,
   }
 }
 
