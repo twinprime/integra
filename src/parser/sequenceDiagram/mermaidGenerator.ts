@@ -149,9 +149,9 @@ function emitStatements(
         out += emitStatements(section.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, messageLabelToInterfaceUuid, labelMap, indent + "  ")
       }
       out += `${indent}end\n`
-    } else if (!("from" in stmt)) {
-      // SeqComment — skip; comments are spec-only and don't produce Mermaid output
-      continue
+    } else if ("action" in stmt) {
+      // SeqActivation
+      out += `${indent}${stmt.action} ${sanitizeMermaidId(stmt.participant)}\n`
     } else if ("position" in stmt) {
       // Note
       const note = stmt as SeqNote
@@ -164,7 +164,7 @@ function emitStatements(
           ? `${indent}note over ${sanitizeMermaidId(p1)}, ${sanitizeMermaidId(p2)}: ${text}\n`
           : `${indent}note over ${sanitizeMermaidId(p1)}: ${text}\n`
       }
-    } else {
+    } else if ("from" in stmt) {
       // Message
       const msg = stmt
       const fromId = sanitizeMermaidId(msg.from)
