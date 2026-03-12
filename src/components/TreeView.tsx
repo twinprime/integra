@@ -9,11 +9,11 @@ import type {
   SequenceDiagramNode,
 } from "../store/types"
 import { ContextMenu } from "./ContextMenu"
+import { CreateNodeDialog } from "./CreateNodeDialog"
 import yaml from "js-yaml"
 import { TreeNode } from "./tree/TreeNode"
 import { saveToDirectory, loadFromDirectory } from "../utils/systemFiles"
 import { findParentNode } from "../nodes/nodeTree"
-import { deriveNameFromId } from "../utils/nameUtils"
 
 const DERIVED_KEYS = new Set([
   "ownerComponentUuid",
@@ -50,6 +50,12 @@ export const TreeView = () => {
     x: number
     y: number
     node: Node
+  } | null>(null)
+
+  const [createDialog, setCreateDialog] = useState<{
+    title: string
+    placeholder: string
+    onConfirm: (id: string, name: string) => void
   } | null>(null)
 
   const serializeYaml = (comp: ComponentNode) =>
@@ -199,50 +205,35 @@ export const TreeView = () => {
 
   const handleAddSubComponent = () => {
     if (!contextMenu) return
-
-    const id = prompt("Enter sub-component ID (e.g. my_service)")?.trim()
-    if (!id) return
-    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(id)) {
-      alert(
-        `Invalid ID "${id}". Must start with a letter or _ and contain only letters, digits, or _.`,
-      )
-      return
-    }
-
-    const name = deriveNameFromId(id)
-    const uuid = crypto.randomUUID()
-
-    const newNode: ComponentNode = {
-      uuid,
-      id,
-      name,
-      type: "component",
-      subComponents: [],
-      actors: [],
-      useCaseDiagrams: [],
-      interfaces: [],
-    }
-
-    addNode(contextMenu.node.uuid, newNode)
-    selectNode(uuid)
+    const parentUuid = contextMenu.node.uuid
+    setContextMenu(null)
+    setCreateDialog({
+      title: "Add Sub-component",
+      placeholder: "my_service",
+      onConfirm: (id, name) => {
+        const uuid = crypto.randomUUID()
+        const newNode: ComponentNode = {
+          uuid,
+          id,
+          name,
+          type: "component",
+          subComponents: [],
+          actors: [],
+          useCaseDiagrams: [],
+          interfaces: [],
+        }
+        addNode(parentUuid, newNode)
+        selectNode(uuid)
+        setCreateDialog(null)
+      },
+    })
   }
 
   const handleAddNode = (type: "use-case-diagram" | "sequence-diagram") => {
     if (!contextMenu) return
-
-    const label =
-      type === "use-case-diagram" ? "use case diagram" : "sequence diagram"
-    const id = prompt(`Enter ${label} ID (e.g. my_feature)`)?.trim()
-    if (!id) return
-    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(id)) {
-      alert(
-        `Invalid ID "${id}". Must start with a letter or _ and contain only letters, digits, or _.`,
-      )
-      return
-    }
-
-    const name = deriveNameFromId(id)
-    const uuid = crypto.randomUUID()
+    const parentNode = contextMenu.node
+    const label = type === "use-case-diagram" ? "use case diagram" : "sequence diagram"
+    setContextMenu(null)
 
     const findOwnerComponent = (node: Node): string | null => {
       const nodeParent = findParentNode(rootComponent, node.uuid)
@@ -251,35 +242,42 @@ export const TreeView = () => {
       return findOwnerComponent(nodeParent)
     }
 
-    let newNode: Node
-    if (type === "use-case-diagram") {
-      newNode = {
-        uuid,
-        id,
-        name,
-        type,
-        content: "",
-        description: "",
-        referencedNodeIds: [],
-        ownerComponentUuid: contextMenu.node.uuid,
-        useCases: [],
-      } satisfies UseCaseDiagramNode
-    } else {
-      newNode = {
-        uuid,
-        id,
-        name,
-        type,
-        content: "",
-        description: "",
-        referencedNodeIds: [],
-        referencedFunctionUuids: [],
-        ownerComponentUuid: findOwnerComponent(contextMenu.node) ?? "",
-      } satisfies SequenceDiagramNode
-    }
-
-    addNode(contextMenu.node.uuid, newNode)
-    selectNode(uuid)
+    setCreateDialog({
+      title: `Add ${label.charAt(0).toUpperCase() + label.slice(1)}`,
+      placeholder: "my_feature",
+      onConfirm: (id, name) => {
+        const uuid = crypto.randomUUID()
+        let newNode: Node
+        if (type === "use-case-diagram") {
+          newNode = {
+            uuid,
+            id,
+            name,
+            type,
+            content: "",
+            description: "",
+            referencedNodeIds: [],
+            ownerComponentUuid: parentNode.uuid,
+            useCases: [],
+          } satisfies UseCaseDiagramNode
+        } else {
+          newNode = {
+            uuid,
+            id,
+            name,
+            type,
+            content: "",
+            description: "",
+            referencedNodeIds: [],
+            referencedFunctionUuids: [],
+            ownerComponentUuid: findOwnerComponent(parentNode) ?? "",
+          } satisfies SequenceDiagramNode
+        }
+        addNode(parentNode.uuid, newNode)
+        selectNode(uuid)
+        setCreateDialog(null)
+      },
+    })
   }
 
   type MenuItem = {
@@ -397,6 +395,14 @@ export const TreeView = () => {
           />
         )}
       </div>
+      {createDialog && (
+        <CreateNodeDialog
+          title={createDialog.title}
+          placeholder={createDialog.placeholder}
+          onConfirm={createDialog.onConfirm}
+          onCancel={() => setCreateDialog(null)}
+        />
+      )}
     </div>
   )
 }
