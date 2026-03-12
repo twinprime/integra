@@ -93,7 +93,8 @@ export const TreeView = () => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (
         e.target instanceof HTMLTextAreaElement ||
-        e.target instanceof HTMLInputElement
+        e.target instanceof HTMLInputElement ||
+        (e.target instanceof HTMLElement && !!e.target.closest(".cm-editor"))
       )
         return
       const mod = e.metaKey || e.ctrlKey
