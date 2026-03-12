@@ -100,7 +100,7 @@ export const DiagramPanZoom = ({ children }: DiagramPanZoomProps) => {
       className="relative flex-1 overflow-hidden bg-white rounded-lg"
       style={{ minHeight: "100px" }}
     >
-      <TransformWrapper initialScale={1} minScale={0.05} maxScale={20} limitToBounds={false} wheel={{ step: 0.3 }}>
+      <TransformWrapper initialScale={1} minScale={0.05} maxScale={20} limitToBounds={false} smooth={false} wheel={{ step: 0.3 }}>
         <FitController fitRef={fitRef} fitWidthRef={fitWidthRef} />
         <ZoomControls fitRef={fitRef} fitWidthRef={fitWidthRef} />
         <TransformComponent
