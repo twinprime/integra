@@ -76,6 +76,39 @@ function findFunctionUuidInTree(root: ComponentNode, interfaceId: string, functi
   return findFunctionInTree(root, interfaceId, functionId)?.uuid ?? null
 }
 
+/**
+ * Walks the full component tree to find an InterfaceSpecification by UUID.
+ */
+function findInterfaceByUuid(root: ComponentNode, uuid: string): ComponentNode["interfaces"][number] | null {
+  for (const iface of root.interfaces ?? []) {
+    if (iface.uuid === uuid) return iface
+  }
+  for (const sub of root.subComponents) {
+    const found = findInterfaceByUuid(sub, uuid)
+    if (found) return found
+  }
+  return null
+}
+
+/**
+ * Returns true if the function already exists on the parent interface referenced by
+ * `iface.parentInterfaceUuid`. Used to allow referencing inherited functions in
+ * sequence diagram messages without trying to add them to the (locked) child interface.
+ */
+function functionExistsOnParentInterface(
+  root: ComponentNode,
+  iface: ComponentNode["interfaces"][number],
+  functionId: string,
+  newParams: Parameter[],
+): boolean {
+  if (!iface.parentInterfaceUuid) return false
+  const parentIface = findInterfaceByUuid(root, iface.parentInterfaceUuid)
+  if (!parentIface) return false
+  return parentIface.functions.some(
+    (f) => f.id === functionId && paramsMatch(f.parameters, newParams),
+  )
+}
+
 const INTERFACE_TYPE_OWNER: Record<string, "sender" | "receiver"> = {
   kafka: "sender",
   rest: "receiver",
@@ -108,6 +141,9 @@ function applyFunctionToComponentByUuid(
     const exactMatch = iface.functions.findIndex((f) => f.id === functionId && paramsMatch(f.parameters, newParams))
     if (exactMatch === -1) {
       if (iface.parentInterfaceUuid) {
+        if (functionExistsOnParentInterface(root, iface, functionId, newParams)) {
+          return comp  // function is defined on the parent — treat as found, no-op
+        }
         throw new Error(
           `Cannot add function "${functionId}" to interface "${interfaceId}": ` +
           `this interface inherits from a parent and its functions are locked.`,
@@ -165,6 +201,7 @@ function applyMessageToComponents(
   interfaceId: string,
   functionId: string,
   rawParams: string,
+  root: ComponentNode,
 ): ComponentNode[] {
   const result = [...components]
   const receiverIdx = result.findIndex((c) => c.id === to)
@@ -197,6 +234,9 @@ function applyMessageToComponents(
 
   if (exactMatchIdx === -1) {
     if (iface.parentInterfaceUuid) {
+      if (functionExistsOnParentInterface(root, iface, functionId, newParams)) {
+        return result  // function is defined on the parent — treat as found, no-op
+      }
       throw new Error(
         `Cannot add function "${functionId}" to interface "${interfaceId}": ` +
         `this interface inherits from a parent and its functions are locked.`,
@@ -402,7 +442,7 @@ export function parseSequenceDiagram(
           const fromTreeId = participantToTreeId.get(msg.from) ?? msg.from
           const toTreeId = participantToTreeId.get(msg.to) ?? msg.to
           workingComponents = applyMessageToComponents(
-            workingComponents, fromTreeId, toTreeId, interfaceId, functionId, rawParams,
+            workingComponents, fromTreeId, toTreeId, interfaceId, functionId, rawParams, updatedRoot,
           )
         }
       } else {
@@ -410,7 +450,7 @@ export function parseSequenceDiagram(
         const fromTreeId = participantToTreeId.get(msg.from) ?? msg.from
         const toTreeId = participantToTreeId.get(msg.to) ?? msg.to
         workingComponents = applyMessageToComponents(
-          workingComponents, fromTreeId, toTreeId, interfaceId, functionId, rawParams,
+          workingComponents, fromTreeId, toTreeId, interfaceId, functionId, rawParams, updatedRoot,
         )
       }
     }

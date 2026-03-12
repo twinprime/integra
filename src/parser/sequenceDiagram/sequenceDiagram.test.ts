@@ -444,6 +444,75 @@ describe("parseSequenceDiagram — auto-create missing path nodes", () => {
   })
 })
 
+// ─── parseSequenceDiagram — inherited interface functions ─────────────────────
+
+describe("parseSequenceDiagram — inherited interface functions", () => {
+  const makeCompWithIfaces = (
+    uuid: string,
+    id: string,
+    interfaces: ComponentNode["interfaces"],
+    subComponents: ComponentNode[] = [],
+  ): ComponentNode => ({
+    uuid, id, name: id, type: "component",
+    actors: [], subComponents, useCaseDiagrams: [], interfaces,
+  })
+
+  it("does NOT throw when a message references a function on an inherited interface", () => {
+    // ownerComp (DataService) owns the parent interface with actual functions.
+    // CheckoutService is a subComponent of ownerComp and inherits the interface.
+    const parentIface = {
+      uuid: "iface-parent-uuid",
+      id: "DataServing",
+      name: "DataServing",
+      type: "rest" as const,
+      functions: [{ uuid: "fn-record-uuid", id: "record", parameters: [] }],
+    }
+    const childIface = {
+      uuid: "iface-child-uuid",
+      id: "DataServing",
+      name: "DataServing",
+      type: "rest" as const,
+      functions: [],
+      parentInterfaceUuid: "iface-parent-uuid",
+    }
+    const checkout = makeCompWithIfaces("checkout-uuid", "CheckoutService", [childIface])
+    const ownerComp = makeCompWithIfaces("owner-uuid", "DataService", [parentIface], [checkout])
+    const root = makeCompWithIfaces("root-uuid", "root", [], [ownerComp])
+
+    const content = "actor user\ncomponent CheckoutService\nuser ->> CheckoutService: DataServing:record()"
+    expect(() =>
+      parseSequenceDiagram(content, root, ownerComp.uuid, "diag-uuid")
+    ).not.toThrow()
+  })
+
+  it("still throws when referencing a function that does not exist on the parent interface", () => {
+    const parentIface = {
+      uuid: "iface-parent-uuid",
+      id: "DataServing",
+      name: "DataServing",
+      type: "rest" as const,
+      functions: [{ uuid: "fn-record-uuid", id: "record", parameters: [] }],
+    }
+    const childIface = {
+      uuid: "iface-child-uuid",
+      id: "DataServing",
+      name: "DataServing",
+      type: "rest" as const,
+      functions: [],
+      parentInterfaceUuid: "iface-parent-uuid",
+    }
+    const checkout = makeCompWithIfaces("checkout-uuid", "CheckoutService", [childIface])
+    const ownerComp = makeCompWithIfaces("owner-uuid", "DataService", [parentIface], [checkout])
+    const root = makeCompWithIfaces("root-uuid", "root", [], [ownerComp])
+
+    // "nonExistent" is not on the parent interface — should still be locked
+    const content = "actor user\ncomponent CheckoutService\nuser ->> CheckoutService: DataServing:nonExistent()"
+    expect(() =>
+      parseSequenceDiagram(content, root, ownerComp.uuid, "diag-uuid")
+    ).toThrow("locked")
+  })
+})
+
 // ─── generateSequenceMermaidFromAst — participant display labels ──────────────
 
 function parseAst(content: string) {
