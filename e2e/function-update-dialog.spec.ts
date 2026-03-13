@@ -20,12 +20,12 @@ async function openAuthFlowEditor(page: Page) {
 async function triggerIncompatibleConflict(page: Page) {
   const editor = await openAuthFlowEditor(page)
   await editor.click()
-  await page.keyboard.type(
+  await editor.type(
     ["actor User", "component AuthAPI", "User ->> AuthAPI: ILogin:login(userId: number)"].join(
       "\n",
     ),
   )
-  await page.keyboard.press("Shift+Enter")
+  await editor.press("Shift+Enter")
 }
 
 /**
@@ -35,14 +35,14 @@ async function triggerIncompatibleConflict(page: Page) {
 async function triggerCompatibleConflict(page: Page) {
   const editor = await openAuthFlowEditor(page)
   await editor.click()
-  await page.keyboard.type(
+  await editor.type(
     [
       "actor User",
       "component AuthAPI",
       "User ->> AuthAPI: ILogin:login(userId: string, token: string)",
     ].join("\n"),
   )
-  await page.keyboard.press("Shift+Enter")
+  await editor.press("Shift+Enter")
 }
 
 test.beforeEach(async ({ page }) => {

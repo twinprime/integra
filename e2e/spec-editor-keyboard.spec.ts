@@ -20,14 +20,14 @@ test.describe("spec editor keyboard shortcuts", () => {
     await cmEditor.click()
 
     // Type a first line then move to a new line
-    await page.keyboard.type("actor User")
-    await page.keyboard.press("Enter")
+    await cmEditor.type("actor User")
+    await cmEditor.press("Enter")
 
     // Press Tab — should indent the new line rather than move HTML focus
-    await page.keyboard.press("Tab")
+    await cmEditor.press("Tab")
 
     // Type a character so we can inspect the resulting line content
-    await page.keyboard.type("x")
+    await cmEditor.type("x")
 
     // The editor should still be focused (Tab did not move focus away)
     await expect(cmEditor).toBeFocused()
@@ -48,7 +48,7 @@ test.describe("spec editor keyboard shortcuts", () => {
 
     // Type a spec that references a new sub-component so we can verify the save
     // by checking the tree (the node gets auto-created on save)
-    await page.keyboard.type(
+    await cmEditor.type(
       [
         "actor User",
         "component AuthService",
@@ -58,7 +58,7 @@ test.describe("spec editor keyboard shortcuts", () => {
     )
 
     // Press Shift+Enter — should save content without exiting edit mode
-    await page.keyboard.press("Shift+Enter")
+    await cmEditor.press("Shift+Enter")
     await page.waitForTimeout(300)
 
     // The editor must still be in edit mode (contenteditable div still present)

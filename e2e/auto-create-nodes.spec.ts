@@ -20,7 +20,7 @@ test.describe("auto-create missing path nodes", () => {
 
     // Type a spec referencing a new sub-component under AuthService that doesn't yet exist
     await cmEditor.click()
-    await page.keyboard.type([
+    await cmEditor.type([
       "actor User",
       "component AuthService",
       "component AuthService/NewModule",
@@ -44,7 +44,7 @@ test.describe("auto-create missing path nodes", () => {
     await expect(cmEditor).toBeVisible()
 
     await cmEditor.click()
-    await page.keyboard.type([
+    await cmEditor.type([
       "actor AuthService/AdminUser",
       "component AuthService",
       "AdminUser --> AuthService: hello",

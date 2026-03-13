@@ -20,12 +20,13 @@ test.beforeEach(async ({ page }) => {
 
 test.describe("autocomplete UseCase: and Sequence: refs in sequence diagram", () => {
   test("UseCase: suggestions appear after typing 'UseCase:' in message label", async ({ page }) => {
+    const cmEditor = page.locator(".cm-content[contenteditable='true']")
     // Declare participants then type an arrow line with UseCase: in the label
-    await page.keyboard.type("actor User")
-    await page.keyboard.press("Enter")
-    await page.keyboard.type("component OrderService")
-    await page.keyboard.press("Enter")
-    await page.keyboard.type("User ->> OrderService: UseCase:")
+    await cmEditor.type("actor User")
+    await cmEditor.press("Enter")
+    await cmEditor.type("component OrderService")
+    await cmEditor.press("Enter")
+    await cmEditor.type("User ->> OrderService: UseCase:")
 
     // The autocomplete dropdown should appear with a PlaceOrder suggestion
     const dropdown = page.locator(".cm-tooltip-autocomplete")
@@ -34,14 +35,15 @@ test.describe("autocomplete UseCase: and Sequence: refs in sequence diagram", ()
   })
 
   test("Sequence: suggestions appear after typing 'Sequence:' in message label", async ({ page }) => {
+    const cmEditor = page.locator(".cm-content[contenteditable='true']")
     // The fixture has LoginFlow and NewFlow sequence diagrams under the Login use case.
     // After the fix, Sequence: searches the entire component tree, so these appear
     // regardless of which component receives the message arrow.
-    await page.keyboard.type("actor User")
-    await page.keyboard.press("Enter")
-    await page.keyboard.type("component OrderService")
-    await page.keyboard.press("Enter")
-    await page.keyboard.type("User ->> OrderService: Sequence:")
+    await cmEditor.type("actor User")
+    await cmEditor.press("Enter")
+    await cmEditor.type("component OrderService")
+    await cmEditor.press("Enter")
+    await cmEditor.type("User ->> OrderService: Sequence:")
 
     const dropdown = page.locator(".cm-tooltip-autocomplete")
     await expect(dropdown).toBeVisible({ timeout: 3000 })
@@ -49,12 +51,13 @@ test.describe("autocomplete UseCase: and Sequence: refs in sequence diagram", ()
   })
 
   test("function ref suggestions (IAuth:login) still appear normally", async ({ page }) => {
+    const cmEditor = page.locator(".cm-content[contenteditable='true']")
     // Baseline: verify that regular function ref suggestions still work
-    await page.keyboard.type("actor User")
-    await page.keyboard.press("Enter")
-    await page.keyboard.type("component AuthService")
-    await page.keyboard.press("Enter")
-    await page.keyboard.type("User ->> AuthService: ")
+    await cmEditor.type("actor User")
+    await cmEditor.press("Enter")
+    await cmEditor.type("component AuthService")
+    await cmEditor.press("Enter")
+    await cmEditor.type("User ->> AuthService: ")
 
     const dropdown = page.locator(".cm-tooltip-autocomplete")
     await expect(dropdown).toBeVisible({ timeout: 3000 })
