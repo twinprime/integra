@@ -14,7 +14,10 @@ test.describe("spec editor cursor behaviour", () => {
 
   test("cursor is pointer on navigable tokens in preview mode", async ({ page }) => {
     const token = page.locator(".cm-integra-fn").first()
-    const cursor = await token.evaluate((el) => getComputedStyle(el).cursor)
+    const cursor = await token.evaluate((el) => {
+      // @ts-expect-error getComputedStyle is a browser global not typed under lib:ES2023
+      return getComputedStyle(el).cursor as string
+    })
     expect(cursor).toBe("pointer")
   })
 
@@ -25,7 +28,10 @@ test.describe("spec editor cursor behaviour", () => {
     await page.locator('.cm-content[contenteditable="true"]').waitFor()
 
     const token = page.locator(".cm-integra-fn").first()
-    const cursor = await token.evaluate((el) => getComputedStyle(el).cursor)
+    const cursor = await token.evaluate((el) => {
+      // @ts-expect-error getComputedStyle is a browser global not typed under lib:ES2023
+      return getComputedStyle(el).cursor as string
+    })
     expect(cursor).not.toBe("pointer")
   })
 })

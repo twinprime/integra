@@ -4,6 +4,7 @@ import type {
   UseCaseDiagramNode,
   SequenceDiagramNode,
   UseCaseNode,
+  InterfaceSpecification,
 } from "../../src/store/types"
 
 // ─── UUIDs ────────────────────────────────────────────────────────────────────
@@ -505,4 +506,126 @@ export function makeLocalStorageValueWithIfaceAsSecond(): string {
     subComponents: [reorderedAuthComp, ...sampleSystem.subComponents.slice(1)],
   }
   return JSON.stringify({ state: { rootComponent: system }, version: 0 })
+}
+
+/**
+ * Fixture for FunctionUpdateDialog tests.
+ *
+ * Tree shape:
+ *   FuSystem (root)
+ *     subComponents:
+ *       - AuthAPI
+ *           interfaces:
+ *             - ILogin (rest) → functions: [login(userId: string)]
+ *     useCaseDiagrams:
+ *       - AuthUCD
+ *           useCases:
+ *             - AuthUseCase
+ *                 sequenceDiagrams:
+ *                   - Auth Flow  (EMPTY — starts in edit mode automatically)
+ *                   - Backup Flow (references ILogin:login so it appears as "affected")
+ *
+ * Usage in tests:
+ * - Navigate to "Auth Flow" → it opens in edit mode (no existing content)
+ * - Type a sequence with a changed ILogin:login signature to trigger the dialog:
+ *     Incompatible (same param count, different type):
+ *       "actor User\ncomponent AuthAPI\nUser ->> AuthAPI: ILogin:login(userId: number)"
+ *     Compatible (different param count, adds overload option):
+ *       "actor User\ncomponent AuthAPI\nUser ->> AuthAPI: ILogin:login(userId: string, token: string)"
+ * - Press Shift+Enter → FunctionUpdateDialog appears
+ */
+export function makeLocalStorageValueForFunctionUpdate(): string {
+  const FU_ROOT_UUID = "fu-root-uuid"
+  const FU_AUTH_COMP_UUID = "fu-auth-comp-uuid"
+  const FU_IFACE_UUID = "fu-iface-uuid"
+  const FU_LOGIN_FN_UUID = "fu-login-fn-uuid"
+  const FU_UCD_UUID = "fu-ucd-uuid"
+  const FU_UC_UUID = "fu-uc-uuid"
+  const FU_AUTH_FLOW_UUID = "fu-auth-flow-uuid"
+  const FU_BACKUP_FLOW_UUID = "fu-backup-flow-uuid"
+
+  // "Auth Flow" has no content → isEditing starts as true in DiagramEditor
+  const authFlow: SequenceDiagramNode = {
+    uuid: FU_AUTH_FLOW_UUID,
+    id: "AuthFlow",
+    name: "Auth Flow",
+    type: "sequence-diagram",
+    ownerComponentUuid: FU_ROOT_UUID,
+    referencedNodeIds: [],
+    referencedFunctionUuids: [],
+    content: "",
+  }
+
+  // "Backup Flow" references the same login function so it appears in "affected diagrams"
+  const backupFlow: SequenceDiagramNode = {
+    uuid: FU_BACKUP_FLOW_UUID,
+    id: "BackupFlow",
+    name: "Backup Flow",
+    type: "sequence-diagram",
+    ownerComponentUuid: FU_ROOT_UUID,
+    referencedNodeIds: [FU_AUTH_COMP_UUID],
+    referencedFunctionUuids: [FU_LOGIN_FN_UUID],
+    content: [
+      "actor User",
+      "component AuthAPI",
+      "User ->> AuthAPI: ILogin:login(userId: string)",
+    ].join("\n"),
+  }
+
+  const ucNode: UseCaseNode = {
+    uuid: FU_UC_UUID,
+    id: "AuthUseCase",
+    name: "Auth Use Case",
+    type: "use-case",
+    sequenceDiagrams: [authFlow, backupFlow],
+  }
+
+  const ucDiagram: UseCaseDiagramNode = {
+    uuid: FU_UCD_UUID,
+    id: "AuthUCD",
+    name: "Auth UCD",
+    type: "use-case-diagram",
+    ownerComponentUuid: FU_ROOT_UUID,
+    referencedNodeIds: [FU_UC_UUID],
+    content: "use case AuthUseCase",
+    useCases: [ucNode],
+  }
+
+  const loginIface: InterfaceSpecification = {
+    uuid: FU_IFACE_UUID,
+    id: "ILogin",
+    name: "ILogin",
+    type: "rest",
+    functions: [
+      {
+        uuid: FU_LOGIN_FN_UUID,
+        id: "login",
+        parameters: [{ name: "userId", type: "string", required: true }],
+      },
+    ],
+  }
+
+  const authApiComp: ComponentNode = {
+    uuid: FU_AUTH_COMP_UUID,
+    id: "AuthAPI",
+    name: "AuthAPI",
+    type: "component",
+    subComponents: [],
+    actors: [],
+    useCaseDiagrams: [],
+    interfaces: [loginIface],
+  }
+
+  const rootComp: ComponentNode = {
+    uuid: FU_ROOT_UUID,
+    id: "FuSystem",
+    name: "FuSystem",
+    type: "component",
+    subComponents: [authApiComp],
+    actors: [],
+    useCaseDiagrams: [ucDiagram],
+    interfaces: [],
+  }
+
+  return JSON.stringify({ state: { rootComponent: rootComp }, version: 0 })
 }
