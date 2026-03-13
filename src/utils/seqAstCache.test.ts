@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import * as parser from "../parser/sequenceDiagram/parser"
-import { getCachedSeqAst, clearSeqAstCache } from "./seqAstCache"
+import { getCachedSeqAst, clearSeqAstCache, seqAstCacheSize } from "./seqAstCache"
 
 describe("getCachedSeqAst", () => {
   beforeEach(() => {
@@ -84,5 +84,46 @@ describe("clearSeqAstCache", () => {
 
   it("does not throw when called on an empty cache", () => {
     expect(() => clearSeqAstCache()).not.toThrow()
+  })
+})
+
+describe("LRU eviction", () => {
+  beforeEach(() => {
+    clearSeqAstCache()
+    vi.restoreAllMocks()
+  })
+
+  it("evicts the oldest entry when the cache reaches capacity", () => {
+    // Fill cache to the 100-entry limit
+    for (let i = 0; i < 100; i++) {
+      getCachedSeqAst(`component A\nA ->> A: fn${i}()`)
+    }
+    expect(seqAstCacheSize()).toBe(100)
+
+    const spy = vi.spyOn(parser, "parseSequenceDiagramCst")
+
+    // Adding a 101st entry should evict the oldest (i=0)
+    getCachedSeqAst("component A\nA ->> A: fn_new()")
+    expect(seqAstCacheSize()).toBe(100)
+
+    // The oldest entry (i=0) should be evicted — re-parsed on next call
+    getCachedSeqAst("component A\nA ->> A: fn0()")
+    expect(spy).toHaveBeenCalledTimes(2) // fn_new + fn0
+  })
+
+  it("refreshes LRU order on cache hit", () => {
+    for (let i = 0; i < 100; i++) {
+      getCachedSeqAst(`component A\nA ->> A: fn${i}()`)
+    }
+    // Access fn0 to promote it to most-recent
+    getCachedSeqAst("component A\nA ->> A: fn0()")
+
+    const spy = vi.spyOn(parser, "parseSequenceDiagramCst")
+
+    // Adding a new entry evicts fn1 (oldest after fn0 was promoted), not fn0
+    getCachedSeqAst("component A\nA ->> A: fn_new()")
+    getCachedSeqAst("component A\nA ->> A: fn0()")  // still cached
+    getCachedSeqAst("component A\nA ->> A: fn1()")  // evicted — re-parsed
+    expect(spy).toHaveBeenCalledTimes(2) // fn_new + fn1
   })
 })

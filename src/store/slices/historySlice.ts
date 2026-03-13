@@ -25,7 +25,7 @@ export const createHistorySlice: StateCreator<SystemState, [], [], HistorySlice>
       return {
         rootComponent: prev,
         past: state.past.slice(0, -1),
-        future: [state.rootComponent, ...state.future],
+        future: [state.rootComponent, ...state.future].slice(0, HISTORY_LIMIT),
       }
     }),
   redo: () =>

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, memo } from "react"
 import { ChevronRight, ChevronDown, Trash2, GripVertical } from "lucide-react"
 import { useSystemStore } from "../../store/useSystemStore"
 import type { Node, ComponentNode } from "../../store/types"
@@ -26,7 +26,21 @@ interface TreeNodeProps {
   parent?: ComponentNode
 }
 
-export const TreeNode = ({ node, onContextMenu }: TreeNodeProps) => {
+interface SortableChildrenProps {
+  items: Node[]
+  onContextMenu: (e: React.MouseEvent, node: Node) => void
+}
+
+/** Renders a SortableContext group of TreeNodes. Must be placed inside a DndContext. */
+const SortableChildren = ({ items, onContextMenu }: SortableChildrenProps) => (
+  <SortableContext items={items.map((n) => n.uuid)} strategy={verticalListSortingStrategy}>
+    {items.map((child) => (
+      <TreeNode key={child.uuid} node={child} onContextMenu={onContextMenu} />
+    ))}
+  </SortableContext>
+)
+
+export const TreeNode = memo(({ node, onContextMenu }: TreeNodeProps) => {
   const [expanded, setExpanded] = useState(true)
   const [hovered, setHovered] = useState(false)
   const selectedNodeId = useSystemStore((state) => state.selectedNodeId)
@@ -101,25 +115,13 @@ export const TreeNode = ({ node, onContextMenu }: TreeNodeProps) => {
       return (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           {node.subComponents.length > 0 && (
-            <SortableContext items={node.subComponents.map((n) => n.uuid)} strategy={verticalListSortingStrategy}>
-              {node.subComponents.map((child) => (
-                <TreeNode key={child.uuid} node={child} onContextMenu={onContextMenu} />
-              ))}
-            </SortableContext>
+            <SortableChildren items={node.subComponents} onContextMenu={onContextMenu} />
           )}
           {node.actors.length > 0 && (
-            <SortableContext items={node.actors.map((n) => n.uuid)} strategy={verticalListSortingStrategy}>
-              {node.actors.map((child) => (
-                <TreeNode key={child.uuid} node={child} onContextMenu={onContextMenu} />
-              ))}
-            </SortableContext>
+            <SortableChildren items={node.actors} onContextMenu={onContextMenu} />
           )}
           {node.useCaseDiagrams.length > 0 && (
-            <SortableContext items={node.useCaseDiagrams.map((n) => n.uuid)} strategy={verticalListSortingStrategy}>
-              {node.useCaseDiagrams.map((child) => (
-                <TreeNode key={child.uuid} node={child} onContextMenu={onContextMenu} />
-              ))}
-            </SortableContext>
+            <SortableChildren items={node.useCaseDiagrams} onContextMenu={onContextMenu} />
           )}
         </DndContext>
       )
@@ -127,22 +129,14 @@ export const TreeNode = ({ node, onContextMenu }: TreeNodeProps) => {
     if (node.type === "use-case-diagram") {
       return (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={node.useCases.map((n) => n.uuid)} strategy={verticalListSortingStrategy}>
-            {node.useCases.map((child) => (
-              <TreeNode key={child.uuid} node={child} onContextMenu={onContextMenu} />
-            ))}
-          </SortableContext>
+          <SortableChildren items={node.useCases} onContextMenu={onContextMenu} />
         </DndContext>
       )
     }
     if (node.type === "use-case") {
       return (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={node.sequenceDiagrams.map((n) => n.uuid)} strategy={verticalListSortingStrategy}>
-            {node.sequenceDiagrams.map((child) => (
-              <TreeNode key={child.uuid} node={child} onContextMenu={onContextMenu} />
-            ))}
-          </SortableContext>
+          <SortableChildren items={node.sequenceDiagrams} onContextMenu={onContextMenu} />
         </DndContext>
       )
     }
@@ -208,4 +202,4 @@ export const TreeNode = ({ node, onContextMenu }: TreeNodeProps) => {
       )}
     </div>
   )
-}
+})

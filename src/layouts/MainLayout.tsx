@@ -3,6 +3,7 @@ import { Panel, PanelGroup, PanelResizeHandle, type ImperativePanelHandle } from
 import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react"
 import { useSystemStore } from "../store/useSystemStore"
 import { findNode } from "../nodes/nodeTree"
+import { ErrorBoundary } from "../components/ErrorBoundary"
 
 interface MainLayoutProps {
   leftPanel: ReactNode
@@ -76,7 +77,9 @@ export function MainLayout({
           className="bg-gray-900 border-r border-gray-800"
         >
           <div className="h-full flex flex-col">
-            {leftPanel}
+            <ErrorBoundary label="Tree">
+              {leftPanel}
+            </ErrorBoundary>
           </div>
         </Panel>
 
@@ -99,7 +102,11 @@ export function MainLayout({
               collapsible
               className="bg-gray-900"
             >
-              <div className="h-full flex flex-col">{rightPanel}</div>
+              <div className="h-full flex flex-col">
+                <ErrorBoundary label="Editor">
+                  {rightPanel}
+                </ErrorBoundary>
+              </div>
             </Panel>
 
             {hasDiagram && (
@@ -137,7 +144,9 @@ export function MainLayout({
                       Visualization
                     </div>
                     <div className="flex-1 overflow-auto p-4 bg-gray-900/30">
-                      {bottomPanel}
+                      <ErrorBoundary label="Diagram">
+                        {bottomPanel}
+                      </ErrorBoundary>
                     </div>
                   </div>
                 </Panel>

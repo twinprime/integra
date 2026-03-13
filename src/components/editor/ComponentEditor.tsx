@@ -2,11 +2,11 @@ import { useState } from "react"
 import type { ComponentNode, InterfaceSpecification, InterfaceFunction } from "../../store/types"
 import { useSystemStore } from "../../store/useSystemStore"
 import { collectReferencedFunctionUuids, findReferencingDiagrams } from "../../utils/nodeUtils"
-import { getNodeSiblingIds, findParentNode } from "../../nodes/nodeTree"
-import { InheritedInterface } from "./InheritedInterface"
+import { getNodeSiblingIds } from "../../nodes/nodeTree"
 import { MarkdownEditor } from "./MarkdownEditor"
 import { InterfaceEditor } from "./InterfaceEditor"
 import { NodeReferencesButton } from "./NodeReferencesButton"
+import { useInterfaceTabManager } from "./useInterfaceTabManager"
 
 const ID_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_]*$/
 
@@ -18,12 +18,24 @@ export const ComponentEditor = ({
   node: ComponentNode
   onUpdate: (updates: Partial<ComponentNode>) => void
   contextComponentUuid?: string
-// eslint-disable-next-line complexity
 }) => {
   const [name, setName] = useState(node.name || "")
   const [description, setDescription] = useState(node.description || "")
   const [localId, setLocalId] = useState(node.id)
   const [idError, setIdError] = useState<string | null>(null)
+
+  const rootComponent = useSystemStore((state) => state.rootComponent)
+  const renameNodeId = useSystemStore((s) => s.renameNodeId)
+  const referencedFunctionUuids = collectReferencedFunctionUuids(rootComponent)
+  const referencingDiagrams = findReferencingDiagrams(rootComponent, node.uuid)
+
+  const {
+    activeTabUuid,
+    setActiveTabUuid,
+    resolvedInterfaces,
+    uninheritedParentInterfaces,
+    handleInheritParentInterface,
+  } = useInterfaceTabManager(node)
 
   const handleNameBlur = () => {
     if (name !== node.name && name.trim() !== "") {
@@ -36,79 +48,6 @@ export const ComponentEditor = ({
   const handleDescriptionBlur = () => {
     if (description !== node.description) {
       onUpdate({ description })
-    }
-  }
-
-  const rootComponent = useSystemStore((state) => state.rootComponent)
-  const renameNodeId = useSystemStore((s) => s.renameNodeId)
-  const selectedInterfaceUuid = useSystemStore((s) => s.selectedInterfaceUuid)
-  const referencedFunctionUuids = collectReferencedFunctionUuids(rootComponent)
-  const referencingDiagrams = findReferencingDiagrams(rootComponent, node.uuid)
-
-  // Derive parent interfaces available for inheritance
-  const parentNode = findParentNode(rootComponent, node.uuid)
-  const parentInterfaces: InterfaceSpecification[] =
-    parentNode?.type === "component" ? (parentNode).interfaces : []
-
-  // Parent interfaces not yet inherited by this component
-  const uninheritedParentInterfaces = parentInterfaces.filter(
-    (pi) => !node.interfaces.some((iface) => iface.parentInterfaceUuid === pi.uuid)
-  )
-
-  // Wrap stored interfaces in InheritedInterface at render time when parentInterfaceUuid is set
-  const resolvedInterfaces = node.interfaces.map((iface) => {
-    if (!iface.parentInterfaceUuid) return iface
-    const parentIface = parentInterfaces.find((pi) => pi.uuid === iface.parentInterfaceUuid)
-    return parentIface ? new InheritedInterface(iface, parentIface) : iface
-  })
-
-  const handleInheritParentInterface = (parentUuid: string) => {
-    const parentIface = parentInterfaces.find((pi) => pi.uuid === parentUuid)
-    if (!parentIface) return
-    const newIface: InterfaceSpecification = {
-      uuid: crypto.randomUUID(),
-      id: parentIface.id,
-      name: parentIface.name,
-      type: parentIface.type,
-      functions: [],
-      parentInterfaceUuid: parentIface.uuid,
-    }
-    onUpdate({ interfaces: [...node.interfaces, newIface] })
-    setActiveTabUuid(newIface.uuid)
-  }
-
-  // Active tab: uuid of the currently visible interface.
-  // Both tab-sync effects use React's render-time state adjustment pattern
-  // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
-  // instead of useEffect to avoid react-hooks/set-state-in-effect errors.
-  const firstIfaceUuid = node.interfaces?.[0]?.uuid ?? null
-  // On initial mount, prefer selectedInterfaceUuid if it belongs to this component.
-  // This handles the case where selectNode + selectInterface are batched before the first render,
-  // making prevSelectedIfaceUuid === selectedInterfaceUuid on mount (so the sync below never fires).
-  const selectedIfaceMatchesNode =
-    selectedInterfaceUuid != null &&
-    node.interfaces?.some((i) => i.uuid === selectedInterfaceUuid)
-  const [activeTabUuid, setActiveTabUuid] = useState<string | null>(
-    selectedIfaceMatchesNode ? selectedInterfaceUuid : firstIfaceUuid
-  )
-
-  // Reset to first tab (or the already-selected interface) when the selected node changes
-  const [prevNodeUuid, setPrevNodeUuid] = useState<string>(node.uuid)
-  if (node.uuid !== prevNodeUuid) {
-    setPrevNodeUuid(node.uuid)
-    const matchedOnNodeChange =
-      selectedInterfaceUuid != null &&
-      node.interfaces?.find((i) => i.uuid === selectedInterfaceUuid)
-    setActiveTabUuid(matchedOnNodeChange ? selectedInterfaceUuid : (node.interfaces?.[0]?.uuid ?? null))
-  }
-
-  // Switch to the clicked interface's tab when a function is clicked in the sequence diagram
-  const [prevSelectedIfaceUuid, setPrevSelectedIfaceUuid] = useState<string | null>(selectedInterfaceUuid)
-  if (selectedInterfaceUuid !== prevSelectedIfaceUuid) {
-    setPrevSelectedIfaceUuid(selectedInterfaceUuid)
-    if (selectedInterfaceUuid) {
-      const match = node.interfaces?.find((i) => i.uuid === selectedInterfaceUuid)
-      if (match) setActiveTabUuid(selectedInterfaceUuid)
     }
   }
 
@@ -266,7 +205,7 @@ export const ComponentEditor = ({
           <select
             className="text-xs bg-gray-800 border border-gray-700 rounded px-2 py-0.5 text-gray-300 focus:outline-none focus:border-blue-400"
             value=""
-            onChange={(e) => { if (e.target.value) handleInheritParentInterface(e.target.value) }}
+            onChange={(e) => { if (e.target.value) handleInheritParentInterface(e.target.value, onUpdate) }}
             data-testid="inherit-parent-select"
           >
             <option value="" disabled>— select —</option>
@@ -347,3 +286,4 @@ export const ComponentEditor = ({
     </div>
   )
 }
+
