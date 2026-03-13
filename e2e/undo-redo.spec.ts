@@ -134,7 +134,7 @@ test.describe("undo / redo", () => {
     await page.getByRole("treeitem").filter({ hasText: "AuthService" }).first().dispatchEvent("contextmenu")
 
     // Click "Add Sub-component"
-    await page.getByRole("menuitem", { name: "Add Sub-component" }).click()
+    await page.getByRole("button", { name: "Add Sub-component" }).click()
 
     // Fill in the create dialog
     await page.getByPlaceholder("my_service").fill("TestComp")

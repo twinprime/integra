@@ -78,9 +78,11 @@ export function CreateNodeDialog({ title, placeholder, onConfirm, onCancel }: Pr
 
         <div className="px-5 py-4 space-y-4">
           <div className="space-y-1">
-            <label className="block text-xs font-medium text-gray-400">ID</label>
+            <label htmlFor="create-node-id" className="block text-xs font-medium text-gray-400">ID</label>
             <input
+              id="create-node-id"
               ref={idInputRef}
+              autoFocus
               type="text"
               value={id}
               placeholder={placeholder}

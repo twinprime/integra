@@ -97,10 +97,11 @@ export const CommonEditor = ({
       </div>
 
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-300 mb-2">
+        <label htmlFor="common-editor-name" className="block text-sm font-medium text-gray-300 mb-2">
           Name
         </label>
         <input
+          id="common-editor-name"
           className="w-full p-2 border border-gray-700 rounded-md text-sm text-gray-100 bg-gray-900 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
           type="text"
           value={name}

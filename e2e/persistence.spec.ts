@@ -27,11 +27,12 @@ test("state survives a page reload", async ({ page }) => {
 
 test("auto-save persists a rename across reload", async ({ page }) => {
   const lsValue = makeLocalStorageValue()
-  await page.addInitScript((value) => {
+  // Seed via evaluate (not addInitScript) so it only runs once — not on subsequent reloads
+  await page.goto("/")
+  await page.evaluate((value) => {
     localStorage.setItem("integra-system", value)
   }, lsValue)
-
-  await page.goto("/")
+  await page.reload()
 
   // Rename the "Login" use-case to "SignIn"
   await page.getByRole("treeitem").filter({ hasText: "Login" }).first().click()
@@ -48,18 +49,19 @@ test("auto-save persists a rename across reload", async ({ page }) => {
 
   // The renamed node should still appear under the tree
   await expect(page.getByRole("treeitem").filter({ hasText: "SignIn" })).toBeVisible()
-  await expect(page.getByRole("treeitem").filter({ hasText: "Login" })).not.toBeVisible()
+  await expect(page.getByRole("treeitem").filter({ hasText: /^Login$/ })).not.toBeVisible()
 })
 
 // ─── 3. Clear system resets state ────────────────────────────────────────────
 
 test("clear system resets to default state and clears localStorage", async ({ page }) => {
   const lsValue = makeLocalStorageValue()
-  await page.addInitScript((value) => {
+  // Seed via evaluate (not addInitScript) so it only runs once — not on subsequent reloads
+  await page.goto("/")
+  await page.evaluate((value) => {
     localStorage.setItem("integra-system", value)
   }, lsValue)
-
-  await page.goto("/")
+  await page.reload()
 
   // Confirm fixture is loaded
   await expect(page.getByRole("treeitem").filter({ hasText: "AuthService" })).toBeVisible()

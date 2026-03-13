@@ -65,7 +65,7 @@ test.describe("FunctionUpdateDialog", () => {
 
     await expect(page.getByText("Function Definition Conflict")).toBeVisible()
     // "Backup Flow" references the same login function → it must appear as affected
-    await expect(page.getByText("Backup Flow")).toBeVisible()
+    await expect(page.getByRole("listitem").filter({ hasText: "Backup Flow" })).toBeVisible()
   })
 
   test("apply button resolves the conflict and closes the dialog", async ({ page }) => {
@@ -105,6 +105,6 @@ test.describe("FunctionUpdateDialog", () => {
     await page.getByLabel("Update existing").click()
 
     // Backup Flow references the login function, so it should appear in the affected list
-    await expect(page.getByText("Backup Flow")).toBeVisible()
+    await expect(page.getByRole("listitem").filter({ hasText: "Backup Flow" })).toBeVisible()
   })
 })
