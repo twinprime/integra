@@ -51,6 +51,26 @@ describe("parseDeclaredIds", () => {
     const ids = parseDeclaredIds(content)
     expect(ids).toContain("child")
   })
+
+  it("extracts bare use case id", () => {
+    const content = "use case login"
+    const ids = parseDeclaredIds(content)
+    expect(ids).toContain("login")
+  })
+
+  it("extracts last segment from path-style use case id", () => {
+    const content = "use case auth/login"
+    const ids = parseDeclaredIds(content)
+    expect(ids).toContain("login")
+    expect(ids).not.toContain("auth")
+  })
+
+  it("uses alias when use case has 'as' clause", () => {
+    const content = "use case loginFlow as login"
+    const ids = parseDeclaredIds(content)
+    expect(ids).toContain("login")
+    expect(ids).not.toContain("loginFlow")
+  })
 })
 
 // ─── detectContext ────────────────────────────────────────────────────────────
@@ -345,5 +365,67 @@ describe("buildSuggestions — Sequence: inherited interface functions", () => {
 
     const paySuggs = suggs.filter((s) => s.insertText === "PaymentService:pay(amount: decimal?)")
     expect(paySuggs).toHaveLength(1)
+  })
+})
+
+// ─── buildSuggestions — use case declaration (entity-name context) ───────────
+
+describe("buildSuggestions — use case declaration", () => {
+  const makeUcNode = (uuid: string, id: string, name = id) => ({
+    uuid, id, name, type: "use-case" as const, sequenceDiagrams: [],
+  })
+  const makeUcdNode = (uuid: string, ucs: ReturnType<typeof makeUcNode>[]) => ({
+    uuid, id: "ucd", name: "ucd", type: "use-case-diagram" as const,
+    ownerComponentUuid: "", referencedNodeIds: [], content: "",
+    useCases: ucs,
+  })
+
+  it("inserts bare id (not quoted name-as format) for a local use case", () => {
+    const uc = makeUcNode("uc-uuid", "login", "Login Flow")
+    const owner = makeComp("owner-uuid", "owner", { useCaseDiagrams: [makeUcdNode("ucd-uuid", [uc])] })
+    const root = makeComp("root-uuid", "root", { subComponents: [owner] })
+
+    const content = "use case "
+    const ctx = detectContext(content, content.length, "use-case-diagram")
+    expect(ctx?.type).toBe("entity-name")
+
+    const suggs = buildSuggestions(ctx!, content, owner, root, "use-case-diagram")
+    expect(suggs.length).toBeGreaterThan(0)
+    // Insert text must be the bare id, NOT '"Login Flow" as login'
+    const loginSugg = suggs.find((s) => s.insertText === "login")
+    expect(loginSugg).toBeDefined()
+    expect(loginSugg?.label).toBe("Login Flow")
+  })
+
+  it("does not suggest use cases from other (non-owner) components", () => {
+    const uc = makeUcNode("uc-uuid", "placeOrder", "Place Order")
+    const other = makeComp("other-uuid", "other", { useCaseDiagrams: [makeUcdNode("ucd-uuid", [uc])] })
+    const owner = makeComp("owner-uuid", "owner")
+    const root = makeComp("root-uuid", "root", { subComponents: [owner, other] })
+
+    const content = "use case "
+    const ctx = detectContext(content, content.length, "use-case-diagram")
+    const suggs = buildSuggestions(ctx!, content, owner, root, "use-case-diagram")
+    // No suggestion for a use case that belongs to 'other', not 'owner'
+    expect(suggs.find((s) => s.insertText === "placeOrder")).toBeUndefined()
+  })
+})
+
+// ─── buildSuggestions — uc-link-target (arrow RHS in use case diagram) ───────
+
+describe("buildSuggestions — uc-link-target includes local use cases", () => {
+  it("suggests a use case id declared in the same diagram on the arrow RHS", () => {
+    const owner = makeComp("owner-uuid", "owner")
+    const root = makeComp("root-uuid", "root", { subComponents: [owner] })
+
+    // Diagram content declares a use case, then starts a link from it
+    const content = "actor user\nuse case login\nuse case register\nuser ->> "
+    const ctx = detectContext(content, content.length, "use-case-diagram")
+    expect(ctx?.type).toBe("uc-link-target")
+
+    const suggs = buildSuggestions(ctx!, content, owner, root, "use-case-diagram")
+    expect(suggs.find((s) => s.insertText === "login")).toBeDefined()
+    expect(suggs.find((s) => s.insertText === "register")).toBeDefined()
+    expect(suggs.find((s) => s.insertText === "user")).toBeDefined()
   })
 })

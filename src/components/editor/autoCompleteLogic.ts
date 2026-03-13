@@ -66,7 +66,7 @@ export function parseDeclaredIds(content: string): string[] {
   while ((m = asRx.exec(content)) !== null) {
     if (!ids.includes(m[1])) ids.push(m[1])
   }
-  const bareRx = /^(?:actor|component)\s+([\w/-]+)(?:\s|$)/gm
+  const bareRx = /^(?:use case|actor|component)\s+([\w/-]+)(?:\s|$)/gm
   while ((m = bareRx.exec(content)) !== null) {
     const lineEnd = content.indexOf("\n", m.index)
     const line = content.slice(m.index, lineEnd < 0 ? undefined : lineEnd)
@@ -315,9 +315,8 @@ function buildUseCaseSuggestions(
   const suggs: Suggestion[] = []
   for (const ucDiag of ownerComp.useCaseDiagrams) {
     for (const uc of ucDiag.useCases) {
-      const insertText = `"${uc.name}" as ${uc.id}`
-      if (matchLower(insertText, ctx.partial)) {
-        suggs.push({ label: uc.name, insertText, replaceFrom: ctx.replaceFrom })
+      if (matchLower(uc.id, ctx.partial)) {
+        suggs.push({ label: uc.name, insertText: uc.id, replaceFrom: ctx.replaceFrom })
       }
     }
   }
