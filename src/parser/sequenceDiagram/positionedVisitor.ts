@@ -11,8 +11,7 @@ import { seqParser, parseSequenceDiagramCst } from "./parser"
 import type { ComponentNode } from "../../store/types"
 import {
   resolveParticipant,
-  findComponentByInterfaceId,
-  findInterfaceUuidByInterfaceId,
+  resolveFunctionRefTarget,
   resolveUseCaseByPath,
   resolveSeqDiagramByPath,
 } from "../../utils/diagramResolvers"
@@ -38,6 +37,10 @@ function nodes(children: ChildDict, name: string): CstNode[] {
 
 function tokenEnd(t: IToken): number {
   return t.startOffset + t.image.length
+}
+
+function participantRefId(pRef: CstNode): string {
+  return toks(pRef.children as ChildDict, "Identifier").map((t) => t.image).join(" ")
 }
 
 // ─── Visitor ─────────────────────────────────────────────────────────────────
@@ -149,12 +152,20 @@ class SeqPositionedVisitorImpl extends BaseVisitor {
     // FunctionRef → navigate to component by interface id
     const fnRef = toks(ctx, "FunctionRef")[0]
     if (fnRef) {
-      const match = fnRef.image.match(/^([A-Za-z_]\w*):/)
+      const match = fnRef.image.match(/^([A-Za-z_]\w*):([A-Za-z_]\w*)\(/)
       if (match) {
         const ifaceId = match[1]
-        const uuid = findComponentByInterfaceId(this._root, ifaceId)
-        const ifaceUuid = findInterfaceUuidByInterfaceId(this._root, ifaceId)
-        if (uuid) this._entries.push({ from: fnRef.startOffset, to: tokenEnd(fnRef), uuid, ifaceUuid })
+        const functionId = match[2]
+        const receiverId = toRef ? participantRefId(toRef) : ""
+        const target = resolveFunctionRefTarget(this._root, receiverId, ifaceId, functionId)
+        if (target) {
+          this._entries.push({
+            from: fnRef.startOffset,
+            to: tokenEnd(fnRef),
+            uuid: target.componentUuid,
+            ifaceUuid: target.interfaceUuid,
+          })
+        }
       }
     }
     // UseCaseRef → navigate to use case node
@@ -183,7 +194,7 @@ class SeqPositionedVisitorImpl extends BaseVisitor {
 
   private _addParticipantRef(pRef: CstNode): void {
     const idToks = toks(pRef.children, "Identifier")
-    const id = idToks.map((t) => t.image).join(" ")
+    const id = participantRefId(pRef)
     const uuid = this._participantMap.get(id)
     if (!uuid) return
     for (const t of idToks) {

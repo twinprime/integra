@@ -8,6 +8,7 @@ import { parseSequenceDiagramCst } from "./parser"
 import { buildSeqAst } from "./visitor"
 import { seqAstToSpec } from "./specSerializer"
 import { generateSequenceMermaidFromAst } from "./mermaidGenerator"
+import { buildSeqNavEntries } from "./positionedVisitor"
 
 import type { SeqMessage, SeqNote, SeqBlock } from "./visitor"
 
@@ -957,6 +958,36 @@ describe("generateSequenceMermaidFromAst — functionRef display label", () => {
     const { messageLabelToInterfaceUuid } = generateSequenceMermaidFromAst(ast, owner, root)
     expect(messageLabelToInterfaceUuid["doWork()"]).toBeUndefined()
   })
+
+  it("keeps Mermaid and readonly editor links aligned for duplicate sibling interface IDs", () => {
+    const compA: ComponentNode = {
+      uuid: "compa-uuid", id: "compA", name: "compA", type: "component",
+      actors: [], subComponents: [], useCaseDiagrams: [],
+      interfaces: [{ uuid: "ifaceA-uuid", id: "IFace", name: "IFace", type: "rest" as const, functions: [{ uuid: "fnA-uuid", id: "doWork", parameters: [] }] }],
+    }
+    const compB: ComponentNode = {
+      uuid: "compb-uuid", id: "compB", name: "compB", type: "component",
+      actors: [], subComponents: [], useCaseDiagrams: [],
+      interfaces: [{ uuid: "ifaceB-uuid", id: "IFace", name: "IFace", type: "rest" as const, functions: [{ uuid: "fnB-uuid", id: "doWork", parameters: [] }] }],
+    }
+    const root = { uuid: "root-uuid", id: "root", name: "root", type: "component" as const, actors: [], subComponents: [compA, compB], useCaseDiagrams: [], interfaces: [] }
+    const content = "actor caller\ncaller ->> compA: IFace:doWork()\ncaller ->> compB: IFace:doWork()"
+    const ast = parseAst(content)
+
+    const { messageLabelToUuid, messageLabelToInterfaceUuid } = generateSequenceMermaidFromAst(ast, root, root)
+    expect(messageLabelToUuid["doWork()"]).toBe("compa-uuid")
+    expect(messageLabelToUuid["doWork() (2)"]).toBe("compb-uuid")
+    expect(messageLabelToInterfaceUuid["doWork()"]).toBe("ifaceA-uuid")
+    expect(messageLabelToInterfaceUuid["doWork() (2)"]).toBe("ifaceB-uuid")
+
+    const navEntries = buildSeqNavEntries(content, root, root, "root-uuid")
+      .filter((entry) => entry.ifaceUuid != null)
+      .map(({ uuid, ifaceUuid }) => ({ uuid, ifaceUuid }))
+    expect(navEntries).toEqual([
+      { uuid: "compa-uuid", ifaceUuid: "ifaceA-uuid" },
+      { uuid: "compb-uuid", ifaceUuid: "ifaceB-uuid" },
+    ])
+  })
 })
 
 // ─── parseSequenceDiagram — function-follows-receiver ────────────────────────
@@ -1034,6 +1065,60 @@ describe("parseSequenceDiagram — function follows receiver", () => {
     // Function must NOT be on the parent "payment" component
     const paymentFn = updatedPayment.interfaces.find((i) => i.id === "REST")?.functions.find((f) => f.id === "getUser")
     expect(paymentFn).toBeUndefined()
+  })
+
+  it("tracks referencedFunctionUuids per receiver when sibling components share interface and function IDs", () => {
+    const diagA = {
+      uuid: "diag-a-uuid", id: "diagA", name: "Diag A", type: "sequence-diagram" as const,
+      ownerComponentUuid: "owner-uuid", referencedNodeIds: [], referencedFunctionUuids: [], content: "",
+    }
+    const diagB = {
+      uuid: "diag-b-uuid", id: "diagB", name: "Diag B", type: "sequence-diagram" as const,
+      ownerComponentUuid: "owner-uuid", referencedNodeIds: [], referencedFunctionUuids: [], content: "",
+    }
+    const useCaseDiagram = {
+      uuid: "ucd-uuid", id: "ucd", name: "ucd", type: "use-case-diagram" as const,
+      ownerComponentUuid: "owner-uuid", referencedNodeIds: [], content: "",
+      useCases: [{
+        uuid: "uc-uuid", id: "login", name: "login", type: "use-case" as const,
+        sequenceDiagrams: [diagA, diagB],
+      }],
+    }
+    const compA: ComponentNode = {
+      uuid: "compa-uuid", id: "compA", name: "compA", type: "component",
+      actors: [], subComponents: [], useCaseDiagrams: [],
+      interfaces: [{ uuid: "ifaceA-uuid", id: "IFace", name: "IFace", type: "rest" as const, functions: [{ uuid: "fnA-uuid", id: "doWork", parameters: [] }] }],
+    }
+    const compB: ComponentNode = {
+      uuid: "compb-uuid", id: "compB", name: "compB", type: "component",
+      actors: [], subComponents: [], useCaseDiagrams: [],
+      interfaces: [{ uuid: "ifaceB-uuid", id: "IFace", name: "IFace", type: "rest" as const, functions: [{ uuid: "fnB-uuid", id: "doWork", parameters: [] }] }],
+    }
+    const owner: ComponentNode = {
+      uuid: "owner-uuid", id: "owner", name: "owner", type: "component",
+      actors: [], subComponents: [compA, compB], interfaces: [], useCaseDiagrams: [useCaseDiagram],
+    }
+    const root = makeComp("root-uuid", "root", [owner])
+
+    const resultA = parseSequenceDiagram(
+      "component compA\ncaller ->> compA: IFace:doWork()",
+      root,
+      "owner-uuid",
+      "diag-a-uuid",
+    )
+    const updatedOwnerA = resultA.subComponents.find((c) => c.uuid === "owner-uuid")!
+    const updatedDiagA = updatedOwnerA.useCaseDiagrams[0].useCases[0].sequenceDiagrams.find((d) => d.uuid === "diag-a-uuid")!
+    expect(updatedDiagA.referencedFunctionUuids).toEqual(["fnA-uuid"])
+
+    const resultB = parseSequenceDiagram(
+      "component compB\ncaller ->> compB: IFace:doWork()",
+      root,
+      "owner-uuid",
+      "diag-b-uuid",
+    )
+    const updatedOwnerB = resultB.subComponents.find((c) => c.uuid === "owner-uuid")!
+    const updatedDiagB = updatedOwnerB.useCaseDiagrams[0].useCases[0].sequenceDiagrams.find((d) => d.uuid === "diag-b-uuid")!
+    expect(updatedDiagB.referencedFunctionUuids).toEqual(["fnB-uuid"])
   })
 })
 

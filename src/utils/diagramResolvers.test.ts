@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { autoCreateByPath, findComponentByInterfaceId, findInterfaceUuidByInterfaceId, findInterfaceOwnerPreferReceiver, findInterfaceUuidPreferReceiver } from "./diagramResolvers"
+import { autoCreateByPath, findComponentByInterfaceId, findInterfaceUuidByInterfaceId, findInterfaceOwnerPreferReceiver, findInterfaceUuidPreferReceiver, resolveFunctionRefTarget } from "./diagramResolvers"
 import type { ComponentNode } from "../store/types"
 
 const makeComp = (uuid: string, id: string, subs: ComponentNode[] = []): ComponentNode => ({
@@ -88,6 +88,26 @@ const makeCompWithIface = (
   uuid, id, name: id, type: "component",
   subComponents: subs, actors: [], useCaseDiagrams: [],
   interfaces: [{ uuid: ifaceUuid, id: ifaceId, name: ifaceId, type: "rest", functions: [] }],
+})
+
+const makeCompWithFn = (
+  uuid: string,
+  id: string,
+  ifaceId: string,
+  ifaceUuid: string,
+  functionId: string,
+  functionUuid: string,
+  subs: ComponentNode[] = [],
+): ComponentNode => ({
+  uuid, id, name: id, type: "component",
+  subComponents: subs, actors: [], useCaseDiagrams: [],
+  interfaces: [{
+    uuid: ifaceUuid,
+    id: ifaceId,
+    name: ifaceId,
+    type: "rest",
+    functions: [{ uuid: functionUuid, id: functionId, parameters: [] }],
+  }],
 })
 
 describe("findComponentByInterfaceId", () => {
@@ -210,5 +230,51 @@ describe("findInterfaceUuidPreferReceiver", () => {
   it("returns undefined when no component has the interface", () => {
     const root = makeComp("root-uuid", "root")
     expect(findInterfaceUuidPreferReceiver(root, "API", "root")).toBeUndefined()
+  })
+})
+
+describe("resolveFunctionRefTarget", () => {
+  it("returns the receiver's matching component, interface, and function UUIDs", () => {
+    const svcA = makeCompWithFn("a-uuid", "ServiceA", "API", "a-iface-uuid", "getData", "a-fn-uuid")
+    const svcB = makeCompWithFn("b-uuid", "ServiceB", "API", "b-iface-uuid", "getData", "b-fn-uuid")
+    const root = makeComp("root-uuid", "root", [svcA, svcB])
+
+    expect(resolveFunctionRefTarget(root, "ServiceB", "API", "getData")).toEqual({
+      componentUuid: "b-uuid",
+      interfaceUuid: "b-iface-uuid",
+      functionUuid: "b-fn-uuid",
+      parameters: [],
+    })
+  })
+
+  it("prefers a match in the receiver subtree over a global first match", () => {
+    const child = makeCompWithFn("child-uuid", "child", "API", "child-iface-uuid", "getData", "child-fn-uuid")
+    const svcA = makeCompWithFn("a-uuid", "ServiceA", "API", "a-iface-uuid", "getData", "a-fn-uuid")
+    const svcB = makeComp("b-uuid", "ServiceB", [child])
+    const root = makeComp("root-uuid", "root", [svcA, svcB])
+
+    expect(resolveFunctionRefTarget(root, "ServiceB", "API", "getData")).toEqual({
+      componentUuid: "child-uuid",
+      interfaceUuid: "child-iface-uuid",
+      functionUuid: "child-fn-uuid",
+      parameters: [],
+    })
+  })
+
+  it("falls back to the global tree search when receiver is unknown", () => {
+    const svcA = makeCompWithFn("a-uuid", "ServiceA", "API", "a-iface-uuid", "getData", "a-fn-uuid")
+    const root = makeComp("root-uuid", "root", [svcA])
+
+    expect(resolveFunctionRefTarget(root, "Unknown", "API", "getData")).toEqual({
+      componentUuid: "a-uuid",
+      interfaceUuid: "a-iface-uuid",
+      functionUuid: "a-fn-uuid",
+      parameters: [],
+    })
+  })
+
+  it("returns null when no matching function exists", () => {
+    const root = makeComp("root-uuid", "root")
+    expect(resolveFunctionRefTarget(root, "root", "API", "getData")).toBeNull()
   })
 })

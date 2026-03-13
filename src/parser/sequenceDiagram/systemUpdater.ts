@@ -8,7 +8,7 @@ import type { ComponentNode, InterfaceSpecification, Parameter } from "../../sto
 import { upsertNodeInTree, mergeLists } from "../../nodes/nodeTree"
 import { findCompByUuid } from "../../nodes/nodeTree"
 import { findNodeByPath, isInScope } from "../../utils/nodeUtils"
-import { resolveUseCaseByPath, resolveSeqDiagramByPath, autoCreateByPath } from "../../utils/diagramResolvers"
+import { resolveUseCaseByPath, resolveSeqDiagramByPath, autoCreateByPath, resolveFunctionRefTarget } from "../../utils/diagramResolvers"
 import { parseSequenceDiagramCst } from "./parser"
 import { buildSeqAst, flattenMessages } from "./visitor"
 import { deriveNameFromId } from "../../utils/nameUtils"
@@ -55,27 +55,6 @@ export type FunctionMatch = {
 
 /** Recursively extract all SeqMessage nodes from a statement list (including inside blocks). */
 
-
-function findFunctionInTree(
-  root: ComponentNode,
-  interfaceId: string,
-  functionId: string,
-): { uuid: string; parameters: Parameter[] } | null {
-  const iface = root.interfaces?.find((i) => i.id === interfaceId)
-  if (iface) {
-    const fn = iface.functions.find((f) => f.id === functionId)
-    if (fn) return { uuid: fn.uuid, parameters: fn.parameters }
-  }
-  for (const sub of root.subComponents) {
-    const found = findFunctionInTree(sub, interfaceId, functionId)
-    if (found) return found
-  }
-  return null
-}
-
-function findFunctionUuidInTree(root: ComponentNode, interfaceId: string, functionId: string): string | null {
-  return findFunctionInTree(root, interfaceId, functionId)?.uuid ?? null
-}
 
 /**
  * Walks the full component tree to find an InterfaceSpecification by UUID.
@@ -283,22 +262,22 @@ export function analyzeSequenceDiagramChanges(
   for (const stmt of flattenMessages(ast.statements)) {
     if (stmt.content.kind !== "functionRef") continue
     const { interfaceId, functionId, rawParams } = stmt.content
-    const key = `${interfaceId}:${functionId}`
+    const key = `${stmt.to}:${interfaceId}:${functionId}`
     if (seen.has(key)) continue
     seen.add(key)
 
     const newParams = parseParameters(rawParams)
-    const existing = findFunctionInTree(rootComponent, interfaceId, functionId)
+    const existing = resolveFunctionRefTarget(rootComponent, stmt.to, interfaceId, functionId)
     if (!existing || paramsMatch(existing.parameters, newParams)) continue
 
     const kind = existing.parameters.length === newParams.length ? "incompatible" : "compatible"
     const affectedDiagramUuids = allSeqDiagrams
-      .filter((d) => d.uuid !== diagramUuid && d.referencedFunctionUuids.includes(existing.uuid))
+      .filter((d) => d.uuid !== diagramUuid && d.referencedFunctionUuids.includes(existing.functionUuid))
       .map((d) => d.uuid)
 
-    if (kind === "incompatible" && !otherRefs.has(existing.uuid)) continue
+    if (kind === "incompatible" && !otherRefs.has(existing.functionUuid)) continue
 
-    matches.push({ kind, interfaceId, functionId, functionUuid: existing.uuid, oldParams: existing.parameters, newParams, affectedDiagramUuids })
+    matches.push({ kind, interfaceId, functionId, functionUuid: existing.functionUuid, oldParams: existing.parameters, newParams, affectedDiagramUuids })
   }
 
   return matches
@@ -473,7 +452,12 @@ export function parseSequenceDiagram(
   const referencedFunctionUuids: string[] = []
   for (const msg of astMessages) {
     if (msg.content.kind !== "functionRef") continue
-    const fnUuid = findFunctionUuidInTree(updatedRoot, msg.content.interfaceId, msg.content.functionId)
+    const fnUuid = resolveFunctionRefTarget(
+      updatedRoot,
+      msg.to,
+      msg.content.interfaceId,
+      msg.content.functionId,
+    )?.functionUuid ?? null
     if (fnUuid && !referencedFunctionUuids.includes(fnUuid)) referencedFunctionUuids.push(fnUuid)
   }
 

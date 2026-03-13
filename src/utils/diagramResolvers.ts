@@ -1,4 +1,4 @@
-import type { ComponentNode, ActorNode } from "../store/types"
+import type { ComponentNode, ActorNode, Parameter } from "../store/types"
 import { findNodeByPath, isInScope } from "./nodeUtils"
 import { findCompByUuid, upsertNodeInTree } from "../nodes/nodeTree"
 import { deriveNameFromId } from "./nameUtils"
@@ -124,6 +124,49 @@ export function findInterfaceUuidPreferReceiver(
     if (ifaceUuid) return ifaceUuid
   }
   return findInterfaceUuidByInterfaceId(root, ifaceId)
+}
+
+export type ResolvedFunctionRefTarget = {
+  componentUuid: string
+  interfaceUuid: string
+  functionUuid: string
+  parameters: Parameter[]
+}
+
+function findFunctionRefTargetInTree(
+  root: ComponentNode,
+  interfaceId: string,
+  functionId: string,
+): ResolvedFunctionRefTarget | null {
+  const iface = root.interfaces?.find((candidate) => candidate.id === interfaceId)
+  const fn = iface?.functions.find((candidate) => candidate.id === functionId)
+  if (iface && fn) {
+    return {
+      componentUuid: root.uuid,
+      interfaceUuid: iface.uuid,
+      functionUuid: fn.uuid,
+      parameters: fn.parameters,
+    }
+  }
+  for (const sub of root.subComponents) {
+    const found = findFunctionRefTargetInTree(sub, interfaceId, functionId)
+    if (found) return found
+  }
+  return null
+}
+
+export function resolveFunctionRefTarget(
+  root: ComponentNode,
+  receiverNodeId: string,
+  interfaceId: string,
+  functionId: string,
+): ResolvedFunctionRefTarget | null {
+  const receiverComp = root.id === receiverNodeId ? root : findReceiverComp(root, receiverNodeId)
+  if (receiverComp) {
+    const inReceiver = findFunctionRefTargetInTree(receiverComp, interfaceId, functionId)
+    if (inReceiver) return inReceiver
+  }
+  return findFunctionRefTargetInTree(root, interfaceId, functionId)
 }
 
 export function findInterfaceNameByInterfaceId(

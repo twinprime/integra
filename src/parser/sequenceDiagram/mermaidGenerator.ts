@@ -7,7 +7,7 @@
  */
 import type { ComponentNode } from "../../store/types"
 import { findNodeByPath } from "../../utils/nodeUtils"
-import { findInterfaceOwnerPreferReceiver, findInterfaceUuidPreferReceiver, resolveUseCaseByPath, resolveSeqDiagramByPath } from "../../utils/diagramResolvers"
+import { resolveFunctionRefTarget, resolveUseCaseByPath, resolveSeqDiagramByPath } from "../../utils/diagramResolvers"
 import { findNodeByUuid } from "../../nodes/nodeTree"
 import { parseSequenceDiagramCst } from "./parser"
 import { buildSeqAst, flattenMessages, type SeqAst, type SeqStatement, type SeqNote } from "./visitor"
@@ -173,13 +173,12 @@ function emitStatements(
       switch (c.kind) {
         case "functionRef": {
           const baseLabel = c.label != null ? c.label : `${c.functionId}(${extractParamNames(c.rawParams)})`
-          const compUuid = findInterfaceOwnerPreferReceiver(root, c.interfaceId, msg.to)
-          const ifaceUuid = findInterfaceUuidPreferReceiver(root, c.interfaceId, msg.to)
+          const target = resolveFunctionRefTarget(root, msg.to, c.interfaceId, c.functionId)
           const fnKey = `${msg.to}:${c.interfaceId}:${c.functionId}`
           const mermaidLabel = resolveLabel(baseLabel, fnKey, labelMap)
           const renderedLabel = escapeLabel(mermaidLabel)
-          if (compUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = compUuid
-          if (ifaceUuid && !messageLabelToInterfaceUuid[mermaidLabel]) messageLabelToInterfaceUuid[mermaidLabel] = ifaceUuid
+          if (target?.componentUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = target.componentUuid
+          if (target?.interfaceUuid && !messageLabelToInterfaceUuid[mermaidLabel]) messageLabelToInterfaceUuid[mermaidLabel] = target.interfaceUuid
           out += `${indent}${fromId}${msg.arrow}${toId}: ${renderedLabel}\n`
           break
         }
