@@ -79,12 +79,10 @@ export function findInterfaceOwnerPreferReceiver(
   ifaceId: string,
   receiverNodeId: string,
 ): string | undefined {
-  const receiverUuid = findComponentUuidByNodeId(root, receiverNodeId)
-  if (receiverUuid) {
-    const receiverComp = root.id === receiverNodeId ? root : findReceiverComp(root, receiverNodeId)
-    if (receiverComp && findComponentByInterfaceId(receiverComp, ifaceId)) {
-      return receiverUuid
-    }
+  const receiverComp = root.id === receiverNodeId ? root : findReceiverComp(root, receiverNodeId)
+  if (receiverComp) {
+    const ownerUuid = findComponentByInterfaceId(receiverComp, ifaceId)
+    if (ownerUuid) return ownerUuid
   }
   return findComponentByInterfaceId(root, ifaceId)
 }
@@ -113,7 +111,7 @@ export function findInterfaceUuidByInterfaceId(
 
 /**
  * Finds the UUID of the interface with `ifaceId`, preferring the interface on
- * the component identified by `receiverNodeId`. Falls back to global search.
+ * the component identified by `receiverNodeId` (or its subtree). Falls back to global search.
  */
 export function findInterfaceUuidPreferReceiver(
   root: ComponentNode,
@@ -122,8 +120,8 @@ export function findInterfaceUuidPreferReceiver(
 ): string | undefined {
   const receiverComp = root.id === receiverNodeId ? root : findReceiverComp(root, receiverNodeId)
   if (receiverComp) {
-    const match = receiverComp.interfaces?.find((i) => i.id === ifaceId)
-    if (match) return match.uuid
+    const ifaceUuid = findInterfaceUuidByInterfaceId(receiverComp, ifaceId)
+    if (ifaceUuid) return ifaceUuid
   }
   return findInterfaceUuidByInterfaceId(root, ifaceId)
 }
