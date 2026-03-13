@@ -71,7 +71,10 @@ test.describe("diagram spec editor — preview mode scrollbar", () => {
 
   test("preview container has overflow-auto when content is present", async ({ page }) => {
     const preview = page.getByRole("button", { name: /diagram specification/i })
-    const overflow = await preview.evaluate((el) => getComputedStyle(el).overflow)
+    const overflow = await preview.evaluate((el) => {
+      // @ts-expect-error getComputedStyle is a browser global not typed under lib:ES2023
+      return getComputedStyle(el).overflow as string
+    })
     expect(overflow).toBe("auto")
   })
 
@@ -87,7 +90,10 @@ test.describe("diagram spec editor — preview mode scrollbar", () => {
     const preview = page.getByRole("button", { name: /diagram specification/i })
 
     // Confirm we start in preview mode with overflow:auto
-    const previewOverflow = await preview.evaluate((el) => getComputedStyle(el).overflowY)
+    const previewOverflow = await preview.evaluate((el) => {
+      // @ts-expect-error getComputedStyle is a browser global not typed under lib:ES2023
+      return getComputedStyle(el).overflowY as string
+    })
     expect(previewOverflow).toBe("auto")
 
     // Click to enter edit mode — preview button disappears, CM editor appears
@@ -100,7 +106,10 @@ test.describe("diagram spec editor — preview mode scrollbar", () => {
 
     // The edit container wrapping the CM editor uses overflow:hidden
     const editWrapper = page.locator("[data-testid='cm-editor-container']").locator("..")
-    const editOverflow = await editWrapper.evaluate((el) => getComputedStyle(el).overflow)
+    const editOverflow = await editWrapper.evaluate((el) => {
+      // @ts-expect-error getComputedStyle is a browser global not typed under lib:ES2023
+      return getComputedStyle(el).overflow as string
+    })
     expect(editOverflow).toBe("hidden")
   })
 })
