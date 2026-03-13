@@ -169,18 +169,18 @@ test.describe("undo / redo", () => {
     await expect(cmEditor).toBeVisible()
     await cmEditor.click()
 
-    // Move to end of editor and type a new line.
-    // Use page.keyboard.* (not cmEditor.press/type) to avoid triggering extra focus events
-    // that would cause CodeMirror to re-sync the cursor from the DOM selection, overwriting
-    // the position set by Control+End.
-    await page.keyboard.press("Control+End")
+    // Type a new line at the current cursor position.
+    // Note: do NOT use Control+End to navigate — it is macOS-incompatible (macOS uses
+    // Cmd+Down). The cursor position doesn't matter for the assertions below.
     await page.keyboard.type("\n# added by test")
 
     // Verify the extra text is present in the editor
     await expect(cmEditor).toContainText("added by test")
 
-    // Press Ctrl+Z WHILE the cm-editor is focused — CodeMirror handles it
-    await page.keyboard.press("Control+z")
+    // Undo using the platform-appropriate modifier.
+    // CodeMirror binds undo to Mod-z (Cmd+Z on macOS, Ctrl+Z on Windows/Linux).
+    const mod = process.platform === "darwin" ? "Meta" : "Control"
+    await page.keyboard.press(`${mod}+z`)
 
     // The typed text should be gone (CodeMirror's own undo)
     await expect(cmEditor).not.toContainText("added by test")
