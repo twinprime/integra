@@ -470,6 +470,27 @@ export function makeLocalStorageValueWithInheritance(): string {
 }
 
 /**
+ * Variant fixture with an extra actor "GhostUser" added to the root component.
+ * GhostUser is not referenced in any diagram's referencedNodeIds, so it is orphaned
+ * and should show a delete button on hover in the tree.
+ */
+export function makeLocalStorageValueWithOrphanedActor(): string {
+  const ghostActor: ActorNode = {
+    uuid: "test-ghost-actor-uuid",
+    id: "GhostUser",
+    name: "GhostUser",
+    type: "actor",
+  }
+
+  const systemWithGhost: ComponentNode = {
+    ...sampleSystem,
+    actors: [...sampleSystem.actors, ghostActor],
+  }
+
+  return JSON.stringify({ state: { rootComponent: systemWithGhost }, version: 0 })
+}
+
+/**
  * Variant of the base fixture where AuthService's interfaces are listed in [IEmpty, IAuth] order.
  * This exposes the interface-tab activation bug: IAuth is NOT the first tab, so it must be
  * explicitly activated by the navigation logic — it cannot be a lucky default.
