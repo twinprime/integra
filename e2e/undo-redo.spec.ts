@@ -169,15 +169,16 @@ test.describe("undo / redo", () => {
     await expect(cmEditor).toBeVisible()
     await cmEditor.click()
 
-    // Move to end of editor and type a new line
-    await page.keyboard.press("Control+End")
-    await page.keyboard.type("\n# added by test")
+    // Move to end of editor and type a new line.
+    // Using cmEditor.press() ensures the element retains focus for each keystroke.
+    await cmEditor.press("Control+End")
+    await cmEditor.type("\n# added by test")
 
     // Verify the extra text is present in the editor
     await expect(cmEditor).toContainText("added by test")
 
     // Press Ctrl+Z WHILE the cm-editor is focused — CodeMirror handles it
-    await page.keyboard.press("Control+z")
+    await cmEditor.press("Control+z")
 
     // The typed text should be gone (CodeMirror's own undo)
     await expect(cmEditor).not.toContainText("added by test")
