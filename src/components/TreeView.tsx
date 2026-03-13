@@ -186,6 +186,7 @@ export const TreeView = () => {
         return
     }
     clearSystem()
+    setDirHandle(null)
   }
 
   if (!rootComponent)

@@ -153,6 +153,28 @@ describe("TreeView - Directory File System", () => {
       expect(showDirectoryPicker).toHaveBeenCalledOnce()
     })
 
+    it("re-prompts for directory on save after system is cleared", async () => {
+      const { handle } = makeDirHandle(initialSystem)
+      const showDirectoryPicker = vi.fn().mockResolvedValue(handle)
+      vi.stubGlobal("showDirectoryPicker", showDirectoryPicker)
+      vi.stubGlobal("confirm", vi.fn().mockReturnValue(true))
+
+      render(<TreeView />)
+      const saveButton = screen.getByTitle("Save system to YAML file")
+
+      // First save — caches the directory handle
+      await userEvent.click(saveButton)
+      await waitFor(() => expect(handle.getFileHandle).toHaveBeenCalledTimes(1))
+      expect(showDirectoryPicker).toHaveBeenCalledOnce()
+
+      // Clear the system
+      await userEvent.click(screen.getByTitle("Clear system"))
+
+      // Save after clear — should prompt for directory again
+      await userEvent.click(saveButton)
+      await waitFor(() => expect(showDirectoryPicker).toHaveBeenCalledTimes(2))
+    })
+
     it("silently ignores AbortError when user cancels the directory picker", async () => {
       vi.stubGlobal(
         "showDirectoryPicker",
