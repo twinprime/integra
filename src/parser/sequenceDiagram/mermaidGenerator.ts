@@ -10,7 +10,7 @@ import { findNodeByPath } from "../../utils/nodeUtils"
 import { resolveFunctionRefTarget, resolveUseCaseByPath, resolveSeqDiagramByPath } from "../../utils/diagramResolvers"
 import { findNodeByUuid } from "../../nodes/nodeTree"
 import { parseSequenceDiagramCst } from "./parser"
-import { buildSeqAst, flattenMessages, type SeqAst, type SeqStatement, type SeqNote } from "./visitor"
+import { buildSeqAst, flattenMessages, type SeqAst, type SeqStatement } from "./visitor"
 
 function assertNever(x: never): never {
   throw new Error(`Unhandled SeqMessageContent kind: ${JSON.stringify(x)}`)
@@ -154,7 +154,7 @@ function emitStatements(
       out += `${indent}${stmt.action} ${sanitizeMermaidId(stmt.participant)}\n`
     } else if ("position" in stmt) {
       // Note
-      const note = stmt as SeqNote
+      const note = stmt
       const text = escapeLabel(note.text)
       if (note.position.kind === "side") {
         out += `${indent}note ${note.position.side} of ${sanitizeMermaidId(note.position.participant)}: ${text}\n`

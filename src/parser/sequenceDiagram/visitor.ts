@@ -153,7 +153,7 @@ class SequenceDiagramVisitor extends BaseVisitor {
     const action = (ctx.Activate ?? []).length > 0 ? "activate" : "deactivate"
     const [partRef] = ctx.participantRef as never[]
     const participant = this.visit(partRef) as string
-    return { action: action as "activate" | "deactivate", participant }
+    return { action, participant }
   }
 
   seqDeclaration(ctx: Record<string, { image: string }[]>): SeqDeclaration {

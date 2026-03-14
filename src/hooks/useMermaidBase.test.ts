@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { renderHook, waitFor } from "@testing-library/react"
 import { useMermaidBase } from "./useMermaidBase"
 import type { UseCaseDiagramNode, ComponentNode } from "../store/types"
+import type { SystemState } from "../store/useSystemStore"
+import type { RenderResult } from "mermaid"
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -60,11 +62,15 @@ const mockBuildContent = vi.fn().mockReturnValue({
 describe("useMermaidBase", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(useSystemStore).mockImplementation((selector: (s: unknown) => unknown) =>
-      selector({ rootComponent: mockRootComponent, selectNode: mockSelectNode }),
+    vi.mocked(useSystemStore).mockImplementation((selector: (s: SystemState) => unknown) =>
+      selector({ rootComponent: mockRootComponent, selectNode: mockSelectNode } as unknown as SystemState),
     )
     vi.mocked(findNode).mockReturnValue(mockRootComponent)
-    vi.mocked(mermaid.render).mockResolvedValue({ svg: "<svg>test</svg>", bindFunctions: undefined })
+    vi.mocked(mermaid.render).mockResolvedValue({
+      svg: "<svg>test</svg>",
+      diagramType: "graph",
+      bindFunctions: undefined,
+    } satisfies RenderResult)
     mockBuildContent.mockReturnValue({ mermaidContent: "graph TD\n  A --> B", idToUuid: { A: "uuid-a" } })
   })
 
@@ -128,7 +134,11 @@ describe("useMermaidBase", () => {
 
     await waitFor(() => expect(result.current.svg).toBe("<svg>test</svg>"))
 
-    vi.mocked(mermaid.render).mockResolvedValueOnce({ svg: "<svg>updated</svg>", bindFunctions: undefined })
+    vi.mocked(mermaid.render).mockResolvedValueOnce({
+      svg: "<svg>updated</svg>",
+      diagramType: "graph",
+      bindFunctions: undefined,
+    } satisfies RenderResult)
     mockBuildContent.mockReturnValueOnce({ mermaidContent: "graph TD\n  C --> D", idToUuid: {} })
 
     diagramNode = { ...mockDiagramNode, content: "updated content" }

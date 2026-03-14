@@ -1,5 +1,5 @@
 // Polyfill ResizeObserver for jsdom (required by react-zoom-pan-pinch)
-global.ResizeObserver = class ResizeObserver {
+globalThis.ResizeObserver = class ResizeObserver {
   observe() {}
   unobserve() {}
   disconnect() {}

@@ -31,8 +31,8 @@ export const createNodeOpsSlice: StateCreator<SystemState, [], [], NodeOpsSlice>
   updateNode: (nodeUuid, updates) =>
     set((state) => {
       const updatedSystem = upsertNodeInTree(state.rootComponent, nodeUuid, (node) => {
-        const merged = { ...node, ...updates } as Node
-        return merged.type === "component" ? normalizeComponent(merged as ComponentNode) : merged
+        const merged: Node = { ...node, ...updates }
+        return merged.type === "component" ? normalizeComponent(merged) : merged
       })
       const historyPush = { past: pushPast(state.past, state.rootComponent), future: [] }
       if (!updates.content) return { ...historyPush, rootComponent: updatedSystem }

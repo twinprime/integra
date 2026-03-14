@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { renderHook, waitFor } from "@testing-library/react"
 import { useSequenceDiagram } from "./useSequenceDiagram"
 import type { SequenceDiagramNode, ComponentNode } from "../store/types"
+import type { SystemState } from "../store/useSystemStore"
+import type { RenderResult } from "mermaid"
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -66,11 +68,15 @@ const mockDiagramNode: SequenceDiagramNode = {
 describe("useSequenceDiagram", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(useSystemStore).mockImplementation((selector: (s: unknown) => unknown) =>
-      selector({ rootComponent: mockRootComponent, selectNode: mockSelectNode, selectInterface: mockSelectInterface }),
+    vi.mocked(useSystemStore).mockImplementation((selector: (s: SystemState) => unknown) =>
+      selector({ rootComponent: mockRootComponent, selectNode: mockSelectNode, selectInterface: mockSelectInterface } as unknown as SystemState),
     )
     vi.mocked(findNode).mockReturnValue(mockRootComponent)
-    vi.mocked(mermaid.render).mockResolvedValue({ svg: "<svg>seq</svg>", bindFunctions: undefined })
+    vi.mocked(mermaid.render).mockResolvedValue({
+      svg: "<svg>seq</svg>",
+      diagramType: "sequence",
+      bindFunctions: undefined,
+    } satisfies RenderResult)
     vi.mocked(generateSequenceMermaid).mockReturnValue({
       mermaidContent: "sequenceDiagram\n  A->>B: hello",
       idToUuid: { A: "uuid-a", B: "uuid-b" },

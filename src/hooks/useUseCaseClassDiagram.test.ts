@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { renderHook, waitFor } from "@testing-library/react"
 import { useUseCaseClassDiagram } from "./useUseCaseClassDiagram"
 import type { UseCaseNode, ComponentNode } from "../store/types"
+import type { SystemState } from "../store/useSystemStore"
+import type { RenderResult } from "mermaid"
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -55,10 +57,14 @@ const mockUseCaseNode: UseCaseNode = {
 describe("useUseCaseClassDiagram", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(useSystemStore).mockImplementation((selector: (s: unknown) => unknown) =>
-      selector({ rootComponent: mockRootComponent, selectNode: mockSelectNode }),
+    vi.mocked(useSystemStore).mockImplementation((selector: (s: SystemState) => unknown) =>
+      selector({ rootComponent: mockRootComponent, selectNode: mockSelectNode } as unknown as SystemState),
     )
-    vi.mocked(mermaid.render).mockResolvedValue({ svg: "<svg>uc-class</svg>", bindFunctions: undefined })
+    vi.mocked(mermaid.render).mockResolvedValue({
+      svg: "<svg>uc-class</svg>",
+      diagramType: "classDiagram",
+      bindFunctions: undefined,
+    } satisfies RenderResult)
     vi.mocked(buildUseCaseClassDiagram).mockReturnValue({
       mermaidContent: "classDiagram\n  class UC",
       idToUuid: { UC: "uc-uuid" },

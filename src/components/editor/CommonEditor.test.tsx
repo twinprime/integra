@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { CommonEditor } from "./CommonEditor"
 import type { ActorNode } from "../../store/types"
+import type { SystemState } from "../../store/useSystemStore"
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ function setupStoreMock() {
     renameNodeId: mockRenameNodeId,
   }
   vi.mocked(useSystemStore).mockImplementation(
-    (selector: (s: typeof state) => unknown) => selector(state),
+    (selector: (s: SystemState) => unknown) => selector(state as unknown as SystemState),
   )
 }
 

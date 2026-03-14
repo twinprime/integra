@@ -12,8 +12,6 @@ import type {
   ComponentNode,
   Node,
   ActorNode,
-  UseCaseDiagramNode,
-  UseCaseNode,
 } from "../store/types"
 import {
   collectDiagramsFromComponent,
@@ -197,7 +195,7 @@ const moveItem = <T>(arr: T[], fromIndex: number, toIndex: number): T[] => {
 
 const reorderInNode = (node: Node, activeUuid: string, overUuid: string): Node => {
   if (node.type === "component") {
-    const comp = node as ComponentNode
+    const comp = node
     const fromSub = comp.subComponents.findIndex((n) => n.uuid === activeUuid)
     const toSub = comp.subComponents.findIndex((n) => n.uuid === overUuid)
     if (fromSub !== -1 && toSub !== -1)
@@ -213,7 +211,7 @@ const reorderInNode = (node: Node, activeUuid: string, overUuid: string): Node =
     return comp
   }
   if (node.type === "use-case-diagram") {
-    const ucd = node as UseCaseDiagramNode
+    const ucd = node
     const fromIdx = ucd.useCases.findIndex((n) => n.uuid === activeUuid)
     const toIdx = ucd.useCases.findIndex((n) => n.uuid === overUuid)
     if (fromIdx !== -1 && toIdx !== -1)
@@ -221,7 +219,7 @@ const reorderInNode = (node: Node, activeUuid: string, overUuid: string): Node =
     return ucd
   }
   if (node.type === "use-case") {
-    const uc = node as UseCaseNode
+    const uc = node
     const fromIdx = uc.sequenceDiagrams.findIndex((n) => n.uuid === activeUuid)
     const toIdx = uc.sequenceDiagrams.findIndex((n) => n.uuid === overUuid)
     if (fromIdx !== -1 && toIdx !== -1)
@@ -244,7 +242,7 @@ export const reorderChildInParent = (
 ): ComponentNode =>
   upsertNodeInTree(root, parentUuid, (parent) =>
     reorderInNode(parent, activeUuid, overUuid),
-  ) as ComponentNode
+  )
 
 // Re-export types for convenience
 export type { DiagramRef } from "./useCaseDiagramNode"

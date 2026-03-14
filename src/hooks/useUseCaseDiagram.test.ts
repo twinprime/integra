@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 import { renderHook, waitFor } from "@testing-library/react"
 import { useUseCaseDiagram } from "./useUseCaseDiagram"
 import type { UseCaseDiagramNode, ComponentNode } from "../store/types"
+import type { SystemState } from "../store/useSystemStore"
+import type { RenderResult } from "mermaid"
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -63,11 +65,15 @@ const mockDiagramNode: UseCaseDiagramNode = {
 describe("useUseCaseDiagram", () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(useSystemStore).mockImplementation((selector: (s: unknown) => unknown) =>
-      selector({ rootComponent: mockRootComponent, selectNode: mockSelectNode }),
+    vi.mocked(useSystemStore).mockImplementation((selector: (s: SystemState) => unknown) =>
+      selector({ rootComponent: mockRootComponent, selectNode: mockSelectNode } as unknown as SystemState),
     )
     vi.mocked(findNode).mockReturnValue(mockRootComponent)
-    vi.mocked(mermaid.render).mockResolvedValue({ svg: "<svg>uc</svg>", bindFunctions: vi.fn() })
+    vi.mocked(mermaid.render).mockResolvedValue({
+      svg: "<svg>uc</svg>",
+      diagramType: "graph",
+      bindFunctions: vi.fn(),
+    } satisfies RenderResult)
     vi.mocked(generateUseCaseMermaid).mockReturnValue({
       mermaidContent: "graph TD\n  Actor --> UseCase",
       idToUuid: { Actor: "actor-uuid", UseCase: "uc-uuid" },

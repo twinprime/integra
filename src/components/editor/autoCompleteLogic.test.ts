@@ -299,8 +299,8 @@ describe("buildSuggestions — Sequence: inherited interface functions", () => {
       name: "PaymentService",
       type: "rest" as const,
       functions: [
-        { uuid: "fn-pay-uuid", id: "pay", parameters: [{ uuid: "p1", name: "amount", type: "decimal" }] },
-        { uuid: "fn-refund-uuid", id: "refund", parameters: [{ uuid: "p2", name: "txId", type: "string" }] },
+        { uuid: "fn-pay-uuid", id: "pay", parameters: [{ uuid: "p1", name: "amount", type: "decimal", required: false }] },
+        { uuid: "fn-refund-uuid", id: "refund", parameters: [{ uuid: "p2", name: "txId", type: "string", required: false }] },
       ],
     }
 
@@ -338,7 +338,7 @@ describe("buildSuggestions — Sequence: inherited interface functions", () => {
       name: "PaymentService",
       type: "rest" as const,
       functions: [
-        { uuid: "fn-pay-uuid", id: "pay", parameters: [{ uuid: "p1", name: "amount", type: "decimal" }] },
+        { uuid: "fn-pay-uuid", id: "pay", parameters: [{ uuid: "p1", name: "amount", type: "decimal", required: false }] },
       ],
     }
 

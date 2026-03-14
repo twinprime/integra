@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { ComponentEditor } from "./ComponentEditor"
 import type { ComponentNode, InterfaceSpecification } from "../../store/types"
+import type { SystemState } from "../../store/useSystemStore"
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
 
@@ -62,6 +63,7 @@ import { findParentNode } from "../../nodes/nodeTree"
 
 const mockRenameNodeId = vi.fn()
 const mockSelectInterface = vi.fn()
+const makeOnUpdate = () => vi.fn<(updates: Partial<ComponentNode>) => void>()
 
 const mockRootComponent: ComponentNode = {
   uuid: "root-uuid",
@@ -82,7 +84,7 @@ function setupStoreMock(selectedInterfaceUuid: string | null = null) {
     selectInterface: mockSelectInterface,
   }
   vi.mocked(useSystemStore).mockImplementation(
-    (selector: (s: typeof state) => unknown) => selector(state),
+    (selector: (s: SystemState) => unknown) => selector(state as unknown as SystemState),
   )
 }
 
@@ -288,7 +290,7 @@ describe("ComponentEditor", () => {
 
     it("calls onUpdate with new inherited interface when selector changes", async () => {
       const user = userEvent.setup()
-      const onUpdate = vi.fn()
+      const onUpdate = makeOnUpdate()
       const parentIface = makeInterface("parentApi", "Parent API")
       const parentNode = makeComponentNode({
         uuid: "parent-uuid",
@@ -306,15 +308,15 @@ describe("ComponentEditor", () => {
         parentIface.uuid,
       )
 
-      expect(onUpdate).toHaveBeenCalledWith(
-        expect.objectContaining({
-          interfaces: expect.arrayContaining([
-            expect.objectContaining({
-              parentInterfaceUuid: parentIface.uuid,
-              id: "parentApi",
-            }),
-          ]),
-        }),
+      expect(onUpdate).toHaveBeenCalledTimes(1)
+      const [updates] = onUpdate.mock.calls[0]
+      expect(updates.interfaces).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            parentInterfaceUuid: parentIface.uuid,
+            id: "parentApi",
+          }),
+        ]),
       )
     })
   })
