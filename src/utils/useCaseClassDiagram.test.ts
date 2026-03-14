@@ -90,11 +90,11 @@ describe("buildUseCaseClassDiagram", () => {
     expect(result.mermaidContent).toBe("")
   })
 
-  it("generates actor class with <<actor>> annotation", () => {
+  it("does not generate actor classes", () => {
     const content = `actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething()`
     const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
-    expect(result.mermaidContent).toContain('class user["User"]:::actor {')
-    expect(result.mermaidContent).toContain("<<actor>>")
+    expect(result.mermaidContent).not.toContain('class user["User"]:::actor')
+    expect(result.mermaidContent).not.toContain("<<actor>>")
   })
 
   it("generates component class without annotation", () => {
@@ -144,10 +144,10 @@ describe("buildUseCaseClassDiagram", () => {
     expect(result.mermaidContent).toContain("compA ..|> IFoo")
   })
 
-  it("generates dependency arrow from sender to interface (..>)", () => {
+  it("omits actor dependency arrows to interfaces", () => {
     const content = `actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething()`
     const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
-    expect(result.mermaidContent).toContain("user ..> IFoo")
+    expect(result.mermaidContent).not.toContain("user ..> IFoo")
   })
 
   it("generates direct dependency arrow for non-interface messages (..>)", () => {
@@ -165,7 +165,7 @@ describe("buildUseCaseClassDiagram", () => {
   it("omits interface messages from direct arrows", () => {
     const content = `actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething()`
     const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
-    expect(result.mermaidContent).toContain("user ..> IFoo")
+    expect(result.mermaidContent).not.toContain("user ..> IFoo")
     expect(result.mermaidContent).not.toContain("user ..> compA")
   })
 
@@ -191,30 +191,30 @@ describe("buildUseCaseClassDiagram", () => {
     expect(result.mermaidContent).toContain("+getAll()")
   })
 
-  it("deduplicates participants across multiple sequence diagrams", () => {
+  it("deduplicates component participants across multiple sequence diagrams", () => {
     const content1 = `actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething()`
     const content2 = `actor user\ncomponent compA\nuser ->> compA: IFoo:getAll()`
     const seq1 = makeSeqDiagram(content1)
     const seq2 = { ...makeSeqDiagram(content2), uuid: "seq2-uuid" }
     const result = buildUseCaseClassDiagram(makeUseCase(seq1, seq2), makeRoot())
-    const matches = result.mermaidContent.match(/class user\[/g) ?? []
+    const matches = result.mermaidContent.match(/class compA\[/g) ?? []
     expect(matches).toHaveLength(1)
   })
 
-  it("includes click directives for all participant nodes", () => {
+  it("includes click directives only for component participant nodes", () => {
     const content = `actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething()`
     const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
-    expect(result.mermaidContent).toContain('click user call __integraNavigate("user")')
+    expect(result.mermaidContent).not.toContain('click user call __integraNavigate("user")')
     expect(result.mermaidContent).toContain('click compA call __integraNavigate("compA")')
   })
 
-  it("populates idToUuid map for all participants", () => {
+  it("omits actors from idToUuid", () => {
     const content = `actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething()`
     const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
     expect(result.idToUuid).toMatchObject({
-      user: "user-uuid",
       compA: "compa-uuid",
     })
+    expect(result.idToUuid.user).toBeUndefined()
   })
 
   it("starts with classDiagram keyword", () => {
@@ -223,12 +223,13 @@ describe("buildUseCaseClassDiagram", () => {
     expect(result.mermaidContent).toMatch(/^classDiagram/)
   })
 
-  it("resolves participant via alias (actor id as alias)", () => {
+  it("keeps interface extraction when actor sender is referenced via alias", () => {
     // user node has id "user"; alias it as "u" in the spec
     const content = `actor user as u\ncomponent compA\nu ->> compA: IFoo:doSomething()`
     const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
-    expect(result.mermaidContent).toContain('class user["User"]:::actor')
-    expect(result.mermaidContent).toContain("user ..> IFoo")
+    expect(result.mermaidContent).not.toContain('class user["User"]:::actor')
+    expect(result.mermaidContent).toContain('class IFoo["IFoo"] {')
+    expect(result.mermaidContent).toContain("compA ..|> IFoo")
   })
 
   it("resolves participant via path (component root/compA/compB)", () => {
@@ -249,7 +250,7 @@ describe("buildUseCaseClassDiagram", () => {
     ].join("\n")
     const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
     expect(result.mermaidContent).toContain('class IFoo["IFoo"] {')
-    expect(result.mermaidContent).toContain("user ..> IFoo")
+    expect(result.mermaidContent).not.toContain("user ..> IFoo")
     expect(result.mermaidContent).toContain("compA ..|> IFoo")
   })
 
@@ -262,6 +263,7 @@ describe("buildUseCaseClassDiagram", () => {
       "end",
     ].join("\n")
     const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
-    expect(result.mermaidContent).toContain("user ..> IFoo")
+    expect(result.mermaidContent).not.toContain("user ..> IFoo")
+    expect(result.mermaidContent).toContain("compA ..|> IFoo")
   })
 })
