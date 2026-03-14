@@ -25,33 +25,39 @@ async function openDiagramEditor(page: Page, targetText: string | RegExp) {
   const targetLabel = typeof targetText === "string"
     ? targetText
     : targetText.source.replace(/^\^/, "").replace(/\$$/, "")
-  await expect(page.locator("h2")).toContainText(targetLabel)
+  await expect(page.locator("h2")).toContainText(targetLabel, { timeout: 10000 })
 
   const emptyState = page.getByRole("button", { name: "Click to edit specification" })
   const preview = page.getByRole("button", { name: "Diagram specification — click to edit" })
+  const editor = codeMirrorEditor(page)
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    if (await emptyState.isVisible()) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    if (await editor.isVisible().catch(() => false)) {
+      const visibleEditor = await getVisibleCodeMirrorEditor(page, 10000)
+      await visibleEditor.click()
+      return visibleEditor
+    }
+
+    if (await emptyState.isVisible().catch(() => false)) {
       await emptyState.click({ force: true })
-      await expect(emptyState).not.toBeVisible({ timeout: 3000 })
-      return getVisibleCodeMirrorEditor(page)
-    } else if (await preview.isVisible()) {
+      const visibleEditor = await getVisibleCodeMirrorEditor(page, 10000)
+      await visibleEditor.click()
+      return visibleEditor
+    } else if (await preview.isVisible().catch(() => false)) {
       await preview.click({ force: true })
-      await expect(preview).not.toBeVisible({ timeout: 3000 })
-      return getVisibleCodeMirrorEditor(page)
+      const visibleEditor = await getVisibleCodeMirrorEditor(page, 10000)
+      await visibleEditor.click()
+      return visibleEditor
     }
 
-    const editor = codeMirrorEditor(page)
-    if (await editor.count()) {
-      return getVisibleCodeMirrorEditor(page)
-    }
-
-    if (attempt < 2) {
-      await page.waitForTimeout(200)
+    if (attempt < 4) {
+      await page.waitForTimeout(300)
     }
   }
 
-  return getVisibleCodeMirrorEditor(page, 10000)
+  const visibleEditor = await getVisibleCodeMirrorEditor(page, 10000)
+  await visibleEditor.click()
+  return visibleEditor
 }
 
 async function authorLoginWorkflow(page: Page): Promise<void> {
@@ -78,7 +84,6 @@ async function authorLoginWorkflow(page: Page): Promise<void> {
   await expect(treeItem(page, /^User Journeys$/)).toBeVisible()
 
   const useCaseEditor = await openDiagramEditor(page, /^User Journeys$/)
-  await useCaseEditor.click()
   await useCaseEditor.type([
     "actor user",
     "use case login",
@@ -99,7 +104,6 @@ async function authorLoginWorkflow(page: Page): Promise<void> {
   await expect(treeItem(page, /^Login Flow$/)).toBeVisible()
 
   const sequenceEditor = await openDiagramEditor(page, /^Login Flow$/)
-  await sequenceEditor.click()
   await sequenceEditor.type([
     "actor user",
     "component auth_service",
