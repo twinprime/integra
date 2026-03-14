@@ -127,7 +127,7 @@ export const DiagramPanZoom = ({ children }: DiagramPanZoomProps) => {
         maxScale={20}
         limitToBounds={false}
         smooth={false}
-        wheel={{ step: 0.5 }}
+        wheel={{ step: 0.3 }}
       >
         <FitController fitRef={fitRef} fitWidthRef={fitWidthRef} />
         <ZoomControls fitRef={fitRef} fitWidthRef={fitWidthRef} />
