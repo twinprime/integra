@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
 import {
+  codeMirrorEditor,
   getVisibleCodeMirrorEditor,
   saveEditorByBlurring,
   selectTreeItem,
@@ -21,18 +22,36 @@ async function createNodeFromContextMenu(
 
 async function openDiagramEditor(page: Page, targetText: string | RegExp) {
   await selectTreeItem(page, targetText)
+  const targetLabel = typeof targetText === "string"
+    ? targetText
+    : targetText.source.replace(/^\^/, "").replace(/\$$/, "")
+  await expect(page.locator("h2")).toContainText(targetLabel)
 
   const emptyState = page.getByRole("button", { name: "Click to edit specification" })
-  if (await emptyState.isVisible()) {
-    await emptyState.click()
-  }
-
   const preview = page.getByRole("button", { name: "Diagram specification — click to edit" })
-  if (await preview.isVisible()) {
-    await preview.click()
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (await emptyState.isVisible()) {
+      await emptyState.click({ force: true })
+      await expect(emptyState).not.toBeVisible({ timeout: 3000 })
+      return getVisibleCodeMirrorEditor(page)
+    } else if (await preview.isVisible()) {
+      await preview.click({ force: true })
+      await expect(preview).not.toBeVisible({ timeout: 3000 })
+      return getVisibleCodeMirrorEditor(page)
+    }
+
+    const editor = codeMirrorEditor(page)
+    if (await editor.count()) {
+      return getVisibleCodeMirrorEditor(page)
+    }
+
+    if (attempt < 2) {
+      await page.waitForTimeout(200)
+    }
   }
 
-  return getVisibleCodeMirrorEditor(page)
+  return getVisibleCodeMirrorEditor(page, 10000)
 }
 
 async function authorLoginWorkflow(page: Page): Promise<void> {

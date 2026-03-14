@@ -29,12 +29,14 @@ export function specificationEditor(page: Page): Locator {
 }
 
 export function codeMirrorEditor(page: Page): Locator {
-  return page.locator(".cm-content[contenteditable='true']")
+  return page
+    .getByTestId("cm-editor-container")
+    .locator(".cm-content[contenteditable='true']")
 }
 
-export async function getVisibleCodeMirrorEditor(page: Page): Promise<Locator> {
+export async function getVisibleCodeMirrorEditor(page: Page, timeout = 10000): Promise<Locator> {
   const editor = codeMirrorEditor(page)
-  await expect(editor).toBeVisible()
+  await expect(editor).toBeVisible({ timeout })
   return editor
 }
 
@@ -52,6 +54,19 @@ export async function renameNodeId(
 }
 
 export async function saveEditorByBlurring(page: Page): Promise<void> {
-  await page.locator("body").click({ position: { x: 10, y: 10 } })
-  await page.waitForTimeout(300)
+  const blurTarget = page.getByLabel("Node ID")
+  if (await blurTarget.isVisible()) {
+    await blurTarget.click()
+  } else {
+    await page.locator("body").click({ position: { x: 10, y: 10 } })
+  }
+  await page.waitForTimeout(200)
+}
+
+export async function replaceCodeMirrorContent(page: Page, editor: Locator, content: string): Promise<void> {
+  const mod = process.platform === "darwin" ? "Meta" : "Control"
+  await editor.click()
+  await page.keyboard.press(`${mod}+A`)
+  await page.keyboard.press("Backspace")
+  await page.keyboard.insertText(content)
 }

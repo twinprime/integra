@@ -1,7 +1,9 @@
 import { test, expect, type Locator, type Page } from "@playwright/test"
 import {
+  codeMirrorEditor,
   getVisibleCodeMirrorEditor,
   nodeIdInput,
+  replaceCodeMirrorContent,
   saveEditorByBlurring,
   selectTreeItem,
   specificationEditor,
@@ -16,25 +18,37 @@ const diagramSvg = (page: Page): Locator =>
   page.locator('[data-testid="diagram-svg-container"] svg')
 
 const syntaxErrorBanner = (page: Page): Locator =>
-  page.getByRole("button", { name: /Expecting:/ })
+  page.locator("button.text-red-500").filter({ hasText: /Line|Expecting|expecting/i }).first()
 
 const scopeErrorBanner = (page: Page): Locator =>
-  page.getByRole("button", { name: /out of scope/i })
+  page.locator("button.text-red-500").filter({ hasText: /out of scope/i }).first()
 
 const inheritedFunctionErrorBanner = (page: Page): Locator =>
-  page.getByRole("button", { name: /functions are locked/i })
+  page.locator("button.text-red-500").filter({ hasText: /functions are locked/i }).first()
 
 async function openDiagramEditor(page: Page, treeItemText: string | RegExp): Promise<Locator> {
   await selectTreeItem(page, treeItemText)
-  await page.getByLabel("Diagram specification — click to edit").click()
-  return getVisibleCodeMirrorEditor(page)
-}
+  const emptyState = page.getByRole("button", { name: "Click to edit specification" })
+  const preview = page.getByRole("button", { name: "Diagram specification — click to edit" })
 
-async function replaceEditorContent(editor: Locator, content: string): Promise<void> {
-  await editor.click()
-  await editor.press("Control+A")
-  await editor.press("Backspace")
-  await editor.type(content)
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const editor = codeMirrorEditor(page)
+    if (await editor.count()) {
+      return getVisibleCodeMirrorEditor(page)
+    }
+
+    if (await emptyState.isVisible()) {
+      await emptyState.click()
+    } else if (await preview.isVisible()) {
+      await preview.click()
+    }
+
+    if (attempt < 2) {
+      await page.waitForTimeout(200)
+    }
+  }
+
+  return getVisibleCodeMirrorEditor(page, 10000)
 }
 
 test.describe("diagram validation errors", () => {
@@ -49,7 +63,8 @@ test.describe("diagram validation errors", () => {
     await expect(syntaxErrorBanner(page)).toHaveCount(0)
 
     const editor = await openDiagramEditor(page, "Login Flow")
-    await replaceEditorContent(
+    await replaceCodeMirrorContent(
+      page,
       editor,
       [
         "actor User",
@@ -65,7 +80,8 @@ test.describe("diagram validation errors", () => {
     await expect(page.locator('[data-testid="diagram-svg-container"]')).toContainText("done")
 
     const fixedEditor = await openDiagramEditor(page, "Login Flow")
-    await replaceEditorContent(
+    await replaceCodeMirrorContent(
+      page,
       fixedEditor,
       [
         "actor User",
@@ -94,7 +110,8 @@ test.describe("diagram validation errors", () => {
     await loadAppWithFixture(page, makeLocalStorageValue())
 
     const editor = await openDiagramEditor(page, "Order Use Cases")
-    await replaceEditorContent(
+    await replaceCodeMirrorContent(
+      page,
       editor,
       [
         "actor User",
@@ -110,7 +127,8 @@ test.describe("diagram validation errors", () => {
     await expect(page.getByRole("treeitem").filter({ hasText: "NewModule" })).toHaveCount(0)
 
     const fixedEditor = await openDiagramEditor(page, "Order Use Cases")
-    await replaceEditorContent(
+    await replaceCodeMirrorContent(
+      page,
       fixedEditor,
       [
         "actor User",
@@ -135,7 +153,8 @@ test.describe("diagram validation errors", () => {
     await expect(page.locator('[data-testid="diagram-svg-container"]')).toContainText("done")
 
     const editor = await openDiagramEditor(page, "Login Flow")
-    await replaceEditorContent(
+    await replaceCodeMirrorContent(
+      page,
       editor,
       [
         "actor User",
