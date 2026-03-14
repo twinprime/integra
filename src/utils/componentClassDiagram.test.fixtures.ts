@@ -287,3 +287,5 @@ export const makeNestedRootWithAncestorSibling = (
 })
 
 export const getNestedCompA = (root: ComponentNode) => root.subComponents[0].subComponents[0]
+
+export const getPlatform = (root: ComponentNode) => root.subComponents[1]

@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest"
 import { buildComponentClassDiagram } from "./componentClassDiagram"
 import {
+  getPlatform,
   getNestedCompA,
   makeNestedRootWithAncestorSibling,
   makeSeqDiagram,
@@ -83,5 +84,23 @@ describe("buildComponentClassDiagram ancestor sibling scope", () => {
 
     expect(result.mermaidContent).not.toContain("platformChild")
     expect(result.mermaidContent).not.toContain("IPlatformChild")
+  })
+
+  it("shows the immediate sibling ancestor as the inbound dependent in the selected ancestor sibling diagram", () => {
+    const sd = makeSeqDiagram(
+      [
+        "component parent/compA as compA",
+        "component platform",
+        "compA ->> platform: IPlatform:handlePlatform(data: string)",
+      ].join("\n"),
+    )
+    const root = makeNestedRootWithAncestorSibling([sd])
+    const result = buildComponentClassDiagram(getPlatform(root), root)
+
+    expect(result.mermaidContent).toContain('class parent["Parent"]:::component')
+    expect(result.mermaidContent).toContain("parent ..> IPlatform")
+    expect(result.mermaidContent).not.toContain('class compA["Component A"]:::component')
+    expect(result.idToUuid.parent).toBe("parent-uuid")
+    expect(result.idToUuid.compA).toBeUndefined()
   })
 })

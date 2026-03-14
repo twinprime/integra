@@ -22,6 +22,7 @@ type ComponentScope = "immediate-sibling" | "ancestor-sibling"
 
 type VisibleParticipants = {
   componentScopes: Map<string, ComponentScope>
+  immediateSiblingUuids: Set<string>
   actorUuids: Set<string>
 }
 
@@ -64,6 +65,7 @@ function collectVisibleParticipants(
   rootComponent: ComponentNode,
 ): VisibleParticipants {
   const componentScopes = new Map<string, ComponentScope>()
+  const immediateSiblingUuids = new Set<string>()
   const actorUuids = new Set<string>()
 
   const parentNode = findParentNode(rootComponent, component.uuid)
@@ -71,6 +73,7 @@ function collectVisibleParticipants(
 
   for (const sibling of parentComp?.subComponents ?? []) {
     if (sibling.uuid === component.uuid) continue
+    immediateSiblingUuids.add(sibling.uuid)
     componentScopes.set(sibling.uuid, "immediate-sibling")
   }
 
@@ -89,7 +92,48 @@ function collectVisibleParticipants(
     }
   }
 
-  return { componentScopes, actorUuids }
+  return { componentScopes, immediateSiblingUuids, actorUuids }
+}
+
+function toParticipant(rootComponent: ComponentNode, uuid: string): Participant | null {
+  const node = findNode([rootComponent], uuid)
+  if (!node || (node.type !== "component" && node.type !== "actor")) return null
+  return {
+    nodeId: node.id,
+    name: node.name,
+    uuid,
+    kind: node.type,
+  }
+}
+
+function resolveInboundParticipant(
+  senderUuid: string,
+  rootComponent: ComponentNode,
+  componentScopes: Map<string, ComponentScope>,
+  immediateSiblingUuids: Set<string>,
+  actorUuids: Set<string>,
+): { participant: Participant; isViolation: boolean } | null {
+  const senderScope = componentScopes.get(senderUuid)
+  if (senderScope) {
+    const participant = toParticipant(rootComponent, senderUuid)
+    return participant ? { participant, isViolation: senderScope === "ancestor-sibling" } : null
+  }
+
+  if (actorUuids.has(senderUuid)) {
+    const participant = toParticipant(rootComponent, senderUuid)
+    return participant ? { participant, isViolation: false } : null
+  }
+
+  const senderNode = findNode([rootComponent], senderUuid)
+  if (senderNode?.type !== "component") return null
+
+  const rolledUpSibling = getAncestorComponentChain(rootComponent, senderUuid).find((ancestor) =>
+    immediateSiblingUuids.has(ancestor.uuid),
+  )
+  if (!rolledUpSibling) return null
+
+  const participant = toParticipant(rootComponent, rolledUpSibling.uuid)
+  return participant ? { participant, isViolation: false } : null
 }
 
 function emitInterfaceClass(
@@ -123,7 +167,7 @@ export function buildComponentClassDiagram(
     return buildRootClassDiagram(rootComponent)
   }
 
-  const { componentScopes, actorUuids } = collectVisibleParticipants(component, rootComponent)
+  const { componentScopes, immediateSiblingUuids, actorUuids } = collectVisibleParticipants(component, rootComponent)
 
   const targetInterfaceIds = new Set((component.interfaces ?? []).map((i) => i.id))
 
@@ -162,18 +206,21 @@ export function buildComponentClassDiagram(
       const senderUuid = aliasToUuid.get(msg.from)
       const receiverUuid = aliasToUuid.get(msg.to)
 
-      // ── Dependents: someone calls INTO this component's interface ──────────
+        // ── Dependents: someone calls INTO this component's interface ──────────
       if (targetInterfaceIds.has(interfaceId) && receiverUuid === component.uuid) {
         if (!senderUuid || senderUuid === component.uuid) continue
-        const senderScope = componentScopes.get(senderUuid)
-        const isVisibleActor = actorUuids.has(senderUuid)
-        if (!senderScope && !isVisibleActor) continue
+        const resolvedSender = resolveInboundParticipant(
+          senderUuid,
+          rootComponent,
+          componentScopes,
+          immediateSiblingUuids,
+          actorUuids,
+        )
+        if (!resolvedSender) continue
+        const { participant: sender, isViolation } = resolvedSender
 
-        const sender = participantsMap.get(senderUuid)
-        if (!sender) continue
-
-        if (!dependentParticipants.has(senderUuid)) {
-          dependentParticipants.set(senderUuid, sender)
+        if (!dependentParticipants.has(sender.uuid)) {
+          dependentParticipants.set(sender.uuid, sender)
         }
         const arrowKey = `${sender.nodeId}|${interfaceId}`
         if (!depArrowsSet.has(arrowKey)) {
@@ -181,7 +228,7 @@ export function buildComponentClassDiagram(
           depArrows.push({
             fromNodeId: sender.nodeId,
             toNodeId: interfaceId,
-            isViolation: senderScope === "ancestor-sibling",
+            isViolation,
           })
         }
 
