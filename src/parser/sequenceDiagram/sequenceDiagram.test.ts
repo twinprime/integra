@@ -825,6 +825,21 @@ describe("generateSequenceMermaidFromAst — UseCaseRef messages", () => {
     expect(messageLabelToUuid["Place Order"]).toBe("owner-uuid-placeOrder-uuid")
     expect(messageLabelToUuid["UseCase:placeOrder"]).toBeUndefined()
   })
+
+  it("adds clickable messageLinks for resolved UseCaseRef labels", () => {
+    const owner = makeCompWithUcs3("owner-uuid", "owner", [{ id: "placeOrder", name: "Place Order" }])
+    const root = makeNamedComp("root-uuid", "root", "root", [owner])
+    const ast = parseAst("actor customer\ncustomer ->> customer: UseCase:placeOrder")
+    const { messageLinks } = generateSequenceMermaidFromAst(ast, owner, root, "owner-uuid")
+    expect(messageLinks).toEqual([
+      {
+        kind: "useCaseRef",
+        renderedLabel: "Place Order",
+        targetUuid: "owner-uuid-placeOrder-uuid",
+        clickable: true,
+      },
+    ])
+  })
 })
 
 // ─── generateSequenceMermaidFromAst — functionRef display label ───────────────
@@ -957,6 +972,85 @@ describe("generateSequenceMermaidFromAst — functionRef display label", () => {
     const ast = parseAst("actor caller\ncaller ->> owner: IUnknown:doWork()")
     const { messageLabelToInterfaceUuid } = generateSequenceMermaidFromAst(ast, owner, root)
     expect(messageLabelToInterfaceUuid["doWork()"]).toBeUndefined()
+  })
+
+  it("returns ordered messageLinks so plain text stays distinct from clickable refs", () => {
+    const owner: ComponentNode = {
+      uuid: "owner-uuid",
+      id: "owner",
+      name: "owner",
+      type: "component",
+      actors: [],
+      subComponents: [],
+      interfaces: [{
+        uuid: "owner-iface",
+        id: "IFace",
+        name: "IFace",
+        type: "rest",
+        functions: [{ uuid: "owner-fn", id: "doWork", parameters: [] }],
+      }],
+      useCaseDiagrams: [{
+        uuid: "owner-ucd",
+        id: "ucd",
+        name: "ucd",
+        type: "use-case-diagram",
+        ownerComponentUuid: "owner-uuid",
+        referencedNodeIds: [],
+        content: "",
+        useCases: [{
+          uuid: "uc-uuid",
+          id: "placeOrder",
+          name: "Place Order",
+          type: "use-case",
+          sequenceDiagrams: [{
+            uuid: "seq-uuid",
+            id: "loginFlow",
+            name: "Login Flow",
+            type: "sequence-diagram",
+            content: "",
+            referencedNodeIds: [],
+            ownerComponentUuid: "owner-uuid",
+            referencedFunctionUuids: [],
+          }],
+        }],
+      }],
+    }
+    const root = { uuid: "root-uuid", id: "root", name: "root", type: "component" as const, actors: [], subComponents: [owner], useCaseDiagrams: [], interfaces: [] }
+    const ast = parseAst([
+      "actor caller",
+      "caller ->> owner: IFace:doWork():shared",
+      "caller ->> owner: shared",
+      "caller ->> owner: UseCase:placeOrder:shared",
+      "caller ->> owner: Sequence:loginFlow",
+    ].join("\n"))
+
+    const { messageLinks } = generateSequenceMermaidFromAst(ast, owner, root, "owner-uuid")
+    expect(messageLinks).toEqual([
+      {
+        kind: "functionRef",
+        renderedLabel: "shared",
+        targetUuid: "owner-uuid",
+        interfaceUuid: "owner-iface",
+        clickable: true,
+      },
+      {
+        kind: "label",
+        renderedLabel: "shared",
+        clickable: false,
+      },
+      {
+        kind: "useCaseRef",
+        renderedLabel: "shared (2)",
+        targetUuid: "uc-uuid",
+        clickable: true,
+      },
+      {
+        kind: "seqDiagramRef",
+        renderedLabel: "Login Flow",
+        targetUuid: "seq-uuid",
+        clickable: true,
+      },
+    ])
   })
 
   it("keeps Mermaid and readonly editor links aligned for duplicate sibling interface IDs", () => {

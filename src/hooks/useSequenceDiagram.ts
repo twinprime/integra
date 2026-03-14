@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from "react"
 import type React from "react"
 import { useSystemStore } from "../store/useSystemStore"
 import type { ComponentNode, DiagramNode } from "../store/types"
-import { generateSequenceMermaid } from "../parser/sequenceDiagram/mermaidGenerator"
+import { generateSequenceMermaid, type SequenceMessageLink } from "../parser/sequenceDiagram/mermaidGenerator"
 import { useMermaidBase } from "./useMermaidBase"
 
 function findActorRect(target: Element, container: Element): Element | null {
@@ -22,15 +22,13 @@ export function useSequenceDiagram(diagramNode: DiagramNode | null) {
   const selectNode = useSystemStore((s) => s.selectNode)
   const selectInterface = useSystemStore((s) => s.selectInterface)
   const participantIdMapRef = useRef<Record<string, string>>({})
-  const messageLabelUuidsRef = useRef<Record<string, string>>({})
-  const messageLabelInterfaceUuidsRef = useRef<Record<string, string>>({})
+  const messageLinksRef = useRef<SequenceMessageLink[]>([])
 
   const buildContent = useCallback(
     (content: string, ownerComp: ComponentNode | null, root: ComponentNode, ownerCompUuid: string) => {
-      const { mermaidContent, idToUuid, messageLabelToUuid, messageLabelToInterfaceUuid } = generateSequenceMermaid(content, ownerComp, root, ownerCompUuid)
+      const { mermaidContent, idToUuid, messageLinks } = generateSequenceMermaid(content, ownerComp, root, ownerCompUuid)
       participantIdMapRef.current = idToUuid
-      messageLabelUuidsRef.current = messageLabelToUuid
-      messageLabelInterfaceUuidsRef.current = messageLabelToInterfaceUuid
+      messageLinksRef.current = messageLinks
       return { mermaidContent, idToUuid }
     },
     [],
@@ -46,9 +44,13 @@ export function useSequenceDiagram(diagramNode: DiagramNode | null) {
       const g = rect.parentElement
       if (g) g.style.cursor = "pointer"
     })
-    const labelMap = messageLabelUuidsRef.current
-    elementRef.current.querySelectorAll<SVGTextElement>("text.messageText").forEach((el) => {
-      if (labelMap[el.textContent?.trim() ?? ""]) {
+    const messageLinks = messageLinksRef.current
+    elementRef.current.querySelectorAll<SVGTextElement>("text.messageText").forEach((el, index) => {
+      const link = messageLinks[index]
+      if (link?.clickable && link.targetUuid) {
+        el.setAttribute("data-integra-target-uuid", link.targetUuid)
+        el.setAttribute("data-integra-link-kind", link.kind)
+        if (link.interfaceUuid) el.setAttribute("data-integra-interface-uuid", link.interfaceUuid)
         el.style.cursor = "pointer"
         // Apply underline to tspan children as well: SVG text-decoration does not
         // reliably cascade from <text> to <tspan> children in all browsers.
@@ -67,11 +69,10 @@ export function useSequenceDiagram(diagramNode: DiagramNode | null) {
     // Message label click (function ref or use-case ref)
     const msgText = target.closest("text.messageText")
     if (msgText) {
-      const label = msgText.textContent?.trim() ?? ""
-      const uuid = messageLabelUuidsRef.current[label]
+      const uuid = msgText.getAttribute("data-integra-target-uuid")
       if (uuid) {
         selectNode(uuid)
-        const ifaceUuid = messageLabelInterfaceUuidsRef.current[label]
+        const ifaceUuid = msgText.getAttribute("data-integra-interface-uuid")
         if (ifaceUuid) selectInterface(ifaceUuid)
         return
       }

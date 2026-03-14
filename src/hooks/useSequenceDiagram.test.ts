@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { renderHook, waitFor } from "@testing-library/react"
+import { act, renderHook, waitFor } from "@testing-library/react"
 import { useSequenceDiagram } from "./useSequenceDiagram"
 import type { SequenceDiagramNode, ComponentNode } from "../store/types"
 import type { SystemState } from "../store/useSystemStore"
@@ -28,6 +28,7 @@ vi.mock("../parser/sequenceDiagram/mermaidGenerator", () => ({
     idToUuid: { A: "uuid-a", B: "uuid-b" },
     messageLabelToUuid: { hello: "fn-uuid" },
     messageLabelToInterfaceUuid: { hello: "iface-uuid" },
+    messageLinks: [{ kind: "functionRef", renderedLabel: "hello", targetUuid: "fn-uuid", interfaceUuid: "iface-uuid", clickable: true }],
   }),
 }))
 
@@ -63,6 +64,12 @@ const mockDiagramNode: SequenceDiagramNode = {
   referencedFunctionUuids: [],
 }
 
+function createSvgContainer(innerSvg: string): HTMLDivElement {
+  const container = document.createElement("div")
+  container.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg">${innerSvg}</svg>`
+  return container
+}
+
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("useSequenceDiagram", () => {
@@ -82,6 +89,7 @@ describe("useSequenceDiagram", () => {
       idToUuid: { A: "uuid-a", B: "uuid-b" },
       messageLabelToUuid: { hello: "fn-uuid" },
       messageLabelToInterfaceUuid: { hello: "iface-uuid" },
+      messageLinks: [{ kind: "functionRef", renderedLabel: "hello", targetUuid: "fn-uuid", interfaceUuid: "iface-uuid", clickable: true }],
     })
   })
 
@@ -134,5 +142,90 @@ describe("useSequenceDiagram", () => {
     expect(result.current.svg).toBe("")
     expect(result.current.error).toBe("")
     expect(mermaid.render).not.toHaveBeenCalled()
+  })
+
+  it("styles only clickable message labels and stores navigation metadata", async () => {
+    vi.mocked(generateSequenceMermaid).mockReturnValue({
+      mermaidContent: "sequenceDiagram\n  A->>B: hello\n  A->>B: plain text",
+      idToUuid: { A: "uuid-a", B: "uuid-b" },
+      messageLabelToUuid: { hello: "fn-uuid" },
+      messageLabelToInterfaceUuid: { hello: "iface-uuid" },
+      messageLinks: [
+        { kind: "functionRef", renderedLabel: "hello", targetUuid: "fn-uuid", interfaceUuid: "iface-uuid", clickable: true },
+        { kind: "label", renderedLabel: "plain text", clickable: false },
+      ],
+    })
+
+    const { result } = renderHook(() => useSequenceDiagram(mockDiagramNode))
+    act(() => {
+      result.current.elementRef.current = createSvgContainer(`
+        <text class="messageText">hello</text>
+        <text class="messageText">plain text</text>
+      `)
+    })
+
+    await waitFor(() => expect(result.current.svg).toBe("<svg>seq</svg>"))
+
+    const labels = result.current.elementRef.current?.querySelectorAll<SVGTextElement>("text.messageText")
+    expect(labels).toHaveLength(2)
+    expect(labels?.[0].style.cursor).toBe("pointer")
+    expect(labels?.[0].style.textDecoration).toBe("underline")
+    expect(labels?.[0].getAttribute("data-integra-target-uuid")).toBe("fn-uuid")
+    expect(labels?.[0].getAttribute("data-integra-interface-uuid")).toBe("iface-uuid")
+    expect(labels?.[1].style.cursor).toBe("")
+    expect(labels?.[1].style.textDecoration).toBe("")
+    expect(labels?.[1].getAttribute("data-integra-target-uuid")).toBeNull()
+  })
+
+  it("clicks a clickable message label using bound SVG metadata", async () => {
+    vi.mocked(generateSequenceMermaid).mockReturnValue({
+      mermaidContent: "sequenceDiagram\n  A->>B: checkout",
+      idToUuid: { A: "uuid-a", B: "uuid-b" },
+      messageLabelToUuid: { checkout: "use-case-uuid" },
+      messageLabelToInterfaceUuid: {},
+      messageLinks: [{ kind: "useCaseRef", renderedLabel: "checkout", targetUuid: "use-case-uuid", clickable: true }],
+    })
+
+    const { result } = renderHook(() => useSequenceDiagram(mockDiagramNode))
+    act(() => {
+      result.current.elementRef.current = createSvgContainer('<text class="messageText">checkout</text>')
+    })
+
+    await waitFor(() => expect(result.current.svg).toBe("<svg>seq</svg>"))
+
+    const label = result.current.elementRef.current?.querySelector("text.messageText")
+    expect(label?.getAttribute("data-integra-target-uuid")).toBe("use-case-uuid")
+
+    act(() => {
+      result.current.handleSequenceClick({ target: label } as unknown as React.MouseEvent<HTMLDivElement>)
+    })
+
+    expect(mockSelectNode).toHaveBeenCalledWith("use-case-uuid")
+    expect(mockSelectInterface).not.toHaveBeenCalled()
+  })
+
+  it("does nothing when clicking a plain-text message label", async () => {
+    vi.mocked(generateSequenceMermaid).mockReturnValue({
+      mermaidContent: "sequenceDiagram\n  A->>B: plain text",
+      idToUuid: { A: "uuid-a", B: "uuid-b" },
+      messageLabelToUuid: {},
+      messageLabelToInterfaceUuid: {},
+      messageLinks: [{ kind: "label", renderedLabel: "plain text", clickable: false }],
+    })
+
+    const { result } = renderHook(() => useSequenceDiagram(mockDiagramNode))
+    act(() => {
+      result.current.elementRef.current = createSvgContainer('<text class="messageText">plain text</text>')
+    })
+
+    await waitFor(() => expect(result.current.svg).toBe("<svg>seq</svg>"))
+
+    const label = result.current.elementRef.current?.querySelector("text.messageText")
+    act(() => {
+      result.current.handleSequenceClick({ target: label } as unknown as React.MouseEvent<HTMLDivElement>)
+    })
+
+    expect(mockSelectNode).not.toHaveBeenCalled()
+    expect(mockSelectInterface).not.toHaveBeenCalled()
   })
 })
