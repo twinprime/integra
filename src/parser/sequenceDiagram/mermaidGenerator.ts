@@ -60,15 +60,32 @@ function sectionKeyword(kind: "loop" | "alt" | "par" | "opt"): string {
   return kind === "alt" ? "else" : "and"
 }
 
+export type SequenceMessageLink = {
+  kind: "label" | "functionRef" | "useCaseRef" | "seqDiagramRef"
+  renderedLabel: string
+  targetUuid?: string
+  interfaceUuid?: string
+  clickable: boolean
+}
+
+export type SequenceMermaidResult = {
+  mermaidContent: string
+  idToUuid: Record<string, string>
+  messageLabelToUuid: Record<string, string>
+  messageLabelToInterfaceUuid: Record<string, string>
+  messageLinks: SequenceMessageLink[]
+}
+
 export function generateSequenceMermaidFromAst(
   ast: SeqAst,
   ownerComp: ComponentNode | null,
   root: ComponentNode,
   ownerCompUuid?: string,
-): { mermaidContent: string; idToUuid: Record<string, string>; messageLabelToUuid: Record<string, string>; messageLabelToInterfaceUuid: Record<string, string> } {
+): SequenceMermaidResult {
   const idToUuid: Record<string, string> = {}
   const messageLabelToUuid: Record<string, string> = {}
   const messageLabelToInterfaceUuid: Record<string, string> = {}
+  const messageLinks: SequenceMessageLink[] = []
 
   // ─── Participant lines ───────────────────────────────────────────────────────
   let mermaidContent = "sequenceDiagram\n"
@@ -97,9 +114,9 @@ export function generateSequenceMermaidFromAst(
   }
 
   // ─── Messages, notes, and blocks in source order ──────────────────────────────
-  mermaidContent += emitStatements(ast.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, messageLabelToInterfaceUuid, new Map())
+  mermaidContent += emitStatements(ast.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, messageLabelToInterfaceUuid, messageLinks, new Map())
 
-  return { mermaidContent, idToUuid, messageLabelToUuid, messageLabelToInterfaceUuid }
+  return { mermaidContent, idToUuid, messageLabelToUuid, messageLabelToInterfaceUuid, messageLinks }
 }
 
 // Maps each base label to a per-uuid rendered label assignment.
@@ -130,6 +147,7 @@ function emitStatements(
   ownerCompUuid: string | undefined,
   messageLabelToUuid: Record<string, string>,
   messageLabelToInterfaceUuid: Record<string, string>,
+  messageLinks: SequenceMessageLink[],
   labelMap: LabelMap,
   indent = "",
 ): string {
@@ -141,12 +159,12 @@ function emitStatements(
       const firstSection = sections[0]
       const guardText = firstSection.guard ? ` ${firstSection.guard}` : ""
       out += `${indent}${kind}${guardText}\n`
-      out += emitStatements(firstSection.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, messageLabelToInterfaceUuid, labelMap, indent + "  ")
+      out += emitStatements(firstSection.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, messageLabelToInterfaceUuid, messageLinks, labelMap, indent + "  ")
       for (const section of sections.slice(1)) {
         const secKw = sectionKeyword(kind)
         const secGuard = section.guard ? ` ${section.guard}` : ""
         out += `${indent}${secKw}${secGuard}\n`
-        out += emitStatements(section.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, messageLabelToInterfaceUuid, labelMap, indent + "  ")
+        out += emitStatements(section.statements, ownerComp, root, ownerCompUuid, messageLabelToUuid, messageLabelToInterfaceUuid, messageLinks, labelMap, indent + "  ")
       }
       out += `${indent}end\n`
     } else if ("action" in stmt) {
@@ -179,6 +197,13 @@ function emitStatements(
           const renderedLabel = escapeLabel(mermaidLabel)
           if (target?.componentUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = target.componentUuid
           if (target?.interfaceUuid && !messageLabelToInterfaceUuid[mermaidLabel]) messageLabelToInterfaceUuid[mermaidLabel] = target.interfaceUuid
+          messageLinks.push({
+            kind: "functionRef",
+            renderedLabel: mermaidLabel,
+            targetUuid: target?.componentUuid,
+            interfaceUuid: target?.interfaceUuid,
+            clickable: target?.componentUuid != null,
+          })
           out += `${indent}${fromId}${msg.arrow}${toId}: ${renderedLabel}\n`
           break
         }
@@ -192,6 +217,12 @@ function emitStatements(
           const mermaidLabel = resolveLabel(baseLabel, ucUuid, labelMap)
           const renderedLabel = escapeLabel(mermaidLabel)
           if (ucUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = ucUuid
+          messageLinks.push({
+            kind: "useCaseRef",
+            renderedLabel: mermaidLabel,
+            targetUuid: ucUuid,
+            clickable: ucUuid != null,
+          })
           out += `${indent}${fromId}${msg.arrow}${toId}: ${renderedLabel}\n`
           break
         }
@@ -205,10 +236,21 @@ function emitStatements(
           const mermaidLabel = resolveLabel(baseLabel, seqUuid, labelMap)
           const renderedLabel = escapeLabel(mermaidLabel)
           if (seqUuid && !messageLabelToUuid[mermaidLabel]) messageLabelToUuid[mermaidLabel] = seqUuid
+          messageLinks.push({
+            kind: "seqDiagramRef",
+            renderedLabel: mermaidLabel,
+            targetUuid: seqUuid,
+            clickable: seqUuid != null,
+          })
           out += `${indent}${fromId}${msg.arrow}${toId}: ${renderedLabel}\n`
           break
         }
         case "label":
+          messageLinks.push({
+            kind: "label",
+            renderedLabel: c.text,
+            clickable: false,
+          })
           out += `${indent}${fromId}${msg.arrow}${toId}: ${escapeLabel(c.text)}\n`
           break
         case "none":
@@ -227,11 +269,11 @@ export function generateSequenceMermaid(
   ownerComp: ComponentNode | null,
   root: ComponentNode,
   ownerCompUuid?: string,
-): { mermaidContent: string; idToUuid: Record<string, string>; messageLabelToUuid: Record<string, string>; messageLabelToInterfaceUuid: Record<string, string> } {
-  if (!content.trim()) return { mermaidContent: "sequenceDiagram\n", idToUuid: {}, messageLabelToUuid: {}, messageLabelToInterfaceUuid: {} }
+): SequenceMermaidResult {
+  if (!content.trim()) return { mermaidContent: "sequenceDiagram\n", idToUuid: {}, messageLabelToUuid: {}, messageLabelToInterfaceUuid: {}, messageLinks: [] }
   const { cst, lexErrors } = parseSequenceDiagramCst(content)
   if (lexErrors.length) {
-    return { mermaidContent: "sequenceDiagram\n", idToUuid: {}, messageLabelToUuid: {}, messageLabelToInterfaceUuid: {} }
+    return { mermaidContent: "sequenceDiagram\n", idToUuid: {}, messageLabelToUuid: {}, messageLabelToInterfaceUuid: {}, messageLinks: [] }
   }
   const ast = buildSeqAst(cst)
   return generateSequenceMermaidFromAst(ast, ownerComp, root, ownerCompUuid)
