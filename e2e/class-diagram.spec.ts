@@ -3,6 +3,7 @@ import {
   makeLocalStorageValue,
   makeLocalStorageValueWithBlockOnlyCall,
   makeLocalStorageValueWithDependency,
+  makeLocalStorageValueWithDependencyOnlyComponent,
 } from "./fixtures/sample-system"
 
 // ─── Shared helper ────────────────────────────────────────────────────────────
@@ -99,6 +100,25 @@ test.describe("component class diagram — dependency arrows", () => {
     await page.goto("/")
 
     await page.getByRole("treeitem").filter({ hasText: "AuthService" }).first().click()
+
+    const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
+    await svgContainer.waitFor({ timeout: 5000 })
+    await expect(svgContainer.locator("svg")).toBeVisible()
+
+    const classNodes = svgContainer.locator(".classGroup, .node, g.classBox")
+    expect(await classNodes.count()).toBeGreaterThan(2)
+  })
+
+  test("renders a dependency-only component diagram even when the component has no interfaces", async ({ page }) => {
+    const lsValue = makeLocalStorageValueWithDependencyOnlyComponent()
+    await page.addInitScript((value) => {
+      localStorage.setItem("integra-system", value)
+    }, lsValue)
+    await page.goto("/")
+
+    await page.getByRole("treeitem").filter({ hasText: "AuthService" }).first().click()
+
+    await expect(page.getByText("No interfaces defined for this component")).not.toBeVisible()
 
     const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
     await svgContainer.waitFor({ timeout: 5000 })

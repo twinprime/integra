@@ -283,6 +283,66 @@ export function makeLocalStorageValueWithDependency(): string {
 }
 
 /**
+ * Variant fixture where AuthService has no own interfaces, but still calls
+ * OrderService's IOrder interface.
+ * Used to verify that a dependency-only component still renders a class diagram.
+ */
+export function makeLocalStorageValueWithDependencyOnlyComponent(): string {
+  const authWithoutInterfaces: ComponentNode = {
+    ...sampleSystem.subComponents[0],
+    interfaces: [],
+  }
+
+  const orderWithIface: ComponentNode = {
+    ...sampleSystem.subComponents[1],
+    interfaces: [
+      {
+        uuid: UUIDS.orderIface,
+        id: "IOrder",
+        name: "IOrder",
+        type: "rest",
+        functions: [
+          {
+            uuid: UUIDS.orderFn,
+            id: "process",
+            parameters: [{ name: "orderId", type: "string", required: true }],
+          },
+        ],
+      },
+    ],
+  }
+
+  const depSeq: SequenceDiagramNode = {
+    uuid: "dep-only-seq-uuid",
+    id: "AuthToOrderWithoutOwnInterfaces",
+    name: "Auth To Order Without Own Interfaces",
+    type: "sequence-diagram",
+    ownerComponentUuid: UUIDS.root,
+    referencedNodeIds: [UUIDS.authComp, UUIDS.orderComp],
+    referencedFunctionUuids: [UUIDS.orderFn],
+    content: [
+      "component AuthService",
+      "component OrderService",
+      "AuthService ->> OrderService: IOrder:process(orderId: string)",
+    ].join("\n"),
+  }
+
+  const systemWithDependencyOnlyComponent: ComponentNode = {
+    ...sampleSystem,
+    subComponents: [authWithoutInterfaces, orderWithIface],
+    useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
+      ...ucd,
+      useCases: ucd.useCases.map((uc) => ({
+        ...uc,
+        sequenceDiagrams: [...uc.sequenceDiagrams, depSeq],
+      })),
+    })),
+  }
+
+  return JSON.stringify({ state: { rootComponent: systemWithDependencyOnlyComponent }, version: 0 })
+}
+
+/**
  * Variant fixture where the seq diagram has a function ref message with a \n display label.
  * Used to verify that \n in labels produces a <br/> visual line break in the diagram.
  */

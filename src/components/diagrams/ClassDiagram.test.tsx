@@ -89,6 +89,18 @@ describe("ComponentClassDiagram — error display", () => {
     expect(screen.getByText(/No interfaces defined/i)).toBeTruthy()
     expect(document.querySelector("pre")).toBeNull()
   })
+
+  it("does not show the empty-state message when dependency-only diagram source is available", () => {
+    mockUseCompClass.mockReturnValue({
+      svg: "",
+      error: "",
+      mermaidSource: "classDiagram\n  class comp\n  class IOrder\n  comp ..> IOrder",
+      elementRef: makeRef(),
+    })
+    render(<ComponentClassDiagram componentNode={makeCompNode(false)} />)
+
+    expect(screen.queryByText(/No interfaces defined/i)).toBeNull()
+  })
 })
 
 // ─── UseCaseClassDiagram ──────────────────────────────────────────────────────
@@ -124,4 +136,3 @@ describe("UseCaseClassDiagram — error display", () => {
     expect(document.querySelector("pre")).toBeNull()
   })
 })
-

@@ -10,7 +10,7 @@ interface ComponentClassDiagramProps {
 export const ComponentClassDiagram = ({ componentNode }: ComponentClassDiagramProps) => {
   const { svg, error, mermaidSource, elementRef } = useComponentClassDiagram(componentNode)
 
-  if (!svg && !error && !componentNode.interfaces?.length) {
+  if (!svg && !error && !mermaidSource && !componentNode.interfaces?.length) {
     return (
       <div className="h-full flex items-center justify-center text-gray-500">
         No interfaces defined for this component

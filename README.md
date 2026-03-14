@@ -38,7 +38,7 @@ As you write sequence diagrams, Integra automatically derives:
 - **Interface specifications** (with typed functions and parameters) on the receiving component
 - **Use cases** listed under their use case diagram
 - **Use-case class diagram** — when a use-case node is selected, the bottom panel renders an auto-generated class diagram showing all actors, components, and interfaces used across its sequence diagrams, with realization (`..|>`) and dependency (`..>`) arrows
-- **Component class diagram** — when a component node is selected, the bottom panel renders an auto-generated class diagram showing the component's interfaces (with method signatures), sibling actors/components that call those interfaces (dependents), and sibling components that this component calls out to (dependencies)
+- **Component class diagram** — when a component node is selected, the bottom panel renders an auto-generated class diagram showing the component's interfaces, sibling actors/components that call those interfaces (dependents), and the dependency interfaces plus owner components that this component calls out to, even when the selected component has no interfaces of its own. For any interface shown in the diagram, only the functions that are actually referenced by the relevant sequence diagrams are listed.
 
 Navigate the tree to inspect generated nodes. Clicking a node or participant in the rendered diagram navigates to that node in the tree. Orphaned nodes (no longer referenced by any diagram) show a delete button on hover.
 
@@ -817,4 +817,3 @@ npm run test:run   # Run unit tests once (CI)
 npm run test:ui    # Run unit tests with Vitest UI
 npm run test:e2e   # Run Playwright end-to-end tests
 ```
-
