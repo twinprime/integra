@@ -38,7 +38,7 @@ describe("buildComponentClassDiagram ancestor sibling scope", () => {
     const result = buildComponentClassDiagram(getNestedCompA(root), root)
 
     expect(result.mermaidContent).toContain("platform ..> IFoo")
-    expect(result.mermaidContent).toMatch(/linkStyle \d+ stroke:#dc2626,color:#dc2626,stroke-width:2px/)
+    expect(result.mermaidContent).toContain("style platform fill:#fee2e2,stroke:#dc2626,color:#7f1d1d")
   })
 
   it("does not mark immediate sibling inbound dependencies as violations", () => {
@@ -54,6 +54,7 @@ describe("buildComponentClassDiagram ancestor sibling scope", () => {
 
     expect(result.mermaidContent).toContain("compB ..> IFoo")
     expect(result.mermaidContent).not.toContain("stroke:#dc2626")
+    expect(result.mermaidContent).not.toContain("fill:#fee2e2")
   })
 
   it("excludes a descendant of an ancestor sibling that calls the target", () => {
@@ -69,6 +70,7 @@ describe("buildComponentClassDiagram ancestor sibling scope", () => {
 
     expect(result.mermaidContent).not.toContain("platformChild")
     expect(result.mermaidContent).not.toContain("stroke:#dc2626")
+    expect(result.mermaidContent).not.toContain("fill:#fee2e2")
   })
 
   it("excludes a descendant of an ancestor sibling that the target calls out to", () => {

@@ -261,12 +261,10 @@ export function buildComponentClassDiagram(
   }
 
   const lines: string[] = ["classDiagram"]
-  let relationshipCount = 0
-  const violationLinkIndexes: number[] = []
+  const violationParticipantIds = new Set<string>()
 
-  const addRelationship = (line: string): number => {
+  const addRelationship = (line: string): void => {
     lines.push(line)
-    return relationshipCount++
   }
 
   // ── Subject component ──────────────────────────────────────────────────────
@@ -291,8 +289,8 @@ export function buildComponentClassDiagram(
     }
   }
   for (const { fromNodeId, toNodeId, isViolation } of depArrows) {
-    const linkIndex = addRelationship(`    ${fromNodeId} ..> ${toNodeId}`)
-    if (isViolation) violationLinkIndexes.push(linkIndex)
+    addRelationship(`    ${fromNodeId} ..> ${toNodeId}`)
+    if (isViolation) violationParticipantIds.add(fromNodeId)
   }
 
   // ── Dependencies (this component calls out to) ────────────────────────────
@@ -335,8 +333,8 @@ export function buildComponentClassDiagram(
   for (const iface of component.interfaces ?? []) {
     lines.push(`    style ${iface.id} fill:#bfdbfe,stroke:#2563eb,color:#1e3a5f`)
   }
-  for (const linkIndex of violationLinkIndexes) {
-    lines.push(`    linkStyle ${linkIndex} stroke:#dc2626,color:#dc2626,stroke-width:2px`)
+  for (const nodeId of violationParticipantIds) {
+    lines.push(`    style ${nodeId} fill:#fee2e2,stroke:#dc2626,color:#7f1d1d`)
   }
 
   return { mermaidContent: lines.join("\n"), idToUuid }
