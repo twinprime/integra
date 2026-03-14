@@ -22,6 +22,7 @@ export interface InterfaceSpecification {
   name: string;
   description?: string;
   type: 'kafka' | 'rest' | 'graphql' | 'other';
+  /** Stored local functions. Inherited interfaces may keep this empty; read/lookup/render paths should resolve effective functions via the shared helper. */
   functions: InterfaceFunction[];
   /** UUID of the parent component's interface this interface inherits from. When set, functions are sourced from the parent interface. */
   parentInterfaceUuid?: string;
@@ -67,4 +68,3 @@ export interface SequenceDiagramNode extends DiagramNode {
 }
 
 export type Node = ComponentNode | ActorNode | UseCaseNode | UseCaseDiagramNode | SequenceDiagramNode;
-

@@ -277,4 +277,51 @@ describe("resolveFunctionRefTarget", () => {
     const root = makeComp("root-uuid", "root")
     expect(resolveFunctionRefTarget(root, "root", "API", "getData")).toBeNull()
   })
+
+  it("resolves inherited interface functions on the receiver component", () => {
+    const child: ComponentNode = {
+      uuid: "child-uuid",
+      id: "child",
+      name: "child",
+      type: "component",
+      subComponents: [],
+      actors: [],
+      useCaseDiagrams: [],
+      interfaces: [
+        {
+          uuid: "child-iface-uuid",
+          id: "API",
+          name: "API",
+          type: "rest",
+          functions: [],
+          parentInterfaceUuid: "parent-iface-uuid",
+        },
+      ],
+    }
+    const root: ComponentNode = {
+      uuid: "root-uuid",
+      id: "root",
+      name: "root",
+      type: "component",
+      subComponents: [child],
+      actors: [],
+      useCaseDiagrams: [],
+      interfaces: [
+        {
+          uuid: "parent-iface-uuid",
+          id: "API",
+          name: "API",
+          type: "rest",
+          functions: [{ uuid: "parent-fn-uuid", id: "getData", parameters: [] }],
+        },
+      ],
+    }
+
+    expect(resolveFunctionRefTarget(root, "child", "API", "getData")).toEqual({
+      componentUuid: "child-uuid",
+      interfaceUuid: "child-iface-uuid",
+      functionUuid: "parent-fn-uuid",
+      parameters: [],
+    })
+  })
 })

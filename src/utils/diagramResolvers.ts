@@ -2,6 +2,7 @@ import type { ComponentNode, ActorNode, Parameter } from "../store/types"
 import { findNodeByPath, isInScope } from "./nodeUtils"
 import { findCompByUuid, upsertNodeInTree } from "../nodes/nodeTree"
 import { deriveNameFromId } from "./nameUtils"
+import { resolveEffectiveInterfaceFunctions } from "./interfaceFunctions"
 
 export function resolveInOwner(
   ownerComp: ComponentNode,
@@ -134,22 +135,26 @@ export type ResolvedFunctionRefTarget = {
 }
 
 function findFunctionRefTargetInTree(
-  root: ComponentNode,
+  current: ComponentNode,
+  treeRoot: ComponentNode,
   interfaceId: string,
   functionId: string,
 ): ResolvedFunctionRefTarget | null {
-  const iface = root.interfaces?.find((candidate) => candidate.id === interfaceId)
-  const fn = iface?.functions.find((candidate) => candidate.id === functionId)
+  const iface = current.interfaces?.find((candidate) => candidate.id === interfaceId)
+  const fn = iface
+    ? resolveEffectiveInterfaceFunctions(iface, current, treeRoot)
+      .find((candidate) => candidate.id === functionId)
+    : undefined
   if (iface && fn) {
     return {
-      componentUuid: root.uuid,
+      componentUuid: current.uuid,
       interfaceUuid: iface.uuid,
       functionUuid: fn.uuid,
       parameters: fn.parameters,
     }
   }
-  for (const sub of root.subComponents) {
-    const found = findFunctionRefTargetInTree(sub, interfaceId, functionId)
+  for (const sub of current.subComponents) {
+    const found = findFunctionRefTargetInTree(sub, treeRoot, interfaceId, functionId)
     if (found) return found
   }
   return null
@@ -163,10 +168,10 @@ export function resolveFunctionRefTarget(
 ): ResolvedFunctionRefTarget | null {
   const receiverComp = root.id === receiverNodeId ? root : findReceiverComp(root, receiverNodeId)
   if (receiverComp) {
-    const inReceiver = findFunctionRefTargetInTree(receiverComp, interfaceId, functionId)
+    const inReceiver = findFunctionRefTargetInTree(receiverComp, root, interfaceId, functionId)
     if (inReceiver) return inReceiver
   }
-  return findFunctionRefTargetInTree(root, interfaceId, functionId)
+  return findFunctionRefTargetInTree(root, root, interfaceId, functionId)
 }
 
 export function findInterfaceNameByInterfaceId(

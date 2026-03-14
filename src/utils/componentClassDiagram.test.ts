@@ -606,6 +606,83 @@ describe("buildComponentClassDiagram", () => {
     expect(result.mermaidContent).toContain("+process(data: string)")
   })
 
+  it("shows parent functions for an inherited interface on the selected component", () => {
+    const inheritedIface = {
+      uuid: "ifoo-child-uuid",
+      id: "IFoo",
+      name: "IFoo",
+      type: "rest" as const,
+      functions: [],
+      parentInterfaceUuid: "root-ifoo-uuid",
+    }
+    const root: ComponentNode = {
+      ...makeRoot(),
+      interfaces: [
+        {
+          uuid: "root-ifoo-uuid",
+          id: "IFoo",
+          name: "IFoo",
+          type: "rest",
+          functions: [
+            { uuid: "root-fn1-uuid", id: "doSomething", parameters: [{ name: "id", type: "string", required: true }] },
+            { uuid: "root-fn2-uuid", id: "getAll", parameters: [{ name: "page", type: "number", required: false }] },
+          ],
+        },
+      ],
+      subComponents: [
+        {
+          ...getCompA(makeRoot()),
+          interfaces: [inheritedIface],
+        },
+        makeRoot().subComponents[1],
+      ],
+    }
+
+    const result = buildComponentClassDiagram(root.subComponents[0], root)
+    expect(result.mermaidContent).toContain("+doSomething(id: string)")
+    expect(result.mermaidContent).toContain("+getAll(page: number?)")
+  })
+
+  it("filters inherited interface functions after resolving them from the parent", () => {
+    const inheritedIface = {
+      uuid: "ifoo-child-uuid",
+      id: "IFoo",
+      name: "IFoo",
+      type: "rest" as const,
+      functions: [],
+      parentInterfaceUuid: "root-ifoo-uuid",
+    }
+    const sd = makeSeqDiagram(
+      "actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething(id: string)",
+    )
+    const root: ComponentNode = {
+      ...makeRoot([sd]),
+      interfaces: [
+        {
+          uuid: "root-ifoo-uuid",
+          id: "IFoo",
+          name: "IFoo",
+          type: "rest",
+          functions: [
+            { uuid: "root-fn1-uuid", id: "doSomething", parameters: [{ name: "id", type: "string", required: true }] },
+            { uuid: "root-fn2-uuid", id: "getAll", parameters: [{ name: "page", type: "number", required: false }] },
+          ],
+        },
+      ],
+      subComponents: [
+        {
+          ...getCompA(makeRoot()),
+          interfaces: [inheritedIface],
+        },
+        makeRoot().subComponents[1],
+      ],
+    }
+
+    const result = buildComponentClassDiagram(root.subComponents[0], root)
+    expect(result.mermaidContent).toContain("+doSomething(id: string)")
+    expect(result.mermaidContent).not.toContain("+getAll(page: number?)")
+  })
+
   it("delegates to root diagram when component is the root", () => {
     const root = makeRoot()
     const result = buildComponentClassDiagram(root, root)

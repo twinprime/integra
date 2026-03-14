@@ -6,17 +6,21 @@ import { getCachedSeqAst } from "./seqAstCache"
 import type { SeqAst } from "../parser/sequenceDiagram/visitor"
 import { findNodeByPath } from "./nodeUtils"
 import { collectAllDiagrams } from "../nodes/nodeTree"
+import { resolveEffectiveInterfaceFunctions } from "./interfaceFunctions"
 
 function emitInterfaceClass(
   iface: InterfaceSpecification,
+  ownerComponent: ComponentNode,
+  rootComponent: ComponentNode,
   lines: string[],
   calledFunctionIds?: Set<string>,
 ): void {
   lines.push(`    class ${iface.id}["${iface.name}"] {`)
   lines.push(`        <<interface>>`)
+  const effectiveFunctions = resolveEffectiveInterfaceFunctions(iface, ownerComponent, rootComponent)
   const fns = calledFunctionIds
-    ? iface.functions.filter((fn) => calledFunctionIds.has(fn.id))
-    : iface.functions
+    ? effectiveFunctions.filter((fn) => calledFunctionIds.has(fn.id))
+    : effectiveFunctions
   for (const fn of fns) {
     const params = fn.parameters
       .map((p) => `${p.name}: ${p.type}${p.required ? "" : "?"}`)
@@ -106,7 +110,7 @@ export function buildRootClassDiagram(
     idToUuid[child.id] = child.uuid
 
     for (const iface of child.interfaces ?? []) {
-      emitInterfaceClass(iface, lines, calledFunctionsByInterface.get(iface.id))
+      emitInterfaceClass(iface, child, rootComponent, lines, calledFunctionsByInterface.get(iface.id))
       lines.push(`    ${child.id} ..|> ${iface.id}`)
     }
   }

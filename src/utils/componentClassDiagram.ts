@@ -7,6 +7,7 @@ import type { SeqAst } from "../parser/sequenceDiagram/visitor"
 import { findNodeByPath } from "./nodeUtils"
 import { collectAllDiagrams } from "../nodes/nodeTree"
 import { buildRootClassDiagram } from "./rootClassDiagram"
+import { resolveEffectiveInterfaceFunctions } from "./interfaceFunctions"
 
 type ParticipantKind = "actor" | "component"
 
@@ -51,12 +52,19 @@ function registerParticipants(
   }
 }
 
-function emitInterfaceClass(iface: InterfaceSpecification, lines: string[], calledFunctionIds?: Set<string>): void {
+function emitInterfaceClass(
+  iface: InterfaceSpecification,
+  ownerComponent: ComponentNode,
+  rootComponent: ComponentNode,
+  lines: string[],
+  calledFunctionIds?: Set<string>,
+): void {
   lines.push(`    class ${iface.id}["${iface.name}"] {`)
   lines.push(`        <<interface>>`)
+  const effectiveFunctions = resolveEffectiveInterfaceFunctions(iface, ownerComponent, rootComponent)
   const fns = calledFunctionIds
-    ? iface.functions.filter((fn) => calledFunctionIds.has(fn.id))
-    : iface.functions
+    ? effectiveFunctions.filter((fn) => calledFunctionIds.has(fn.id))
+    : effectiveFunctions
   for (const fn of fns) {
     const params = fn.parameters
       .map((p) => `${p.name}: ${p.type}${p.required ? "" : "?"}`)
@@ -77,7 +85,7 @@ export function buildComponentClassDiagram(
 
   // Restrict visible participants to direct siblings of the target component
   const parentNode = findParentNode(rootComponent, component.uuid)
-  const parentComp = parentNode?.type === "component" ? (parentNode as ComponentNode) : null
+  const parentComp = parentNode?.type === "component" ? parentNode : null
   const siblingCompUuids = new Set<string>(
     (parentComp?.subComponents ?? [])
       .filter((c) => c.uuid !== component.uuid)
@@ -174,7 +182,7 @@ export function buildComponentClassDiagram(
 
   // ── Subject's own interfaces ───────────────────────────────────────────────
   for (const iface of component.interfaces ?? []) {
-    emitInterfaceClass(iface, lines, calledOwnFunctions.get(iface.id))
+    emitInterfaceClass(iface, component, rootComponent, lines, calledOwnFunctions.get(iface.id))
   }
   for (const iface of component.interfaces ?? []) {
     lines.push(`    ${component.id} ..|> ${iface.id}`)
@@ -202,8 +210,8 @@ export function buildComponentClassDiagram(
     let hasInterfaceArrow = false
     for (const [ifaceId, calledFunctionIds] of ifaceMap) {
       const ifaceSpec = receiverNode?.interfaces?.find((i) => i.id === ifaceId)
-      if (ifaceSpec) {
-        emitInterfaceClass(ifaceSpec, lines, calledFunctionIds)
+      if (receiverNode && ifaceSpec) {
+        emitInterfaceClass(ifaceSpec, receiverNode, rootComponent, lines, calledFunctionIds)
         lines.push(`    ${receiver.nodeId} ..|> ${ifaceId}`)
         hasInterfaceArrow = true
       }
@@ -237,4 +245,3 @@ export function buildComponentClassDiagram(
 
   return { mermaidContent: lines.join("\n"), idToUuid }
 }
-
