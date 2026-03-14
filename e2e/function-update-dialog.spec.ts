@@ -1,15 +1,15 @@
 import { test, expect } from "@playwright/test"
 import type { Page } from "@playwright/test"
 import { makeLocalStorageValueForFunctionUpdate } from "./fixtures/sample-system"
+import { loadAppWithFixture } from "./helpers/app"
+import { openEditableTreeItem } from "./helpers/interactions"
 
 /**
  * Helper: navigate to the "Auth Flow" sequence diagram and confirm the editor is open.
  * Auth Flow has no pre-existing content, so DiagramEditor opens it directly in edit mode.
  */
 async function openAuthFlowEditor(page: Page) {
-  await page.getByRole("treeitem").filter({ hasText: "Auth Flow" }).click()
-  const editor = page.locator(".cm-content[contenteditable='true']")
-  await expect(editor).toBeVisible()
+  const editor = await openEditableTreeItem(page, "Auth Flow")
   return editor
 }
 
@@ -46,11 +46,7 @@ async function triggerCompatibleConflict(page: Page) {
 }
 
 test.beforeEach(async ({ page }) => {
-  const lsValue = makeLocalStorageValueForFunctionUpdate()
-  await page.addInitScript((value) => {
-    localStorage.setItem("integra-system", value)
-  }, lsValue)
-  await page.goto("/")
+  await loadAppWithFixture(page, makeLocalStorageValueForFunctionUpdate())
 })
 
 test.describe("FunctionUpdateDialog", () => {

@@ -40,7 +40,17 @@ function tokenEnd(t: IToken): number {
 }
 
 function participantRefId(pRef: CstNode): string {
-  return toks(pRef.children as ChildDict, "Identifier").map((t) => t.image).join(" ")
+  return [...toks(pRef.children as ChildDict, "Identifier"), ...toks(pRef.children as ChildDict, "NumberToken")]
+    .sort((a, b) => a.startOffset - b.startOffset)
+    .map((t) => t.image)
+    .join(" ")
+}
+
+function pathSegmentTokens(nodePathNode: CstNode): IToken[][] {
+  return nodes(nodePathNode.children as ChildDict, "nodePathSegment").map((segmentNode) =>
+    [...toks(segmentNode.children as ChildDict, "Identifier"), ...toks(segmentNode.children as ChildDict, "NumberToken")]
+      .sort((a, b) => a.startOffset - b.startOffset)
+  )
 }
 
 // ─── Visitor ─────────────────────────────────────────────────────────────────
@@ -89,8 +99,8 @@ class SeqPositionedVisitorImpl extends BaseVisitor {
     const keyword = (toks(c, "Actor")[0] ?? toks(c, "Component")[0])?.image ?? "actor"
     const nodePathNode = nodes(c, "nodePath")[0]
     if (!nodePathNode) return
-    const pathTokens = toks(nodePathNode.children, "Identifier")
-    const pathIds = pathTokens.map((t) => t.image)
+    const pathSegments = pathSegmentTokens(nodePathNode)
+    const pathIds = pathSegments.map((segment) => segment.map((t) => t.image).join(" "))
     const aliasToken = toks(c, "Identifier")[0] ?? null
     const id = aliasToken?.image ?? pathIds[pathIds.length - 1]
     if (!id) return
@@ -121,12 +131,13 @@ class SeqPositionedVisitorImpl extends BaseVisitor {
   seqDeclaration(ctx: ChildDict): void {
     const nodePathNode = nodes(ctx, "nodePath")[0]
     if (!nodePathNode) return
-    const pathTokens = toks(nodePathNode.children, "Identifier")
+    const pathSegments = pathSegmentTokens(nodePathNode)
     const aliasToken = toks(ctx, "Identifier")[0] ?? null
-    const pathIds = pathTokens.map((t) => t.image)
+    const pathIds = pathSegments.map((segment) => segment.map((t) => t.image).join(" "))
     const id = aliasToken?.image ?? pathIds[pathIds.length - 1]
     if (!id) return
-    const navToken = aliasToken ?? pathTokens[pathTokens.length - 1]
+    const lastSegmentTokens = pathSegments[pathSegments.length - 1] ?? []
+    const navToken = aliasToken ?? lastSegmentTokens[lastSegmentTokens.length - 1]
     const uuid = this._participantMap.get(id)
     if (uuid && navToken) {
       this._entries.push({ from: navToken.startOffset, to: tokenEnd(navToken), uuid })

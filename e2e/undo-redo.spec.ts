@@ -1,12 +1,16 @@
 import { test, expect } from "@playwright/test"
 import { makeLocalStorageValue } from "./fixtures/sample-system"
+import { loadAppWithFixture } from "./helpers/app"
+import {
+  getVisibleCodeMirrorEditor,
+  renameNodeId,
+  selectTreeItem,
+  specificationEditor,
+  treeItem,
+} from "./helpers/interactions"
 
 test.beforeEach(async ({ page }) => {
-  const lsValue = makeLocalStorageValue()
-  await page.addInitScript((value) => {
-    localStorage.setItem("integra-system", value)
-  }, lsValue)
-  await page.goto("/")
+  await loadAppWithFixture(page, makeLocalStorageValue())
 })
 
 test.describe("undo / redo", () => {
@@ -14,11 +18,7 @@ test.describe("undo / redo", () => {
 
   /** Rename the "Login" use-case ID to "SignIn" so there is one history entry. */
   async function renameLoginToSignIn(page: import("@playwright/test").Page) {
-    await page.getByRole("treeitem").filter({ hasText: "Login" }).first().click()
-    const idInput = page.getByLabel("Node ID")
-    await idInput.clear()
-    await idInput.fill("SignIn")
-    await idInput.press("Enter")
+    await renameNodeId(page, "Login", "SignIn")
   }
 
   // ── Tests ─────────────────────────────────────────────────────────────────
@@ -27,8 +27,8 @@ test.describe("undo / redo", () => {
     await renameLoginToSignIn(page)
 
     // The rename propagates into the use-case diagram content
-    await page.getByRole("treeitem").filter({ hasText: "Main Use Cases" }).click()
-    const diagramEditor = page.getByLabel("Specification")
+    await selectTreeItem(page, "Main Use Cases")
+    const diagramEditor = specificationEditor(page)
     await expect(diagramEditor).toContainText("use case SignIn")
     await expect(diagramEditor).not.toContainText("use case Login")
 
@@ -45,12 +45,12 @@ test.describe("undo / redo", () => {
 
     // Navigate away from the ID input by clicking a tree item so neither an
     // <input> nor a .cm-editor is focused (the keyboard handler early-exits for those)
-    await page.getByRole("treeitem").filter({ hasText: "Main Use Cases" }).click()
-    const diagramEditor = page.getByLabel("Specification")
+    await selectTreeItem(page, "Main Use Cases")
+    const diagramEditor = specificationEditor(page)
     await expect(diagramEditor).toContainText("use case SignIn")
 
     // Click the tree panel body to ensure focus is outside any input/editor
-    await page.locator('[role="treeitem"]').filter({ hasText: "Main Use Cases" }).click()
+    await treeItem(page, "Main Use Cases").click()
 
     // Press Ctrl+Z on the page body
     await page.keyboard.press("Control+z")
@@ -63,8 +63,8 @@ test.describe("undo / redo", () => {
   test("toolbar Redo button re-applies an undone change", async ({ page }) => {
     await renameLoginToSignIn(page)
 
-    await page.getByRole("treeitem").filter({ hasText: "Main Use Cases" }).click()
-    const diagramEditor = page.getByLabel("Specification")
+    await selectTreeItem(page, "Main Use Cases")
+    const diagramEditor = specificationEditor(page)
     await expect(diagramEditor).toContainText("use case SignIn")
 
     // Undo the rename
@@ -82,15 +82,11 @@ test.describe("undo / redo", () => {
     await renameLoginToSignIn(page)
 
     // Change 2: rename "User" actor ID → "Customer"
-    await page.getByRole("treeitem").filter({ hasText: /^User$/ }).first().click()
-    const actorIdInput = page.getByLabel("Node ID")
-    await actorIdInput.clear()
-    await actorIdInput.fill("Customer")
-    await actorIdInput.press("Enter")
+    await renameNodeId(page, /^User$/, "Customer")
 
     // Both changes are visible in the use-case diagram
-    await page.getByRole("treeitem").filter({ hasText: "Main Use Cases" }).click()
-    const diagramEditor = page.getByLabel("Specification")
+    await selectTreeItem(page, "Main Use Cases")
+    const diagramEditor = specificationEditor(page)
     await expect(diagramEditor).toContainText("actor Customer")
     await expect(diagramEditor).toContainText("use case SignIn")
 
@@ -130,8 +126,8 @@ test.describe("undo / redo", () => {
 
   test("undo removes a newly added sub-component from the tree", async ({ page }) => {
     // Right-click "AuthService" to open the context menu
-    await page.getByRole("treeitem").filter({ hasText: "AuthService" }).first().click()
-    await page.getByRole("treeitem").filter({ hasText: "AuthService" }).first().dispatchEvent("contextmenu")
+    await selectTreeItem(page, "AuthService")
+    await treeItem(page, "AuthService").dispatchEvent("contextmenu")
 
     // Click "Add Sub-component"
     await page.getByRole("button", { name: "Add Sub-component" }).click()
@@ -159,14 +155,13 @@ test.describe("undo / redo", () => {
     await renameLoginToSignIn(page)
 
     // Navigate to "Login Flow" sequence diagram (has content → starts in preview mode)
-    await page.getByRole("treeitem").filter({ hasText: "Login Flow" }).click()
+    await selectTreeItem(page, "Login Flow")
 
     // Click the preview to enter edit mode
     await page.getByLabel("Diagram specification — click to edit").click()
 
     // The CodeMirror editable editor should now be active
-    const cmEditor = page.locator(".cm-content[contenteditable='true']")
-    await expect(cmEditor).toBeVisible()
+    const cmEditor = await getVisibleCodeMirrorEditor(page)
     await cmEditor.click()
 
     // Type a new line at the current cursor position.
@@ -186,8 +181,8 @@ test.describe("undo / redo", () => {
     await expect(cmEditor).not.toContainText("added by test")
 
     // Navigate to "Main Use Cases" and verify the tree-level rename was NOT undone
-    await page.getByRole("treeitem").filter({ hasText: "Main Use Cases" }).click()
-    const diagramEditor = page.getByLabel("Specification")
+    await selectTreeItem(page, "Main Use Cases")
+    const diagramEditor = specificationEditor(page)
     await expect(diagramEditor).toContainText("use case SignIn")
     await expect(diagramEditor).not.toContainText("use case Login")
   })

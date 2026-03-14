@@ -6,6 +6,8 @@
  *   SequenceDiagram   ::= NEWLINE* (SeqStatement (NEWLINE+ | EOF))*
  *   SeqStatement      ::= SeqDeclaration | SeqNote | SeqMessage | SeqBlock | SeqComment | SeqActivation
  *   SeqDeclaration    ::= (ACTOR | COMPONENT) NodePath (AS IDENTIFIER)?
+ *   NodePath          ::= NodePathSegment ("/" NodePathSegment)*
+ *   NodePathSegment   ::= (IDENTIFIER | NUMBER_TOKEN)+
  *   SeqNote           ::= NOTE SeqNotePosition COLON NOTE_TEXT
  *   SeqNotePosition   ::= (RIGHT | LEFT) OF IDENTIFIER
  *                       | OVER IDENTIFIER (COMMA IDENTIFIER)?
@@ -90,11 +92,22 @@ export class SequenceDiagramParser extends CstParser {
   })
 
   nodePath = this.RULE("nodePath", () => {
-    this.CONSUME(Identifier)
+    this.SUBRULE(this.nodePathSegment)
     this.MANY(() => {
       this.CONSUME(Slash)
-      this.CONSUME2(Identifier)
+      this.SUBRULE2(this.nodePathSegment)
     })
+  })
+
+  nodePathSegment = this.RULE("nodePathSegment", () => {
+    this.OR([
+      { ALT: () => this.CONSUME(Identifier) },
+      { ALT: () => this.CONSUME(NumberToken) },
+    ])
+    this.MANY(() => this.OR2([
+      { ALT: () => this.CONSUME2(Identifier) },
+      { ALT: () => this.CONSUME2(NumberToken) },
+    ]))
   })
 
   // ─── Participant reference (one or more space-separated words, digits allowed) ─

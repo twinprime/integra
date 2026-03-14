@@ -4,7 +4,10 @@ import {
   makeLocalStorageValueWithBlockOnlyCall,
   makeLocalStorageValueWithDependency,
   makeLocalStorageValueWithDependencyOnlyComponent,
+  makeLocalStorageValueWithInheritance,
 } from "./fixtures/sample-system"
+import { loadAppWithFixture } from "./helpers/app"
+import type { ComponentNode, SequenceDiagramNode, UseCaseDiagramNode, UseCaseNode } from "../src/store/types"
 
 // ─── Shared helper ────────────────────────────────────────────────────────────
 
@@ -68,6 +71,32 @@ test.describe("use case class diagram", () => {
   )
 })
 
+test.describe("root class diagram", () => {
+  test.beforeEach(async ({ page }) => {
+    const lsValue = makeLocalStorageValue()
+    await page.addInitScript((value) => {
+      localStorage.setItem("integra-system", value)
+    }, lsValue)
+    await page.goto("/")
+  })
+
+  runClassDiagramTests((page) =>
+    page.getByRole("treeitem").filter({ hasText: /^System$/ }).first().click()
+  )
+
+  test("shows direct child components and referenced interface content", async ({ page }) => {
+    await page.getByRole("treeitem").filter({ hasText: /^System$/ }).first().click()
+
+    const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
+    await svgContainer.waitFor({ timeout: 5000 })
+
+    await expect(svgContainer).toContainText("AuthService")
+    await expect(svgContainer).toContainText("OrderService")
+    await expect(svgContainer).toContainText("IAuth")
+    await expect(svgContainer).toContainText("login")
+  })
+})
+
 // ─── Block message support ────────────────────────────────────────────────────
 
 test.describe("component class diagram — block message support", () => {
@@ -109,6 +138,19 @@ test.describe("component class diagram — dependency arrows", () => {
     expect(await classNodes.count()).toBeGreaterThan(2)
   })
 
+  test("shows dependency component and interface details in the rendered diagram", async ({ page }) => {
+    await loadAppWithFixture(page, makeLocalStorageValueWithDependency())
+    await page.getByRole("treeitem").filter({ hasText: "AuthService" }).first().click()
+
+    const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
+    await svgContainer.waitFor({ timeout: 5000 })
+
+    await expect(svgContainer).toContainText("AuthService")
+    await expect(svgContainer).toContainText("OrderService")
+    await expect(svgContainer).toContainText("IOrder")
+    await expect(svgContainer).toContainText("process")
+  })
+
   test("renders a dependency-only component diagram even when the component has no interfaces", async ({ page }) => {
     const lsValue = makeLocalStorageValueWithDependencyOnlyComponent()
     await page.addInitScript((value) => {
@@ -126,5 +168,166 @@ test.describe("component class diagram — dependency arrows", () => {
 
     const classNodes = svgContainer.locator(".classGroup, .node, g.classBox")
     expect(await classNodes.count()).toBeGreaterThan(2)
+  })
+})
+
+test.describe("component class diagram — inherited interface rendering", () => {
+  test("renders inherited interfaces with parent functions", async ({ page }) => {
+    await loadAppWithFixture(page, makeLocalStorageValueWithInheritance())
+    await page.getByRole("treeitem").filter({ hasText: "AuthService" }).first().click()
+
+    const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
+    await svgContainer.waitFor({ timeout: 5000 })
+
+    await expect(svgContainer).toContainText("IAuthDerived")
+    await expect(svgContainer).toContainText("doThing")
+  })
+})
+
+function makeScopedClassDiagramFixture(): string {
+  const sequenceDiagram: SequenceDiagramNode = {
+    uuid: "scope-seq-uuid",
+    id: "ScopedFlow",
+    name: "Scoped Flow",
+    type: "sequence-diagram",
+    ownerComponentUuid: "scope-comp-a-uuid",
+    referencedNodeIds: ["scope-comp-a-uuid", "scope-comp-b-uuid", "scope-platform-child-uuid"],
+    referencedFunctionUuids: ["scope-own-fn-uuid", "scope-platform-fn-uuid"],
+    content: [
+      "component compA",
+      "component parent/compB as compB",
+      "component platform/platformChild as platformChild",
+      "compB ->> compA: IFoo:doSomething(id: string)",
+      "compA ->> platformChild: IPlatformChild:handleChild(value: string)",
+    ].join("\n"),
+  }
+
+  const useCase: UseCaseNode = {
+    uuid: "scope-uc-uuid",
+    id: "ScopedUseCase",
+    name: "Scoped Use Case",
+    type: "use-case",
+    sequenceDiagrams: [sequenceDiagram],
+  }
+
+  const useCaseDiagram: UseCaseDiagramNode = {
+    uuid: "scope-ucd-uuid",
+    id: "ScopedUCD",
+    name: "Scoped Use Cases",
+    type: "use-case-diagram",
+    ownerComponentUuid: "scope-comp-a-uuid",
+    referencedNodeIds: ["scope-uc-uuid"],
+    content: "use case ScopedUseCase",
+    useCases: [useCase],
+  }
+
+  const system: ComponentNode = {
+    uuid: "scope-root-uuid",
+    id: "System",
+    name: "System",
+    type: "component",
+    actors: [],
+    interfaces: [],
+    useCaseDiagrams: [],
+    subComponents: [
+      {
+        uuid: "scope-parent-uuid",
+        id: "parent",
+        name: "parent",
+        type: "component",
+        actors: [],
+        interfaces: [],
+        useCaseDiagrams: [],
+        subComponents: [
+          {
+            uuid: "scope-comp-a-uuid",
+            id: "compA",
+            name: "compA",
+            type: "component",
+            actors: [],
+            useCaseDiagrams: [useCaseDiagram],
+            interfaces: [
+              {
+                uuid: "scope-own-iface-uuid",
+                id: "IFoo",
+                name: "IFoo",
+                type: "rest",
+                functions: [
+                  {
+                    uuid: "scope-own-fn-uuid",
+                    id: "doSomething",
+                    parameters: [{ name: "id", type: "string", required: true }],
+                  },
+                ],
+              },
+            ],
+            subComponents: [],
+          },
+          {
+            uuid: "scope-comp-b-uuid",
+            id: "compB",
+            name: "compB",
+            type: "component",
+            actors: [],
+            useCaseDiagrams: [],
+            interfaces: [],
+            subComponents: [],
+          },
+        ],
+      },
+      {
+        uuid: "scope-platform-uuid",
+        id: "platform",
+        name: "platform",
+        type: "component",
+        actors: [],
+        useCaseDiagrams: [],
+        interfaces: [],
+        subComponents: [
+          {
+            uuid: "scope-platform-child-uuid",
+            id: "platformChild",
+            name: "platformChild",
+            type: "component",
+            actors: [],
+            useCaseDiagrams: [],
+            interfaces: [
+              {
+                uuid: "scope-platform-iface-uuid",
+                id: "IPlatformChild",
+                name: "IPlatformChild",
+                type: "rest",
+                functions: [
+                  {
+                    uuid: "scope-platform-fn-uuid",
+                    id: "handleChild",
+                    parameters: [{ name: "value", type: "string", required: true }],
+                  },
+                ],
+              },
+            ],
+            subComponents: [],
+          },
+        ],
+      },
+    ],
+  }
+
+  return JSON.stringify({ state: { rootComponent: system }, version: 0 })
+}
+
+test.describe("component class diagram — scoped sibling visibility", () => {
+  test("keeps direct sibling callers visible but excludes descendant nodes of a sibling branch", async ({
+    page,
+  }) => {
+    await loadAppWithFixture(page, makeScopedClassDiagramFixture())
+    await page.getByRole("treeitem").filter({ hasText: /^compA$/ }).first().click()
+
+    const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
+    await svgContainer.waitFor({ timeout: 5000 })
+
+    await expect(svgContainer).toContainText("compB")
+    await expect(svgContainer).not.toContainText("platformChild")
+    await expect(svgContainer).not.toContainText("IPlatformChild")
   })
 })

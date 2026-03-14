@@ -1,22 +1,15 @@
 import { test, expect } from "@playwright/test"
+import { loadAppWithFixture } from "./helpers/app"
 import { makeLocalStorageValueWithEmptySeq } from "./fixtures/sample-system"
+import { openEditableTreeItem, saveEditorByBlurring } from "./helpers/interactions"
 
 test.beforeEach(async ({ page }) => {
-  const lsValue = makeLocalStorageValueWithEmptySeq()
-  await page.addInitScript((value) => {
-    localStorage.setItem("integra-system", value)
-  }, lsValue)
-  await page.goto("/")
+  await loadAppWithFixture(page, makeLocalStorageValueWithEmptySeq())
 })
 
 test.describe("auto-create missing path nodes", () => {
   test("typing a component path reference auto-creates the missing component in the tree", async ({ page }) => {
-    // Navigate to the empty "New Flow" sequence diagram (no content → starts in edit mode)
-    await page.getByRole("treeitem").filter({ hasText: "New Flow" }).click()
-
-    // The editor should be in edit mode (empty content)
-    const cmEditor = page.locator(".cm-content[contenteditable='true']")
-    await expect(cmEditor).toBeVisible()
+    const cmEditor = await openEditableTreeItem(page, "New Flow")
 
     // Type a spec referencing a new sub-component under AuthService that doesn't yet exist
     await cmEditor.click()
@@ -28,8 +21,7 @@ test.describe("auto-create missing path nodes", () => {
     ].join("\n"))
 
     // Save by clicking outside (blur)
-    await page.locator("body").click({ position: { x: 10, y: 10 } })
-    await page.waitForTimeout(300)
+    await saveEditorByBlurring(page)
 
     // Assert "NewModule" appears as a tree item (auto-created under AuthService)
     await expect(
@@ -38,10 +30,7 @@ test.describe("auto-create missing path nodes", () => {
   })
 
   test("typing an actor path reference auto-creates the actor under the target component", async ({ page }) => {
-    await page.getByRole("treeitem").filter({ hasText: "New Flow" }).click()
-
-    const cmEditor = page.locator(".cm-content[contenteditable='true']")
-    await expect(cmEditor).toBeVisible()
+    const cmEditor = await openEditableTreeItem(page, "New Flow")
 
     await cmEditor.click()
     await cmEditor.type([
@@ -51,8 +40,7 @@ test.describe("auto-create missing path nodes", () => {
     ].join("\n"))
 
     // Save by clicking outside (blur)
-    await page.locator("body").click({ position: { x: 10, y: 10 } })
-    await page.waitForTimeout(300)
+    await saveEditorByBlurring(page)
 
     // "AdminUser" actor should appear in the tree under AuthService
     await expect(

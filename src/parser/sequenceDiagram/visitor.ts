@@ -168,8 +168,15 @@ class SequenceDiagramVisitor extends BaseVisitor {
     }
   }
 
-  nodePath(ctx: Record<string, { image: string }[]>): string[] {
-    return (ctx.Identifier ?? []).map((t) => t.image)
+  nodePath(ctx: Record<string, unknown[]>): string[] {
+    return (ctx.nodePathSegment ?? []).map((segment) => this.visit(segment as never) as string)
+  }
+
+  nodePathSegment(ctx: Record<string, { image: string; startOffset: number }[]>): string {
+    return [...(ctx.Identifier ?? []), ...(ctx.NumberToken ?? [])]
+      .sort((a, b) => a.startOffset - b.startOffset)
+      .map((t) => t.image)
+      .join(" ")
   }
 
   participantRef(ctx: Record<string, { image: string; startOffset: number }[]>): string {

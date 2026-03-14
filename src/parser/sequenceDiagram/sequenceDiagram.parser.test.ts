@@ -80,6 +80,18 @@ describe("sequence diagram parser — declarations", () => {
     expect(ast.declarations[0].id).toBe("user")
     expect(ast.declarations[1].id).toBe("svc")
   })
+
+  it("parses a multi-word participant declaration", () => {
+    const { ast, lexErrors, parseErrors } = parse("actor Output Topics")
+    expect(lexErrors).toHaveLength(0)
+    expect(parseErrors).toHaveLength(0)
+    expect(ast.declarations[0]).toMatchObject({
+      entityType: "actor",
+      path: ["Output Topics"],
+      alias: null,
+      id: "Output Topics",
+    })
+  })
 })
 
 describe("sequence diagram parser — messages", () => {

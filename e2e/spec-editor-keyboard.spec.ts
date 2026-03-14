@@ -1,21 +1,15 @@
 import { test, expect } from "@playwright/test"
+import { loadAppWithFixture } from "./helpers/app"
 import { makeLocalStorageValueWithEmptySeq } from "./fixtures/sample-system"
+import { openEditableTreeItem } from "./helpers/interactions"
 
 test.beforeEach(async ({ page }) => {
-  const lsValue = makeLocalStorageValueWithEmptySeq()
-  await page.addInitScript((value) => {
-    localStorage.setItem("integra-system", value)
-  }, lsValue)
-  await page.goto("/")
+  await loadAppWithFixture(page, makeLocalStorageValueWithEmptySeq())
 })
 
 test.describe("spec editor keyboard shortcuts", () => {
   test("Tab indents the current line by 2 spaces instead of changing focus", async ({ page }) => {
-    // Navigate to the empty "New Flow" sequence diagram (starts in edit mode)
-    await page.getByRole("treeitem").filter({ hasText: "New Flow" }).click()
-
-    const cmEditor = page.locator(".cm-content[contenteditable='true']")
-    await expect(cmEditor).toBeVisible()
+    const cmEditor = await openEditableTreeItem(page, "New Flow")
 
     await cmEditor.click()
 
@@ -38,11 +32,7 @@ test.describe("spec editor keyboard shortcuts", () => {
   })
 
   test("Shift+Enter saves the spec without leaving edit mode", async ({ page }) => {
-    // Navigate to the empty "New Flow" sequence diagram (starts in edit mode)
-    await page.getByRole("treeitem").filter({ hasText: "New Flow" }).click()
-
-    const cmEditor = page.locator(".cm-content[contenteditable='true']")
-    await expect(cmEditor).toBeVisible()
+    const cmEditor = await openEditableTreeItem(page, "New Flow")
 
     await cmEditor.click()
 

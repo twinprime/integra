@@ -1,4 +1,6 @@
 import { test, expect } from "@playwright/test"
+import { loadAppWithFixture } from "./helpers/app"
+import { getVisibleCodeMirrorEditor, openEditableTreeItem } from "./helpers/interactions"
 import { makeLocalStorageValueWithEmptySeq } from "./fixtures/sample-system"
 
 /**
@@ -7,20 +9,15 @@ import { makeLocalStorageValueWithEmptySeq } from "./fixtures/sample-system"
  */
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript((value) => {
-    localStorage.setItem("integra-system", value)
-  }, makeLocalStorageValueWithEmptySeq())
-  await page.goto("/")
-  // Open the empty "New Flow" sequence diagram — starts in edit mode
-  await page.getByRole("treeitem").filter({ hasText: "New Flow" }).click()
-  const cmEditor = page.locator(".cm-content[contenteditable='true']")
+  await loadAppWithFixture(page, makeLocalStorageValueWithEmptySeq())
+  const cmEditor = await openEditableTreeItem(page, "New Flow")
   await expect(cmEditor).toBeVisible()
   await cmEditor.click()
 })
 
 test.describe("autocomplete UseCase: and Sequence: refs in sequence diagram", () => {
   test("UseCase: suggestions appear after typing 'UseCase:' in message label", async ({ page }) => {
-    const cmEditor = page.locator(".cm-content[contenteditable='true']")
+    const cmEditor = await getVisibleCodeMirrorEditor(page)
     // Declare participants then type an arrow line with UseCase: in the label
     await cmEditor.type("actor User")
     await cmEditor.press("Enter")
@@ -35,7 +32,7 @@ test.describe("autocomplete UseCase: and Sequence: refs in sequence diagram", ()
   })
 
   test("Sequence: suggestions appear after typing 'Sequence:' in message label", async ({ page }) => {
-    const cmEditor = page.locator(".cm-content[contenteditable='true']")
+    const cmEditor = await getVisibleCodeMirrorEditor(page)
     // The fixture has LoginFlow and NewFlow sequence diagrams under the Login use case.
     // After the fix, Sequence: searches the entire component tree, so these appear
     // regardless of which component receives the message arrow.
@@ -51,7 +48,7 @@ test.describe("autocomplete UseCase: and Sequence: refs in sequence diagram", ()
   })
 
   test("function ref suggestions (IAuth:login) still appear normally", async ({ page }) => {
-    const cmEditor = page.locator(".cm-content[contenteditable='true']")
+    const cmEditor = await getVisibleCodeMirrorEditor(page)
     // Baseline: verify that regular function ref suggestions still work
     await cmEditor.type("actor User")
     await cmEditor.press("Enter")

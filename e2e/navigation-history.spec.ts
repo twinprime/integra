@@ -66,6 +66,21 @@ test.describe("navigation history", () => {
     ).toHaveAttribute("aria-selected", "true")
   })
 
+  test("Alt+→ shortcut: navigates forward after going back", async ({ page }) => {
+    await page.getByRole("treeitem").filter({ hasText: "AuthService" }).first().click()
+    await page.getByRole("treeitem").filter({ hasText: "OrderService" }).first().click()
+
+    await page.keyboard.press("Alt+ArrowLeft")
+    await expect(
+      page.getByRole("treeitem").filter({ hasText: "AuthService" }).first()
+    ).toHaveAttribute("aria-selected", "true")
+
+    await page.keyboard.press("Alt+ArrowRight")
+    await expect(
+      page.getByRole("treeitem").filter({ hasText: "OrderService" }).first()
+    ).toHaveAttribute("aria-selected", "true")
+  })
+
   test("Forward stack resets after navigating to a new node", async ({ page }) => {
     // Navigate: AuthService → OrderService → Back (now at AuthService) → User
     await page.getByRole("treeitem").filter({ hasText: "AuthService" }).first().click()
