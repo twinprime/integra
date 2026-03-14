@@ -161,3 +161,129 @@ export const makeRootWithCompBInterfaces = (extraSeqDiagrams: SequenceDiagramNod
     ],
   }
 }
+
+export const makeNestedRootWithAncestorSibling = (
+  extraSeqDiagrams: SequenceDiagramNode[] = [],
+): ComponentNode => ({
+  uuid: "root-uuid",
+  id: "root",
+  name: "Root",
+  type: "component",
+  actors: [],
+  subComponents: [
+    {
+      uuid: "parent-uuid",
+      id: "parent",
+      name: "Parent",
+      type: "component",
+      actors: [],
+      subComponents: [
+        {
+          uuid: "nested-compa-uuid",
+          id: "compA",
+          name: "Component A",
+          type: "component",
+          subComponents: [],
+          actors: [],
+          useCaseDiagrams: [],
+          interfaces: [
+            {
+              uuid: "nested-ifoo-uuid",
+              id: "IFoo",
+              name: "IFoo",
+              type: "rest",
+              functions: [
+                {
+                  uuid: "nested-fn1-uuid",
+                  id: "doSomething",
+                  parameters: [{ name: "id", type: "string", required: true }],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          uuid: "nested-compb-uuid",
+          id: "compB",
+          name: "Component B",
+          type: "component",
+          subComponents: [],
+          actors: [],
+          useCaseDiagrams: [],
+          interfaces: [
+            {
+              uuid: "nested-ibaz-uuid",
+              id: "IBaz",
+              name: "IBaz",
+              type: "rest",
+              functions: [
+                {
+                  uuid: "nested-fn2-uuid",
+                  id: "process",
+                  parameters: [{ name: "data", type: "string", required: true }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      useCaseDiagrams: [],
+      interfaces: [],
+    },
+    {
+      uuid: "platform-uuid",
+      id: "platform",
+      name: "Platform",
+      type: "component",
+      actors: [],
+      subComponents: [
+        {
+          uuid: "platform-child-uuid",
+          id: "platformChild",
+          name: "Platform Child",
+          type: "component",
+          subComponents: [],
+          actors: [],
+          useCaseDiagrams: [],
+          interfaces: [
+            {
+              uuid: "platform-child-iface-uuid",
+              id: "IPlatformChild",
+              name: "IPlatformChild",
+              type: "rest",
+              functions: [
+                {
+                  uuid: "platform-child-fn-uuid",
+                  id: "handleChild",
+                  parameters: [{ name: "value", type: "string", required: true }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      useCaseDiagrams: [],
+      interfaces: [
+        {
+          uuid: "platform-iface-uuid",
+          id: "IPlatform",
+          name: "IPlatform",
+          type: "rest",
+          functions: [
+            {
+              uuid: "platform-fn-uuid",
+              id: "handlePlatform",
+              parameters: [{ name: "data", type: "string", required: true }],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+  useCaseDiagrams: extraSeqDiagrams.length
+    ? [makeUcd(makeUseCase(...extraSeqDiagrams))]
+    : [],
+  interfaces: [],
+})
+
+export const getNestedCompA = (root: ComponentNode) => root.subComponents[0].subComponents[0]

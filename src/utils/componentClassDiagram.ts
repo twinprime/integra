@@ -4,7 +4,7 @@ import { resolveInOwner } from "./diagramResolvers"
 import { flattenMessages } from "../parser/sequenceDiagram/visitor"
 import { getCachedSeqAst } from "./seqAstCache"
 import type { SeqAst } from "../parser/sequenceDiagram/visitor"
-import { findNodeByPath } from "./nodeUtils"
+import { findNodeByPath, getAncestorComponentChain } from "./nodeUtils"
 import { collectAllDiagrams } from "../nodes/nodeTree"
 import { buildRootClassDiagram } from "./rootClassDiagram"
 import { resolveEffectiveInterfaceFunctions } from "./interfaceFunctions"
@@ -16,6 +16,13 @@ type Participant = {
   name: string
   uuid: string
   kind: ParticipantKind
+}
+
+type ComponentScope = "immediate-sibling" | "ancestor-sibling"
+
+type VisibleParticipants = {
+  componentScopes: Map<string, ComponentScope>
+  actorUuids: Set<string>
 }
 
 function resolveDeclarationUuid(
@@ -52,6 +59,39 @@ function registerParticipants(
   }
 }
 
+function collectVisibleParticipants(
+  component: ComponentNode,
+  rootComponent: ComponentNode,
+): VisibleParticipants {
+  const componentScopes = new Map<string, ComponentScope>()
+  const actorUuids = new Set<string>()
+
+  const parentNode = findParentNode(rootComponent, component.uuid)
+  const parentComp = parentNode?.type === "component" ? parentNode : null
+
+  for (const sibling of parentComp?.subComponents ?? []) {
+    if (sibling.uuid === component.uuid) continue
+    componentScopes.set(sibling.uuid, "immediate-sibling")
+  }
+
+  for (const actor of parentComp?.actors ?? []) {
+    actorUuids.add(actor.uuid)
+  }
+
+  for (const ancestor of getAncestorComponentChain(rootComponent, component.uuid)) {
+    const ancestorParent = findParentNode(rootComponent, ancestor.uuid)
+    const ancestorParentComp = ancestorParent?.type === "component" ? ancestorParent : null
+    if (!ancestorParentComp) continue
+
+    for (const sibling of ancestorParentComp.subComponents) {
+      if (sibling.uuid === ancestor.uuid || componentScopes.has(sibling.uuid)) continue
+      componentScopes.set(sibling.uuid, "ancestor-sibling")
+    }
+  }
+
+  return { componentScopes, actorUuids }
+}
+
 function emitInterfaceClass(
   iface: InterfaceSpecification,
   ownerComponent: ComponentNode,
@@ -83,21 +123,13 @@ export function buildComponentClassDiagram(
     return buildRootClassDiagram(rootComponent)
   }
 
-  // Restrict visible participants to direct siblings of the target component
-  const parentNode = findParentNode(rootComponent, component.uuid)
-  const parentComp = parentNode?.type === "component" ? parentNode : null
-  const siblingCompUuids = new Set<string>(
-    (parentComp?.subComponents ?? [])
-      .filter((c) => c.uuid !== component.uuid)
-      .map((c) => c.uuid),
-  )
-  const siblingActorUuids = new Set<string>((parentComp?.actors ?? []).map((a) => a.uuid))
+  const { componentScopes, actorUuids } = collectVisibleParticipants(component, rootComponent)
 
   const targetInterfaceIds = new Set((component.interfaces ?? []).map((i) => i.id))
 
   // dependents: participants that call INTO this component's interfaces
   const dependentParticipants = new Map<string, Participant>()
-  const depArrows: Array<{ fromNodeId: string; toNodeId: string }> = []
+  const depArrows: Array<{ fromNodeId: string; toNodeId: string; isViolation: boolean }> = []
   const depArrowsSet = new Set<string>()
 
   // Track which functions are called on own interfaces (for filtering)
@@ -133,7 +165,9 @@ export function buildComponentClassDiagram(
       // ── Dependents: someone calls INTO this component's interface ──────────
       if (targetInterfaceIds.has(interfaceId) && receiverUuid === component.uuid) {
         if (!senderUuid || senderUuid === component.uuid) continue
-        if (!siblingCompUuids.has(senderUuid) && !siblingActorUuids.has(senderUuid)) continue
+        const senderScope = componentScopes.get(senderUuid)
+        const isVisibleActor = actorUuids.has(senderUuid)
+        if (!senderScope && !isVisibleActor) continue
 
         const sender = participantsMap.get(senderUuid)
         if (!sender) continue
@@ -144,7 +178,11 @@ export function buildComponentClassDiagram(
         const arrowKey = `${sender.nodeId}|${interfaceId}`
         if (!depArrowsSet.has(arrowKey)) {
           depArrowsSet.add(arrowKey)
-          depArrows.push({ fromNodeId: sender.nodeId, toNodeId: interfaceId })
+          depArrows.push({
+            fromNodeId: sender.nodeId,
+            toNodeId: interfaceId,
+            isViolation: senderScope === "ancestor-sibling",
+          })
         }
 
         // Track called function on own interface
@@ -156,7 +194,7 @@ export function buildComponentClassDiagram(
       if (senderUuid === component.uuid && receiverUuid && receiverUuid !== component.uuid) {
         const receiver = participantsMap.get(receiverUuid)
         if (!receiver || receiver.kind !== "component") continue
-        if (!siblingCompUuids.has(receiverUuid)) continue
+        if (!componentScopes.has(receiverUuid)) continue
 
         if (!outgoingByReceiver.has(receiverUuid)) {
           outgoingByReceiver.set(receiverUuid, new Map())
@@ -176,6 +214,13 @@ export function buildComponentClassDiagram(
   }
 
   const lines: string[] = ["classDiagram"]
+  let relationshipCount = 0
+  const violationLinkIndexes: number[] = []
+
+  const addRelationship = (line: string): number => {
+    lines.push(line)
+    return relationshipCount++
+  }
 
   // ── Subject component ──────────────────────────────────────────────────────
   lines.push(`    class ${component.id}["${component.name}"]`)
@@ -185,7 +230,7 @@ export function buildComponentClassDiagram(
     emitInterfaceClass(iface, component, rootComponent, lines, calledOwnFunctions.get(iface.id))
   }
   for (const iface of component.interfaces ?? []) {
-    lines.push(`    ${component.id} ..|> ${iface.id}`)
+    addRelationship(`    ${component.id} ..|> ${iface.id}`)
   }
 
   // ── Dependents (callers of this component's interfaces) ───────────────────
@@ -198,8 +243,9 @@ export function buildComponentClassDiagram(
       lines.push(`    class ${dep.nodeId}["${dep.name}"]:::component`)
     }
   }
-  for (const { fromNodeId, toNodeId } of depArrows) {
-    lines.push(`    ${fromNodeId} ..> ${toNodeId}`)
+  for (const { fromNodeId, toNodeId, isViolation } of depArrows) {
+    const linkIndex = addRelationship(`    ${fromNodeId} ..> ${toNodeId}`)
+    if (isViolation) violationLinkIndexes.push(linkIndex)
   }
 
   // ── Dependencies (this component calls out to) ────────────────────────────
@@ -212,16 +258,16 @@ export function buildComponentClassDiagram(
       const ifaceSpec = receiverNode?.interfaces?.find((i) => i.id === ifaceId)
       if (receiverNode && ifaceSpec) {
         emitInterfaceClass(ifaceSpec, receiverNode, rootComponent, lines, calledFunctionIds)
-        lines.push(`    ${receiver.nodeId} ..|> ${ifaceId}`)
+        addRelationship(`    ${receiver.nodeId} ..|> ${ifaceId}`)
         hasInterfaceArrow = true
       }
-      lines.push(`    ${component.id} ..> ${ifaceId}`)
+      addRelationship(`    ${component.id} ..> ${ifaceId}`)
     }
 
     lines.push(`    class ${receiver.nodeId}["${receiver.name}"]`)
     // Only draw a direct component arrow when no interface arrow already shows the relationship
     if (!hasInterfaceArrow) {
-      lines.push(`    ${component.id} ..> ${receiver.nodeId}`)
+      addRelationship(`    ${component.id} ..> ${receiver.nodeId}`)
     }
   }
 
@@ -241,6 +287,9 @@ export function buildComponentClassDiagram(
   lines.push(`    style ${component.id} fill:#1d4ed8,stroke:#1e3a5f,color:#ffffff`)
   for (const iface of component.interfaces ?? []) {
     lines.push(`    style ${iface.id} fill:#bfdbfe,stroke:#2563eb,color:#1e3a5f`)
+  }
+  for (const linkIndex of violationLinkIndexes) {
+    lines.push(`    linkStyle ${linkIndex} stroke:#dc2626,color:#dc2626,stroke-width:2px`)
   }
 
   return { mermaidContent: lines.join("\n"), idToUuid }

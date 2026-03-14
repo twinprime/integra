@@ -1,0 +1,87 @@
+// @vitest-environment node
+import { describe, expect, it } from "vitest"
+import { buildComponentClassDiagram } from "./componentClassDiagram"
+import {
+  getNestedCompA,
+  makeNestedRootWithAncestorSibling,
+  makeSeqDiagram,
+} from "./componentClassDiagram.test.fixtures"
+
+describe("buildComponentClassDiagram ancestor sibling scope", () => {
+  it("includes outbound dependencies to a sibling of an ancestor component", () => {
+    const sd = makeSeqDiagram(
+      [
+        "component parent/compA as compA",
+        "component platform",
+        "compA ->> platform: IPlatform:handlePlatform(data: string)",
+      ].join("\n"),
+    )
+    const root = makeNestedRootWithAncestorSibling([sd])
+    const result = buildComponentClassDiagram(getNestedCompA(root), root)
+
+    expect(result.mermaidContent).toContain('class IPlatform["IPlatform"] {')
+    expect(result.mermaidContent).toContain("+handlePlatform(data: string)")
+    expect(result.mermaidContent).toContain("platform ..|> IPlatform")
+    expect(result.mermaidContent).toContain("compA ..> IPlatform")
+  })
+
+  it("shows inbound dependencies from ancestor siblings as red violations", () => {
+    const sd = makeSeqDiagram(
+      [
+        "component platform",
+        "component parent/compA as compA",
+        "platform ->> compA: IFoo:doSomething(id: string)",
+      ].join("\n"),
+    )
+    const root = makeNestedRootWithAncestorSibling([sd])
+    const result = buildComponentClassDiagram(getNestedCompA(root), root)
+
+    expect(result.mermaidContent).toContain("platform ..> IFoo")
+    expect(result.mermaidContent).toMatch(/linkStyle \d+ stroke:#dc2626,color:#dc2626,stroke-width:2px/)
+  })
+
+  it("does not mark immediate sibling inbound dependencies as violations", () => {
+    const sd = makeSeqDiagram(
+      [
+        "component parent/compB as compB",
+        "component parent/compA as compA",
+        "compB ->> compA: IFoo:doSomething(id: string)",
+      ].join("\n"),
+    )
+    const root = makeNestedRootWithAncestorSibling([sd])
+    const result = buildComponentClassDiagram(getNestedCompA(root), root)
+
+    expect(result.mermaidContent).toContain("compB ..> IFoo")
+    expect(result.mermaidContent).not.toContain("stroke:#dc2626")
+  })
+
+  it("excludes a descendant of an ancestor sibling that calls the target", () => {
+    const sd = makeSeqDiagram(
+      [
+        "component platform/platformChild as platformChild",
+        "component parent/compA as compA",
+        "platformChild ->> compA: IFoo:doSomething(id: string)",
+      ].join("\n"),
+    )
+    const root = makeNestedRootWithAncestorSibling([sd])
+    const result = buildComponentClassDiagram(getNestedCompA(root), root)
+
+    expect(result.mermaidContent).not.toContain("platformChild")
+    expect(result.mermaidContent).not.toContain("stroke:#dc2626")
+  })
+
+  it("excludes a descendant of an ancestor sibling that the target calls out to", () => {
+    const sd = makeSeqDiagram(
+      [
+        "component parent/compA as compA",
+        "component platform/platformChild as platformChild",
+        "compA ->> platformChild: IPlatformChild:handleChild(value: string)",
+      ].join("\n"),
+    )
+    const root = makeNestedRootWithAncestorSibling([sd])
+    const result = buildComponentClassDiagram(getNestedCompA(root), root)
+
+    expect(result.mermaidContent).not.toContain("platformChild")
+    expect(result.mermaidContent).not.toContain("IPlatformChild")
+  })
+})
