@@ -58,6 +58,7 @@ function registerParticipants(
     if (participantsMap.has(uuid)) continue
     const node = findNode([rootComponent], uuid)
     if (!node) continue
+    if (decl.entityType === "actor") continue
     participantsMap.set(uuid, {
       nodeId: node.id,
       name: node.name,
@@ -130,13 +131,7 @@ function buildMermaidLines(
   const lines: string[] = ["classDiagram"]
 
   for (const p of participantsMap.values()) {
-    if (p.kind === "actor") {
-      lines.push(`    class ${p.nodeId}["${p.name}"]:::${p.kind} {`)
-      lines.push(`        <<actor>>`)
-      lines.push(`    }`)
-    } else {
-      lines.push(`    class ${p.nodeId}["${p.name}"]:::${p.kind}`)
-    }
+    lines.push(`    class ${p.nodeId}["${p.name}"]:::${p.kind}`)
   }
 
   for (const { interfaceId, interfaceName } of interfaces) {
@@ -199,6 +194,5 @@ export function buildUseCaseClassDiagram(
 
   return { mermaidContent: buildMermaidLines(participantsMap, state, idToUuid).join("\n"), idToUuid }
 }
-
 
 
