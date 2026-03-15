@@ -499,14 +499,87 @@ Integra is a single-page web application that allows users to model software sys
 
 #### Model invariants
 
-The core model is intentionally split between a **stored write model** and a **resolved read model**:
+The core model is intentionally split between a **stored write model** and a
+**resolved read model**. Contributors should preserve that split by using the
+shared helpers below instead of reaching into nested fields directly.
 
-- `InterfaceSpecification` is a union of local vs inherited interfaces.
-- Inherited interfaces may exist in the stored tree with an empty local `functions` list; read paths should resolve effective functions from the parent contract instead of assuming stored `functions` is authoritative.
-- Component trees are treated as immutable. Update paths should return new objects rather than mutating nested arrays or assigning fields like `.interfaces` directly.
-- Runtime boundaries (`localStorage` hydration, YAML load, parser merges) are validated before data is accepted into the main model tree.
+| Invariant | What it means | Use these helpers |
+|---|---|---|
+| Inherited interfaces resolve their contract from the parent | An inherited `InterfaceSpecification` may be stored with an empty local `functions` array; read paths must resolve the effective contract from the parent interface | `isInheritedInterface()`, `isLocalInterface()`, `getStoredInterfaceFunctions()`, `resolveEffectiveInterfaceFunctions()`, `resolveInterface()` in `src/utils/interfaceFunctions.ts` |
+| Components are updated immutably and kept in canonical order | Updates should return new objects, not mutate nested arrays, and interface/function ordering should stay normalized | `normalizeComponent()`, `normalizeComponentDeep()`, `addFunctionToInterface()`, `updateFunctionParams()`, `removeFunctionsFromInterfaces()` in `src/nodes/interfaceOps.ts` |
+| Inherited interfaces are readable but not locally writable | Functions cannot be added directly to an inherited interface; callers should branch on interface kind before attempting edits | `isInheritedInterface()` plus the parser/update flow in `src/parser/sequenceDiagram/systemUpdater.ts` |
+| Reparsing sequence diagrams must preserve user-authored metadata | Rebuilding functions from diagram text should keep descriptions and parameter metadata where possible | `tryReparseContent()` in `src/store/systemOps.ts` |
+| Runtime boundaries validate and normalize model data before it enters the app state | Persisted YAML / `localStorage` data should be parsed through the schema layer, not trusted as-is | `parseComponentNode()`, `safeParseComponentNode()`, `safeParsePersistedSystemState()` in `src/store/modelSchema.ts` |
+| Cross-component references must stay within the supported scope rules | Diagram references are only valid for the owning component, its descendants, its ancestors, and direct children of those ancestors | `isInScope()` in `src/utils/nodeUtils.ts` |
 
-In practice, contributors should prefer the shared interface/model helpers over direct field access whenever behavior depends on inheritance, ordering, or reparsed function metadata.
+#### Which helper should I use?
+
+- **Reading interface functions for rendering, lookup, or validation:** use
+  `resolveEffectiveInterfaceFunctions()` or `resolveInterface()`. Do **not**
+  assume `iface.functions` is the readable contract for inherited interfaces.
+- **Reading only locally stored functions during an edit operation:** use
+  `getStoredInterfaceFunctions()`. This keeps inherited interfaces effectively
+  read-only in local update flows.
+- **Adding/removing/updating functions on a component:** use the helpers in
+  `src/nodes/interfaceOps.ts`, then normalize with `normalizeComponent()`
+  where appropriate instead of mutating `component.interfaces` in place.
+- **Reparsing diagram text back into the model tree:** use
+  `tryReparseContent()` so function descriptions and parameter metadata are
+  preserved across parser rebuilds.
+- **Accepting data from persistence or imports:** go through
+  `safeParsePersistedSystemState()` / `parseComponentNode()` instead of casting
+  unknown data to the model types.
+- **Checking whether a diagram may reference another component:** use
+  `isInScope()` rather than hand-rolling ancestor/sibling checks.
+
+#### Examples
+
+**Read the effective contract for inherited interfaces**
+
+```ts
+// Bad: inherited interfaces may store an empty local functions array
+const functions = iface.functions
+
+// Good: resolve the readable contract from the parent when needed
+const functions = resolveEffectiveInterfaceFunctions(iface, ownerComp, rootComponent)
+```
+
+**Guard edits on inherited interfaces**
+
+```ts
+if (isInheritedInterface(currentInterface)) {
+  throw new Error(
+    `Cannot add function "${functionId}" to interface "${interfaceId}": ` +
+      "this interface inherits from a parent and its functions are locked.",
+  )
+}
+```
+
+**Preserve immutability and canonical ordering**
+
+```ts
+// Bad: mutates nested state and bypasses sorting rules
+component.interfaces.push(newInterface)
+
+// Good: return a new component value and normalize its ordering
+const next = normalizeComponent({
+  ...component,
+  interfaces: [...component.interfaces, newInterface],
+})
+```
+
+**Preserve user-authored metadata when reparsing sequence diagrams**
+
+```ts
+const result = tryReparseContent(content, system, nodeUuid)
+if (!result.parseError) {
+  updateSystem(result.rootComponent)
+}
+```
+
+When in doubt, prefer the shared helper that already exists in the store,
+parser, or node utility layer. Most of the subtle model bugs in this codebase
+come from bypassing one of these invariants.
 
 #### React Component Architecture
 
