@@ -111,6 +111,8 @@ export function detectContext(
   const lineStart = content.lastIndexOf("\n", cursorPos - 1) + 1
   const currentLine = content.slice(lineStart, cursorPos)
   const anchorLine = content.slice(0, cursorPos).split("\n").length - 1
+  const indentLen = currentLine.match(/^[\t ]*/)?.[0].length ?? 0
+  const lineWithoutIndent = currentLine.slice(indentLen)
 
   const toks = diagramType === "sequence-diagram"
     ? SeqLexer.tokenize(currentLine).tokens
@@ -184,7 +186,7 @@ export function detectContext(
   // ─── Keyword prefix at line start ──────────────────────────────────────────
 
   const keywords = diagramType === "use-case-diagram" ? UC_KEYWORDS : SEQ_KEYWORDS
-  const partial = currentLine
+  const partial = lineWithoutIndent
   const matchingKeywords = keywords.filter(
     (k) => k.startsWith(partial) && k !== partial,
   )
@@ -193,7 +195,7 @@ export function detectContext(
       type: "keyword",
       keywords: matchingKeywords,
       partial,
-      replaceFrom: lineStart,
+      replaceFrom: lineStart + indentLen,
       anchorLine,
     }
   }
@@ -204,7 +206,7 @@ export function detectContext(
     return {
       type: "declared-entity",
       partial,
-      replaceFrom: lineStart,
+      replaceFrom: lineStart + indentLen,
       anchorLine,
     }
   }

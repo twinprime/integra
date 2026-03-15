@@ -94,6 +94,18 @@ describe("detectContext", () => {
     expect(ctx?.type).toBe("entity-name")
   })
 
+  it("returns keyword context after leading indentation", () => {
+    const content = "  com"
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    expect(ctx?.type).toBe("keyword")
+  })
+
+  it("returns entity-name context after an indented keyword", () => {
+    const content = "  actor "
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    expect(ctx?.type).toBe("entity-name")
+  })
+
   it("returns seq-receiver context after arrow with no colon", () => {
     const content = "A ->> "
     const ctx = detectContext(content, content.length, "sequence-diagram")
@@ -107,6 +119,12 @@ describe("detectContext", () => {
     if (ctx?.type === "function-ref") {
       expect(ctx.receiverId).toBe("B")
     }
+  })
+
+  it("returns seq-receiver context for an indented message line", () => {
+    const content = "  A ->> "
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    expect(ctx?.type).toBe("seq-receiver")
   })
 
   it("returns keyword context for 'use' in use-case diagram", () => {

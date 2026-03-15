@@ -89,6 +89,17 @@ describe("createIntegralCompletionSource — keyword context", () => {
     expect(result!.from).toBe(0)
   })
 
+  it("keeps the replacement start after leading indentation", () => {
+    const doc = "  ac"
+    const result = runCompletion(doc, doc.length, {
+      diagramType: "sequence-diagram",
+      ownerComp: makeRoot(),
+      rootComponent: makeRoot(),
+    })
+    expect(result).not.toBeNull()
+    expect(result!.from).toBe(2)
+  })
+
   it("suggests 'component' when line starts with 'com'", () => {
     const result = runCompletion("com", 3, {
       diagramType: "sequence-diagram",
