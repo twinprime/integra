@@ -23,3 +23,7 @@ For every commit, follow these strict rules:
    - Use bullet points to list specific changes.
    - Reference any related issue numbers or tickets (e.g., 'Fixes #123').
 4. AI Context: Include a list of the specific user prompts that led to these changes at the end of the message for traceability.
+
+# Maintain Model Invariants
+
+When implementing any changes, ensure that the core invariants of the model as documented in the README.md section "Model Invariants" are maintained.
