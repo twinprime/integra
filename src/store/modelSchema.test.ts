@@ -110,4 +110,25 @@ describe("modelSchema", () => {
     expect(seq.referencedFunctionUuids).toEqual([])
     expect(seq.ownerComponentUuid).toBe("")
   })
+
+  it("accepts an optional persisted saved snapshot", () => {
+    const result = safeParsePersistedSystemState({
+      rootComponent: {
+        uuid: "root-uuid",
+        id: "root",
+        name: "Root",
+        type: "component",
+        interfaces: [],
+        actors: [],
+        subComponents: [],
+        useCaseDiagrams: [],
+      },
+      savedSnapshot: "root: saved",
+    })
+
+    expect(result.success).toBe(true)
+    if (!result.success) return
+
+    expect(result.data.savedSnapshot).toBe("root: saved")
+  })
 })

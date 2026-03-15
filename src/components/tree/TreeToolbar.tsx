@@ -65,10 +65,12 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
   const hasUnsavedChanges =
     savedSnapshot !== null && serializeYaml(rootComponent) !== savedSnapshot
 
-  // Mark initial (persisted) state as clean on first mount
+  // Initialize a clean baseline only when hydration did not restore one.
   useEffect(() => {
-    markSaved(serializeYaml(rootComponent))
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+    if (savedSnapshot === null) {
+      markSaved(serializeYaml(rootComponent))
+    }
+  }, [markSaved, rootComponent, savedSnapshot])
 
   // Keyboard shortcuts for undo/redo/nav (attached here; treeActive is passed in from TreeView)
   useEffect(() => {

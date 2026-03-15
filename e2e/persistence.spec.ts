@@ -36,7 +36,7 @@ test("auto-save persists a rename across reload", async ({ page }) => {
 
   // Rename the "Login" use-case to "SignIn"
   await page.getByRole("treeitem").filter({ hasText: "Login" }).first().click()
-  const nameInput = page.getByLabel("Name")
+  const nameInput = page.getByLabel("Node name")
   await nameInput.clear()
   await nameInput.fill("SignIn")
   await nameInput.press("Tab") // commit the change
@@ -50,6 +50,30 @@ test("auto-save persists a rename across reload", async ({ page }) => {
   // The renamed node should still appear under the tree
   await expect(page.getByRole("treeitem").filter({ hasText: "SignIn" })).toBeVisible()
   await expect(page.getByRole("treeitem").filter({ hasText: /^Login$/ })).not.toBeVisible()
+})
+
+test("unsaved changes indicator survives a page reload while the model is still dirty", async ({ page }) => {
+  const lsValue = makeLocalStorageValue()
+  await page.goto("/")
+  await page.evaluate((value) => {
+    localStorage.setItem("integra-system", value)
+  }, lsValue)
+  await page.reload()
+
+  await expect(page.getByTitle("Unsaved changes")).not.toBeVisible()
+
+  await page.getByRole("treeitem").filter({ hasText: "Login" }).first().click()
+  const idInput = page.getByLabel("Node ID")
+  await idInput.clear()
+  await idInput.fill("SignIn")
+  await idInput.press("Enter")
+
+  await expect(page.getByTitle("Unsaved changes")).toBeVisible()
+
+  await page.waitForTimeout(300)
+  await page.reload()
+
+  await expect(page.getByTitle("Unsaved changes")).toBeVisible()
 })
 
 // ─── 3. Clear system resets state ────────────────────────────────────────────

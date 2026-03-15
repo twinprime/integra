@@ -56,8 +56,11 @@ export const useSystemStore = create<SystemState>()(
     }),
     {
       name: "integra-system",
-      partialize: (state) => ({ rootComponent: state.rootComponent }),
-      version: 2,
+      partialize: (state) => ({
+        rootComponent: state.rootComponent,
+        savedSnapshot: state.savedSnapshot,
+      }),
+      version: 3,
       migrate: (persistedState) => persistedState,
       merge: (persistedState, currentState) => {
         const parsed = safeParsePersistedSystemState(persistedState)
@@ -68,6 +71,7 @@ export const useSystemStore = create<SystemState>()(
         return {
           ...currentState,
           rootComponent: normalizeComponentDeep(parsed.data.rootComponent),
+          savedSnapshot: parsed.data.savedSnapshot ?? null,
         }
       },
     },

@@ -118,6 +118,7 @@ export const componentNodeSchema: z.ZodType<ComponentNode> = z.lazy(() => z.obje
 
 export const persistedSystemStateSchema = z.object({
   rootComponent: componentNodeSchema,
+  savedSnapshot: z.string().nullable().optional(),
 })
 
 export function parseComponentNode(input: unknown): ComponentNode {

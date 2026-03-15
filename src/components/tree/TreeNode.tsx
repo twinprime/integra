@@ -144,14 +144,17 @@ export const TreeNode = memo(({ node, onContextMenu }: TreeNodeProps) => {
   }
 
   return (
-    <div className="pl-4" ref={setNodeRef} style={style} {...attributes}>
+    <div className="pl-4">
       <div
+        ref={setNodeRef}
+        {...attributes}
         role="treeitem"
         aria-selected={isSelected}
         tabIndex={0}
         className={`group flex items-center py-1 px-2 cursor-pointer rounded select-none text-[0.9rem] text-gray-300 hover:bg-gray-800 ${
           isSelected ? "bg-sky-900/50 text-sky-300" : ""
         } ${isDragging ? "opacity-40" : ""}`}
+        style={style}
         onClick={handleClick}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleClick() }}
         onContextMenu={handleContextMenu}
