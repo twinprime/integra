@@ -256,6 +256,7 @@ export const DiagramEditor = ({
             tabIndex={0}
             aria-label="Diagram specification — click to edit"
             className="w-full border border-gray-700 rounded-md bg-gray-950 cursor-text min-h-0 flex-1 overflow-auto focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+            onMouseDown={() => setIsEditing(true)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault()

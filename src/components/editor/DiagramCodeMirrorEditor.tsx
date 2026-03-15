@@ -134,6 +134,7 @@ export function DiagramCodeMirrorEditor({
 
   // Compartments for runtime reconfiguration
   const readOnlyCompartment = useRef(new Compartment())
+  const editableCompartment = useRef(new Compartment())
   const linkCursorCompartment = useRef(new Compartment())
 
   // ── Create EditorView once on mount ────────────────────────────────────────
@@ -184,6 +185,7 @@ export function DiagramCodeMirrorEditor({
       updateListener,
       navPlugin,
       readOnlyCompartment.current.of(EditorState.readOnly.of(readonly)),
+      editableCompartment.current.of(EditorView.editable.of(!readonly)),
       linkCursorCompartment.current.of(readonly ? integraLinkCursorTheme : []),
       EditorView.lineWrapping,
     ]
@@ -226,6 +228,7 @@ export function DiagramCodeMirrorEditor({
     viewRef.current?.dispatch({
       effects: [
         readOnlyCompartment.current.reconfigure(EditorState.readOnly.of(readonly)),
+        editableCompartment.current.reconfigure(EditorView.editable.of(!readonly)),
         linkCursorCompartment.current.reconfigure(readonly ? integraLinkCursorTheme : []),
       ],
     })
