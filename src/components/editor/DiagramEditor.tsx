@@ -164,7 +164,7 @@ export const DiagramEditor = ({
   }
 
   return (
-    <div className="p-4 h-full flex flex-col">
+    <div className="p-4 h-full min-h-0 flex flex-col overflow-y-auto">
       {pendingContent !== null && functionMatches.length > 0 && (
         <FunctionUpdateDialog
           matches={functionMatches}
@@ -236,7 +236,7 @@ export const DiagramEditor = ({
 
         {isEditing ? (
           /* ── Edit mode: CodeMirror editable editor ── */
-          <div className="flex-1 min-h-[200px] bg-gray-950 border border-blue-400 rounded-md overflow-hidden">
+          <div className="flex-1 min-h-0 bg-gray-950 border border-blue-400 rounded-md overflow-hidden">
             <DiagramCodeMirrorEditor
               content={content}
               diagramType={node.type as "sequence-diagram" | "use-case-diagram"}
@@ -255,7 +255,7 @@ export const DiagramEditor = ({
             role="button"
             tabIndex={0}
             aria-label="Diagram specification — click to edit"
-            className="w-full border border-gray-700 rounded-md bg-gray-950 cursor-text min-h-[200px] flex-1 overflow-auto focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+            className="w-full border border-gray-700 rounded-md bg-gray-950 cursor-text min-h-0 flex-1 overflow-auto focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault()
@@ -282,7 +282,7 @@ export const DiagramEditor = ({
           <div
             role="button"
             tabIndex={0}
-            className="w-full p-2 border border-dashed border-gray-700 rounded-md text-sm text-gray-400 cursor-text min-h-[200px] flex-1 flex items-center justify-center italic hover:border-gray-600"
+            className="w-full p-2 border border-dashed border-gray-700 rounded-md text-sm text-gray-400 cursor-text min-h-0 flex-1 flex items-center justify-center italic hover:border-gray-600"
             onClick={() => setIsEditing(true)}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {

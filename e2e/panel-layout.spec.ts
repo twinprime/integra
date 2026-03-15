@@ -19,6 +19,16 @@ test.describe("panel layout controls", () => {
     await selectTreeItem(page, "AuthService")
   })
 
+  test("positions the horizontal splitter below the specification editor when opening a diagram", async ({ page }) => {
+    await selectTreeItem(page, "User")
+    await selectTreeItem(page, "Login Flow")
+
+    const specificationBox = await boxFor(page.getByLabel("Specification"))
+    const splitterToggleBox = await boxFor(page.getByTitle("Expand bottom panel"))
+
+    expect(splitterToggleBox.y).toBeGreaterThanOrEqual(specificationBox.y + specificationBox.height - 1)
+  })
+
   test("collapses and restores the explorer panel", async ({ page }) => {
     const toggle = page.getByTitle("Expand right panel")
     const initialBox = await boxFor(toggle)
