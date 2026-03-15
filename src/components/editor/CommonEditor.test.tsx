@@ -92,10 +92,18 @@ beforeEach(() => {
 
 describe("CommonEditor", () => {
   describe("rendering", () => {
-    it("renders the node name as heading", () => {
+    it("renders the node name in the panel title editor", () => {
       const node = makeActorNode()
       render(<CommonEditor node={node} onUpdate={vi.fn()} />)
-      expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("My Actor")
+      expect(screen.getByLabelText("Node name")).toHaveValue("My Actor")
+    })
+
+    it("renders the node name as an inline panel title editor without a separate Name field", () => {
+      const node = makeActorNode({ name: "Test Actor" })
+      render(<CommonEditor node={node} onUpdate={vi.fn()} />)
+
+      expect(screen.getByLabelText("Node name")).toHaveValue("Test Actor")
+      expect(screen.queryByLabelText("Name")).not.toBeInTheDocument()
     })
 
     it("renders the node type badge", () => {
@@ -104,10 +112,10 @@ describe("CommonEditor", () => {
       expect(screen.getByText("actor")).toBeInTheDocument()
     })
 
-    it("renders the name input pre-filled with node.name", () => {
+    it("renders the panel title editor pre-filled with node.name", () => {
       const node = makeActorNode({ name: "Test Actor" })
       render(<CommonEditor node={node} onUpdate={vi.fn()} />)
-      expect(screen.getByDisplayValue("Test Actor")).toBeInTheDocument()
+      expect(screen.getByLabelText("Node name")).toHaveValue("Test Actor")
     })
 
     it("renders the ID input pre-filled with node.id", () => {
@@ -136,6 +144,20 @@ describe("CommonEditor", () => {
       await user.tab()
 
       expect(onUpdate).toHaveBeenCalledWith({ name: "New Name" })
+    })
+
+    it("pressing Enter on the panel title saves the new name", async () => {
+      const user = userEvent.setup()
+      const onUpdate = vi.fn()
+      const node = makeActorNode({ name: "Old Name" })
+      render(<CommonEditor node={node} onUpdate={onUpdate} />)
+
+      const nameInput = screen.getByLabelText("Node name")
+      await user.clear(nameInput)
+      await user.type(nameInput, "Renamed Actor")
+      await user.keyboard("{Enter}")
+
+      expect(onUpdate).toHaveBeenCalledWith({ name: "Renamed Actor" })
     })
 
     it("trims the name before saving", async () => {

@@ -72,7 +72,7 @@ test.describe("panel layout controls", () => {
     await expect(restore).toBeVisible()
     const collapsedBox = await boxFor(restore)
     expect(collapsedBox.y).toBeGreaterThan(initialBox.y + 100)
-    await expect(page.getByRole("heading", { name: /AuthService/ })).toBeVisible()
+    await expect(page.getByLabel("Node name")).toHaveValue("AuthService")
 
     await restore.click()
     await expect(toggle).toBeVisible()

@@ -142,10 +142,18 @@ beforeEach(() => {
 
 describe("ComponentEditor", () => {
   describe("rendering", () => {
-    it("renders the component name as heading", () => {
+    it("renders the component name in the panel title editor", () => {
       const node = makeComponentNode({ name: "My Component" })
       render(<ComponentEditor node={node} onUpdate={vi.fn()} />)
-      expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("My Component")
+      expect(screen.getByLabelText("Node name")).toHaveValue("My Component")
+    })
+
+    it("renders the component name as an inline panel title editor without a separate Name field", () => {
+      const node = makeComponentNode({ name: "Service A" })
+      render(<ComponentEditor node={node} onUpdate={vi.fn()} />)
+
+      expect(screen.getByLabelText("Node name")).toHaveValue("Service A")
+      expect(screen.queryByLabelText("Name")).not.toBeInTheDocument()
     })
 
     it("renders the node type badge", () => {
@@ -154,10 +162,10 @@ describe("ComponentEditor", () => {
       expect(screen.getByText("component")).toBeInTheDocument()
     })
 
-    it("renders the name input pre-filled", () => {
+    it("renders the panel title editor pre-filled", () => {
       const node = makeComponentNode({ name: "Service A" })
       render(<ComponentEditor node={node} onUpdate={vi.fn()} />)
-      expect(screen.getByDisplayValue("Service A")).toBeInTheDocument()
+      expect(screen.getByLabelText("Node name")).toHaveValue("Service A")
     })
 
     it("renders the ID input pre-filled", () => {

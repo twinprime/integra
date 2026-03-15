@@ -15,6 +15,7 @@ import { DiagramCodeMirrorEditor } from "./DiagramCodeMirrorEditor"
 import { MarkdownEditor } from "./MarkdownEditor"
 import { getNodeSiblingIds } from "../../nodes/nodeTree"
 import { NodeReferencesButton } from "./NodeReferencesButton"
+import { PanelTitleInput } from "./PanelTitleInput"
 
 const ID_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_]*$/
 
@@ -174,12 +175,12 @@ export const DiagramEditor = ({
         />
       )}
       <div className="mb-6 border-b border-gray-800 pb-4">
-        <h2 className="text-xl font-semibold text-gray-100 flex items-center gap-2">
-          {node.name}
-          <span className="text-xs font-normal text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full border border-gray-700">
-            {node.type}
-          </span>
-        </h2>
+        <PanelTitleInput
+          value={name}
+          nodeType={node.type}
+          onChange={setName}
+          onBlur={handleNameBlur}
+        />
         <div className="mt-1">
           <div className="flex items-center gap-1.5">
             <span className="text-sm text-gray-400">ID:</span>
@@ -199,20 +200,6 @@ export const DiagramEditor = ({
           </div>
           {idError && <p className="text-xs text-red-400 mt-0.5">{idError}</p>}
         </div>
-      </div>
-
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-300 mb-2">
-          Name
-        </label>
-        <input
-          id="diagram-name-input"
-          className="w-full p-2 border border-gray-700 rounded-md text-sm text-gray-100 bg-gray-900 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={handleNameBlur}
-        />
       </div>
 
       <div className="mb-4">

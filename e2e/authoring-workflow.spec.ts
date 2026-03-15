@@ -25,7 +25,7 @@ async function openDiagramEditor(page: Page, targetText: string | RegExp) {
   const targetLabel = typeof targetText === "string"
     ? targetText
     : targetText.source.replace(/^\^/, "").replace(/\$$/, "")
-  await expect(page.locator("h2")).toContainText(targetLabel, { timeout: 10000 })
+  await expect(page.getByLabel("Node name")).toHaveValue(targetLabel, { timeout: 10000 })
 
   const emptyState = page.getByRole("button", { name: "Click to edit specification" })
   const preview = page.getByRole("button", { name: "Diagram specification — click to edit" })

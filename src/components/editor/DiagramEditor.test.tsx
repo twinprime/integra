@@ -122,6 +122,13 @@ beforeEach(() => {
 })
 
 describe("DiagramEditor", () => {
+  it("renders the diagram name as an inline panel title editor without a separate Name field", () => {
+    render(<DiagramEditor node={makeSequenceDiagramNode({ name: "Login Flow" })} onUpdate={vi.fn()} />)
+
+    expect(screen.getByLabelText("Node name")).toHaveValue("Login Flow")
+    expect(screen.queryByLabelText("Name")).not.toBeInTheDocument()
+  })
+
   it("clicking the preview switches the specification into edit mode", async () => {
     const user = userEvent.setup()
     render(<DiagramEditor node={makeSequenceDiagramNode()} onUpdate={vi.fn()} />)
