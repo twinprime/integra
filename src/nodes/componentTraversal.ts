@@ -64,7 +64,7 @@ export const getSiblingIdsInComponent = (
   comp: ComponentNode,
   uuid: string,
 ): string[] | null => {
-  const checkArr = (arr: { uuid: string; id: string }[]): string[] | null => {
+  const checkArr = (arr: ReadonlyArray<{ uuid: string; id: string }>): string[] | null => {
     if (!arr.some((n) => n.uuid === uuid)) return null
     return arr.filter((n) => n.uuid !== uuid).map((n) => n.id)
   }

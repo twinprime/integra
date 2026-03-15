@@ -83,8 +83,7 @@ describe("sequence diagram block constructs — mermaid generator", () => {
     const { cst } = parseSequenceDiagramCst(spec)
     const ast = buildSeqAst(cst)
     const owner = mkComp("o", "owner")
-    const root = mkComp("r", "root")
-    root.subComponents = [owner]
+    const root = { ...mkComp("r", "root"), subComponents: [owner] }
     const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
     expect(mermaidContent).toContain("loop check")
     expect(mermaidContent).toContain("end")
@@ -96,8 +95,7 @@ describe("sequence diagram block constructs — mermaid generator", () => {
     const { cst } = parseSequenceDiagramCst(spec)
     const ast = buildSeqAst(cst)
     const owner = mkComp("o", "owner")
-    const root = mkComp("r", "root")
-    root.subComponents = [owner]
+    const root = { ...mkComp("r", "root"), subComponents: [owner] }
     const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
     expect(mermaidContent).toContain("alt good")
     expect(mermaidContent).toContain("else bad")
@@ -109,8 +107,7 @@ describe("sequence diagram block constructs — mermaid generator", () => {
     const { cst } = parseSequenceDiagramCst(spec)
     const ast = buildSeqAst(cst)
     const owner = mkComp("o", "owner")
-    const root = mkComp("r", "root")
-    root.subComponents = [owner]
+    const root = { ...mkComp("r", "root"), subComponents: [owner] }
     const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
     expect(mermaidContent).toContain("par g1")
     expect(mermaidContent).toContain("and g2")
@@ -122,8 +119,7 @@ describe("sequence diagram block constructs — mermaid generator", () => {
     const { cst } = parseSequenceDiagramCst(spec)
     const ast = buildSeqAst(cst)
     const owner = mkComp("o", "owner")
-    const root = mkComp("r", "root")
-    root.subComponents = [owner]
+    const root = { ...mkComp("r", "root"), subComponents: [owner] }
     const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
     // B is not declared but should appear as a participant
     expect(mermaidContent).toContain("B")
@@ -240,8 +236,7 @@ describe("sequence diagram opt block — mermaid generator", () => {
     const { cst } = parseSequenceDiagramCst(spec)
     const ast = buildSeqAst(cst)
     const owner = mkOptComp("o", "owner")
-    const root = mkOptComp("r", "root")
-    root.subComponents = [owner]
+    const root = { ...mkOptComp("r", "root"), subComponents: [owner] }
     const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
     expect(mermaidContent).toContain("opt if premium")
     expect(mermaidContent).toContain("end")

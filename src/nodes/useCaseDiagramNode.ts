@@ -11,7 +11,7 @@ import type { NodeHandler } from "./nodeHandler"
 
 export type DiagramRef = { diagram: DiagramNode; ownerComponentUuid: string }
 
-export const getUcDiagChildren = (ucd: UseCaseDiagramNode): UseCaseNode[] =>
+export const getUcDiagChildren = (ucd: UseCaseDiagramNode): ReadonlyArray<UseCaseNode> =>
   ucd.useCases
 
 export const deleteFromUcDiag = (

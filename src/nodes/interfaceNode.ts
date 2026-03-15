@@ -1,5 +1,6 @@
 import type { InterfaceSpecification, InterfaceFunction } from "../store/types"
 import { updateDescriptionRefs } from "../utils/renameNodeId"
+import { getStoredInterfaceFunctions, isLocalInterface } from "../utils/interfaceFunctions"
 
 export const applyIdRenameInInterface = (
   iface: InterfaceSpecification,
@@ -12,7 +13,11 @@ export const applyIdRenameInInterface = (
   description: iface.description
     ? updateDescriptionRefs(iface.description, oldId, newId)
     : iface.description,
-  functions: iface.functions.map((fn) => applyIdRenameInFunction(fn, targetUuid, oldId, newId)),
+  ...(isLocalInterface(iface)
+    ? {
+      functions: iface.functions.map((fn) => applyIdRenameInFunction(fn, targetUuid, oldId, newId)),
+    }
+    : {}),
 })
 
 export const applyIdRenameInFunction = (
@@ -33,7 +38,7 @@ export const findIdInInterface = (
   uuid: string,
 ): string | null => {
   if (iface.uuid === uuid) return iface.id
-  for (const fn of iface.functions) if (fn.uuid === uuid) return fn.id
+  for (const fn of getStoredInterfaceFunctions(iface)) if (fn.uuid === uuid) return fn.id
   return null
 }
 

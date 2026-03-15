@@ -268,30 +268,57 @@ describe("isUseCaseReferenced", () => {
   it("returns true when a sequence diagram directly references the use case", () => {
     const root = buildTree()
     const uc = root.subComponents[0].useCaseDiagrams[0].useCases[0]
-    uc.sequenceDiagrams.push(makeSeqDiag(["uc-uuid"]))
-    expect(isUseCaseReferenced(root, "uc-uuid")).toBe(true)
+    const updatedRoot: ComponentNode = {
+      ...root,
+      subComponents: [{
+        ...root.subComponents[0],
+        useCaseDiagrams: [{
+          ...root.subComponents[0].useCaseDiagrams[0],
+          useCases: [{
+            ...uc,
+            sequenceDiagrams: [...uc.sequenceDiagrams, makeSeqDiag(["uc-uuid"])],
+          }],
+        }],
+      }],
+    }
+    expect(isUseCaseReferenced(updatedRoot, "uc-uuid")).toBe(true)
   })
 
   it("returns false when sequence diagram references a different uuid", () => {
     const root = buildTree()
     const uc = root.subComponents[0].useCaseDiagrams[0].useCases[0]
-    uc.sequenceDiagrams.push(makeSeqDiag(["other-uuid"]))
-    expect(isUseCaseReferenced(root, "uc-uuid")).toBe(false)
+    const updatedRoot = {
+      ...root,
+      subComponents: [{
+        ...root.subComponents[0],
+        useCaseDiagrams: [{
+          ...root.subComponents[0].useCaseDiagrams[0],
+          useCases: [{
+            ...uc,
+            sequenceDiagrams: [...uc.sequenceDiagrams, makeSeqDiag(["other-uuid"])],
+          }],
+        }],
+      }],
+    }
+    expect(isUseCaseReferenced(updatedRoot, "uc-uuid")).toBe(false)
   })
 
   it("detects cross-component reference (seq diagram in root referencing use case in sub)", () => {
     const root = buildTree()
     // Add a use-case diagram to root with a seq diagram that references uc-uuid from sub
-    root.useCaseDiagrams = [{
-      uuid: "root-uc-diag", id: "rootDiag", name: "Root Diag", type: "use-case-diagram",
-      content: "", description: "", ownerComponentUuid: "root-uuid", referencedNodeIds: [],
-      useCases: [{
-        uuid: "root-uc", id: "rootUc", name: "Root UC", type: "use-case",
-        description: "",
-        sequenceDiagrams: [makeSeqDiag(["uc-uuid"])],
+    const updatedRoot: ComponentNode = {
+      ...root,
+      useCaseDiagrams: [{
+        uuid: "root-uc-diag", id: "rootDiag", name: "Root Diag", type: "use-case-diagram",
+        content: "", description: "", ownerComponentUuid: "root-uuid", referencedNodeIds: [],
+        useCases: [{
+          uuid: "root-uc", id: "rootUc", name: "Root UC", type: "use-case",
+          description: "",
+          sequenceDiagrams: [makeSeqDiag(["uc-uuid"])],
+        }],
       }],
-    }]
-    expect(isUseCaseReferenced(root, "uc-uuid")).toBe(true)
+    }
+    expect(isUseCaseReferenced(updatedRoot, "uc-uuid")).toBe(true)
   })
 })
 
@@ -307,20 +334,44 @@ describe("isNodeOrphaned", () => {
   it("returns false when actor is referenced in a use-case diagram referencedNodeIds", () => {
     const root = buildTree()
     const actor = root.subComponents[0].actors[0]
-    root.subComponents[0].useCaseDiagrams[0].referencedNodeIds = [actor.uuid]
-    expect(isNodeOrphaned(actor, root)).toBe(false)
+    const updatedRoot: ComponentNode = {
+      ...root,
+      subComponents: [{
+        ...root.subComponents[0],
+        useCaseDiagrams: [{
+          ...root.subComponents[0].useCaseDiagrams[0],
+          referencedNodeIds: [actor.uuid],
+        }],
+      }],
+    }
+    expect(isNodeOrphaned(actor, updatedRoot)).toBe(false)
   })
 
   it("returns false when actor is referenced in a sequence diagram referencedNodeIds", () => {
     const root = buildTree()
     const actor = root.subComponents[0].actors[0]
     const uc = root.subComponents[0].useCaseDiagrams[0].useCases[0]
-    uc.sequenceDiagrams.push({
-      uuid: "seq-uuid", id: "seq", name: "Seq", type: "sequence-diagram",
-      content: "", description: "", ownerComponentUuid: "sub-uuid",
-      referencedNodeIds: [actor.uuid], referencedFunctionUuids: [],
-    })
-    expect(isNodeOrphaned(actor, root)).toBe(false)
+    const updatedRoot: ComponentNode = {
+      ...root,
+      subComponents: [{
+        ...root.subComponents[0],
+        useCaseDiagrams: [{
+          ...root.subComponents[0].useCaseDiagrams[0],
+          useCases: [{
+            ...uc,
+            sequenceDiagrams: [
+              ...uc.sequenceDiagrams,
+              {
+                uuid: "seq-uuid", id: "seq", name: "Seq", type: "sequence-diagram",
+                content: "", description: "", ownerComponentUuid: "sub-uuid",
+                referencedNodeIds: [actor.uuid], referencedFunctionUuids: [],
+              },
+            ],
+          }],
+        }],
+      }],
+    }
+    expect(isNodeOrphaned(actor, updatedRoot)).toBe(false)
   })
 
   it("returns true for an unreferenced use-case (use-case has canDelete)", () => {
@@ -360,14 +411,28 @@ describe("isNodeOrphaned", () => {
       content: "", description: "", ownerComponentUuid: "sub-uuid",
       referencedNodeIds: [], referencedFunctionUuids: [],
     }
-    uc.sequenceDiagrams.push(seq)
-    // Another seq diagram references seq-target
-    uc.sequenceDiagrams.push({
-      uuid: "seq-referencing", id: "seqReferencing", name: "Seq Ref", type: "sequence-diagram",
-      content: "", description: "", ownerComponentUuid: "sub-uuid",
-      referencedNodeIds: ["seq-target"], referencedFunctionUuids: [],
-    })
-    expect(isNodeOrphaned(seq, root)).toBe(false)
+    const updatedRoot = {
+      ...root,
+      subComponents: [{
+        ...root.subComponents[0],
+        useCaseDiagrams: [{
+          ...root.subComponents[0].useCaseDiagrams[0],
+          useCases: [{
+            ...uc,
+            sequenceDiagrams: [
+              ...uc.sequenceDiagrams,
+              seq,
+              {
+                uuid: "seq-referencing", id: "seqReferencing", name: "Seq Ref", type: "sequence-diagram" as const,
+                content: "", description: "", ownerComponentUuid: "sub-uuid",
+                referencedNodeIds: ["seq-target"], referencedFunctionUuids: [],
+              },
+            ],
+          }],
+        }],
+      }],
+    }
+    expect(isNodeOrphaned(seq, updatedRoot)).toBe(false)
   })
 })
 

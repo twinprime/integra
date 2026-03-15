@@ -284,8 +284,7 @@ function parseUcdAst(input: string) {
 describe("generateUseCaseMermaidFromAst — display labels", () => {
   it("uses node name when no alias given", () => {
     const actor = { uuid: "a-uuid", id: "alice", name: "Alice Smith", type: "actor" as const }
-    const owner = makeMermaidComp("root-uuid", "root", "Root", [])
-    owner.actors = [actor]
+    const owner = { ...makeMermaidComp("root-uuid", "root", "Root", []), actors: [actor] }
     const root = owner
     const ast = parseUcdAst("actor alice")
     const { mermaidContent } = generateUseCaseMermaidFromAst(ast, owner, root)
@@ -295,8 +294,7 @@ describe("generateUseCaseMermaidFromAst — display labels", () => {
 
   it("uses node name even when alias is specified (alias is local id only)", () => {
     const actor = { uuid: "a-uuid", id: "alice", name: "Alice Smith", type: "actor" as const }
-    const owner = makeMermaidComp("root-uuid", "root", "Root", [])
-    owner.actors = [actor]
+    const owner = { ...makeMermaidComp("root-uuid", "root", "Root", []), actors: [actor] }
     const root = owner
     const ast = parseUcdAst("actor alice as Customer")
     const { mermaidContent } = generateUseCaseMermaidFromAst(ast, owner, root)

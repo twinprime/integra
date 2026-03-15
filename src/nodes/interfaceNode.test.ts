@@ -1,20 +1,35 @@
 import { describe, it, expect } from "vitest"
 import { applyIdRenameInInterface, applyIdRenameInFunction, findIdInInterface } from "./interfaceNode"
 import type { InterfaceSpecification } from "../store/types"
+import { getStoredInterfaceFunctions } from "../utils/interfaceFunctions"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function makeIface(overrides: Partial<InterfaceSpecification> = {}): InterfaceSpecification {
+  if ("parentInterfaceUuid" in overrides && overrides.parentInterfaceUuid) {
+    return {
+      uuid: "iface-uuid",
+      id: "UserAPI",
+      name: "User API",
+      type: "rest",
+      kind: "inherited",
+      parentInterfaceUuid: overrides.parentInterfaceUuid,
+      functions: [],
+      description: overrides.description,
+    }
+  }
+  const localOverrides = overrides as Partial<Extract<InterfaceSpecification, { kind?: "local" }>>
   return {
     uuid: "iface-uuid",
     id: "UserAPI",
     name: "User API",
     type: "rest",
+    kind: "local",
     functions: [
       { uuid: "fn-uuid", id: "getUser", parameters: [] },
       { uuid: "fn2-uuid", id: "createUser", parameters: [] },
     ],
-    ...overrides,
+    ...localOverrides,
   }
 }
 
@@ -36,8 +51,9 @@ describe("applyIdRenameInInterface", () => {
   it("renames a function's id when the function UUID matches the target", () => {
     const iface = makeIface()
     const result = applyIdRenameInInterface(iface, "fn-uuid", "getUser", "fetchUser")
-    expect(result.functions[0].id).toBe("fetchUser")
-    expect(result.functions[1].id).toBe("createUser") // unchanged
+    const functions = getStoredInterfaceFunctions(result)
+    expect(functions[0].id).toBe("fetchUser")
+    expect(functions[1].id).toBe("createUser") // unchanged
   })
 
   it("updates description references when oldId appears as a markdown link path segment", () => {

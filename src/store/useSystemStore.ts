@@ -7,6 +7,8 @@ import { createHistorySlice, type HistorySlice } from "./slices/historySlice"
 import { createUiSlice, type UiSlice } from "./slices/uiSlice"
 import { createNodeOpsSlice, type NodeOpsSlice } from "./slices/nodeOpsSlice"
 import { createDiagramSlice, type DiagramSlice } from "./slices/diagramSlice"
+import { safeParsePersistedSystemState } from "./modelSchema"
+import { normalizeComponentDeep } from "../nodes/interfaceOps"
 
 export type FunctionDecision = FunctionMatch & {
   action: "add-new" | "update-existing" | "update-all"
@@ -33,7 +35,7 @@ export const findNode = (nodes: Node[], uuid: string): Node | null =>
 
 export function getSequenceDiagrams(
   comp: ComponentNode,
-): Array<{ uuid: string; name: string; referencedFunctionUuids: string[] }> {
+): Array<{ uuid: string; name: string; referencedFunctionUuids: ReadonlyArray<string> }> {
   return collectAllDiagrams(comp)
     .filter(({ diagram }) => diagram.type === "sequence-diagram")
     .map(({ diagram }) => ({
@@ -55,6 +57,19 @@ export const useSystemStore = create<SystemState>()(
     {
       name: "integra-system",
       partialize: (state) => ({ rootComponent: state.rootComponent }),
+      version: 2,
+      migrate: (persistedState) => persistedState,
+      merge: (persistedState, currentState) => {
+        const parsed = safeParsePersistedSystemState(persistedState)
+        if (!parsed.success) {
+          console.error("Ignoring invalid persisted system state", parsed.error)
+          return currentState
+        }
+        return {
+          ...currentState,
+          rootComponent: normalizeComponentDeep(parsed.data.rootComponent),
+        }
+      },
     },
   ),
 )

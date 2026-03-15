@@ -143,9 +143,12 @@ describe("applyIdRenameInComponent", () => {
   })
 
   it("updates description references when oldId appears as a markdown link path segment", () => {
-    const comp: ComponentNode = { ...makeComp("root", "root"), description: "See [alice page](alice) for info" }
     const actor = makeActor("a1", "alice")
-    comp.actors.push(actor)
+    const comp: ComponentNode = {
+      ...makeComp("root", "root"),
+      description: "See [alice page](alice) for info",
+      actors: [actor],
+    }
     const result = applyIdRenameInComponent(comp, "a1", "alice", "newAlice")
     expect(result.description).toContain("(newAlice)")
   })

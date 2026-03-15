@@ -25,7 +25,7 @@ export interface NodeHandler {
   orphanWhenUnreferenced?: boolean
 
   /** Return all direct children of this node. */
-  getChildren(node: Node): Node[]
+  getChildren(node: Node): ReadonlyArray<Node>
 
   /** Return a copy of this node with the child identified by uuid removed (recursively). */
   deleteChild(node: Node, uuid: string): Node

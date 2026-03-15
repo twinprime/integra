@@ -1,15 +1,16 @@
 import { useState } from "react"
 import { useSystemStore } from "../../store/useSystemStore"
 import type { ComponentNode, InterfaceSpecification } from "../../store/types"
-import { InheritedInterface } from "./InheritedInterface"
+import { newInterfaceUuid } from "../../store/types"
 import { findParentNode } from "../../nodes/nodeTree"
+import { resolveComponentInterfaces, type ResolvedInterface } from "../../utils/interfaceFunctions"
 
 export interface InterfaceTabManager {
   activeTabUuid: string | null
   setActiveTabUuid: (uuid: string | null) => void
-  resolvedInterfaces: InterfaceSpecification[]
-  parentInterfaces: InterfaceSpecification[]
-  uninheritedParentInterfaces: InterfaceSpecification[]
+  resolvedInterfaces: ReadonlyArray<ResolvedInterface>
+  parentInterfaces: ReadonlyArray<InterfaceSpecification>
+  uninheritedParentInterfaces: ReadonlyArray<InterfaceSpecification>
   handleInheritParentInterface: (parentUuid: string, onUpdate: (updates: Partial<ComponentNode>) => void) => void
 }
 
@@ -18,18 +19,14 @@ export function useInterfaceTabManager(node: ComponentNode): InterfaceTabManager
   const selectedInterfaceUuid = useSystemStore((s) => s.selectedInterfaceUuid)
 
   const parentNode = findParentNode(rootComponent, node.uuid)
-  const parentInterfaces: InterfaceSpecification[] =
+  const parentInterfaces: ReadonlyArray<InterfaceSpecification> =
     parentNode?.type === "component" ? parentNode.interfaces : []
 
   const uninheritedParentInterfaces = parentInterfaces.filter(
-    (pi) => !node.interfaces.some((iface) => iface.parentInterfaceUuid === pi.uuid)
+    (pi) => !node.interfaces.some((iface) => iface.kind === "inherited" && iface.parentInterfaceUuid === pi.uuid)
   )
 
-  const resolvedInterfaces = node.interfaces.map((iface) => {
-    if (!iface.parentInterfaceUuid) return iface
-    const parentIface = parentInterfaces.find((pi) => pi.uuid === iface.parentInterfaceUuid)
-    return parentIface ? new InheritedInterface(iface, parentIface) : iface
-  })
+  const resolvedInterfaces = resolveComponentInterfaces(node, rootComponent)
 
   // On initial mount, prefer selectedInterfaceUuid if it belongs to this component.
   const firstIfaceUuid = node.interfaces?.[0]?.uuid ?? null
@@ -69,12 +66,13 @@ export function useInterfaceTabManager(node: ComponentNode): InterfaceTabManager
     const parentIface = parentInterfaces.find((pi) => pi.uuid === parentUuid)
     if (!parentIface) return
     const newIface: InterfaceSpecification = {
-      uuid: crypto.randomUUID(),
+      kind: "inherited",
+      uuid: newInterfaceUuid(),
       id: parentIface.id,
       name: parentIface.name,
       type: parentIface.type,
-      functions: [],
       parentInterfaceUuid: parentIface.uuid,
+      functions: [],
     }
     onUpdate({ interfaces: [...node.interfaces, newIface] })
     setActiveTabUuid(newIface.uuid)

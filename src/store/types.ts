@@ -1,70 +1,93 @@
-export type NodeType = 'component' | 'actor' | 'use-case' | 'sequence-diagram' | 'use-case-diagram' | 'folder';
+export type NodeType = "component" | "actor" | "use-case" | "sequence-diagram" | "use-case-diagram" | "folder"
+
+type Brand<T, Name extends string> = T & { readonly __brand: Name }
+
+export type InterfaceUuid = Brand<string, "InterfaceUuid">
+export type FunctionUuid = Brand<string, "FunctionUuid">
+
+export const asInterfaceUuid = (value: string): InterfaceUuid => value as InterfaceUuid
+export const asFunctionUuid = (value: string): FunctionUuid => value as FunctionUuid
+export const newInterfaceUuid = (): InterfaceUuid => asInterfaceUuid(crypto.randomUUID())
+export const newFunctionUuid = (): FunctionUuid => asFunctionUuid(crypto.randomUUID())
 
 export interface BaseNode {
-  uuid: string; // Globally unique identifier
-  id: string; // ID used in specification
-  name: string;
-  type: NodeType;
-  description?: string;
+  readonly uuid: string // Globally unique identifier
+  readonly id: string // ID used in specification
+  readonly name: string
+  readonly type: NodeType
+  readonly description?: string
 }
 
 export interface ComponentNode extends BaseNode {
-  type: 'component';
-  subComponents: ComponentNode[];
-  actors: ActorNode[];
-  useCaseDiagrams: UseCaseDiagramNode[];
-  interfaces: InterfaceSpecification[];
+  readonly type: "component"
+  readonly subComponents: ReadonlyArray<ComponentNode>
+  readonly actors: ReadonlyArray<ActorNode>
+  readonly useCaseDiagrams: ReadonlyArray<UseCaseDiagramNode>
+  readonly interfaces: ReadonlyArray<InterfaceSpecification>
 }
 
-export interface InterfaceSpecification {
-  uuid: string;
-  id: string;
-  name: string;
-  description?: string;
-  type: 'kafka' | 'rest' | 'graphql' | 'other';
-  /** Stored local functions. Inherited interfaces may keep this empty; read/lookup/render paths should resolve effective functions via the shared helper. */
-  functions: InterfaceFunction[];
-  /** UUID of the parent component's interface this interface inherits from. When set, functions are sourced from the parent interface. */
-  parentInterfaceUuid?: string;
+export type InterfaceKind = "local" | "inherited"
+export type InterfaceType = "kafka" | "rest" | "graphql" | "other"
+
+interface InterfaceSpecificationBase {
+  readonly uuid: string
+  readonly id: string
+  readonly name: string
+  readonly description?: string
+  readonly type: InterfaceType
 }
+
+export interface LocalInterfaceSpecification extends InterfaceSpecificationBase {
+  readonly kind?: "local"
+  readonly functions: ReadonlyArray<InterfaceFunction>
+  readonly parentInterfaceUuid?: never
+}
+
+export interface InheritedInterfaceSpecification extends InterfaceSpecificationBase {
+  readonly kind?: "inherited"
+  readonly parentInterfaceUuid: string
+  readonly functions: ReadonlyArray<InterfaceFunction>
+}
+
+export type InterfaceSpecification = LocalInterfaceSpecification | InheritedInterfaceSpecification
 
 export interface InterfaceFunction {
-  uuid: string;
-  id: string;
-  description?: string;
-  parameters: Parameter[];
+  readonly uuid: string
+  readonly id: string
+  readonly description?: string
+  readonly parameters: ReadonlyArray<Parameter>
 }
 
 export interface Parameter {
-  name: string;
-  type: string;
-  required: boolean;
-  description?: string;
+  readonly name: string
+  readonly type: string
+  readonly required: boolean
+  readonly description?: string
 }
 
 export interface ActorNode extends BaseNode {
-  type: 'actor';
+  readonly type: "actor"
 }
 
 export interface UseCaseNode extends BaseNode {
-  type: 'use-case';
-  sequenceDiagrams: SequenceDiagramNode[];
+  readonly type: "use-case"
+  readonly sequenceDiagrams: ReadonlyArray<SequenceDiagramNode>
 }
 
 export interface DiagramNode extends BaseNode {
-  content: string; // The text specification (mermaid or custom yaml)
-  referencedNodeIds: string[]; // UUIDs of actors/components referenced in this diagram
-  ownerComponentUuid: string; // UUID of the component that owns this diagram (for quick lookup)
+  readonly content: string // The text specification (mermaid or custom yaml)
+  readonly referencedNodeIds: ReadonlyArray<string> // UUIDs of actors/components referenced in this diagram
+  readonly ownerComponentUuid: string // UUID of the component that owns this diagram (for quick lookup)
 }
 
 export interface UseCaseDiagramNode extends DiagramNode {
-  type: 'use-case-diagram';
-  useCases: UseCaseNode[];
+  readonly type: "use-case-diagram"
+  readonly useCases: ReadonlyArray<UseCaseNode>
 }
 
 export interface SequenceDiagramNode extends DiagramNode {
-  type: 'sequence-diagram';
-  referencedFunctionUuids: string[];
+  readonly type: "sequence-diagram"
+  readonly referencedFunctionUuids: ReadonlyArray<string>
 }
 
-export type Node = ComponentNode | ActorNode | UseCaseNode | UseCaseDiagramNode | SequenceDiagramNode;
+export type Node = ComponentNode | ActorNode | UseCaseNode | UseCaseDiagramNode | SequenceDiagramNode

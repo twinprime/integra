@@ -7,6 +7,9 @@ import { MarkdownEditor } from "./MarkdownEditor"
 import { InterfaceEditor } from "./InterfaceEditor"
 import { NodeReferencesButton } from "./NodeReferencesButton"
 import { useInterfaceTabManager } from "./useInterfaceTabManager"
+import { isLocalInterface, type ResolvedInterface } from "../../utils/interfaceFunctions"
+
+type EditableInterfaceUpdates = Partial<Pick<InterfaceSpecification, "id" | "name" | "description" | "type">>
 
 const ID_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_]*$/
 
@@ -77,9 +80,13 @@ export const ComponentEditor = ({
     renameNodeId(node.uuid, trimmed)
   }
 
-  const handleInterfaceUpdate = (ifaceIdx: number, updates: Partial<InterfaceSpecification>) => {
+  const handleInterfaceUpdate = (ifaceIdx: number, updates: EditableInterfaceUpdates) => {
     const newInterfaces = node.interfaces.map((iface, i) =>
-      i === ifaceIdx ? { ...iface, ...updates } : iface
+      i === ifaceIdx
+        ? (isLocalInterface(iface)
+          ? { ...iface, ...updates, kind: "local" as const }
+          : { ...iface, ...updates, kind: "inherited" as const, parentInterfaceUuid: iface.parentInterfaceUuid })
+        : iface
     )
     onUpdate({ interfaces: newInterfaces })
   }
@@ -87,6 +94,7 @@ export const ComponentEditor = ({
   const handleFunctionUpdate = (ifaceIdx: number, fnIdx: number, updates: Partial<InterfaceFunction>) => {
     const newInterfaces = node.interfaces.map((iface, i) => {
       if (i !== ifaceIdx) return iface
+      if (!isLocalInterface(iface)) return iface
       return {
         ...iface,
         functions: iface.functions.map((fn, j) =>
@@ -100,6 +108,7 @@ export const ComponentEditor = ({
   const handleDeleteFunction = (ifaceIdx: number, fnIdx: number) => {
     const newInterfaces = node.interfaces.map((iface, i) => {
       if (i !== ifaceIdx) return iface
+      if (!isLocalInterface(iface)) return iface
       return {
         ...iface,
         functions: iface.functions.filter((_, j) => j !== fnIdx),
@@ -125,6 +134,7 @@ export const ComponentEditor = ({
   ) => {
     const newInterfaces = node.interfaces.map((iface, i) => {
       if (i !== ifaceIdx) return iface
+      if (!isLocalInterface(iface)) return iface
       return {
         ...iface,
         functions: iface.functions.map((fn, j) => {
@@ -232,7 +242,7 @@ export const ComponentEditor = ({
               const isActive = iface.uuid === activeTabUuid
               const hasSubComponents = node.subComponents.length > 0
               const isInherited = node.subComponents.some((sub) =>
-                sub.interfaces.some((si) => si.parentInterfaceUuid === iface.uuid)
+                sub.interfaces.some((si) => si.kind === "inherited" && si.parentInterfaceUuid === iface.uuid)
               )
               const showWarning = hasSubComponents && !isInherited
               return (
@@ -260,7 +270,7 @@ export const ComponentEditor = ({
           </div>
 
           {/* Active interface panel */}
-          {resolvedInterfaces.map((iface, ifaceIdx) =>
+          {resolvedInterfaces.map((iface: ResolvedInterface, ifaceIdx) =>
             iface.uuid === activeTabUuid ? (
               <div key={iface.uuid} data-testid="interface-tab-panel" className="mt-3">
                 <InterfaceEditor
@@ -287,4 +297,3 @@ export const ComponentEditor = ({
     </div>
   )
 }
-

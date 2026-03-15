@@ -59,12 +59,12 @@ export const getNodeHandler = (type: Node["type"]): NodeHandler => nodeHandlers[
 
 // ─── Children ────────────────────────────────────────────────────────────────
 
-export const getNodeChildren = (node: Node): Node[] =>
+export const getNodeChildren = (node: Node): ReadonlyArray<Node> =>
   nodeHandlers[node.type].getChildren(node)
 
 // ─── Find ─────────────────────────────────────────────────────────────────────
 
-export const findNodeByUuid = (nodes: Node[], uuid: string): Node | null => {
+export const findNodeByUuid = (nodes: ReadonlyArray<Node>, uuid: string): Node | null => {
   for (const node of nodes) {
     if (node.uuid === uuid) return node
     const children = getNodeChildren(node)
@@ -162,8 +162,8 @@ export { findCompByUuid } from "./componentNode"
 // ─── mergeLists (moved from diagramParserHelpers) ─────────────────────────────
 
 export const mergeLists = <T extends { id: string; name: string }>(
-  existing: T[],
-  incoming: T[],
+  existing: ReadonlyArray<T>,
+  incoming: ReadonlyArray<T>,
 ): T[] => {
   const result = [...existing]
   incoming.forEach((item) => {
@@ -185,8 +185,8 @@ export const mergeLists = <T extends { id: string; name: string }>(
 
 // ─── Reorder ──────────────────────────────────────────────────────────────────
 
-const moveItem = <T>(arr: T[], fromIndex: number, toIndex: number): T[] => {
-  if (fromIndex === toIndex) return arr
+const moveItem = <T>(arr: ReadonlyArray<T>, fromIndex: number, toIndex: number): T[] => {
+  if (fromIndex === toIndex) return [...arr]
   const result = [...arr]
   const [item] = result.splice(fromIndex, 1)
   result.splice(toIndex, 0, item)

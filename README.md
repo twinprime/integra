@@ -497,6 +497,17 @@ Integra is a single-page web application that allows users to model software sys
 
 ### Design Overview
 
+#### Model invariants
+
+The core model is intentionally split between a **stored write model** and a **resolved read model**:
+
+- `InterfaceSpecification` is a union of local vs inherited interfaces.
+- Inherited interfaces may exist in the stored tree with an empty local `functions` list; read paths should resolve effective functions from the parent contract instead of assuming stored `functions` is authoritative.
+- Component trees are treated as immutable. Update paths should return new objects rather than mutating nested arrays or assigning fields like `.interfaces` directly.
+- Runtime boundaries (`localStorage` hydration, YAML load, parser merges) are validated before data is accepted into the main model tree.
+
+In practice, contributors should prefer the shared interface/model helpers over direct field access whenever behavior depends on inheritance, ordering, or reparsed function metadata.
+
 #### React Component Architecture
 
 The UI is split into three panels managed by `MainLayout`. Each panel is independently scrollable and resizable via drag handles.

@@ -27,7 +27,7 @@ interface TreeNodeProps {
 }
 
 interface SortableChildrenProps {
-  items: Node[]
+  items: ReadonlyArray<Node>
   onContextMenu: (e: React.MouseEvent, node: Node) => void
 }
 
@@ -53,7 +53,7 @@ export const TreeNode = memo(({ node, onContextMenu }: TreeNodeProps) => {
   const isDeletable = node.uuid !== rootComponent.uuid && isNodeOrphaned(node, rootComponent)
   const isOrphaned = isDeletable && !!getNodeHandler(node.type).orphanWhenUnreferenced
 
-  let children: Node[] = []
+  let children: ReadonlyArray<Node> = []
   if (node.type === "component") {
     children = [
       ...node.subComponents,

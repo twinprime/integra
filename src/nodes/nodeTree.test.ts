@@ -79,12 +79,17 @@ describe("deleteNodeFromTree — use case deletion", () => {
 
   it("does not affect other use cases when deleting one", () => {
     const root = makeTree()
-    // Add a second use case
-    root.useCaseDiagrams[0].useCases.push({
-      uuid: "uc2-uuid", id: "viewOrder", name: "View Order",
-      type: "use-case", sequenceDiagrams: [],
-    })
-    const updated = deleteNodeFromTree(root, "uc-uuid") as ComponentNode
+    const updatedRoot: ComponentNode = {
+      ...root,
+      useCaseDiagrams: [{
+        ...root.useCaseDiagrams[0],
+        useCases: [
+          ...root.useCaseDiagrams[0].useCases,
+          { uuid: "uc2-uuid", id: "viewOrder", name: "View Order", type: "use-case", sequenceDiagrams: [] },
+        ],
+      }],
+    }
+    const updated = deleteNodeFromTree(updatedRoot, "uc-uuid") as ComponentNode
     expect(updated.useCaseDiagrams[0].useCases).toHaveLength(1)
     expect(updated.useCaseDiagrams[0].useCases[0].uuid).toBe("uc2-uuid")
   })

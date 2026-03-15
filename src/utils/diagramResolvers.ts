@@ -131,7 +131,7 @@ export type ResolvedFunctionRefTarget = {
   componentUuid: string
   interfaceUuid: string
   functionUuid: string
-  parameters: Parameter[]
+  parameters: ReadonlyArray<Parameter>
 }
 
 function findFunctionRefTargetInTree(

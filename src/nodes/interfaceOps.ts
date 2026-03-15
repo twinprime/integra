@@ -1,4 +1,12 @@
-import type { ComponentNode, InterfaceFunction, Parameter, InterfaceSpecification } from "../store/types"
+import type {
+  ComponentNode,
+  InterfaceFunction,
+  InterfaceSpecification,
+  LocalInterfaceSpecification,
+  Parameter,
+} from "../store/types"
+import { newFunctionUuid } from "../store/types"
+import { getStoredInterfaceFunctions, isLocalInterface } from "../utils/interfaceFunctions"
 
 /**
  * Normalises a single component's interfaces and functions into canonical order:
@@ -15,9 +23,13 @@ export const normalizeComponent = (comp: ComponentNode): ComponentNode => ({
     )
     .map((iface) => ({
       ...iface,
-      functions: [...iface.functions].sort((a: InterfaceFunction, b: InterfaceFunction) =>
-        a.id.localeCompare(b.id),
-      ),
+      ...(isLocalInterface(iface)
+        ? {
+          functions: [...iface.functions].sort((a: InterfaceFunction, b: InterfaceFunction) =>
+            a.id.localeCompare(b.id),
+          ),
+        }
+        : {}),
     })),
 })
 
@@ -33,21 +45,25 @@ export const normalizeComponentDeep = (comp: ComponentNode): ComponentNode =>
 export const updateFunctionParams = (
   comp: ComponentNode,
   functionUuid: string,
-  newParams: Parameter[],
+  newParams: ReadonlyArray<Parameter>,
 ): ComponentNode => ({
   ...comp,
   interfaces: comp.interfaces.map((iface) => ({
     ...iface,
-    functions: iface.functions.map((f) => {
-      if (f.uuid !== functionUuid) return f
-      return {
-        ...f,
-        parameters: newParams.map((p) => {
-          const existing = f.parameters.find((ep) => ep.name === p.name)
-          return existing ? { ...existing, ...p } : p
+    ...(isLocalInterface(iface)
+      ? {
+        functions: iface.functions.map((f) => {
+          if (f.uuid !== functionUuid) return f
+          return {
+            ...f,
+            parameters: newParams.map((p) => {
+              const existing = f.parameters.find((ep) => ep.name === p.name)
+              return existing ? { ...existing, ...p } : p
+            }),
+          }
         }),
       }
-    }),
+      : {}),
   })),
   subComponents: comp.subComponents.map((sub) =>
     updateFunctionParams(sub, functionUuid, newParams),
@@ -58,19 +74,21 @@ export const addFunctionToInterface = (
   comp: ComponentNode,
   existingFunctionUuid: string,
   functionId: string,
-  newParams: Parameter[],
+  newParams: ReadonlyArray<Parameter>,
 ): ComponentNode => {
   const ifaceIdx =
     comp.interfaces?.findIndex((i) =>
-      i.functions.some((f) => f.uuid === existingFunctionUuid),
+      getStoredInterfaceFunctions(i).some((f) => f.uuid === existingFunctionUuid),
     ) ?? -1
   if (ifaceIdx >= 0) {
-    const originalFn = comp.interfaces[ifaceIdx].functions.find(
+    const localInterface = comp.interfaces[ifaceIdx]
+    if (!isLocalInterface(localInterface)) return comp
+    const originalFn = localInterface.functions.find(
       (f) => f.uuid === existingFunctionUuid,
     )
     const newFn: InterfaceFunction = {
       ...(originalFn ?? {}),
-      uuid: crypto.randomUUID(),
+      uuid: newFunctionUuid(),
       id: functionId,
       parameters: newParams.map((p) => {
         const existing = originalFn?.parameters.find((ep) => ep.name === p.name)
@@ -81,7 +99,7 @@ export const addFunctionToInterface = (
       ...comp,
       interfaces: comp.interfaces.map((iface, idx) =>
         idx === ifaceIdx
-          ? { ...iface, functions: [...iface.functions, newFn] }
+          ? { ...(iface as LocalInterfaceSpecification), functions: [...localInterface.functions, newFn] }
           : iface,
       ),
     })
@@ -101,10 +119,14 @@ export const removeFunctionsFromInterfaces = (
   if (uuidsToRemove.size === 0) return comp
   return {
     ...comp,
-    interfaces: comp.interfaces.map((iface) => ({
-      ...iface,
-      functions: iface.functions.filter((f) => !uuidsToRemove.has(f.uuid)),
-    })),
+    interfaces: comp.interfaces.map((iface) => (
+      isLocalInterface(iface)
+        ? {
+          ...iface,
+          functions: iface.functions.filter((f) => !uuidsToRemove.has(f.uuid)),
+        }
+        : iface
+    )),
     subComponents: comp.subComponents.map((sub) =>
       removeFunctionsFromInterfaces(sub, uuidsToRemove),
     ),

@@ -3,7 +3,7 @@ import { applyIdRenameInSeqDiag } from "./sequenceDiagramNode"
 import { updateDescriptionRefs } from "../utils/renameNodeId"
 import type { NodeHandler } from "./nodeHandler"
 
-export const getUseCaseChildren = (uc: UseCaseNode): SequenceDiagramNode[] =>
+export const getUseCaseChildren = (uc: UseCaseNode): ReadonlyArray<SequenceDiagramNode> =>
   uc.sequenceDiagrams
 
 export const deleteFromUseCase = (uc: UseCaseNode, uuid: string): UseCaseNode => ({

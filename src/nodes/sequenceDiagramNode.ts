@@ -24,7 +24,7 @@ export const replaceSignatureInContent = (
   content: string,
   interfaceId: string,
   functionId: string,
-  newParams: Parameter[],
+  newParams: ReadonlyArray<Parameter>,
 ): string => {
   const escape = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
   const pattern = new RegExp(

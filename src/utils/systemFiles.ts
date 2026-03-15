@@ -19,6 +19,7 @@
 
 import yaml from "js-yaml"
 import type { ComponentNode } from "../store/types"
+import { parseComponentNode } from "../store/modelSchema"
 
 // Fields that are derived at runtime and should not be persisted
 const DERIVED_KEYS = new Set(["ownerComponentUuid", "referencedNodeIds", "referencedFunctionUuids"])
@@ -210,5 +211,5 @@ export async function loadFromDirectory(
   }
 
   const [, rootRaw] = rootEntries[0]
-  return assembleTree(rootRaw, fileMap)
+  return parseComponentNode(assembleTree(rootRaw, fileMap))
 }

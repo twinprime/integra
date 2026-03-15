@@ -3,6 +3,7 @@ import { parseUseCaseDiagram } from "../parser/useCaseDiagram/systemUpdater"
 import { parseSequenceDiagram } from "../parser/sequenceDiagram/systemUpdater"
 import { collectAllDiagrams, upsertNodeInTree, findNode } from "../nodes/nodeTree"
 import { removeFunctionsFromInterfaces } from "../nodes/componentNode"
+import { isLocalInterface, resolveEffectiveInterfaceFunctions } from "../utils/interfaceFunctions"
 
 export type ReparseResult = { rootComponent?: ComponentNode; parseError?: string | null }
 
@@ -88,6 +89,14 @@ export function stripExclusiveFunctionContributions(
 
 type FunctionSnapshot = Map<string, InterfaceFunction>
 
+function makeFunctionSnapshotKey(
+  componentUuid: string,
+  interfaceId: string,
+  functionId: string,
+): string {
+  return `${componentUuid}:${interfaceId}:${functionId}`
+}
+
 /**
  * Walk the component tree and snapshot every InterfaceFunction, keyed by
  * (compUuid, interfaceId, functionId). Used to restore user-authored attributes
@@ -98,8 +107,8 @@ function buildFunctionSnapshot(root: ComponentNode): FunctionSnapshot {
   const map: FunctionSnapshot = new Map()
   const walk = (comp: ComponentNode) => {
     for (const iface of comp.interfaces ?? []) {
-      for (const fn of iface.functions) {
-        map.set(`${comp.uuid}:${iface.id}:${fn.id}`, fn)
+      for (const fn of resolveEffectiveInterfaceFunctions(iface, comp, root)) {
+        map.set(makeFunctionSnapshotKey(comp.uuid, iface.id, fn.id), fn)
       }
     }
     for (const sub of comp.subComponents) walk(sub)
@@ -122,18 +131,22 @@ function mergeFunctionAttributes(root: ComponentNode, snapshot: FunctionSnapshot
   const mergeComp = (comp: ComponentNode): ComponentNode => {
     const interfaces = comp.interfaces.map((iface) => ({
       ...iface,
-      functions: iface.functions.map((fn): InterfaceFunction => {
-        const original = snapshot.get(`${comp.uuid}:${iface.id}:${fn.id}`)
-        if (!original) return fn
-        return {
-          ...original,
-          ...fn,
-          parameters: fn.parameters.map((p) => {
-            const origParam = original.parameters.find((op) => op.name === p.name)
-            return origParam ? { ...origParam, ...p } : p
+      ...(isLocalInterface(iface)
+        ? {
+          functions: iface.functions.map((fn): InterfaceFunction => {
+            const original = snapshot.get(makeFunctionSnapshotKey(comp.uuid, iface.id, fn.id))
+            if (!original) return fn
+            return {
+              ...original,
+              ...fn,
+              parameters: fn.parameters.map((p) => {
+                const origParam = original.parameters.find((op) => op.name === p.name)
+                return origParam ? { ...origParam, ...p } : p
+              }),
+            }
           }),
         }
-      }),
+        : {}),
     }))
     return { ...comp, interfaces, subComponents: comp.subComponents.map(mergeComp) }
   }

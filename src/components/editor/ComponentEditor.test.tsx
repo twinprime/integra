@@ -93,13 +93,27 @@ function makeInterface(
   name: string,
   overrides: Partial<InterfaceSpecification> = {},
 ): InterfaceSpecification {
+  if ("parentInterfaceUuid" in overrides && overrides.parentInterfaceUuid) {
+    return {
+      uuid: `iface-uuid-${id}`,
+      id,
+      name,
+      type: "rest",
+      kind: "inherited",
+      parentInterfaceUuid: overrides.parentInterfaceUuid,
+      functions: [],
+      description: overrides.description,
+    }
+  }
+  const localOverrides = overrides as Partial<Extract<InterfaceSpecification, { kind?: "local" }>>
   return {
     uuid: `iface-uuid-${id}`,
     id,
     name,
     type: "rest",
+    kind: "local",
     functions: [],
-    ...overrides,
+    ...localOverrides,
   }
 }
 

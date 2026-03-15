@@ -12,8 +12,7 @@ import { parse, parseAst, makeNamedComp } from "./sequenceDiagram.test.helpers"
 describe("generateSequenceMermaidFromAst — participant display labels", () => {
   it("uses node name instead of id for component participant", () => {
     const child = makeNamedComp("child-uuid", "svc", "Order Service")
-    const owner = makeNamedComp("owner-uuid", "owner", "owner")
-    owner.subComponents = [child]
+    const owner = makeNamedComp("owner-uuid", "owner", "owner", [child])
     const root = makeNamedComp("root-uuid", "root", "root", [owner])
     const ast = parseAst("component svc")
     const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
@@ -23,8 +22,7 @@ describe("generateSequenceMermaidFromAst — participant display labels", () => 
 
   it("uses node name even when alias is specified (alias is local id only)", () => {
     const child = makeNamedComp("child-uuid", "svc", "Order Service")
-    const owner = makeNamedComp("owner-uuid", "owner", "owner")
-    owner.subComponents = [child]
+    const owner = makeNamedComp("owner-uuid", "owner", "owner", [child])
     const root = makeNamedComp("root-uuid", "root", "root", [owner])
     const ast = parseAst("component svc as MyAlias")
     const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
@@ -62,8 +60,7 @@ describe("sequence diagram — undeclared receiver", () => {
 
   it("does not double-declare a receiver that is already declared", () => {
     const child = makeNamedComp("svc-uuid", "svc", "My Service")
-    const owner = makeNamedComp("owner-uuid", "owner", "owner")
-    owner.subComponents = [child]
+    const owner = makeNamedComp("owner-uuid", "owner", "owner", [child])
     const root = makeNamedComp("root-uuid", "root", "root", [owner])
     const ast = parseAst("component svc\nactor sender\nsender -->> svc")
     const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)

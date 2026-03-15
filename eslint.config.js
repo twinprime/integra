@@ -29,6 +29,17 @@ export default defineConfig([
         { argsIgnorePattern: "^_" },
       ],
       "@typescript-eslint/no-deprecated": "warn",
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "AssignmentExpression[left.type='MemberExpression'][left.property.type='Identifier'][left.property.name='interfaces']",
+          message: "Treat model trees as immutable; return a new component object instead of assigning .interfaces.",
+        },
+        {
+          selector: "AssignmentExpression[left.type='MemberExpression'][left.property.type='Identifier'][left.property.name='functions']",
+          message: "Do not mutate interface.functions directly; update local interfaces via model helpers/resolvers.",
+        },
+      ],
       complexity: ["warn", 20],
       "max-lines": [
         "warn",

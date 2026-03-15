@@ -1,10 +1,16 @@
 import { useState } from "react"
 import { Trash2 } from "lucide-react"
 import type { InterfaceSpecification, InterfaceFunction } from "../../store/types"
-import { InheritedInterface } from "./InheritedInterface"
 import { useSystemStore } from "../../store/useSystemStore"
 import { MarkdownEditor } from "./MarkdownEditor"
 import { FunctionEditor } from "./FunctionEditor"
+import {
+  isInheritedInterface,
+  isLocalInterface,
+  type ResolvedInterface,
+} from "../../utils/interfaceFunctions"
+
+type EditableInterfaceUpdates = Partial<Pick<InterfaceSpecification, "id" | "name" | "description" | "type">>
 
 const ID_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_]*$/
 
@@ -21,11 +27,11 @@ export const InterfaceEditor = ({
   onParamDescriptionUpdate,
   contextComponentUuid,
 }: {
-  iface: InterfaceSpecification
+  iface: ResolvedInterface
   ifaceIdx: number
   referencedFunctionUuids: Set<string>
   siblingInterfaceIds: string[]
-  onInterfaceUpdate: (updates: Partial<InterfaceSpecification>) => void
+  onInterfaceUpdate: (updates: EditableInterfaceUpdates) => void
   onFunctionUpdate: (fnIdx: number, updates: Partial<InterfaceFunction>) => void
   onDeleteFunction: (fnIdx: number) => void
   onDeleteInterface?: () => void
@@ -40,8 +46,8 @@ export const InterfaceEditor = ({
 
   const renameNodeId = useSystemStore((s) => s.renameNodeId)
 
-  const isInherited = iface instanceof InheritedInterface
-  const isDangling = !isInherited && !!iface.parentInterfaceUuid
+  const isInherited = isInheritedInterface(iface)
+  const isDangling = iface.isDangling
 
   const handleIdChange = (value: string) => {
     setLocalId(value)
@@ -69,8 +75,8 @@ export const InterfaceEditor = ({
   }
 
   if (isInherited || isDangling) {
-    const parentName = isInherited ? (iface).parentIface.name || (iface).parentIface.id : null
-    const fns = isInherited ? iface.functions : []
+    const parentName = isInherited ? iface.inheritedFrom?.name || iface.inheritedFrom?.id : null
+    const fns = iface.effectiveFunctions
     return (
       <div className="border border-indigo-800/50 rounded-md bg-gray-900/50 p-3">
         <div className="flex items-center gap-2 mb-2">
@@ -146,13 +152,13 @@ export const InterfaceEditor = ({
         <select
           className="text-xs text-gray-400 bg-gray-800 border border-gray-700 rounded px-2 py-0.5 focus:outline-none focus:border-blue-400"
           value={iface.type}
-          onChange={(e) => onInterfaceUpdate({ type: e.target.value as InterfaceSpecification['type'] })}
+          onChange={(e) => onInterfaceUpdate({ type: e.target.value as InterfaceSpecification["type"] })}
         >
           {INTERFACE_TYPES.map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
         </select>
-        {onDeleteInterface && (!iface.functions || iface.functions.length === 0) && (
+        {onDeleteInterface && iface.effectiveFunctions.length === 0 && (
           <button
             className="p-1 text-gray-500 hover:text-red-400 transition-colors"
             title="Delete interface"
@@ -193,7 +199,7 @@ export const InterfaceEditor = ({
         contextComponentUuid={contextComponentUuid}
       />
 
-      {iface.functions && iface.functions.length > 0 && (
+      {isLocalInterface(iface) && iface.functions.length > 0 && (
         <div className="space-y-2 mt-3">
           <p className="text-xs font-medium text-gray-400">
             Functions ({iface.functions.length})
