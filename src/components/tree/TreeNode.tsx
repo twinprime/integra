@@ -203,3 +203,5 @@ export const TreeNode = memo(({ node, onContextMenu }: TreeNodeProps) => {
     </div>
   )
 })
+
+TreeNode.displayName = "TreeNode"

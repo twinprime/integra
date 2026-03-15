@@ -1,5 +1,6 @@
 import js from "@eslint/js"
 import globals from "globals"
+import react from "eslint-plugin-react"
 import reactHooks from "eslint-plugin-react-hooks"
 import reactRefresh from "eslint-plugin-react-refresh"
 import tseslint from "typescript-eslint"
@@ -10,9 +11,16 @@ export default defineConfig([
   {
     files: ["**/*.{ts,tsx}"],
     ignores: ["e2e/**", "playwright.config.ts"],
+    settings: {
+      react: {
+        version: "detect",
+      },
+    },
     extends: [
       js.configs.recommended,
       tseslint.configs.recommendedTypeChecked,
+      react.configs.flat.recommended,
+      react.configs.flat["jsx-runtime"],
       reactHooks.configs.flat.recommended,
       reactRefresh.configs.vite,
     ],
@@ -28,7 +36,8 @@ export default defineConfig([
         "error",
         { argsIgnorePattern: "^_" },
       ],
-      "@typescript-eslint/no-deprecated": "warn",
+      "@typescript-eslint/no-deprecated": "error",
+      "@typescript-eslint/require-await": "warn",
       "no-restricted-syntax": [
         "error",
         {
@@ -40,6 +49,8 @@ export default defineConfig([
           message: "Do not mutate interface.functions directly; update local interfaces via model helpers/resolvers.",
         },
       ],
+      "react/jsx-no-comment-textnodes": "warn",
+      "react/no-children-prop": "error",
       complexity: ["warn", 20],
       "max-lines": [
         "warn",
