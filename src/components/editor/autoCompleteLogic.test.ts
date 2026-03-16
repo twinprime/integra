@@ -250,6 +250,30 @@ describe("buildSuggestions — Sequence: suggestions", () => {
     expect(seqSugg).toBeDefined()
   })
 
+  it("does not suggest UseCase: or Sequence: targets from out-of-scope cousin components", () => {
+    const cousinSeq = makeSeq("cousin-seq-uuid", "cousinFlow", "Cousin Flow")
+    const cousinUc = makeUc("cousin-uc-uuid", "cousinUseCase", [cousinSeq])
+    const cousin = makeComp("cousin-uuid", "cousin", { useCaseDiagrams: [makeUcd("cousin-ucd-uuid", [cousinUc])] })
+    const siblingSeq = makeSeq("sibling-seq-uuid", "siblingFlow", "Sibling Flow")
+    const siblingUc = makeUc("sibling-uc-uuid", "siblingUseCase", [siblingSeq])
+    const sibling = makeComp("sibling-uuid", "sibling", {
+      subComponents: [cousin],
+      useCaseDiagrams: [makeUcd("sibling-ucd-uuid", [siblingUc])],
+    })
+    const owner = makeComp("owner-uuid", "owner")
+    const root = makeComp("root-uuid", "root", { subComponents: [owner, sibling] })
+
+    const content = "actor a\ncomponent sibling\na ->> sibling: "
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    expect(ctx?.type).toBe("function-ref")
+
+    const suggs = buildSuggestions(ctx!, content, owner, root, "sequence-diagram")
+    expect(suggs.find((s) => s.insertText.includes("siblingUseCase"))).toBeDefined()
+    expect(suggs.find((s) => s.insertText.includes("siblingFlow"))).toBeDefined()
+    expect(suggs.find((s) => s.insertText.includes("cousinUseCase"))).toBeUndefined()
+    expect(suggs.find((s) => s.insertText.includes("cousinFlow"))).toBeUndefined()
+  })
+
   it("suggests UseCase: and Sequence: even when receiver has no use cases (tree-wide search)", () => {
     // The receiver (AuthService) has NO use cases, but another component (OrderService) does.
     // UseCase: and Sequence: refs are navigation links — they should come from the full tree.

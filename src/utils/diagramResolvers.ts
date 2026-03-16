@@ -252,6 +252,56 @@ export function autoCreateByPath(
   return { updatedRoot, uuid: newUuid }
 }
 
+type ScopedComponentPathResolution =
+  | { kind: "resolved"; component: ComponentNode }
+  | { kind: "not-found" }
+  | { kind: "out-of-scope"; path: string }
+
+function resolveScopedComponentByPath(
+  compPath: string[],
+  root: ComponentNode,
+  ownerCompUuid: string,
+): ScopedComponentPathResolution {
+  const pathStr = compPath.join("/")
+  const compUuid = findNodeByPath(root, pathStr, ownerCompUuid)
+  if (!compUuid) return { kind: "not-found" }
+  const comp = findCompByUuid(root, compUuid)
+  if (!comp) return { kind: "not-found" }
+  if (!isInScope(root, ownerCompUuid, comp.uuid)) {
+    return { kind: "out-of-scope", path: pathStr }
+  }
+  return { kind: "resolved", component: comp }
+}
+
+function assertScopedReferencePath(
+  path: string[],
+  root: ComponentNode,
+  ownerCompUuid: string,
+): void {
+  const compPath = path.slice(0, -1)
+  if (compPath.length === 0) return
+  const resolution = resolveScopedComponentByPath(compPath, root, ownerCompUuid)
+  if (resolution.kind === "out-of-scope") {
+    throw new Error(`Reference "${path.join("/")}" is out of scope for this diagram`)
+  }
+}
+
+export function assertUseCaseReferenceInScope(
+  path: string[],
+  root: ComponentNode,
+  ownerCompUuid: string,
+): void {
+  assertScopedReferencePath(path, root, ownerCompUuid)
+}
+
+export function assertSeqDiagramReferenceInScope(
+  path: string[],
+  root: ComponentNode,
+  ownerCompUuid: string,
+): void {
+  assertScopedReferencePath(path, root, ownerCompUuid)
+}
+
 /**
  * Resolves a `UseCase:<path>` reference to a use case UUID.
  *
@@ -276,12 +326,9 @@ export function resolveUseCaseByPath(
     return resolveUseCaseInOwner(ownerComp, ucId)
   }
 
-  // Path reference — resolve the component, then search its use cases
-  const compUuid = findNodeByPath(root, compPath.join("/"), ownerCompUuid)
-  if (!compUuid) return undefined
-  const comp = findCompByUuid(root, compUuid)
-  if (!comp) return undefined
-  return resolveUseCaseInOwner(comp, ucId)
+  const resolution = resolveScopedComponentByPath(compPath, root, ownerCompUuid)
+  if (resolution.kind !== "resolved") return undefined
+  return resolveUseCaseInOwner(resolution.component, ucId)
 }
 
 /**
@@ -321,10 +368,7 @@ export function resolveSeqDiagramByPath(
     return resolveSeqDiagramInOwner(ownerComp, seqId)
   }
 
-  // Path reference — resolve the component, then search its sequence diagrams
-  const compUuid = findNodeByPath(root, compPath.join("/"), ownerCompUuid)
-  if (!compUuid) return undefined
-  const comp = findCompByUuid(root, compUuid)
-  if (!comp) return undefined
-  return resolveSeqDiagramInOwner(comp, seqId)
+  const resolution = resolveScopedComponentByPath(compPath, root, ownerCompUuid)
+  if (resolution.kind !== "resolved") return undefined
+  return resolveSeqDiagramInOwner(resolution.component, seqId)
 }

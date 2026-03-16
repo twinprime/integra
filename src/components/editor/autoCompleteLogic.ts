@@ -372,8 +372,12 @@ function buildFunctionRefSuggestions(
   }
 
   // UseCase/Sequence refs are navigation links — scan the entire component tree so
-  // suggestions appear regardless of which component receives the message arrow.
-  const walkComp = (comp: ComponentNode) => {
+  // suggestions appear regardless of which component receives the message arrow,
+  // but only for components that are in scope for the owning diagram.
+  const scopedComps = collectAllComponents(rootComponent)
+    .filter((comp) => isInScope(rootComponent, ownerComp.uuid, comp.uuid))
+
+  for (const comp of scopedComps) {
     const isLocal = comp.uuid === ownerComp.uuid
     const absPath = isLocal ? null : getComponentAbsolutePath(rootComponent, comp.uuid)
     for (const ucDiag of comp.useCaseDiagrams) {
@@ -392,9 +396,7 @@ function buildFunctionRefSuggestions(
         }
       }
     }
-    for (const sub of comp.subComponents) walkComp(sub)
   }
-  walkComp(rootComponent)
 
   return suggs
 }

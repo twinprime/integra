@@ -7,7 +7,13 @@
  */
 import type { ComponentNode } from "../../store/types"
 import { findNodeByPath } from "../../utils/nodeUtils"
-import { resolveFunctionRefTarget, resolveUseCaseByPath, resolveSeqDiagramByPath } from "../../utils/diagramResolvers"
+import {
+  resolveFunctionRefTarget,
+  resolveUseCaseByPath,
+  resolveSeqDiagramByPath,
+  assertUseCaseReferenceInScope,
+  assertSeqDiagramReferenceInScope,
+} from "../../utils/diagramResolvers"
 import { findNodeByUuid } from "../../nodes/nodeTree"
 import { parseSequenceDiagramCst } from "./parser"
 import { buildSeqAst, flattenMessages, type SeqAst, type SeqStatement } from "./visitor"
@@ -208,6 +214,7 @@ function emitStatements(
           break
         }
         case "useCaseRef": {
+          if (ownerCompUuid) assertUseCaseReferenceInScope(c.path, root, ownerCompUuid)
           const ucId = c.path[c.path.length - 1]
           const ucUuid = ownerComp && ownerCompUuid
             ? resolveUseCaseByPath(c.path, root, ownerComp, ownerCompUuid)
@@ -227,6 +234,7 @@ function emitStatements(
           break
         }
         case "seqDiagramRef": {
+          if (ownerCompUuid) assertSeqDiagramReferenceInScope(c.path, root, ownerCompUuid)
           const seqId = c.path[c.path.length - 1]
           const seqUuid = ownerComp && ownerCompUuid
             ? resolveSeqDiagramByPath(c.path, root, ownerComp, ownerCompUuid)

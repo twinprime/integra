@@ -106,6 +106,18 @@ describe("generateSequenceMermaidFromAst — UseCaseRef messages", () => {
     expect(mermaidContent).toContain("customer->>customer: unknownUc")
   })
 
+  it("throws when a UseCaseRef points at an out-of-scope cousin component", () => {
+    const cousin = makeCompWithUcs3("cousin-uuid", "cousin", [{ id: "placeOrder", name: "Place Order" }])
+    const sibling = makeNamedComp("sibling-uuid", "sibling", "sibling", [cousin])
+    const owner = makeNamedComp("owner-uuid", "owner", "owner")
+    const root = makeNamedComp("root-uuid", "root", "root", [owner, sibling])
+    const ast = parseAst("actor customer\ncustomer ->> customer: UseCase:sibling/cousin/placeOrder")
+
+    expect(() =>
+      generateSequenceMermaidFromAst(ast, owner, root, "owner-uuid")
+    ).toThrow('Reference "sibling/cousin/placeOrder" is out of scope')
+  })
+
   it("populates messageLabelToUuid for UseCaseRef using the rendered display label as key", () => {
     const owner = makeCompWithUcs3("owner-uuid", "owner", [{ id: "placeOrder", name: "Place Order" }])
     const root = makeNamedComp("root-uuid", "root", "root", [owner])
@@ -413,6 +425,18 @@ describe("generateSequenceMermaidFromAst — SequenceRef messages", () => {
     const ast = parseAst("actor customer\ncustomer ->> customer: Sequence:unknownSeq")
     const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root, "owner-uuid")
     expect(mermaidContent).toContain("customer->>customer: unknownSeq")
+  })
+
+  it("throws when a SequenceRef points at an out-of-scope cousin component", () => {
+    const cousin = makeCompWithSeqs2("cousin-uuid", "cousin", [{ id: "loginFlow", name: "Login Flow" }])
+    const sibling = makeNamedComp("sibling-uuid", "sibling", "sibling", [cousin])
+    const owner = makeNamedComp("owner-uuid", "owner", "owner")
+    const root = makeNamedComp("root-uuid", "root", "root", [owner, sibling])
+    const ast = parseAst("actor customer\ncustomer ->> customer: Sequence:sibling/cousin/loginFlow")
+
+    expect(() =>
+      generateSequenceMermaidFromAst(ast, owner, root, "owner-uuid")
+    ).toThrow('Reference "sibling/cousin/loginFlow" is out of scope')
   })
 
   it("populates messageLabelToUuid for SequenceRef using the rendered display label as key", () => {

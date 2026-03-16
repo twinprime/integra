@@ -15,7 +15,14 @@ import { newFunctionUuid, newInterfaceUuid } from "../../store/types"
 import { upsertNodeInTree, mergeLists } from "../../nodes/nodeTree"
 import { findCompByUuid } from "../../nodes/nodeTree"
 import { findNodeByPath, isInScope } from "../../utils/nodeUtils"
-import { resolveUseCaseByPath, resolveSeqDiagramByPath, autoCreateByPath, resolveFunctionRefTarget } from "../../utils/diagramResolvers"
+import {
+  resolveUseCaseByPath,
+  resolveSeqDiagramByPath,
+  autoCreateByPath,
+  resolveFunctionRefTarget,
+  assertUseCaseReferenceInScope,
+  assertSeqDiagramReferenceInScope,
+} from "../../utils/diagramResolvers"
 import { parseSequenceDiagramCst } from "./parser"
 import { buildSeqAst, flattenMessages } from "./visitor"
 import { deriveNameFromId } from "../../utils/nameUtils"
@@ -502,9 +509,11 @@ export function parseSequenceDiagram(
   if (updatedOwnerComp) {
     for (const msg of astMessages) {
       if (msg.content.kind === "useCaseRef") {
+        assertUseCaseReferenceInScope(msg.content.path, updatedRoot, ownerComponentUuid)
         const ucUuid = resolveUseCaseByPath(msg.content.path, updatedRoot, updatedOwnerComp, ownerComponentUuid)
         if (ucUuid && !referencedNodeIds.includes(ucUuid)) referencedNodeIds.push(ucUuid)
       } else if (msg.content.kind === "seqDiagramRef") {
+        assertSeqDiagramReferenceInScope(msg.content.path, updatedRoot, ownerComponentUuid)
         const seqUuid = resolveSeqDiagramByPath(msg.content.path, updatedRoot, updatedOwnerComp, ownerComponentUuid)
         if (seqUuid && !referencedNodeIds.includes(seqUuid)) referencedNodeIds.push(seqUuid)
       }

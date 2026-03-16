@@ -7,6 +7,47 @@ import type { ComponentNode } from "../../store/types"
 import { makeComp } from "./sequenceDiagram.test.helpers"
 
 describe("parseSequenceDiagram — out-of-scope reference", () => {
+  const makeUseCaseComp = (
+    uuid: string,
+    id: string,
+    useCaseId: string,
+    sequenceIds: string[] = [],
+    subComponents: ComponentNode[] = [],
+  ): ComponentNode => ({
+    uuid,
+    id,
+    name: id,
+    type: "component",
+    actors: [],
+    subComponents,
+    interfaces: [],
+    useCaseDiagrams: [{
+      uuid: `${uuid}-ucd`,
+      id: "ucd",
+      name: "ucd",
+      type: "use-case-diagram",
+      ownerComponentUuid: uuid,
+      referencedNodeIds: [],
+      content: "",
+      useCases: [{
+        uuid: `${uuid}-${useCaseId}-uuid`,
+        id: useCaseId,
+        name: useCaseId,
+        type: "use-case",
+        sequenceDiagrams: sequenceIds.map((seqId) => ({
+          uuid: `${uuid}-${seqId}-uuid`,
+          id: seqId,
+          name: seqId,
+          type: "sequence-diagram" as const,
+          ownerComponentUuid: uuid,
+          referencedNodeIds: [],
+          referencedFunctionUuids: [],
+          content: "",
+        })),
+      }],
+    }],
+  })
+
   it("throws when referencing a cousin (child of sibling)", () => {
     // Tree: root → ownerComp, sibling → cousin
     const cousin = makeComp("cousin-uuid", "cousin")
@@ -28,6 +69,38 @@ describe("parseSequenceDiagram — out-of-scope reference", () => {
     expect(() =>
       parseSequenceDiagram("component sibling/cousin/deepCousin as dc", root, ownerComp.uuid, "diag-uuid")
     ).toThrow("out of scope")
+  })
+
+  it("throws when UseCase ref points at a cousin-owned use case", () => {
+    const cousin = makeUseCaseComp("cousin-uuid", "cousin", "placeOrder")
+    const sibling = makeComp("sibling-uuid", "sibling", [cousin])
+    const ownerComp = makeUseCaseComp("owner-uuid", "owner", "ownUseCase")
+    const root = makeComp("root-uuid", "root", [ownerComp, sibling])
+
+    expect(() =>
+      parseSequenceDiagram(
+        "actor user\nuser ->> user: UseCase:sibling/cousin/placeOrder",
+        root,
+        ownerComp.uuid,
+        "diag-uuid",
+      )
+    ).toThrow('Reference "sibling/cousin/placeOrder" is out of scope')
+  })
+
+  it("throws when Sequence ref points at a cousin-owned sequence diagram", () => {
+    const cousin = makeUseCaseComp("cousin-uuid", "cousin", "placeOrder", ["placeOrderFlow"])
+    const sibling = makeComp("sibling-uuid", "sibling", [cousin])
+    const ownerComp = makeUseCaseComp("owner-uuid", "owner", "ownUseCase", ["ownFlow"])
+    const root = makeComp("root-uuid", "root", [ownerComp, sibling])
+
+    expect(() =>
+      parseSequenceDiagram(
+        "actor user\nuser ->> user: Sequence:sibling/cousin/placeOrderFlow",
+        root,
+        ownerComp.uuid,
+        "diag-uuid",
+      )
+    ).toThrow('Reference "sibling/cousin/placeOrderFlow" is out of scope')
   })
 
   it("does NOT throw for a relative child reference", () => {

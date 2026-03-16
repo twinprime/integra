@@ -105,6 +105,24 @@ describe("resolveUseCaseByPath", () => {
     expect(result).toBe("orders-uuid-placeOrder-uuid")
   })
 
+  it("resolves a use case owned directly by an ancestor sibling component", () => {
+    const uncle = makeCompWithUcs("uncle-uuid", "uncle", ["placeOrder"])
+    const parent = makeNamedComp("parent-uuid", "parent", "parent", [makeNamedComp("owner-uuid", "owner", "owner"), uncle])
+    const root = makeNamedComp("root-uuid", "root", "root", [parent])
+    const owner = parent.subComponents[0]
+    const result = resolveUseCaseByPath(["parent", "uncle", "placeOrder"], root, owner, "owner-uuid")
+    expect(result).toBe("uncle-uuid-placeOrder-uuid")
+  })
+
+  it("returns undefined for a use case owned by a cousin component", () => {
+    const cousin = makeCompWithUcs("cousin-uuid", "cousin", ["placeOrder"])
+    const sibling = makeNamedComp("sibling-uuid", "sibling", "sibling", [cousin])
+    const owner = makeNamedComp("owner-uuid", "owner", "owner")
+    const root = makeNamedComp("root-uuid", "root", "root", [owner, sibling])
+    const result = resolveUseCaseByPath(["sibling", "cousin", "placeOrder"], root, owner, "owner-uuid")
+    expect(result).toBeUndefined()
+  })
+
   it("returns undefined for unknown use case id", () => {
     const owner = makeCompWithUcs("owner-uuid", "owner", ["placeOrder"])
     const root = makeNamedComp("root-uuid", "root", "root", [owner])
@@ -291,6 +309,24 @@ describe("resolveSeqDiagramByPath", () => {
     const root = makeNamedComp("root-uuid", "root", "root", [owner, auth])
     const result = resolveSeqDiagramByPath(["auth", "loginFlow"], root, owner, "owner-uuid")
     expect(result).toBe("auth-uuid-uc-loginFlow-uuid")
+  })
+
+  it("resolves a sequence diagram owned directly by an ancestor sibling component", () => {
+    const uncle = makeCompWithSeqs("uncle-uuid", "uncle", [{ id: "loginFlow" }])
+    const parent = makeNamedComp("parent-uuid", "parent", "parent", [makeNamedComp("owner-uuid", "owner", "owner"), uncle])
+    const root = makeNamedComp("root-uuid", "root", "root", [parent])
+    const owner = parent.subComponents[0]
+    const result = resolveSeqDiagramByPath(["parent", "uncle", "loginFlow"], root, owner, "owner-uuid")
+    expect(result).toBe("uncle-uuid-uc-loginFlow-uuid")
+  })
+
+  it("returns undefined for a sequence diagram owned by a cousin component", () => {
+    const cousin = makeCompWithSeqs("cousin-uuid", "cousin", [{ id: "loginFlow" }])
+    const sibling = makeNamedComp("sibling-uuid", "sibling", "sibling", [cousin])
+    const owner = makeNamedComp("owner-uuid", "owner", "owner")
+    const root = makeNamedComp("root-uuid", "root", "root", [owner, sibling])
+    const result = resolveSeqDiagramByPath(["sibling", "cousin", "loginFlow"], root, owner, "owner-uuid")
+    expect(result).toBeUndefined()
   })
 
   it("returns undefined for unknown sequence diagram id", () => {
