@@ -5,7 +5,7 @@
  * <pre> block rather than an empty div.
  */
 import { describe, it, expect, vi } from "vitest"
-import { render, screen } from "@testing-library/react"
+import { fireEvent, render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { ComponentClassDiagram } from "./ComponentClassDiagram"
 import { UseCaseClassDiagram } from "./UseCaseClassDiagram"
@@ -38,9 +38,15 @@ function makeHookState(overrides: Record<string, unknown> = {}) {
     mermaidSource: "",
     elementRef: makeRef(),
     handleDiagramClick: vi.fn(),
+    handleDiagramMouseMove: vi.fn(),
+    handleDiagramMouseLeave: vi.fn(),
     activeSequenceDiagrams: [],
+    activePopupPosition: null,
+    isPopupPinned: false,
     clearActiveSequenceDiagrams: vi.fn(),
     selectSequenceDiagram: vi.fn(),
+    handlePopupMouseEnter: vi.fn(),
+    handlePopupMouseLeave: vi.fn(),
     ...overrides,
   }
 }
@@ -115,11 +121,12 @@ describe("ComponentClassDiagram — error display", () => {
     expect(screen.queryByText(/No interfaces defined/i)).toBeNull()
   })
 
-  it("shows dependency source chooser when the hook exposes sequence diagrams", () => {
+  it("shows dependency source popup when the hook exposes sequence diagrams", () => {
     mockUseCompClass.mockReturnValue(
       makeHookState({
         svg: "<svg>ok</svg>",
         activeSequenceDiagrams: [{ uuid: "seq-1", name: "Checkout Flow" }],
+        activePopupPosition: { x: 100, y: 120 },
       }),
     )
     render(<ComponentClassDiagram componentNode={makeCompNode()} />)
@@ -128,7 +135,7 @@ describe("ComponentClassDiagram — error display", () => {
     expect(screen.getByText("Checkout Flow")).toBeInTheDocument()
   })
 
-  it("routes chooser actions back to the hook callbacks", async () => {
+  it("routes popup actions back to the hook callbacks", async () => {
     const user = userEvent.setup()
     const clearActiveSequenceDiagrams = vi.fn()
     const selectSequenceDiagram = vi.fn()
@@ -136,6 +143,8 @@ describe("ComponentClassDiagram — error display", () => {
       makeHookState({
         svg: "<svg>ok</svg>",
         activeSequenceDiagrams: [{ uuid: "seq-1", name: "Checkout Flow" }],
+        activePopupPosition: { x: 100, y: 120 },
+        isPopupPinned: true,
         clearActiveSequenceDiagrams,
         selectSequenceDiagram,
       }),
@@ -147,6 +156,24 @@ describe("ComponentClassDiagram — error display", () => {
 
     await user.click(screen.getByText("Close"))
     expect(clearActiveSequenceDiagrams).toHaveBeenCalled()
+  })
+
+  it("passes hover handlers to the diagram container", () => {
+    const handleDiagramMouseMove = vi.fn()
+    const handleDiagramMouseLeave = vi.fn()
+    mockUseCompClass.mockReturnValue(
+      makeHookState({
+        svg: "<svg>ok</svg>",
+        handleDiagramMouseMove,
+        handleDiagramMouseLeave,
+      }),
+    )
+    render(<ComponentClassDiagram componentNode={makeCompNode()} />)
+
+    fireEvent.mouseMove(screen.getByTestId("diagram-svg-container"))
+    fireEvent.mouseLeave(screen.getByTestId("diagram-svg-container"))
+    expect(handleDiagramMouseMove).toHaveBeenCalled()
+    expect(handleDiagramMouseLeave).toHaveBeenCalled()
   })
 })
 

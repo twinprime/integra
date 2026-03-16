@@ -15,9 +15,15 @@ export const UseCaseClassDiagram = ({ useCaseNode }: UseCaseClassDiagramProps) =
     mermaidSource,
     elementRef,
     handleDiagramClick,
+    handleDiagramMouseMove,
+    handleDiagramMouseLeave,
     activeSequenceDiagrams,
+    activePopupPosition,
+    isPopupPinned,
     clearActiveSequenceDiagrams,
     selectSequenceDiagram,
+    handlePopupMouseEnter,
+    handlePopupMouseLeave,
   } = useUseCaseClassDiagram(useCaseNode)
 
   if (!useCaseNode.sequenceDiagrams.length) {
@@ -39,6 +45,8 @@ export const UseCaseClassDiagram = ({ useCaseNode }: UseCaseClassDiagramProps) =
             className="flex justify-center items-start pt-4"
             dangerouslySetInnerHTML={{ __html: svg }}
             onClick={handleDiagramClick}
+            onMouseMove={handleDiagramMouseMove}
+            onMouseLeave={handleDiagramMouseLeave}
           />
         </DiagramPanZoom>
       ) : error && mermaidSource ? (
@@ -50,8 +58,12 @@ export const UseCaseClassDiagram = ({ useCaseNode }: UseCaseClassDiagramProps) =
       )}
       <DependencySourceDialog
         sources={activeSequenceDiagrams}
+        position={activePopupPosition}
+        pinned={isPopupPinned}
         onClose={clearActiveSequenceDiagrams}
         onSelect={selectSequenceDiagram}
+        onMouseEnter={handlePopupMouseEnter}
+        onMouseLeave={handlePopupMouseLeave}
       />
     </div>
   )

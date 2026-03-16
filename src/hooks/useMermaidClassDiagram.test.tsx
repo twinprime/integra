@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from "vitest"
-import { render, renderHook, waitFor, screen } from "@testing-library/react"
+import { fireEvent, render, renderHook, waitFor, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { useMemo } from "react"
 import { useMermaidClassDiagram } from "./useMermaidClassDiagram"
@@ -65,9 +65,15 @@ function HookHarness({
     svg,
     elementRef,
     handleDiagramClick,
+    handleDiagramMouseMove,
+    handleDiagramMouseLeave,
     activeSequenceDiagrams,
+    activePopupPosition,
+    isPopupPinned,
     clearActiveSequenceDiagrams,
     selectSequenceDiagram,
+    handlePopupMouseEnter,
+    handlePopupMouseLeave,
   } = useMermaidClassDiagram(buildFn, mockNode, "test")
 
   return (
@@ -77,6 +83,8 @@ function HookHarness({
         data-testid="diagram"
         dangerouslySetInnerHTML={{ __html: svg }}
         onClick={handleDiagramClick}
+        onMouseMove={handleDiagramMouseMove}
+        onMouseLeave={handleDiagramMouseLeave}
       />
       <button type="button" onClick={clearActiveSequenceDiagrams}>
         clear
@@ -85,6 +93,16 @@ function HookHarness({
         select-seq
       </button>
       <div data-testid="active-count">{activeSequenceDiagrams.length}</div>
+      <div data-testid="popup-pinned">{String(isPopupPinned)}</div>
+      <div data-testid="popup-position">
+        {activePopupPosition ? `${activePopupPosition.x},${activePopupPosition.y}` : "none"}
+      </div>
+      <button type="button" onClick={handlePopupMouseEnter}>
+        popup-enter
+      </button>
+      <button type="button" onClick={handlePopupMouseLeave}>
+        popup-leave
+      </button>
       {activeSequenceDiagrams.map((diagram) => (
         <div key={diagram.uuid}>{diagram.name}</div>
       ))}
@@ -231,10 +249,10 @@ describe("useMermaidClassDiagram", () => {
     })
 
     expect(screen.getByTestId("diagram").querySelector('[data-integra-edge-index="1"]')).toBeNull()
+    expect(screen.getByTestId("diagram").querySelector('[data-integra-edge-hit-target="true"]')).not.toBeNull()
   })
 
-  it("opens and clears dependency sources from edge clicks", async () => {
-    const user = userEvent.setup()
+  it("shows dependency sources on hover", async () => {
     vi.mocked(mermaid.render).mockResolvedValueOnce({
       svg: `
         <svg>
@@ -264,16 +282,16 @@ describe("useMermaidClassDiagram", () => {
       expect(screen.getByTestId("diagram").querySelector('[data-integra-edge-index="0"]')).not.toBeNull()
     })
 
-    await user.click(screen.getByText("Uses"))
+    const hitTarget = screen.getByTestId("diagram").querySelector('[data-integra-edge-hit-target="true"]')
+    expect(hitTarget).not.toBeNull()
+    fireEvent.mouseMove(hitTarget!, { clientX: 120, clientY: 140 })
     expect(screen.getByText("Checkout Flow")).toBeInTheDocument()
     expect(screen.getByTestId("active-count")).toHaveTextContent("1")
-
-    await user.click(screen.getByText("clear"))
-    expect(screen.getByTestId("active-count")).toHaveTextContent("0")
+    expect(screen.getByTestId("popup-pinned")).toHaveTextContent("false")
+    expect(screen.getByTestId("popup-position")).toHaveTextContent("120,140")
   })
 
-  it("keeps dependency links clickable after closing the chooser", async () => {
-    const user = userEvent.setup()
+  it("clears hover popup after leaving the diagram", async () => {
     vi.mocked(mermaid.render).mockResolvedValueOnce({
       svg: `
         <svg>
@@ -299,18 +317,176 @@ describe("useMermaidClassDiagram", () => {
       />,
     )
 
+    await waitFor(() => expect(screen.getByText("Uses")).toBeInTheDocument())
+
+    const hitTarget = screen.getByTestId("diagram").querySelector('[data-integra-edge-hit-target="true"]')
+    expect(hitTarget).not.toBeNull()
+    fireEvent.mouseMove(hitTarget!, { clientX: 120, clientY: 140 })
+    expect(screen.getByTestId("active-count")).toHaveTextContent("1")
+
+    fireEvent.mouseLeave(screen.getByTestId("diagram"))
+    await waitFor(() => expect(screen.getByTestId("active-count")).toHaveTextContent("0"))
+  })
+
+  it("keeps hover popup open while the popup is hovered", async () => {
+    vi.mocked(mermaid.render).mockResolvedValueOnce({
+      svg: `
+        <svg>
+          <g class="edgePaths">
+            <path data-edge="true" data-id="edge-0"></path>
+          </g>
+          <g class="edgeLabels">
+            <g class="edgeLabel"><g class="label" data-id="edge-0"><foreignObject><div>Uses</div></foreignObject></g></g>
+          </g>
+        </svg>
+      `,
+      diagramType: "classDiagram",
+      bindFunctions: undefined,
+    } satisfies RenderResult)
+
+    render(
+      <HookHarness
+        buildResult={{
+          mermaidContent: "classDiagram\n  A ..> B",
+          idToUuid: {},
+          relationshipMetadata: [{ sequenceDiagrams: [{ uuid: "seq-1", name: "Checkout Flow" }] }],
+        }}
+      />,
+    )
+
+    await waitFor(() => expect(screen.getByText("Uses")).toBeInTheDocument())
+
+    const hitTarget = screen.getByTestId("diagram").querySelector('[data-integra-edge-hit-target="true"]')
+    expect(hitTarget).not.toBeNull()
+    fireEvent.mouseMove(hitTarget!, { clientX: 120, clientY: 140 })
+    fireEvent.click(screen.getByText("popup-enter"))
+    fireEvent.mouseLeave(screen.getByTestId("diagram"))
+    expect(screen.getByTestId("active-count")).toHaveTextContent("1")
+
+    fireEvent.click(screen.getByText("popup-leave"))
+    await waitFor(() => expect(screen.getByTestId("active-count")).toHaveTextContent("0"))
+  })
+
+  it("navigates directly when a dependency has one source diagram", async () => {
+    vi.mocked(mermaid.render).mockResolvedValueOnce({
+      svg: `
+        <svg>
+          <g class="edgePaths">
+            <path data-edge="true" data-id="edge-0"></path>
+          </g>
+          <g class="edgeLabels">
+            <g class="edgeLabel"><g class="label" data-id="edge-0"><foreignObject><div>Uses</div></foreignObject></g></g>
+          </g>
+        </svg>
+      `,
+      diagramType: "classDiagram",
+      bindFunctions: undefined,
+    } satisfies RenderResult)
+
+    render(
+      <HookHarness
+        buildResult={{
+          mermaidContent: "classDiagram\n  A ..> B",
+          idToUuid: {},
+          relationshipMetadata: [{ sequenceDiagrams: [{ uuid: "seq-1", name: "Checkout Flow" }] }],
+        }}
+      />,
+    )
+
+    await waitFor(() => expect(screen.getByText("Uses")).toBeInTheDocument())
+
+    const hitTarget = screen.getByTestId("diagram").querySelector('[data-integra-edge-hit-target="true"]')
+    expect(hitTarget).not.toBeNull()
+    fireEvent.click(hitTarget!, { clientX: 120, clientY: 140 })
+    expect(mockSelectNode).toHaveBeenCalledWith("seq-1")
+    expect(screen.getByTestId("active-count")).toHaveTextContent("0")
+  })
+
+  it("pins the popup on click when a dependency has multiple source diagrams", async () => {
+    vi.mocked(mermaid.render).mockResolvedValueOnce({
+      svg: `
+        <svg>
+          <g class="edgePaths">
+            <path data-edge="true" data-id="edge-0"></path>
+          </g>
+          <g class="edgeLabels">
+            <g class="edgeLabel"><g class="label" data-id="edge-0"><foreignObject><div>Uses</div></foreignObject></g></g>
+          </g>
+        </svg>
+      `,
+      diagramType: "classDiagram",
+      bindFunctions: undefined,
+    } satisfies RenderResult)
+
+    render(
+      <HookHarness
+        buildResult={{
+          mermaidContent: "classDiagram\n  A ..> B",
+          idToUuid: {},
+          relationshipMetadata: [{
+            sequenceDiagrams: [
+              { uuid: "seq-1", name: "Checkout Flow" },
+              { uuid: "seq-2", name: "Retry Flow" },
+            ],
+          }],
+        }}
+      />,
+    )
+
+    await waitFor(() => expect(screen.getByText("Uses")).toBeInTheDocument())
+
+    const hitTarget = screen.getByTestId("diagram").querySelector('[data-integra-edge-hit-target="true"]')
+    expect(hitTarget).not.toBeNull()
+    fireEvent.click(hitTarget!, { clientX: 120, clientY: 140 })
+    expect(screen.getByTestId("active-count")).toHaveTextContent("2")
+    expect(screen.getByTestId("popup-pinned")).toHaveTextContent("true")
+  })
+
+  it("keeps dependency links clickable after closing the popup", async () => {
+    const user = userEvent.setup()
+    vi.mocked(mermaid.render).mockResolvedValueOnce({
+      svg: `
+        <svg>
+          <g class="edgePaths">
+            <path data-edge="true" data-id="edge-0"></path>
+          </g>
+          <g class="edgeLabels">
+            <g class="edgeLabel"><g class="label" data-id="edge-0"><foreignObject><div>Uses</div></foreignObject></g></g>
+          </g>
+        </svg>
+      `,
+      diagramType: "classDiagram",
+      bindFunctions: undefined,
+    } satisfies RenderResult)
+
+    render(
+      <HookHarness
+        buildResult={{
+          mermaidContent: "classDiagram\n  A ..> B",
+          idToUuid: {},
+          relationshipMetadata: [{
+            sequenceDiagrams: [
+              { uuid: "seq-1", name: "Checkout Flow" },
+              { uuid: "seq-2", name: "Retry Flow" },
+            ],
+          }],
+        }}
+      />,
+    )
+
     await waitFor(() => {
       expect(screen.getByText("Uses")).toBeInTheDocument()
     })
 
     await user.click(screen.getByText("Uses"))
     expect(screen.getByText("Checkout Flow")).toBeInTheDocument()
+    expect(screen.getByText("Retry Flow")).toBeInTheDocument()
 
     await user.click(screen.getByText("clear"))
     expect(screen.getByTestId("active-count")).toHaveTextContent("0")
 
     await user.click(screen.getByText("Uses"))
-    expect(screen.getByTestId("active-count")).toHaveTextContent("1")
+    expect(screen.getByTestId("active-count")).toHaveTextContent("2")
     expect(screen.getByText("Checkout Flow")).toBeInTheDocument()
   })
 
