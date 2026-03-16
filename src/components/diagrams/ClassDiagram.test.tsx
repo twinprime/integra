@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { ComponentClassDiagram } from "./ComponentClassDiagram"
 import { UseCaseClassDiagram } from "./UseCaseClassDiagram"
 import type { ComponentNode, UseCaseNode, InterfaceSpecification, SequenceDiagramNode } from "../../store/types"
@@ -28,6 +29,20 @@ const mockUseUcClass = useUseCaseClassDiagram as ReturnType<typeof vi.fn>
 
 function makeRef() {
   return { current: null }
+}
+
+function makeHookState(overrides: Record<string, unknown> = {}) {
+  return {
+    svg: "",
+    error: "",
+    mermaidSource: "",
+    elementRef: makeRef(),
+    handleDiagramClick: vi.fn(),
+    activeSequenceDiagrams: [],
+    clearActiveSequenceDiagrams: vi.fn(),
+    selectSequenceDiagram: vi.fn(),
+    ...overrides,
+  }
 }
 
 const MERMAID_SOURCE = "classDiagram\n  class Foo"
@@ -59,7 +74,7 @@ const makeUseCaseNode = (withSeq = true): UseCaseNode => ({
 
 describe("ComponentClassDiagram — error display", () => {
   it("shows mermaid source in <pre> when svg is empty and error is set", () => {
-    mockUseCompClass.mockReturnValue({ svg: "", error: "Invalid Diagram Syntax", mermaidSource: MERMAID_SOURCE, elementRef: makeRef() })
+    mockUseCompClass.mockReturnValue(makeHookState({ error: "Invalid Diagram Syntax", mermaidSource: MERMAID_SOURCE }))
     render(<ComponentClassDiagram componentNode={makeCompNode()} />)
 
     const pre = document.querySelector("pre")
@@ -68,7 +83,7 @@ describe("ComponentClassDiagram — error display", () => {
   })
 
   it("does NOT show <pre> when mermaid renders successfully", () => {
-    mockUseCompClass.mockReturnValue({ svg: "<svg>ok</svg>", error: "", mermaidSource: "", elementRef: makeRef() })
+    mockUseCompClass.mockReturnValue(makeHookState({ svg: "<svg>ok</svg>" }))
     render(<ComponentClassDiagram componentNode={makeCompNode()} />)
 
     expect(document.querySelector("pre")).toBeNull()
@@ -76,14 +91,14 @@ describe("ComponentClassDiagram — error display", () => {
   })
 
   it("does NOT show <pre> when error occurs but mermaidSource is empty", () => {
-    mockUseCompClass.mockReturnValue({ svg: "", error: "some error", mermaidSource: "", elementRef: makeRef() })
+    mockUseCompClass.mockReturnValue(makeHookState({ error: "some error" }))
     render(<ComponentClassDiagram componentNode={makeCompNode()} />)
 
     expect(document.querySelector("pre")).toBeNull()
   })
 
   it("shows 'No interfaces defined' when component has no interfaces and no error", () => {
-    mockUseCompClass.mockReturnValue({ svg: "", error: "", mermaidSource: "", elementRef: makeRef() })
+    mockUseCompClass.mockReturnValue(makeHookState())
     render(<ComponentClassDiagram componentNode={makeCompNode(false)} />)
 
     expect(screen.getByText(/No interfaces defined/i)).toBeTruthy()
@@ -92,14 +107,46 @@ describe("ComponentClassDiagram — error display", () => {
 
   it("does not show the empty-state message when dependency-only diagram source is available", () => {
     mockUseCompClass.mockReturnValue({
-      svg: "",
-      error: "",
+      ...makeHookState(),
       mermaidSource: "classDiagram\n  class comp\n  class IOrder\n  comp ..> IOrder",
-      elementRef: makeRef(),
     })
     render(<ComponentClassDiagram componentNode={makeCompNode(false)} />)
 
     expect(screen.queryByText(/No interfaces defined/i)).toBeNull()
+  })
+
+  it("shows dependency source chooser when the hook exposes sequence diagrams", () => {
+    mockUseCompClass.mockReturnValue(
+      makeHookState({
+        svg: "<svg>ok</svg>",
+        activeSequenceDiagrams: [{ uuid: "seq-1", name: "Checkout Flow" }],
+      }),
+    )
+    render(<ComponentClassDiagram componentNode={makeCompNode()} />)
+
+    expect(screen.getByText("Derived from sequence diagrams")).toBeInTheDocument()
+    expect(screen.getByText("Checkout Flow")).toBeInTheDocument()
+  })
+
+  it("routes chooser actions back to the hook callbacks", async () => {
+    const user = userEvent.setup()
+    const clearActiveSequenceDiagrams = vi.fn()
+    const selectSequenceDiagram = vi.fn()
+    mockUseCompClass.mockReturnValue(
+      makeHookState({
+        svg: "<svg>ok</svg>",
+        activeSequenceDiagrams: [{ uuid: "seq-1", name: "Checkout Flow" }],
+        clearActiveSequenceDiagrams,
+        selectSequenceDiagram,
+      }),
+    )
+    render(<ComponentClassDiagram componentNode={makeCompNode()} />)
+
+    await user.click(screen.getByText("Checkout Flow"))
+    expect(selectSequenceDiagram).toHaveBeenCalledWith("seq-1")
+
+    await user.click(screen.getByText("Close"))
+    expect(clearActiveSequenceDiagrams).toHaveBeenCalled()
   })
 })
 
@@ -107,7 +154,7 @@ describe("ComponentClassDiagram — error display", () => {
 
 describe("UseCaseClassDiagram — error display", () => {
   it("shows mermaid source in <pre> when svg is empty and error is set", () => {
-    mockUseUcClass.mockReturnValue({ svg: "", error: "Invalid Diagram Syntax", mermaidSource: MERMAID_SOURCE, elementRef: makeRef() })
+    mockUseUcClass.mockReturnValue(makeHookState({ error: "Invalid Diagram Syntax", mermaidSource: MERMAID_SOURCE }))
     render(<UseCaseClassDiagram useCaseNode={makeUseCaseNode()} />)
 
     const pre = document.querySelector("pre")
@@ -116,7 +163,7 @@ describe("UseCaseClassDiagram — error display", () => {
   })
 
   it("does NOT show <pre> when mermaid renders successfully", () => {
-    mockUseUcClass.mockReturnValue({ svg: "<svg>ok</svg>", error: "", mermaidSource: "", elementRef: makeRef() })
+    mockUseUcClass.mockReturnValue(makeHookState({ svg: "<svg>ok</svg>" }))
     render(<UseCaseClassDiagram useCaseNode={makeUseCaseNode()} />)
 
     expect(document.querySelector("pre")).toBeNull()
@@ -124,7 +171,7 @@ describe("UseCaseClassDiagram — error display", () => {
   })
 
   it("does NOT show <pre> when error occurs but mermaidSource is empty", () => {
-    mockUseUcClass.mockReturnValue({ svg: "", error: "some error", mermaidSource: "", elementRef: makeRef() })
+    mockUseUcClass.mockReturnValue(makeHookState({ error: "some error" }))
     render(<UseCaseClassDiagram useCaseNode={makeUseCaseNode()} />)
 
     expect(document.querySelector("pre")).toBeNull()

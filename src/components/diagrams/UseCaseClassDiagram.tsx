@@ -2,13 +2,23 @@ import type { UseCaseNode } from "../../store/types"
 import { useUseCaseClassDiagram } from "../../hooks/useUseCaseClassDiagram"
 import { DiagramErrorBanner } from "./DiagramErrorBanner"
 import { DiagramPanZoom } from "./DiagramPanZoom"
+import { DependencySourceDialog } from "./DependencySourceDialog"
 
 interface UseCaseClassDiagramProps {
   useCaseNode: UseCaseNode
 }
 
 export const UseCaseClassDiagram = ({ useCaseNode }: UseCaseClassDiagramProps) => {
-  const { svg, error, mermaidSource, elementRef } = useUseCaseClassDiagram(useCaseNode)
+  const {
+    svg,
+    error,
+    mermaidSource,
+    elementRef,
+    handleDiagramClick,
+    activeSequenceDiagrams,
+    clearActiveSequenceDiagrams,
+    selectSequenceDiagram,
+  } = useUseCaseClassDiagram(useCaseNode)
 
   if (!useCaseNode.sequenceDiagrams.length) {
     return (
@@ -28,6 +38,7 @@ export const UseCaseClassDiagram = ({ useCaseNode }: UseCaseClassDiagramProps) =
             data-testid="diagram-svg-container"
             className="flex justify-center items-start pt-4"
             dangerouslySetInnerHTML={{ __html: svg }}
+            onClick={handleDiagramClick}
           />
         </DiagramPanZoom>
       ) : error && mermaidSource ? (
@@ -37,6 +48,11 @@ export const UseCaseClassDiagram = ({ useCaseNode }: UseCaseClassDiagramProps) =
       ) : (
         <div ref={elementRef} className="flex-1" style={{ minHeight: "100px" }} />
       )}
+      <DependencySourceDialog
+        sources={activeSequenceDiagrams}
+        onClose={clearActiveSequenceDiagrams}
+        onSelect={selectSequenceDiagram}
+      />
     </div>
   )
 }

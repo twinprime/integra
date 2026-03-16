@@ -90,6 +90,18 @@ describe("buildComponentClassDiagram", () => {
     expect(result.mermaidContent).toContain("user ..> IFoo")
   })
 
+  it("tracks sequence-diagram provenance for inbound dependency arrows", () => {
+    const sd = makeSeqDiagram(
+      "actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething(id: string)",
+    )
+    const root = makeRoot([sd])
+    const result = buildComponentClassDiagram(getCompA(root), root)
+
+    expect(result.relationshipMetadata).toContainEqual({
+      sequenceDiagrams: [{ uuid: "seq-uuid", name: "Seq" }],
+    })
+  })
+
   it("detects a component caller and adds dependency arrow", () => {
     const sd = makeSeqDiagram(
       "component compB\ncomponent compA\ncompB ->> compA: IFoo:doSomething(id: string)",

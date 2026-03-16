@@ -8,6 +8,12 @@ import { findNodeByPath, getAncestorComponentChain } from "./nodeUtils"
 import { collectAllDiagrams } from "../nodes/nodeTree"
 import { buildRootClassDiagram } from "./rootClassDiagram"
 import { resolveEffectiveInterfaceFunctions } from "./interfaceFunctions"
+import {
+  addSequenceDiagramSource,
+  createSequenceDiagramSourceMap,
+  toRelationshipMetadata,
+  type ClassDiagramBuildResult,
+} from "./classDiagramMetadata"
 
 type ParticipantKind = "actor" | "component"
 
@@ -17,6 +23,8 @@ type Participant = {
   uuid: string
   kind: ParticipantKind
 }
+
+type SequenceDiagramSources = Map<string, { uuid: string; name: string }>
 
 type ComponentScope = "immediate-sibling" | "ancestor-sibling"
 
@@ -162,7 +170,7 @@ function emitInterfaceClass(
 export function buildComponentClassDiagram(
   component: ComponentNode,
   rootComponent: ComponentNode,
-): { mermaidContent: string; idToUuid: Record<string, string> } {
+): ClassDiagramBuildResult {
   if (component.uuid === rootComponent.uuid) {
     return buildRootClassDiagram(rootComponent)
   }
@@ -173,14 +181,21 @@ export function buildComponentClassDiagram(
 
   // dependents: participants that call INTO this component's interfaces
   const dependentParticipants = new Map<string, Participant>()
-  const depArrows: Array<{ fromNodeId: string; toNodeId: string; isViolation: boolean }> = []
+  const depArrows: Array<{
+    fromNodeId: string
+    toNodeId: string
+    isViolation: boolean
+    sequenceSources: SequenceDiagramSources
+  }> = []
   const depArrowsSet = new Set<string>()
+  const depArrowSources = new Map<string, SequenceDiagramSources>()
 
   // Track which functions are called on own interfaces (for filtering)
   const calledOwnFunctions = new Map<string, Set<string>>() // interfaceId → Set<functionId>
 
   // dependencies: (receiverUuid → interfaceId → Set<functionId>) that this component calls out to
   const outgoingByReceiver = new Map<string, Map<string, Set<string>>>()
+  const outgoingSourcesByReceiver = new Map<string, Map<string, SequenceDiagramSources>>()
   const receiverParticipants = new Map<string, Participant>()
 
   for (const { diagram, ownerComponentUuid } of collectAllDiagrams(rootComponent)) {
@@ -225,12 +240,16 @@ export function buildComponentClassDiagram(
         const arrowKey = `${sender.nodeId}|${interfaceId}`
         if (!depArrowsSet.has(arrowKey)) {
           depArrowsSet.add(arrowKey)
+          const sequenceSources = createSequenceDiagramSourceMap()
+          depArrowSources.set(arrowKey, sequenceSources)
           depArrows.push({
             fromNodeId: sender.nodeId,
             toNodeId: interfaceId,
             isViolation,
+            sequenceSources,
           })
         }
+        addSequenceDiagramSource(depArrowSources.get(arrowKey)!, seqDiagram)
 
         // Track called function on own interface
         if (!calledOwnFunctions.has(interfaceId)) calledOwnFunctions.set(interfaceId, new Set())
@@ -245,11 +264,18 @@ export function buildComponentClassDiagram(
 
         if (!outgoingByReceiver.has(receiverUuid)) {
           outgoingByReceiver.set(receiverUuid, new Map())
+          outgoingSourcesByReceiver.set(receiverUuid, new Map())
           receiverParticipants.set(receiverUuid, receiver)
         }
         const ifaceMap = outgoingByReceiver.get(receiverUuid)!
         if (!ifaceMap.has(interfaceId)) ifaceMap.set(interfaceId, new Set())
         ifaceMap.get(interfaceId)!.add(functionId)
+
+        const sourceIfaceMap = outgoingSourcesByReceiver.get(receiverUuid)!
+        if (!sourceIfaceMap.has(interfaceId)) {
+          sourceIfaceMap.set(interfaceId, createSequenceDiagramSourceMap())
+        }
+        addSequenceDiagramSource(sourceIfaceMap.get(interfaceId)!, seqDiagram)
       }
     }
   }
@@ -257,14 +283,19 @@ export function buildComponentClassDiagram(
   const hasOwnInterfaces = (component.interfaces?.length ?? 0) > 0
   const hasDependencies = outgoingByReceiver.size > 0
   if (!hasOwnInterfaces && !hasDependencies && dependentParticipants.size === 0) {
-    return { mermaidContent: "", idToUuid: {} }
+    return { mermaidContent: "", idToUuid: {}, relationshipMetadata: [] }
   }
 
   const lines: string[] = ["classDiagram"]
   const violationParticipantIds = new Set<string>()
+  const relationshipMetadata: ClassDiagramBuildResult["relationshipMetadata"] = []
 
-  const addRelationship = (line: string): void => {
+  const addRelationship = (
+    line: string,
+    metadata: ReturnType<typeof toRelationshipMetadata> = null,
+  ): void => {
     lines.push(line)
+    relationshipMetadata.push(metadata)
   }
 
   // ── Subject component ──────────────────────────────────────────────────────
@@ -289,7 +320,11 @@ export function buildComponentClassDiagram(
     }
   }
   for (const { fromNodeId, toNodeId, isViolation } of depArrows) {
-    addRelationship(`    ${fromNodeId} ..> ${toNodeId}`)
+    const arrowKey = `${fromNodeId}|${toNodeId}`
+    addRelationship(
+      `    ${fromNodeId} ..> ${toNodeId}`,
+      toRelationshipMetadata(depArrowSources.get(arrowKey) ?? createSequenceDiagramSourceMap()),
+    )
     if (isViolation) violationParticipantIds.add(fromNodeId)
   }
 
@@ -306,13 +341,27 @@ export function buildComponentClassDiagram(
         addRelationship(`    ${receiver.nodeId} ..|> ${ifaceId}`)
         hasInterfaceArrow = true
       }
-      addRelationship(`    ${component.id} ..> ${ifaceId}`)
+      addRelationship(
+        `    ${component.id} ..> ${ifaceId}`,
+        toRelationshipMetadata(
+          outgoingSourcesByReceiver.get(receiverUuid)?.get(ifaceId) ?? createSequenceDiagramSourceMap(),
+        ),
+      )
     }
 
     lines.push(`    class ${receiver.nodeId}["${receiver.name}"]`)
     // Only draw a direct component arrow when no interface arrow already shows the relationship
     if (!hasInterfaceArrow) {
-      addRelationship(`    ${component.id} ..> ${receiver.nodeId}`)
+      const receiverSources = createSequenceDiagramSourceMap()
+      for (const sourceMap of outgoingSourcesByReceiver.get(receiverUuid)?.values() ?? []) {
+        for (const source of sourceMap.values()) {
+          receiverSources.set(source.uuid, source)
+        }
+      }
+      addRelationship(
+        `    ${component.id} ..> ${receiver.nodeId}`,
+        toRelationshipMetadata(receiverSources),
+      )
     }
   }
 
@@ -337,5 +386,5 @@ export function buildComponentClassDiagram(
     lines.push(`    style ${nodeId} fill:#fee2e2,stroke:#dc2626,color:#7f1d1d`)
   }
 
-  return { mermaidContent: lines.join("\n"), idToUuid }
+  return { mermaidContent: lines.join("\n"), idToUuid, relationshipMetadata }
 }

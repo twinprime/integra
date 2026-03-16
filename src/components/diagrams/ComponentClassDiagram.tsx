@@ -2,13 +2,23 @@ import type { ComponentNode } from "../../store/types"
 import { useComponentClassDiagram } from "../../hooks/useComponentClassDiagram"
 import { DiagramErrorBanner } from "./DiagramErrorBanner"
 import { DiagramPanZoom } from "./DiagramPanZoom"
+import { DependencySourceDialog } from "./DependencySourceDialog"
 
 interface ComponentClassDiagramProps {
   componentNode: ComponentNode
 }
 
 export const ComponentClassDiagram = ({ componentNode }: ComponentClassDiagramProps) => {
-  const { svg, error, mermaidSource, elementRef } = useComponentClassDiagram(componentNode)
+  const {
+    svg,
+    error,
+    mermaidSource,
+    elementRef,
+    handleDiagramClick,
+    activeSequenceDiagrams,
+    clearActiveSequenceDiagrams,
+    selectSequenceDiagram,
+  } = useComponentClassDiagram(componentNode)
 
   if (!svg && !error && !mermaidSource && !componentNode.interfaces?.length) {
     return (
@@ -28,6 +38,7 @@ export const ComponentClassDiagram = ({ componentNode }: ComponentClassDiagramPr
             data-testid="diagram-svg-container"
             className="flex justify-center items-start pt-4"
             dangerouslySetInnerHTML={{ __html: svg }}
+            onClick={handleDiagramClick}
           />
         </DiagramPanZoom>
       ) : error && mermaidSource ? (
@@ -37,6 +48,11 @@ export const ComponentClassDiagram = ({ componentNode }: ComponentClassDiagramPr
       ) : (
         <div ref={elementRef} className="flex-1" style={{ minHeight: "100px" }} />
       )}
+      <DependencySourceDialog
+        sources={activeSequenceDiagrams}
+        onClose={clearActiveSequenceDiagrams}
+        onSelect={selectSequenceDiagram}
+      />
     </div>
   )
 }

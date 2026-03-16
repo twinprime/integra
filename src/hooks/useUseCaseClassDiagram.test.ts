@@ -22,6 +22,7 @@ vi.mock("../utils/useCaseClassDiagram", () => ({
   buildUseCaseClassDiagram: vi.fn().mockReturnValue({
     mermaidContent: "classDiagram\n  class UC",
     idToUuid: { UC: "uc-uuid" },
+    relationshipMetadata: [],
   }),
 }))
 
@@ -68,6 +69,7 @@ describe("useUseCaseClassDiagram", () => {
     vi.mocked(buildUseCaseClassDiagram).mockReturnValue({
       mermaidContent: "classDiagram\n  class UC",
       idToUuid: { UC: "uc-uuid" },
+      relationshipMetadata: [],
     })
   })
 

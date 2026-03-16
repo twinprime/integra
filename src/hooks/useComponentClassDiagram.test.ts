@@ -22,6 +22,7 @@ vi.mock("../utils/componentClassDiagram", () => ({
   buildComponentClassDiagram: vi.fn().mockReturnValue({
     mermaidContent: "classDiagram\n  class MyComp",
     idToUuid: { MyComp: "comp-uuid" },
+    relationshipMetadata: [],
   }),
 }))
 
@@ -79,6 +80,7 @@ describe("useComponentClassDiagram", () => {
     vi.mocked(buildComponentClassDiagram).mockReturnValue({
       mermaidContent: "classDiagram\n  class MyComp",
       idToUuid: { MyComp: "comp-uuid" },
+      relationshipMetadata: [],
     })
   })
 

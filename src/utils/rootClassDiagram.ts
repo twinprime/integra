@@ -7,6 +7,12 @@ import type { SeqAst } from "../parser/sequenceDiagram/visitor"
 import { findNodeByPath } from "./nodeUtils"
 import { collectAllDiagrams } from "../nodes/nodeTree"
 import { resolveEffectiveInterfaceFunctions } from "./interfaceFunctions"
+import {
+  addSequenceDiagramSource,
+  createSequenceDiagramSourceMap,
+  toRelationshipMetadata,
+  type ClassDiagramBuildResult,
+} from "./classDiagramMetadata"
 
 function emitInterfaceClass(
   iface: InterfaceSpecification,
@@ -38,9 +44,9 @@ function emitInterfaceClass(
 // eslint-disable-next-line complexity
 export function buildRootClassDiagram(
   rootComponent: ComponentNode,
-): { mermaidContent: string; idToUuid: Record<string, string> } {
+): ClassDiagramBuildResult {
   const children = rootComponent.subComponents ?? []
-  if (children.length === 0) return { mermaidContent: "", idToUuid: {} }
+  if (children.length === 0) return { mermaidContent: "", idToUuid: {}, relationshipMetadata: [] }
 
   const childUuids = new Set(children.map((c) => c.uuid))
 
@@ -50,6 +56,7 @@ export function buildRootClassDiagram(
 
   // inter-child dependencies: senderUuid → interfaceId → Set<functionId>
   const dependencies = new Map<string, Map<string, Set<string>>>()
+  const dependencySources = new Map<string, Map<string, Map<string, { uuid: string; name: string }>>>()
 
   for (const { diagram, ownerComponentUuid } of collectAllDiagrams(rootComponent)) {
     if (diagram.type !== "sequence-diagram") continue
@@ -97,12 +104,28 @@ export function buildRootClassDiagram(
         const ifaceMap = dependencies.get(senderUuid)!
         if (!ifaceMap.has(interfaceId)) ifaceMap.set(interfaceId, new Set())
         ifaceMap.get(interfaceId)!.add(functionId)
+
+        if (!dependencySources.has(senderUuid)) dependencySources.set(senderUuid, new Map())
+        const sourceIfaceMap = dependencySources.get(senderUuid)!
+        if (!sourceIfaceMap.has(interfaceId)) {
+          sourceIfaceMap.set(interfaceId, createSequenceDiagramSourceMap())
+        }
+        addSequenceDiagramSource(sourceIfaceMap.get(interfaceId)!, seqDiagram)
       }
     }
   }
 
   const lines: string[] = ["classDiagram"]
   const idToUuid: Record<string, string> = {}
+  const relationshipMetadata: ClassDiagramBuildResult["relationshipMetadata"] = []
+
+  const addRelationship = (
+    line: string,
+    metadata: ReturnType<typeof toRelationshipMetadata> = null,
+  ): void => {
+    lines.push(line)
+    relationshipMetadata.push(metadata)
+  }
 
   // ── Emit each direct child component and its interfaces ───────────────────
   for (const child of children) {
@@ -111,7 +134,7 @@ export function buildRootClassDiagram(
 
     for (const iface of child.interfaces ?? []) {
       emitInterfaceClass(iface, child, rootComponent, lines, calledFunctionsByInterface.get(iface.id))
-      lines.push(`    ${child.id} ..|> ${iface.id}`)
+      addRelationship(`    ${child.id} ..|> ${iface.id}`)
     }
   }
 
@@ -121,7 +144,10 @@ export function buildRootClassDiagram(
     if (!sender) continue
 
     for (const [ifaceId] of ifaceMap) {
-      lines.push(`    ${sender.id} ..> ${ifaceId}`)
+      addRelationship(
+        `    ${sender.id} ..> ${ifaceId}`,
+        toRelationshipMetadata(dependencySources.get(senderUuid)?.get(ifaceId) ?? createSequenceDiagramSourceMap()),
+      )
     }
   }
 
@@ -130,5 +156,5 @@ export function buildRootClassDiagram(
     lines.push(`    click ${nodeId} call __integraNavigate("${nodeId}")`)
   }
 
-  return { mermaidContent: lines.join("\n"), idToUuid }
+  return { mermaidContent: lines.join("\n"), idToUuid, relationshipMetadata }
 }

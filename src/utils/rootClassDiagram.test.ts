@@ -178,6 +178,18 @@ describe("buildRootClassDiagram", () => {
     expect(result.mermaidContent).toContain("compA ..> IBaz")
   })
 
+  it("records sequence-diagram provenance for dependency arrows", () => {
+    const sd = makeSeqDiagram(
+      "component compA\ncomponent compB\ncompA ->> compB: IBaz:process(data: string)",
+    )
+    const root = makeRoot([sd])
+    const result = buildRootClassDiagram(root)
+
+    expect(result.relationshipMetadata).toContainEqual({
+      sequenceDiagrams: [{ uuid: "seq-uuid", name: "Seq" }],
+    })
+  })
+
   it("does not show dependency arrow for self-calls", () => {
     const sd = makeSeqDiagram(
       "component compA\ncomponent compA\ncompA ->> compA: IFoo:doSomething(id: string)",

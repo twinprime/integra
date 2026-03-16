@@ -5,6 +5,12 @@ import { flattenMessages } from "../parser/sequenceDiagram/visitor"
 import type { SeqAst } from "../parser/sequenceDiagram/visitor"
 import { getCachedSeqAst } from "./seqAstCache"
 import { findNodeByPath } from "./nodeUtils"
+import {
+  addSequenceDiagramSource,
+  createSequenceDiagramSourceMap,
+  toRelationshipMetadata,
+  type ClassDiagramBuildResult,
+} from "./classDiagramMetadata"
 
 type ParticipantKind = "actor" | "component"
 
@@ -15,7 +21,11 @@ type Participant = {
   kind: ParticipantKind
 }
 
-type Arrow = { fromNodeId: string; toNodeId: string }
+type Arrow = {
+  fromNodeId: string
+  toNodeId: string
+  sequenceSources: Map<string, { uuid: string; name: string }>
+}
 type InterfaceEntry = { componentNodeId: string; interfaceId: string; interfaceName: string }
 
 type ClassDiagramState = {
@@ -74,6 +84,7 @@ function processMessages(
   participantsMap: Map<string, Participant>,
   rootComponent: ComponentNode,
   state: ClassDiagramState,
+  seqDiagram: { uuid: string; name: string },
 ): void {
   const messages = flattenMessages(ast.statements)
 
@@ -90,8 +101,13 @@ function processMessages(
         const key = `dep|${sender.nodeId}|${interfaceId}`
         if (!state.depsSet.has(key)) {
           state.depsSet.add(key)
-          state.deps.push({ fromNodeId: sender.nodeId, toNodeId: interfaceId })
+          state.deps.push({
+            fromNodeId: sender.nodeId,
+            toNodeId: interfaceId,
+            sequenceSources: createSequenceDiagramSourceMap(),
+          })
         }
+        addSequenceDiagramSource(state.deps.find((dep) => dep.fromNodeId === sender.nodeId && dep.toNodeId === interfaceId)!.sequenceSources, seqDiagram)
       }
 
       const ownerCompUuid = findComponentByInterfaceId(rootComponent, interfaceId)
@@ -115,8 +131,17 @@ function processMessages(
         const key = `direct|${sender.nodeId}|${receiver.nodeId}`
         if (!state.depsSet.has(key)) {
           state.depsSet.add(key)
-          state.directArrows.push({ fromNodeId: sender.nodeId, toNodeId: receiver.nodeId })
+          state.directArrows.push({
+            fromNodeId: sender.nodeId,
+            toNodeId: receiver.nodeId,
+            sequenceSources: createSequenceDiagramSourceMap(),
+          })
         }
+        addSequenceDiagramSource(
+          state.directArrows.find((arrow) => arrow.fromNodeId === sender.nodeId && arrow.toNodeId === receiver.nodeId)!
+            .sequenceSources,
+          seqDiagram,
+        )
       }
     }
   }
@@ -126,9 +151,18 @@ function buildMermaidLines(
   participantsMap: Map<string, Participant>,
   state: ClassDiagramState,
   idToUuid: Record<string, string>,
-): string[] {
+): ClassDiagramBuildResult {
   const { interfaces, interfaceMethods, deps, directArrows } = state
   const lines: string[] = ["classDiagram"]
+  const relationshipMetadata: ClassDiagramBuildResult["relationshipMetadata"] = []
+
+  const addRelationship = (
+    line: string,
+    metadata: ReturnType<typeof toRelationshipMetadata> = null,
+  ): void => {
+    lines.push(line)
+    relationshipMetadata.push(metadata)
+  }
 
   for (const p of participantsMap.values()) {
     lines.push(`    class ${p.nodeId}["${p.name}"]:::${p.kind}`)
@@ -144,25 +178,25 @@ function buildMermaidLines(
   }
 
   for (const { componentNodeId, interfaceId } of interfaces) {
-    lines.push(`    ${componentNodeId} ..|> ${interfaceId}`)
+    addRelationship(`    ${componentNodeId} ..|> ${interfaceId}`)
   }
-  for (const { fromNodeId, toNodeId } of deps) {
-    lines.push(`    ${fromNodeId} ..> ${toNodeId}`)
+  for (const { fromNodeId, toNodeId, sequenceSources } of deps) {
+    addRelationship(`    ${fromNodeId} ..> ${toNodeId}`, toRelationshipMetadata(sequenceSources))
   }
-  for (const { fromNodeId, toNodeId } of directArrows) {
-    lines.push(`    ${fromNodeId} ..> ${toNodeId}`)
+  for (const { fromNodeId, toNodeId, sequenceSources } of directArrows) {
+    addRelationship(`    ${fromNodeId} ..> ${toNodeId}`, toRelationshipMetadata(sequenceSources))
   }
 
   for (const nodeId of Object.keys(idToUuid)) {
     lines.push(`    click ${nodeId} call __integraNavigate("${nodeId}")`)
   }
-  return lines
+  return { mermaidContent: lines.join("\n"), idToUuid, relationshipMetadata }
 }
 
 export function buildUseCaseClassDiagram(
   useCaseNode: UseCaseNode,
   rootComponent: ComponentNode,
-): { mermaidContent: string; idToUuid: Record<string, string> } {
+): ClassDiagramBuildResult {
   const participantsMap = new Map<string, Participant>()
   const state: ClassDiagramState = {
     interfacesSet: new Set(),
@@ -180,11 +214,11 @@ export function buildUseCaseClassDiagram(
     const aliasToUuid = new Map<string, string>()
     const ast = parseAst(seqDiagram.content)
     registerParticipants(ast, ownerComp, rootComponent, participantsMap, aliasToUuid)
-    processMessages(ast, aliasToUuid, participantsMap, rootComponent, state)
+    processMessages(ast, aliasToUuid, participantsMap, rootComponent, state, seqDiagram)
   }
 
   if (participantsMap.size === 0) {
-    return { mermaidContent: "", idToUuid: {} }
+    return { mermaidContent: "", idToUuid: {}, relationshipMetadata: [] }
   }
 
   const idToUuid: Record<string, string> = {}
@@ -192,7 +226,6 @@ export function buildUseCaseClassDiagram(
     idToUuid[p.nodeId] = p.uuid
   }
 
-  return { mermaidContent: buildMermaidLines(participantsMap, state, idToUuid).join("\n"), idToUuid }
+  return buildMermaidLines(participantsMap, state, idToUuid)
 }
-
 

@@ -156,6 +156,15 @@ describe("buildUseCaseClassDiagram", () => {
     expect(result.mermaidContent).toContain("compA ..> compB")
   })
 
+  it("tracks sequence-diagram provenance for dependency arrows", () => {
+    const content = `component compA\ncomponent compB\ncompA ->> compB: someMessage`
+    const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
+
+    expect(result.relationshipMetadata).toContainEqual({
+      sequenceDiagrams: [{ uuid: "seq-uuid", name: "Sequence Diagram" }],
+    })
+  })
+
   it("omits self-messages from direct arrows", () => {
     const content = `component compA\ncompA ->> compA: internalCall`
     const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
