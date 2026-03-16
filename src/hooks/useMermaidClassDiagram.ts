@@ -99,7 +99,7 @@ export function useMermaidClassDiagram<T>(
     bindFunctionsRef.current?.(elementRef.current)
   }, [svg])
 
-  useEffect(() => {
+  const annotateDependencyEdges = useCallback(() => {
     if (!svg || !elementRef.current) return
 
     const labelByEdgeId = new Map<string, Element>()
@@ -134,6 +134,10 @@ export function useMermaidClassDiagram<T>(
       })
     })
   }, [svg])
+
+  useEffect(() => {
+    annotateDependencyEdges()
+  }, [annotateDependencyEdges, activeSequenceDiagrams])
 
   const handleDiagramClick = (event: React.MouseEvent<HTMLDivElement>) => {
     const target = event.target as Element

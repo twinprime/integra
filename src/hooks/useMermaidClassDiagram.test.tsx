@@ -272,6 +272,48 @@ describe("useMermaidClassDiagram", () => {
     expect(screen.getByTestId("active-count")).toHaveTextContent("0")
   })
 
+  it("keeps dependency links clickable after closing the chooser", async () => {
+    const user = userEvent.setup()
+    vi.mocked(mermaid.render).mockResolvedValueOnce({
+      svg: `
+        <svg>
+          <g class="edgePaths">
+            <path data-edge="true" data-id="edge-0"></path>
+          </g>
+          <g class="edgeLabels">
+            <g class="edgeLabel"><g class="label" data-id="edge-0"><foreignObject><div>Uses</div></foreignObject></g></g>
+          </g>
+        </svg>
+      `,
+      diagramType: "classDiagram",
+      bindFunctions: undefined,
+    } satisfies RenderResult)
+
+    render(
+      <HookHarness
+        buildResult={{
+          mermaidContent: "classDiagram\n  A ..> B",
+          idToUuid: {},
+          relationshipMetadata: [{ sequenceDiagrams: [{ uuid: "seq-1", name: "Checkout Flow" }] }],
+        }}
+      />,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText("Uses")).toBeInTheDocument()
+    })
+
+    await user.click(screen.getByText("Uses"))
+    expect(screen.getByText("Checkout Flow")).toBeInTheDocument()
+
+    await user.click(screen.getByText("clear"))
+    expect(screen.getByTestId("active-count")).toHaveTextContent("0")
+
+    await user.click(screen.getByText("Uses"))
+    expect(screen.getByTestId("active-count")).toHaveTextContent("1")
+    expect(screen.getByText("Checkout Flow")).toBeInTheDocument()
+  })
+
   it("navigates to the selected sequence diagram", async () => {
     const user = userEvent.setup()
     render(<HookHarness />)
