@@ -257,6 +257,17 @@ type ScopedComponentPathResolution =
   | { kind: "not-found" }
   | { kind: "out-of-scope"; path: string }
 
+export function isSequenceReferenceComponentInScope(
+  root: ComponentNode,
+  ownerCompUuid: string,
+  candidateCompUuid: string,
+): boolean {
+  if (ownerCompUuid === root.uuid) {
+    return candidateCompUuid === root.uuid || root.subComponents.some((c) => c.uuid === candidateCompUuid)
+  }
+  return isInScope(root, ownerCompUuid, candidateCompUuid)
+}
+
 function resolveScopedComponentByPath(
   compPath: string[],
   root: ComponentNode,
@@ -267,7 +278,7 @@ function resolveScopedComponentByPath(
   if (!compUuid) return { kind: "not-found" }
   const comp = findCompByUuid(root, compUuid)
   if (!comp) return { kind: "not-found" }
-  if (!isInScope(root, ownerCompUuid, comp.uuid)) {
+  if (!isSequenceReferenceComponentInScope(root, ownerCompUuid, comp.uuid)) {
     return { kind: "out-of-scope", path: pathStr }
   }
   return { kind: "resolved", component: comp }

@@ -324,7 +324,9 @@ root
     cousin            # child of sibling — ❌
 ```
 
-Referencing an out-of-scope path causes a parse error and the diagram spec is not applied. This same scope rule also applies when sequence-diagram message labels use `UseCase:...` or `Sequence:...` to target nodes in another component.
+Referencing an out-of-scope path causes a parse error and the diagram spec is not applied.
+
+For sequence-diagram message labels that use `UseCase:...` or `Sequence:...`, the same scope rule applies with one extra restriction: when the owning sequence diagram belongs to the **root** component, path-based references may target only the root component itself or components owned **directly under root**. Nested descendants under a root child are out of scope.
 
 ---
 

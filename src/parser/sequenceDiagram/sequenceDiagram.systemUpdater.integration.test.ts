@@ -103,6 +103,36 @@ describe("parseSequenceDiagram — out-of-scope reference", () => {
     ).toThrow('Reference "sibling/cousin/placeOrderFlow" is out of scope')
   })
 
+  it("throws when a root-owned diagram references a nested descendant use case", () => {
+    const nested = makeUseCaseComp("nested-uuid", "nested", "placeOrder")
+    const service = makeComp("service-uuid", "service", [nested])
+    const root = makeUseCaseComp("root-uuid", "root", "rootUseCase", ["rootFlow"], [service])
+
+    expect(() =>
+      parseSequenceDiagram(
+        "actor user\nuser ->> user: UseCase:service/nested/placeOrder",
+        root,
+        root.uuid,
+        "root-rootFlow-uuid",
+      )
+    ).toThrow('Reference "service/nested/placeOrder" is out of scope')
+  })
+
+  it("throws when a root-owned diagram references a nested descendant sequence diagram", () => {
+    const nested = makeUseCaseComp("nested-uuid", "nested", "placeOrder", ["placeOrderFlow"])
+    const service = makeComp("service-uuid", "service", [nested])
+    const root = makeUseCaseComp("root-uuid", "root", "rootUseCase", ["rootFlow"], [service])
+
+    expect(() =>
+      parseSequenceDiagram(
+        "actor user\nuser ->> user: Sequence:service/nested/placeOrderFlow",
+        root,
+        root.uuid,
+        "root-rootFlow-uuid",
+      )
+    ).toThrow('Reference "service/nested/placeOrderFlow" is out of scope')
+  })
+
   it("does NOT throw for a relative child reference", () => {
     const child = makeComp("child-uuid", "child")
     const ownerComp = makeComp("owner-uuid", "owner", [child])
@@ -119,6 +149,15 @@ describe("parseSequenceDiagram — out-of-scope reference", () => {
     const root = makeComp("root-uuid", "root", [ownerComp])
     expect(() =>
       parseSequenceDiagram("component child/gc", root, ownerComp.uuid, "diag-uuid")
+    ).not.toThrow()
+  })
+
+  it("does NOT throw for a root-owned diagram declaring a nested descendant participant", () => {
+    const nested = makeComp("nested-uuid", "nested")
+    const service = makeComp("service-uuid", "service", [nested])
+    const root = makeComp("root-uuid", "root", [service])
+    expect(() =>
+      parseSequenceDiagram("component service/nested as nested", root, root.uuid, "diag-uuid")
     ).not.toThrow()
   })
 })

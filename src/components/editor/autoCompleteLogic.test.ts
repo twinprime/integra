@@ -326,6 +326,29 @@ describe("buildSuggestions — Sequence: suggestions", () => {
     expect(suggs.find((s) => s.insertText === "Sequence:loginFlow")).toBeDefined()
     expect(suggs.find((s) => s.insertText === "Sequence:logoutFlow")).toBeUndefined()
   })
+
+  it("for a root-owned sequence diagram, suggests direct root-child refs but not deeper descendants", () => {
+    const nestedSeq = makeSeq("nested-seq-uuid", "nestedFlow", "Nested Flow")
+    const nestedUc = makeUc("nested-uc-uuid", "nestedUseCase", [nestedSeq])
+    const nested = makeComp("nested-uuid", "nested", { useCaseDiagrams: [makeUcd("nested-ucd-uuid", [nestedUc])] })
+    const serviceSeq = makeSeq("service-seq-uuid", "serviceFlow", "Service Flow")
+    const serviceUc = makeUc("service-uc-uuid", "serviceUseCase", [serviceSeq])
+    const service = makeComp("service-uuid", "service", {
+      subComponents: [nested],
+      useCaseDiagrams: [makeUcd("service-ucd-uuid", [serviceUc])],
+    })
+    const root = makeComp("root-uuid", "root", { subComponents: [service] })
+
+    const content = "actor a\ncomponent service\na ->> service: "
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    expect(ctx?.type).toBe("function-ref")
+
+    const suggs = buildSuggestions(ctx!, content, root, root, "sequence-diagram")
+    expect(suggs.find((s) => s.insertText === "UseCase:root/service/serviceUseCase")).toBeDefined()
+    expect(suggs.find((s) => s.insertText === "Sequence:root/service/serviceFlow")).toBeDefined()
+    expect(suggs.find((s) => s.insertText.includes("nestedUseCase"))).toBeUndefined()
+    expect(suggs.find((s) => s.insertText.includes("nestedFlow"))).toBeUndefined()
+  })
 })
 
 // ─── buildSuggestions — Sequence: inherited interface functions ───────────────

@@ -118,6 +118,17 @@ describe("generateSequenceMermaidFromAst — UseCaseRef messages", () => {
     ).toThrow('Reference "sibling/cousin/placeOrder" is out of scope')
   })
 
+  it("throws when a root-owned UseCaseRef points at a nested descendant component", () => {
+    const nested = makeCompWithUcs3("nested-uuid", "nested", [{ id: "placeOrder", name: "Place Order" }])
+    const service = makeNamedComp("service-uuid", "service", "service", [nested])
+    const root = makeNamedComp("root-uuid", "root", "root", [service])
+    const ast = parseAst("actor customer\ncustomer ->> customer: UseCase:service/nested/placeOrder")
+
+    expect(() =>
+      generateSequenceMermaidFromAst(ast, root, root, "root-uuid")
+    ).toThrow('Reference "service/nested/placeOrder" is out of scope')
+  })
+
   it("populates messageLabelToUuid for UseCaseRef using the rendered display label as key", () => {
     const owner = makeCompWithUcs3("owner-uuid", "owner", [{ id: "placeOrder", name: "Place Order" }])
     const root = makeNamedComp("root-uuid", "root", "root", [owner])
@@ -437,6 +448,17 @@ describe("generateSequenceMermaidFromAst — SequenceRef messages", () => {
     expect(() =>
       generateSequenceMermaidFromAst(ast, owner, root, "owner-uuid")
     ).toThrow('Reference "sibling/cousin/loginFlow" is out of scope')
+  })
+
+  it("throws when a root-owned SequenceRef points at a nested descendant component", () => {
+    const nested = makeCompWithSeqs2("nested-uuid", "nested", [{ id: "loginFlow", name: "Login Flow" }])
+    const service = makeNamedComp("service-uuid", "service", "service", [nested])
+    const root = makeNamedComp("root-uuid", "root", "root", [service])
+    const ast = parseAst("actor customer\ncustomer ->> customer: Sequence:service/nested/loginFlow")
+
+    expect(() =>
+      generateSequenceMermaidFromAst(ast, root, root, "root-uuid")
+    ).toThrow('Reference "service/nested/loginFlow" is out of scope')
   })
 
   it("populates messageLabelToUuid for SequenceRef using the rendered display label as key", () => {
