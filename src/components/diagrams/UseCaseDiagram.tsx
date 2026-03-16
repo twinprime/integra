@@ -17,7 +17,7 @@ export const UseCaseDiagram = ({ diagramNode }: UseCaseDiagramProps) => {
     <div className="w-full h-full flex flex-col">
       <DiagramErrorBanner error={parseError || error} details={parseError || errorDetails} />
       {svg ? (
-        <DiagramPanZoom>
+        <DiagramPanZoom contentKey={svg}>
           <div
             ref={elementRef}
             data-testid="diagram-svg-container"

@@ -38,7 +38,7 @@ export const ComponentClassDiagram = ({ componentNode }: ComponentClassDiagramPr
     <div className="w-full h-full flex flex-col">
       <DiagramErrorBanner error={error} details={error} />
       {svg ? (
-        <DiagramPanZoom>
+        <DiagramPanZoom contentKey={svg}>
           <div
             ref={elementRef}
             data-testid="diagram-svg-container"

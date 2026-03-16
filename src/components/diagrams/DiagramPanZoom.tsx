@@ -12,9 +12,10 @@ const btnClass =
 interface FitRefs {
   fitRef: React.RefObject<() => void>
   fitWidthRef: React.RefObject<() => void>
+  contentKey?: string
 }
 
-const FitController = ({ fitRef, fitWidthRef }: FitRefs) => {
+const FitController = ({ fitRef, fitWidthRef, contentKey }: FitRefs) => {
   const { instance, setTransform } = useControls()
 
   const getDimensions = useCallback(() => {
@@ -61,21 +62,27 @@ const FitController = ({ fitRef, fitWidthRef }: FitRefs) => {
   }, [fitWidthRef, fitWidth])
 
   useEffect(() => {
-    const content = instance.contentComponent
+    const timer = setTimeout(fitDiagram, 50)
+    return () => {
+      clearTimeout(timer)
+    }
+  }, [contentKey, fitDiagram])
+
+  useEffect(() => {
     const wrapper = instance.wrapperComponent
-    if (!content && !wrapper) return
+    if (!wrapper) return
+
     let timer: ReturnType<typeof setTimeout>
     const observer = new ResizeObserver(() => {
       clearTimeout(timer)
       timer = setTimeout(fitDiagram, 50)
     })
-    if (content) observer.observe(content)
-    if (wrapper) observer.observe(wrapper)
+    observer.observe(wrapper)
     return () => {
       clearTimeout(timer)
       observer.disconnect()
     }
-  }, [instance.contentComponent, instance.wrapperComponent, fitDiagram])
+  }, [instance.wrapperComponent, fitDiagram])
 
   return null
 }
@@ -110,9 +117,10 @@ const ZoomControls = ({ fitRef, fitWidthRef }: FitRefs) => {
 
 interface DiagramPanZoomProps {
   children: ReactNode
+  contentKey?: string
 }
 
-export const DiagramPanZoom = ({ children }: DiagramPanZoomProps) => {
+export const DiagramPanZoom = ({ children, contentKey }: DiagramPanZoomProps) => {
   const fitRef = useRef<() => void>(() => {})
   const fitWidthRef = useRef<() => void>(() => {})
 
@@ -129,7 +137,7 @@ export const DiagramPanZoom = ({ children }: DiagramPanZoomProps) => {
         smooth={false}
         wheel={{ step: 0.3 }}
       >
-        <FitController fitRef={fitRef} fitWidthRef={fitWidthRef} />
+        <FitController fitRef={fitRef} fitWidthRef={fitWidthRef} contentKey={contentKey} />
         <ZoomControls fitRef={fitRef} fitWidthRef={fitWidthRef} />
         <TransformComponent
           wrapperStyle={{ width: "100%", height: "100%" }}
