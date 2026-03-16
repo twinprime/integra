@@ -12,15 +12,45 @@ const btnClass =
 interface FitRefs {
   fitRef: React.RefObject<() => void>
   fitWidthRef: React.RefObject<() => void>
+  clearPendingFitRef?: React.RefObject<() => void>
   contentKey?: string
 }
 
-const FitController = ({ fitRef, fitWidthRef, contentKey }: FitRefs) => {
+const FitController = ({ fitRef, fitWidthRef, clearPendingFitRef, contentKey }: FitRefs) => {
   const { instance, setTransform } = useControls()
+  const instanceRef = useRef(instance)
+  const setTransformRef = useRef(setTransform)
+  const pendingFitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    instanceRef.current = instance
+    setTransformRef.current = setTransform
+  }, [instance, setTransform])
+
+  const clearPendingFit = useCallback(() => {
+    if (pendingFitTimeoutRef.current !== null) {
+      clearTimeout(pendingFitTimeoutRef.current)
+      pendingFitTimeoutRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    if (clearPendingFitRef) {
+      clearPendingFitRef.current = clearPendingFit
+    }
+  }, [clearPendingFit, clearPendingFitRef])
+
+  const scheduleFit = useCallback((fitAction: () => void, delay = 50) => {
+    clearPendingFit()
+    pendingFitTimeoutRef.current = setTimeout(() => {
+      pendingFitTimeoutRef.current = null
+      fitAction()
+    }, delay)
+  }, [clearPendingFit])
 
   const getDimensions = useCallback(() => {
-    const wrapper = instance.wrapperComponent
-    const content = instance.contentComponent
+    const wrapper = instanceRef.current.wrapperComponent
+    const content = instanceRef.current.contentComponent
     if (!wrapper || !content) return null
     const child = content.firstElementChild as HTMLElement | null
     const naturalW = child?.offsetWidth ?? content.offsetWidth
@@ -32,7 +62,7 @@ const FitController = ({ fitRef, fitWidthRef, contentKey }: FitRefs) => {
       naturalW,
       naturalH,
     }
-  }, [instance])
+  }, [])
 
   const fitDiagram = useCallback(() => {
     const dims = getDimensions()
@@ -41,8 +71,8 @@ const FitController = ({ fitRef, fitWidthRef, contentKey }: FitRefs) => {
     const fitScale = Math.min(wrapperW / naturalW, wrapperH / naturalH) * 0.9
     const posX = (wrapperW - naturalW * fitScale) / 2
     const posY = (wrapperH - naturalH * fitScale) / 2
-    setTransform(posX, posY, fitScale, 0)
-  }, [getDimensions, setTransform])
+    setTransformRef.current(posX, posY, fitScale, 0)
+  }, [getDimensions])
 
   const fitWidth = useCallback(() => {
     const dims = getDimensions()
@@ -51,8 +81,8 @@ const FitController = ({ fitRef, fitWidthRef, contentKey }: FitRefs) => {
     const scale = (wrapperW / naturalW) * 0.9
     const posX = (wrapperW - naturalW * scale) / 2
     const posY = (wrapperH - naturalH * scale) / 2
-    setTransform(posX, posY, scale, 0)
-  }, [getDimensions, setTransform])
+    setTransformRef.current(posX, posY, scale, 0)
+  }, [getDimensions])
 
   useEffect(() => {
     fitRef.current = fitDiagram
@@ -62,27 +92,25 @@ const FitController = ({ fitRef, fitWidthRef, contentKey }: FitRefs) => {
   }, [fitWidthRef, fitWidth])
 
   useEffect(() => {
-    const timer = setTimeout(fitDiagram, 50)
+    scheduleFit(fitDiagram)
     return () => {
-      clearTimeout(timer)
+      clearPendingFit()
     }
-  }, [contentKey, fitDiagram])
+  }, [clearPendingFit, contentKey, fitDiagram, scheduleFit])
 
   useEffect(() => {
     const wrapper = instance.wrapperComponent
     if (!wrapper) return
 
-    let timer: ReturnType<typeof setTimeout>
     const observer = new ResizeObserver(() => {
-      clearTimeout(timer)
-      timer = setTimeout(fitDiagram, 50)
+      scheduleFit(fitDiagram)
     })
     observer.observe(wrapper)
     return () => {
-      clearTimeout(timer)
+      clearPendingFit()
       observer.disconnect()
     }
-  }, [instance.wrapperComponent, fitDiagram])
+  }, [clearPendingFit, instance.wrapperComponent, fitDiagram, scheduleFit])
 
   return null
 }
@@ -123,6 +151,7 @@ interface DiagramPanZoomProps {
 export const DiagramPanZoom = ({ children, contentKey }: DiagramPanZoomProps) => {
   const fitRef = useRef<() => void>(() => {})
   const fitWidthRef = useRef<() => void>(() => {})
+  const clearPendingFitRef = useRef<() => void>(() => {})
 
   return (
     <div
@@ -136,8 +165,16 @@ export const DiagramPanZoom = ({ children, contentKey }: DiagramPanZoomProps) =>
         limitToBounds={false}
         smooth={false}
         wheel={{ step: 0.3 }}
+        onWheelStart={() => clearPendingFitRef.current()}
+        onPanningStart={() => clearPendingFitRef.current()}
+        onZoomStart={() => clearPendingFitRef.current()}
       >
-        <FitController fitRef={fitRef} fitWidthRef={fitWidthRef} contentKey={contentKey} />
+        <FitController
+          fitRef={fitRef}
+          fitWidthRef={fitWidthRef}
+          clearPendingFitRef={clearPendingFitRef}
+          contentKey={contentKey}
+        />
         <ZoomControls fitRef={fitRef} fitWidthRef={fitWidthRef} />
         <TransformComponent
           wrapperStyle={{ width: "100%", height: "100%" }}

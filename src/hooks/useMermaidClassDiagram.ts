@@ -35,6 +35,7 @@ export function useMermaidClassDiagram<T>(
   const bindFunctionsRef = useRef<((el: Element) => void) | undefined>(undefined)
   const idToUuidRef = useRef<Record<string, string>>({})
   const relationshipMetadataRef = useRef<ClassDiagramBuildResult["relationshipMetadata"]>([])
+  const isPopupPinnedRef = useRef(false)
   const popupHoveredRef = useRef(false)
   const popupCloseTimeoutRef = useRef<number | null>(null)
   const [svg, setSvg] = useState("")
@@ -43,6 +44,10 @@ export function useMermaidClassDiagram<T>(
   const [activeSequenceDiagrams, setActiveSequenceDiagrams] = useState<SequenceDiagramSource[]>([])
   const [activePopupPosition, setActivePopupPosition] = useState<{ x: number; y: number } | null>(null)
   const [isPopupPinned, setIsPopupPinned] = useState(false)
+
+  useEffect(() => {
+    isPopupPinnedRef.current = isPopupPinned
+  }, [isPopupPinned])
 
   const openSequencePopup = useCallback(
     (
@@ -191,9 +196,9 @@ export function useMermaidClassDiagram<T>(
 
   useEffect(() => {
     annotateDependencyEdges()
-  }, [annotateDependencyEdges, activeSequenceDiagrams])
+  }, [annotateDependencyEdges])
 
-  const getEdgeMetadata = (target: Element): {
+  const getEdgeMetadata = useCallback((target: Element): {
     sources: SequenceDiagramSource[]
   } | null => {
     const edgeTarget = target.closest("[data-integra-edge-index]")
@@ -206,7 +211,7 @@ export function useMermaidClassDiagram<T>(
     return {
       sources: metadata.sequenceDiagrams,
     }
-  }
+  }, [])
 
   const cancelPendingPopupClose = useCallback(() => {
     if (popupCloseTimeoutRef.current != null) {
@@ -216,9 +221,9 @@ export function useMermaidClassDiagram<T>(
   }, [])
 
   const hideUnpinnedPopup = useCallback(() => {
-    if (popupHoveredRef.current || isPopupPinned) return
+    if (popupHoveredRef.current || isPopupPinnedRef.current) return
     clearActiveSequenceDiagrams()
-  }, [clearActiveSequenceDiagrams, isPopupPinned])
+  }, [clearActiveSequenceDiagrams])
 
   const schedulePopupClose = useCallback(() => {
     cancelPendingPopupClose()
@@ -228,7 +233,7 @@ export function useMermaidClassDiagram<T>(
     }, 80)
   }, [cancelPendingPopupClose, hideUnpinnedPopup])
 
-  const handleDiagramMouseMove = (event: React.MouseEvent<HTMLDivElement>) => {
+  const handleDiagramMouseMove = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     cancelPendingPopupClose()
     const target = event.target as Element
     const edgeInfo = getEdgeMetadata(target)
@@ -238,13 +243,13 @@ export function useMermaidClassDiagram<T>(
     }
 
     openSequencePopup(edgeInfo.sources, { x: event.clientX, y: event.clientY }, false)
-  }
+  }, [cancelPendingPopupClose, getEdgeMetadata, hideUnpinnedPopup, openSequencePopup])
 
-  const handleDiagramMouseLeave = () => {
+  const handleDiagramMouseLeave = useCallback(() => {
     schedulePopupClose()
-  }
+  }, [schedulePopupClose])
 
-  const handleDiagramClick = (event: React.MouseEvent<HTMLDivElement>) => {
+  const handleDiagramClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
     const target = event.target as Element
     const edgeInfo = getEdgeMetadata(target)
     if (!edgeInfo) return
@@ -255,17 +260,17 @@ export function useMermaidClassDiagram<T>(
     }
 
     openSequencePopup(edgeInfo.sources, { x: event.clientX, y: event.clientY }, true)
-  }
+  }, [getEdgeMetadata, openSequencePopup, selectSequenceDiagram])
 
-  const handlePopupMouseEnter = () => {
+  const handlePopupMouseEnter = useCallback(() => {
     cancelPendingPopupClose()
     popupHoveredRef.current = true
-  }
+  }, [cancelPendingPopupClose])
 
-  const handlePopupMouseLeave = () => {
+  const handlePopupMouseLeave = useCallback(() => {
     popupHoveredRef.current = false
     schedulePopupClose()
-  }
+  }, [schedulePopupClose])
 
   return {
     svg,

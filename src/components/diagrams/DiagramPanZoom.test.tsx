@@ -3,6 +3,7 @@ import { act, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const setTransform = vi.fn()
+let latestWrapperProps: Record<string, unknown> = {}
 
 const controls = {
   instance: {
@@ -18,7 +19,16 @@ vi.mock("react-zoom-pan-pinch", async () => {
   const React = await import("react")
 
   return {
-    TransformWrapper: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+    TransformWrapper: ({
+      children,
+      ...props
+    }: {
+      children: React.ReactNode
+      [key: string]: unknown
+    }) => {
+      latestWrapperProps = props
+      return <>{children}</>
+    },
     TransformComponent: ({
       children,
       wrapperStyle,
@@ -101,6 +111,7 @@ describe("DiagramPanZoom", () => {
     resizeObservers.length = 0
     controls.instance.wrapperComponent = null
     controls.instance.contentComponent = null
+    latestWrapperProps = {}
     globalThis.ResizeObserver = ResizeObserverMock as typeof ResizeObserver
   })
 
@@ -140,6 +151,18 @@ describe("DiagramPanZoom", () => {
     expect(setTransform).not.toHaveBeenCalled()
 
     rerender(
+      <DiagramPanZoom contentKey="diagram-a">
+        <div data-testid="diagram-child" />
+      </DiagramPanZoom>,
+    )
+
+    act(() => {
+      vi.advanceTimersByTime(60)
+    })
+
+    expect(setTransform).not.toHaveBeenCalled()
+
+    rerender(
       <DiagramPanZoom contentKey="diagram-b">
         <div data-testid="diagram-child" />
       </DiagramPanZoom>,
@@ -150,5 +173,29 @@ describe("DiagramPanZoom", () => {
     })
 
     expect(setTransform).toHaveBeenCalledTimes(1)
+  })
+
+  it("cancels pending auto-fit when the user zooms before the timer fires", () => {
+    render(
+      <DiagramPanZoom contentKey="diagram-a">
+        <div data-testid="diagram-child" />
+      </DiagramPanZoom>,
+    )
+
+    const wrapper = screen.getByTestId("transform-wrapper")
+    const content = screen.getByTestId("transform-content")
+    const child = screen.getByTestId("diagram-child")
+
+    setElementSize(wrapper, 500, 300)
+    setElementSize(content, 400, 200)
+    setElementSize(child, 400, 200)
+
+    act(() => {
+      const onZoomStart = latestWrapperProps.onZoomStart as (() => void) | undefined
+      onZoomStart?.()
+      vi.advanceTimersByTime(60)
+    })
+
+    expect(setTransform).not.toHaveBeenCalled()
   })
 })

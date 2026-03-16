@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest"
 import { fireEvent, render, renderHook, waitFor, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { useMemo } from "react"
+import { memo, useMemo, type MouseEventHandler, type RefObject } from "react"
 import { useMermaidClassDiagram } from "./useMermaidClassDiagram"
 import type { ComponentNode } from "../store/types"
 import type { SystemState } from "../store/useSystemStore"
@@ -55,6 +55,31 @@ const defaultBuildResult: ClassDiagramBuildResult = {
 
 const mockBuildFn = vi.fn()
 
+const HookHarnessCanvas = memo(function HookHarnessCanvas({
+  svg,
+  elementRef,
+  handleDiagramClick,
+  handleDiagramMouseMove,
+  handleDiagramMouseLeave,
+}: {
+  svg: string
+  elementRef: RefObject<HTMLDivElement | null>
+  handleDiagramClick: MouseEventHandler<HTMLDivElement>
+  handleDiagramMouseMove: MouseEventHandler<HTMLDivElement>
+  handleDiagramMouseLeave: () => void
+}) {
+  return (
+    <div
+      ref={elementRef}
+      data-testid="diagram"
+      dangerouslySetInnerHTML={{ __html: svg }}
+      onClick={handleDiagramClick}
+      onMouseMove={handleDiagramMouseMove}
+      onMouseLeave={handleDiagramMouseLeave}
+    />
+  )
+})
+
 function HookHarness({
   buildResult = defaultBuildResult,
 }: {
@@ -78,13 +103,12 @@ function HookHarness({
 
   return (
     <div>
-      <div
-        ref={elementRef}
-        data-testid="diagram"
-        dangerouslySetInnerHTML={{ __html: svg }}
-        onClick={handleDiagramClick}
-        onMouseMove={handleDiagramMouseMove}
-        onMouseLeave={handleDiagramMouseLeave}
+      <HookHarnessCanvas
+        svg={svg}
+        elementRef={elementRef}
+        handleDiagramClick={handleDiagramClick}
+        handleDiagramMouseMove={handleDiagramMouseMove}
+        handleDiagramMouseLeave={handleDiagramMouseLeave}
       />
       <button type="button" onClick={clearActiveSequenceDiagrams}>
         clear
@@ -478,14 +502,20 @@ describe("useMermaidClassDiagram", () => {
       expect(screen.getByText("Uses")).toBeInTheDocument()
     })
 
-    await user.click(screen.getByText("Uses"))
+    const hitTarget = screen.getByTestId("diagram").querySelector('[data-integra-edge-hit-target="true"]')
+    expect(hitTarget).not.toBeNull()
+
+    fireEvent.click(hitTarget!)
     expect(screen.getByText("Checkout Flow")).toBeInTheDocument()
     expect(screen.getByText("Retry Flow")).toBeInTheDocument()
 
     await user.click(screen.getByText("clear"))
     expect(screen.getByTestId("active-count")).toHaveTextContent("0")
 
-    await user.click(screen.getByText("Uses"))
+    const reopenedHitTarget = screen.getByTestId("diagram").querySelector('[data-integra-edge-hit-target="true"]')
+    expect(reopenedHitTarget).not.toBeNull()
+
+    fireEvent.click(reopenedHitTarget!)
     expect(screen.getByTestId("active-count")).toHaveTextContent("2")
     expect(screen.getByText("Checkout Flow")).toBeInTheDocument()
   })

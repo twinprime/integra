@@ -1,7 +1,7 @@
 import type { UseCaseNode } from "../../store/types"
 import { useUseCaseClassDiagram } from "../../hooks/useUseCaseClassDiagram"
+import { ClassDiagramCanvas } from "./ClassDiagramCanvas"
 import { DiagramErrorBanner } from "./DiagramErrorBanner"
-import { DiagramPanZoom } from "./DiagramPanZoom"
 import { DependencySourceDialog } from "./DependencySourceDialog"
 
 interface UseCaseClassDiagramProps {
@@ -38,17 +38,13 @@ export const UseCaseClassDiagram = ({ useCaseNode }: UseCaseClassDiagramProps) =
     <div className="w-full h-full flex flex-col">
       <DiagramErrorBanner error={error} details={error} />
       {svg ? (
-        <DiagramPanZoom contentKey={svg}>
-          <div
-            ref={elementRef}
-            data-testid="diagram-svg-container"
-            className="flex justify-center items-start pt-4"
-            dangerouslySetInnerHTML={{ __html: svg }}
-            onClick={handleDiagramClick}
-            onMouseMove={handleDiagramMouseMove}
-            onMouseLeave={handleDiagramMouseLeave}
-          />
-        </DiagramPanZoom>
+        <ClassDiagramCanvas
+          svg={svg}
+          elementRef={elementRef}
+          handleDiagramClick={handleDiagramClick}
+          handleDiagramMouseMove={handleDiagramMouseMove}
+          handleDiagramMouseLeave={handleDiagramMouseLeave}
+        />
       ) : error && mermaidSource ? (
         <pre className="flex-1 overflow-auto p-4 text-xs text-gray-300 bg-gray-900 rounded-lg whitespace-pre-wrap font-mono">
           {mermaidSource}

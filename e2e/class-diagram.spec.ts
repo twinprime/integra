@@ -39,6 +39,12 @@ function runClassDiagramTests(selectNode: (page: Page) => Promise<void>) {
   })
 }
 
+async function getDiagramTransform(svgContainer: ReturnType<Page["locator"]>): Promise<string> {
+  return svgContainer.locator("xpath=ancestor::*[contains(@class,'react-transform-component')][1]").evaluate((el) => {
+    return (el as HTMLElement).style.transform
+  })
+}
+
 // ─── Component node ───────────────────────────────────────────────────────────
 
 test.describe("component class diagram", () => {
@@ -168,6 +174,40 @@ test.describe("component class diagram — dependency arrows", () => {
 
     const classNodes = svgContainer.locator(".classGroup, .node, g.classBox")
     expect(await classNodes.count()).toBeGreaterThan(2)
+  })
+
+  test("preserves manual zoom when hovering a dependency link", async ({ page }) => {
+    await loadAppWithFixture(page, makeLocalStorageValueWithDependency())
+    await page.getByRole("treeitem").filter({ hasText: "AuthService" }).first().click()
+
+    const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
+    await svgContainer.waitFor({ timeout: 5000 })
+    await expect(svgContainer.locator("svg")).toBeVisible()
+    await page.waitForTimeout(200)
+    const svgBox = await svgContainer.boundingBox()
+    expect(svgBox).not.toBeNull()
+
+    const initialTransform = await getDiagramTransform(svgContainer)
+    await page.mouse.move(svgBox!.x + svgBox!.width / 2, svgBox!.y + svgBox!.height / 2)
+    await page.mouse.wheel(0, -600)
+    await page.waitForTimeout(200)
+
+    const zoomedTransform = await getDiagramTransform(svgContainer)
+    expect(zoomedTransform).not.toBe(initialTransform)
+
+    const dependencyHitTarget = page.locator('[data-integra-edge-hit-target="true"]').first()
+    const hitTargetBox = await dependencyHitTarget.boundingBox()
+    expect(hitTargetBox).not.toBeNull()
+    await dependencyHitTarget.dispatchEvent("mousemove", {
+      bubbles: true,
+      clientX: hitTargetBox!.x + hitTargetBox!.width / 2,
+      clientY: hitTargetBox!.y + hitTargetBox!.height / 2,
+    })
+
+    await expect(page.getByText("Derived from sequence diagrams")).toBeVisible()
+    await expect(page.getByText("Auth To Order")).toBeVisible()
+
+    expect(await getDiagramTransform(svgContainer)).toBe(zoomedTransform)
   })
 })
 
