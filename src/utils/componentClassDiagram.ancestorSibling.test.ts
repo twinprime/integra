@@ -9,7 +9,7 @@ import {
 } from "./componentClassDiagram.test.fixtures"
 
 describe("buildComponentClassDiagram ancestor sibling scope", () => {
-  it("shows a rolled-up child dependency when a direct child calls a sibling child", () => {
+  it("hides internal child endpoints when a direct child calls a sibling child", () => {
     const sd = makeSeqDiagram(
       [
         "component parent/compA as compA",
@@ -20,14 +20,17 @@ describe("buildComponentClassDiagram ancestor sibling scope", () => {
     const root = makeNestedRootWithAncestorSibling([sd])
     const result = buildComponentClassDiagram(root.subComponents[0], root)
 
-    expect(result.mermaidContent).toContain('class compA["Component A"]')
-    expect(result.mermaidContent).toContain('class compB["Component B"]')
+    expect(result.mermaidContent).toContain('class parent["Parent"]')
+    expect(result.mermaidContent).not.toContain('class compA["Component A"]')
+    expect(result.mermaidContent).not.toContain('class compB["Component B"]')
     expect(result.mermaidContent).toContain('class IBaz["IBaz"] {')
-    expect(result.mermaidContent).toContain("compB ..|> IBaz")
-    expect(result.mermaidContent).toContain("compA ..> IBaz")
+    expect(result.mermaidContent).toContain("parent ..|> IBaz")
+    expect(result.mermaidContent).toContain("parent ..> IBaz")
+    expect(result.idToUuid.compA).toBeUndefined()
+    expect(result.idToUuid.compB).toBeUndefined()
   })
 
-  it("shows a rolled-up child dependency when a direct child calls the selected ancestor", () => {
+  it("collapses a direct child caller into the selected ancestor", () => {
     const sd = makeSeqDiagram(
       [
         "component parent/compA as compA",
@@ -81,10 +84,11 @@ describe("buildComponentClassDiagram ancestor sibling scope", () => {
       },
     )
 
-    expect(result.mermaidContent).toContain('class compA["Component A"]')
+    expect(result.mermaidContent).not.toContain('class compA["Component A"]')
     expect(result.mermaidContent).toContain('class IParent["IParent"] {')
     expect(result.mermaidContent).toContain("parent ..|> IParent")
-    expect(result.mermaidContent).toContain("compA ..> IParent")
+    expect(result.mermaidContent).toContain("parent ..> IParent")
+    expect(result.idToUuid.compA).toBeUndefined()
   })
 
   it("includes outbound dependencies to a sibling of an ancestor component", () => {
@@ -184,7 +188,7 @@ describe("buildComponentClassDiagram ancestor sibling scope", () => {
     expect(result.idToUuid.compA).toBeUndefined()
   })
 
-  it("shows a rolled-up child dependency to an ancestor sibling component", () => {
+  it("uses the selected component as the dependency source for child outbound calls", () => {
     const sd = makeSeqDiagram(
       [
         "component parent/compA as compA",
@@ -195,9 +199,11 @@ describe("buildComponentClassDiagram ancestor sibling scope", () => {
     const root = makeNestedRootWithAncestorSibling([sd])
     const result = buildComponentClassDiagram(root.subComponents[0], root)
 
-    expect(result.mermaidContent).toContain('class compA["Component A"]')
+    expect(result.mermaidContent).toContain('class parent["Parent"]')
+    expect(result.mermaidContent).not.toContain('class compA["Component A"]')
     expect(result.mermaidContent).toContain('class platform["Platform"]')
     expect(result.mermaidContent).toContain("platform ..|> IPlatform")
-    expect(result.mermaidContent).toContain("compA ..> IPlatform")
+    expect(result.mermaidContent).toContain("parent ..> IPlatform")
+    expect(result.idToUuid.compA).toBeUndefined()
   })
 })
