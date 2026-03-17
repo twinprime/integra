@@ -3,7 +3,7 @@ import type { Node } from "../../store/types"
 import { useSystemStore } from "../../store/useSystemStore"
 import { getNodeSiblingIds } from "../../nodes/nodeTree"
 import { findReferencingDiagrams } from "../../utils/nodeUtils"
-import { MarkdownEditor } from "./MarkdownEditor"
+import { DescriptionField } from "./DescriptionField"
 import { NodeReferencesButton } from "./NodeReferencesButton"
 import { PanelTitleInput } from "./PanelTitleInput"
 
@@ -98,10 +98,7 @@ export const CommonEditor = ({
       </div>
 
       <div className="flex-1 flex flex-col min-h-0">
-        <label className="block text-sm font-medium text-gray-300 mb-2">
-          Description
-        </label>
-        <MarkdownEditor
+        <DescriptionField
           value={description}
           onChange={setDescription}
           onBlur={handleDescriptionBlur}

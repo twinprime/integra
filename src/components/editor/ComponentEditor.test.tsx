@@ -17,19 +17,29 @@ vi.mock("./MarkdownEditor", () => ({
     onChange,
     onBlur,
     placeholder,
+    previewOnly,
+    onPreviewClick,
   }: {
     value: string
     onChange: (v: string) => void
     onBlur?: () => void
     placeholder?: string
+    previewOnly?: boolean
+    onPreviewClick?: () => void
   }) => (
-    <textarea
-      data-testid="markdown-editor"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      onBlur={onBlur}
-      placeholder={placeholder}
-    />
+    previewOnly ? (
+      <button data-testid="markdown-preview" onClick={onPreviewClick}>
+        {value || "No Description"}
+      </button>
+    ) : (
+      <textarea
+        data-testid="markdown-editor"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        placeholder={placeholder}
+      />
+    )
   ),
 }))
 
@@ -172,6 +182,15 @@ describe("ComponentEditor", () => {
       const node = makeComponentNode({ id: "serviceA" })
       render(<ComponentEditor node={node} onUpdate={vi.fn()} />)
       expect(screen.getByDisplayValue("serviceA")).toBeInTheDocument()
+    })
+
+    it("shows description in preview mode initially without a label", () => {
+      const node = makeComponentNode({ description: "Component description" })
+      render(<ComponentEditor node={node} onUpdate={vi.fn()} />)
+
+      expect(screen.getByTestId("markdown-preview")).toHaveTextContent("Component description")
+      expect(screen.queryByTestId("markdown-editor")).not.toBeInTheDocument()
+      expect(screen.queryByText("Description")).not.toBeInTheDocument()
     })
   })
 

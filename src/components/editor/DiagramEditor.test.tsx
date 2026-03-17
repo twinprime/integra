@@ -26,17 +26,27 @@ vi.mock("./MarkdownEditor", () => ({
     value,
     onChange,
     onBlur,
+    previewOnly,
+    onPreviewClick,
   }: {
     value: string
     onChange: (value: string) => void
     onBlur?: () => void
+    previewOnly?: boolean
+    onPreviewClick?: () => void
   }) => (
-    <textarea
-      data-testid="markdown-editor"
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      onBlur={onBlur}
-    />
+    previewOnly ? (
+      <button data-testid="markdown-preview" onClick={onPreviewClick}>
+        {value || "No Description"}
+      </button>
+    ) : (
+      <textarea
+        data-testid="markdown-editor"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
+      />
+    )
   ),
 }))
 
@@ -122,6 +132,23 @@ beforeEach(() => {
 })
 
 describe("DiagramEditor", () => {
+  it("shows description preview initially without a Description label", () => {
+    render(<DiagramEditor node={makeSequenceDiagramNode({ description: "Diagram description" })} onUpdate={vi.fn()} />)
+
+    expect(screen.getByTestId("markdown-preview")).toHaveTextContent("Diagram description")
+    expect(screen.queryByText("Description")).not.toBeInTheDocument()
+    expect(screen.queryByTestId("markdown-editor")).not.toBeInTheDocument()
+  })
+
+  it("clicking the description preview switches it into edit mode", async () => {
+    const user = userEvent.setup()
+    render(<DiagramEditor node={makeSequenceDiagramNode({ description: "Diagram description" })} onUpdate={vi.fn()} />)
+
+    await user.click(screen.getByTestId("markdown-preview"))
+
+    expect(screen.getByTestId("markdown-editor")).toBeInTheDocument()
+  })
+
   it("renders the diagram name as an inline panel title editor without a separate Name field", () => {
     render(<DiagramEditor node={makeSequenceDiagramNode({ name: "Login Flow" })} onUpdate={vi.fn()} />)
 

@@ -7,12 +7,16 @@ function markdownEditor(page: Page): Locator {
   return page.locator(".w-md-editor").first()
 }
 
+function descriptionPreviewButton(page: Page): Locator {
+  return page.getByRole("button", { name: /Description preview|No Description/i }).first()
+}
+
 function markdownTextarea(page: Page): Locator {
   return markdownEditor(page).locator("textarea.w-md-editor-text-input")
 }
 
 function markdownPreview(page: Page): Locator {
-  return markdownEditor(page).locator(".w-md-editor-preview")
+  return descriptionPreviewButton(page)
 }
 
 test.describe("markdown descriptions", () => {
@@ -23,11 +27,9 @@ test.describe("markdown descriptions", () => {
   test("edits description markdown and keeps the rendered preview in sync", async ({ page }) => {
     await selectTreeItem(page, /^User$/)
 
-    const editor = markdownEditor(page)
-    const textarea = markdownTextarea(page)
-    const preview = markdownPreview(page)
+    await descriptionPreviewButton(page).click()
 
-    await editor.getByTitle("Live code (ctrl + 8)").click()
+    const textarea = markdownTextarea(page)
     await expect(textarea).toBeVisible()
 
     const updatedDescription = [
@@ -38,19 +40,19 @@ test.describe("markdown descriptions", () => {
     ].join("\n")
 
     await textarea.fill(updatedDescription)
+    await saveEditorByBlurring(page)
+    const preview = markdownPreview(page)
 
     await expect(preview.getByText("Updated actor guide")).toBeVisible()
     await expect(preview.locator("strong")).toContainText("actor guide")
     await expect(preview.getByRole("listitem").filter({ hasText: "Preview updates live" })).toBeVisible()
     await expect(preview.getByRole("listitem").filter({ hasText: "Links stay clickable" })).toBeVisible()
 
-    await saveEditorByBlurring(page)
-
     await selectTreeItem(page, "OrderService")
     await selectTreeItem(page, /^User$/)
 
     await expect(markdownPreview(page).locator("strong")).toContainText("actor guide")
-    await markdownEditor(page).getByTitle("Live code (ctrl + 8)").click()
+    await descriptionPreviewButton(page).click()
     await expect(markdownTextarea(page)).toHaveValue(updatedDescription)
   })
 

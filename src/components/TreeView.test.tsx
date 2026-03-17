@@ -2,7 +2,7 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 /* eslint-disable @typescript-eslint/require-await */
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest"
-import { render, screen, waitFor } from "@testing-library/react"
+import { act, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { TreeView } from "./TreeView"
 import { useSystemStore } from "../store/useSystemStore"
@@ -31,6 +31,42 @@ const loadedSystem: ComponentNode = {
   type: "component",
   description: "",
   subComponents: [],
+  actors: [],
+  useCaseDiagrams: [],
+  interfaces: [],
+}
+
+const nestedSystem: ComponentNode = {
+  uuid: "root-uuid",
+  id: "root",
+  name: "My System",
+  type: "component",
+  description: "Root",
+  subComponents: [
+    {
+      uuid: "parent-uuid",
+      id: "parent",
+      name: "Parent",
+      type: "component",
+      description: "",
+      subComponents: [
+        {
+          uuid: "child-uuid",
+          id: "child",
+          name: "Child",
+          type: "component",
+          description: "",
+          subComponents: [],
+          actors: [],
+          useCaseDiagrams: [],
+          interfaces: [],
+        },
+      ],
+      actors: [],
+      useCaseDiagrams: [],
+      interfaces: [],
+    },
+  ],
   actors: [],
   useCaseDiagrams: [],
   interfaces: [],
@@ -286,6 +322,40 @@ describe("TreeView - Directory File System", () => {
         expect(alertMock).toHaveBeenCalledWith(expect.stringContaining("Chrome or Edge")),
       )
     })
+  })
+})
+
+describe("TreeView node visibility", () => {
+  beforeEach(() => {
+    localStorage.clear()
+    useSystemStore.setState({
+      rootComponent: nestedSystem,
+      selectedNodeId: null,
+      savedSnapshot: null,
+    })
+  })
+
+  it("expands collapsed ancestors and scrolls selected nodes into view after external selection changes", async () => {
+    const user = userEvent.setup()
+    const scrollIntoView = vi.fn()
+    Object.defineProperty(Element.prototype, "scrollIntoView", {
+      configurable: true,
+      writable: true,
+      value: scrollIntoView,
+    })
+
+    render(<TreeView />)
+
+    const collapseButtons = screen.getAllByLabelText("Collapse")
+    await user.click(collapseButtons[1])
+    expect(screen.queryByText("Child")).not.toBeInTheDocument()
+
+    act(() => {
+      useSystemStore.setState({ selectedNodeId: "child-uuid" })
+    })
+
+    await waitFor(() => expect(screen.getByText("Child")).toBeInTheDocument())
+    expect(scrollIntoView).toHaveBeenCalled()
   })
 })
 

@@ -12,7 +12,7 @@ import {
 import { findReferencingDiagrams } from "../../utils/nodeUtils"
 import { FunctionUpdateDialog } from "../FunctionUpdateDialog"
 import { DiagramCodeMirrorEditor } from "./DiagramCodeMirrorEditor"
-import { MarkdownEditor } from "./MarkdownEditor"
+import { DescriptionField } from "./DescriptionField"
 import { getNodeSiblingIds } from "../../nodes/nodeTree"
 import { NodeReferencesButton } from "./NodeReferencesButton"
 import { PanelTitleInput } from "./PanelTitleInput"
@@ -202,11 +202,8 @@ export const DiagramEditor = ({
         </div>
       </div>
 
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-300 mb-2">
-          Description
-        </label>
-        <MarkdownEditor
+      <div className="mb-4 flex flex-col">
+        <DescriptionField
           value={description}
           onChange={setDescription}
           onBlur={handleDescriptionBlur}
