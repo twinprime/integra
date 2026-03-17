@@ -500,7 +500,7 @@ Integra is a single-page web application that allows users to model software sys
 
 ### Design Overview
 
-#### Model invariants
+#### Model Invariants
 
 The core model is intentionally split between a **stored write model** and a
 **resolved read model**. Contributors should preserve that split by using the
