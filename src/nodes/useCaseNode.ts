@@ -1,6 +1,10 @@
 import type { UseCaseNode, SequenceDiagramNode, Node } from "../store/types"
 import { applyIdRenameInSeqDiag } from "./sequenceDiagramNode"
-import { updateDescriptionRefs } from "../utils/renameNodeId"
+import {
+  type ScopedRenameContext,
+  updateDescriptionRefs,
+  updateDescriptionRefsInContext,
+} from "../utils/renameNodeId"
 import type { NodeHandler } from "./nodeHandler"
 
 export const getUseCaseChildren = (uc: UseCaseNode): ReadonlyArray<SequenceDiagramNode> =>
@@ -27,14 +31,18 @@ export const applyIdRenameInUseCase = (
   targetUuid: string,
   oldId: string,
   newId: string,
+  renameContext?: ScopedRenameContext,
+  ownerComponentUuid?: string,
 ): UseCaseNode => ({
   ...uc,
   id: uc.uuid === targetUuid ? newId : uc.id,
   description: uc.description
-    ? updateDescriptionRefs(uc.description, oldId, newId)
+    ? (renameContext && ownerComponentUuid
+      ? updateDescriptionRefsInContext(uc.description, ownerComponentUuid, renameContext)
+      : updateDescriptionRefs(uc.description, oldId, newId))
     : uc.description,
   sequenceDiagrams: uc.sequenceDiagrams.map((sd) =>
-    applyIdRenameInSeqDiag(sd, targetUuid, oldId, newId),
+    applyIdRenameInSeqDiag(sd, targetUuid, oldId, newId, renameContext),
   ),
 })
 

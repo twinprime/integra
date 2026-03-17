@@ -5,8 +5,13 @@ import type {
   Node,
 } from "../store/types"
 import { applyIdRenameInUseCase, deleteFromUseCase, findParentInUseCase } from "./useCaseNode"
-import { updateDescriptionRefs } from "../utils/renameNodeId"
-import { renameInUcdSpec } from "../parser/useCaseDiagram/specSerializer"
+import {
+  type ScopedRenameContext,
+  updateDescriptionRefs,
+  updateDescriptionRefsInContext,
+  updateUseCaseDiagramRefsInContext,
+} from "../utils/renameNodeId"
+import { renameInUcdSpec } from "../utils/renameNodeId"
 import type { NodeHandler } from "./nodeHandler"
 
 export type DiagramRef = { diagram: DiagramNode; ownerComponentUuid: string }
@@ -51,14 +56,20 @@ export const applyIdRenameInUcDiag = (
   targetUuid: string,
   oldId: string,
   newId: string,
+  renameContext?: ScopedRenameContext,
 ): UseCaseDiagramNode => ({
   ...ucd,
   id: ucd.uuid === targetUuid ? newId : ucd.id,
   description: ucd.description
-    ? updateDescriptionRefs(ucd.description, oldId, newId)
+    ? (renameContext
+      ? updateDescriptionRefsInContext(ucd.description, ucd.ownerComponentUuid, renameContext)
+      : updateDescriptionRefs(ucd.description, oldId, newId))
     : ucd.description,
-  content: renameInUcdSpec(ucd.content, oldId, newId),
-  useCases: ucd.useCases.map((uc) => applyIdRenameInUseCase(uc, targetUuid, oldId, newId)),
+  content: renameContext
+    ? updateUseCaseDiagramRefsInContext(ucd.content, ucd.ownerComponentUuid, renameContext)
+    : renameInUcdSpec(ucd.content, oldId, newId),
+  useCases: ucd.useCases.map((uc) =>
+    applyIdRenameInUseCase(uc, targetUuid, oldId, newId, renameContext, ucd.ownerComponentUuid)),
 })
 
 export const getSiblingIdsInUcDiag = (

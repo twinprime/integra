@@ -5,7 +5,11 @@ import {
   deleteFromUcDiag,
 } from "./useCaseDiagramNode"
 import { applyIdRenameInInterface } from "./interfaceNode"
-import { updateDescriptionRefs } from "../utils/renameNodeId"
+import {
+  type ScopedRenameContext,
+  updateDescriptionRefs,
+  updateDescriptionRefsInContext,
+} from "../utils/renameNodeId"
 
 export const deleteFromComponent = (
   comp: ComponentNode,
@@ -45,20 +49,24 @@ export const applyIdRenameInComponent = (
   targetUuid: string,
   oldId: string,
   newId: string,
+  renameContext?: ScopedRenameContext,
+  _targetOwnerComponentUuid?: string,
 ): ComponentNode => ({
   ...comp,
   id: comp.uuid === targetUuid ? newId : comp.id,
   description: comp.description
-    ? updateDescriptionRefs(comp.description, oldId, newId)
+    ? (renameContext
+      ? updateDescriptionRefsInContext(comp.description, comp.uuid, renameContext)
+      : updateDescriptionRefs(comp.description, oldId, newId))
     : comp.description,
   subComponents: comp.subComponents.map((c) =>
-    applyIdRenameInComponent(c, targetUuid, oldId, newId),
+    applyIdRenameInComponent(c, targetUuid, oldId, newId, renameContext),
   ),
-  actors: comp.actors.map((a) => applyIdRenameInActor(a, targetUuid, oldId, newId)),
+  actors: comp.actors.map((a) => applyIdRenameInActor(a, targetUuid, oldId, newId, renameContext, comp.uuid)),
   useCaseDiagrams: comp.useCaseDiagrams.map((ucd) =>
-    applyIdRenameInUcDiag(ucd, targetUuid, oldId, newId),
+    applyIdRenameInUcDiag(ucd, targetUuid, oldId, newId, renameContext),
   ),
   interfaces: comp.interfaces.map((iface) =>
-    applyIdRenameInInterface(iface, targetUuid, oldId, newId),
+    applyIdRenameInInterface(iface, targetUuid, oldId, newId, renameContext, comp.uuid),
   ),
 })

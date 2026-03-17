@@ -2,8 +2,13 @@ import type {
   SequenceDiagramNode,
   Parameter,
 } from "../store/types"
-import { updateDescriptionRefs } from "../utils/renameNodeId"
-import { renameInSeqSpec } from "../parser/sequenceDiagram/specSerializer"
+import {
+  type ScopedRenameContext,
+  updateDescriptionRefs,
+  updateDescriptionRefsInContext,
+  updateSequenceDiagramRefsInContext,
+} from "../utils/renameNodeId"
+import { renameInSeqSpec } from "../utils/renameNodeId"
 import { paramsToString } from "../parser/sequenceDiagram/systemUpdater"
 
 export const applyIdRenameInSeqDiag = (
@@ -11,13 +16,18 @@ export const applyIdRenameInSeqDiag = (
   targetUuid: string,
   oldId: string,
   newId: string,
+  renameContext?: ScopedRenameContext,
 ): SequenceDiagramNode => ({
   ...sd,
   id: sd.uuid === targetUuid ? newId : sd.id,
   description: sd.description
-    ? updateDescriptionRefs(sd.description, oldId, newId)
+    ? (renameContext
+      ? updateDescriptionRefsInContext(sd.description, sd.ownerComponentUuid, renameContext)
+      : updateDescriptionRefs(sd.description, oldId, newId))
     : sd.description,
-  content: renameInSeqSpec(sd.content, oldId, newId),
+  content: renameContext
+    ? updateSequenceDiagramRefsInContext(sd.content, sd.ownerComponentUuid, renameContext)
+    : renameInSeqSpec(sd.content, oldId, newId),
 })
 
 export const replaceSignatureInContent = (

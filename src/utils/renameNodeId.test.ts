@@ -273,3 +273,163 @@ describe("applyIdRename — function ID rename", () => {
     expect(updated.interfaces[0].description).toBe("See [Flow](createOrder/placeOrderFlow)")
   })
 })
+
+const makeSiblingScopeTree = (): ComponentNode => ({
+  uuid: "root-scope",
+  id: "root",
+  name: "Root",
+  type: "component",
+  description: "",
+  actors: [],
+  useCaseDiagrams: [],
+  interfaces: [],
+  subComponents: [
+    {
+      uuid: "comp-a",
+      id: "alpha",
+      name: "Alpha",
+      type: "component",
+      description: "See [Order](placeOrder)",
+      actors: [
+        {
+          uuid: "actor-a",
+          id: "customer",
+          name: "Customer A",
+          type: "actor",
+          description: "The local customer",
+        },
+      ],
+      interfaces: [],
+      useCaseDiagrams: [
+        {
+          uuid: "ucd-a",
+          id: "alphaDiag",
+          name: "Alpha Diag",
+          type: "use-case-diagram",
+          description: "",
+          content: "actor customer\nuse case placeOrder\ncustomer ->> placeOrder",
+          referencedNodeIds: [],
+          ownerComponentUuid: "comp-a",
+          useCases: [
+            {
+              uuid: "uc-a",
+              id: "placeOrder",
+              name: "Place Order A",
+              type: "use-case",
+              description: "",
+              sequenceDiagrams: [
+                {
+                  uuid: "sd-a",
+                  id: "alphaFlow",
+                  name: "Alpha Flow",
+                  type: "sequence-diagram",
+                  description: "",
+                  content:
+                    "actor customer\ncustomer ->> api: UseCase:placeOrder\napi ->> customer: done",
+                  referencedNodeIds: [],
+                  referencedFunctionUuids: [],
+                  ownerComponentUuid: "comp-a",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      subComponents: [],
+    },
+    {
+      uuid: "comp-b",
+      id: "beta",
+      name: "Beta",
+      type: "component",
+      description: "See [Order](placeOrder)",
+      actors: [
+        {
+          uuid: "actor-b",
+          id: "customer",
+          name: "Customer B",
+          type: "actor",
+          description: "The local customer",
+        },
+      ],
+      interfaces: [],
+      useCaseDiagrams: [
+        {
+          uuid: "ucd-b",
+          id: "betaDiag",
+          name: "Beta Diag",
+          type: "use-case-diagram",
+          description: "",
+          content: "actor customer\nuse case placeOrder\ncustomer ->> placeOrder",
+          referencedNodeIds: [],
+          ownerComponentUuid: "comp-b",
+          useCases: [
+            {
+              uuid: "uc-b",
+              id: "placeOrder",
+              name: "Place Order B",
+              type: "use-case",
+              description: "",
+              sequenceDiagrams: [
+                {
+                  uuid: "sd-b",
+                  id: "betaFlow",
+                  name: "Beta Flow",
+                  type: "sequence-diagram",
+                  description: "",
+                  content:
+                    "actor customer\ncustomer ->> api: UseCase:placeOrder\napi ->> customer: done",
+                  referencedNodeIds: [],
+                  referencedFunctionUuids: [],
+                  ownerComponentUuid: "comp-b",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      subComponents: [],
+    },
+  ],
+})
+
+describe("applyIdRename — scope-aware regressions", () => {
+  it("does not update markdown links for same-id use cases in a sibling component", () => {
+    const updated = applyIdRename(makeSiblingScopeTree(), "uc-a", "placeOrder", "createOrder")
+
+    expect(updated.subComponents[0].description).toBe("See [Order](createOrder)")
+    expect(updated.subComponents[1].description).toBe("See [Order](placeOrder)")
+  })
+
+  it("does not update use-case references in sibling diagrams that resolve locally", () => {
+    const updated = applyIdRename(makeSiblingScopeTree(), "uc-a", "placeOrder", "createOrder")
+    const [alpha, beta] = updated.subComponents
+
+    expect(alpha.useCaseDiagrams[0].content).toContain("use case createOrder")
+    expect(alpha.useCaseDiagrams[0].useCases[0].sequenceDiagrams[0].content).toContain(
+      "UseCase:createOrder",
+    )
+
+    expect(beta.useCaseDiagrams[0].content).toContain("use case placeOrder")
+    expect(beta.useCaseDiagrams[0].useCases[0].sequenceDiagrams[0].content).toContain(
+      "UseCase:placeOrder",
+    )
+  })
+
+  it("does not update actor references in sibling diagrams that resolve locally", () => {
+    const updated = applyIdRename(makeSiblingScopeTree(), "actor-a", "customer", "buyer")
+    const [alpha, beta] = updated.subComponents
+
+    expect(alpha.actors[0].id).toBe("buyer")
+    expect(alpha.useCaseDiagrams[0].content).toContain("actor buyer")
+    expect(alpha.useCaseDiagrams[0].useCases[0].sequenceDiagrams[0].content).toContain(
+      "buyer ->> api",
+    )
+
+    expect(beta.actors[0].id).toBe("customer")
+    expect(beta.useCaseDiagrams[0].content).toContain("actor customer")
+    expect(beta.useCaseDiagrams[0].useCases[0].sequenceDiagrams[0].content).toContain(
+      "customer ->> api",
+    )
+  })
+})

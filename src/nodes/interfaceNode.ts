@@ -1,5 +1,5 @@
 import type { InterfaceSpecification, InterfaceFunction } from "../store/types"
-import { updateDescriptionRefs } from "../utils/renameNodeId"
+import { type ScopedRenameContext, updateDescriptionRefs } from "../utils/renameNodeId"
 import { getStoredInterfaceFunctions, isLocalInterface } from "../utils/interfaceFunctions"
 
 export const applyIdRenameInInterface = (
@@ -7,6 +7,8 @@ export const applyIdRenameInInterface = (
   targetUuid: string,
   oldId: string,
   newId: string,
+  _renameContext?: ScopedRenameContext,
+  _contextComponentUuid?: string,
 ): InterfaceSpecification => ({
   ...iface,
   id: iface.uuid === targetUuid ? newId : iface.id,
