@@ -115,8 +115,7 @@ export function assembleTree(root: RawComponent, fileMap: Map<string, RawCompone
 /**
  * Writes the entire component tree to a directory as individual YAML files.
  * - Creates the `<rootId>/` subdirectory if needed.
- * - Removes stale `*.yaml` files in the subdir (identified by `type: component`)
- *   before writing fresh ones.
+ * - Removes stale descendant `*.yaml` files in the subdir before writing fresh ones.
  */
 export async function saveToDirectory(
   dir: FileSystemDirectoryHandle,
@@ -124,23 +123,24 @@ export async function saveToDirectory(
 ): Promise<void> {
   const entries = flattenToFiles(root)
   const subdirName = root.id
+  const rootPath = rootFilename(root.id)
+  const expectedDescendantFiles = new Set(
+    entries
+      .filter(({ relativePath }) => relativePath !== rootPath)
+      .map(({ relativePath }) => relativePath.slice(subdirName.length + 1)),
+  )
 
   // Get or create the subdirectory
   const subdir = await dir.getDirectoryHandle(subdirName, { create: true })
 
-  // Remove stale component YAML files in the subdirectory
+  // Remove stale descendant YAML files in the subdirectory.
   for await (const entry of subdir.values()) {
-    if (entry.kind === "file" && entry.name.endsWith(".yaml")) {
-      try {
-        const file = await (entry).getFile()
-        const text = await file.text()
-        const parsed = yaml.load(text) as Record<string, unknown> | null
-        if (parsed && typeof parsed === "object" && parsed["type"] === "component") {
-          await subdir.removeEntry(entry.name)
-        }
-      } catch {
-        // Skip files we can't read/parse
-      }
+    if (
+      entry.kind === "file"
+      && entry.name.endsWith(".yaml")
+      && !expectedDescendantFiles.has(entry.name)
+    ) {
+      await subdir.removeEntry(entry.name)
     }
   }
 

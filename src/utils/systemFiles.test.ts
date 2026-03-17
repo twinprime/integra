@@ -273,6 +273,62 @@ describe("saveToDirectory", () => {
     expect(subdirWritten["gateway-auth.yaml"]).toBeDefined()
     expect(subdirWritten["gateway-orders.yaml"]).toBeDefined()
   })
+
+  it("removes only stale descendant yaml files without reading or parsing existing files", async () => {
+    const staleGetFile = vi.fn()
+    const expectedGetFile = vi.fn()
+    const removeEntry = vi.fn().mockResolvedValue(undefined)
+
+    const mockSubdir: FileSystemDirectoryHandle = {
+      kind: "directory",
+      name: "my-system",
+      values: async function* () {
+        yield {
+          kind: "file",
+          name: "my-system-gateway.yaml",
+          getFile: expectedGetFile,
+        } as unknown as FileSystemFileHandle
+        yield {
+          kind: "file",
+          name: "obsolete.yaml",
+          getFile: staleGetFile,
+        } as unknown as FileSystemFileHandle
+        yield {
+          kind: "file",
+          name: "notes.txt",
+          getFile: vi.fn(),
+        } as unknown as FileSystemFileHandle
+      },
+      getFileHandle: vi.fn().mockImplementation(async (_name: string) => ({
+        createWritable: async () => ({
+          write: vi.fn().mockResolvedValue(undefined),
+          close: vi.fn().mockResolvedValue(undefined),
+        }),
+      })),
+      removeEntry,
+    } as unknown as FileSystemDirectoryHandle
+
+    const mockDir: FileSystemDirectoryHandle = {
+      kind: "directory",
+      name: "test",
+      values: async function* () {},
+      getFileHandle: vi.fn().mockImplementation(async (_name: string) => ({
+        createWritable: async () => ({
+          write: vi.fn().mockResolvedValue(undefined),
+          close: vi.fn().mockResolvedValue(undefined),
+        }),
+      })),
+      getDirectoryHandle: vi.fn().mockResolvedValue(mockSubdir),
+      removeEntry: vi.fn().mockResolvedValue(undefined),
+    } as unknown as FileSystemDirectoryHandle
+
+    await saveToDirectory(mockDir, root)
+
+    expect(removeEntry).toHaveBeenCalledTimes(1)
+    expect(removeEntry).toHaveBeenCalledWith("obsolete.yaml")
+    expect(expectedGetFile).not.toHaveBeenCalled()
+    expect(staleGetFile).not.toHaveBeenCalled()
+  })
 })
 
 describe("loadFromDirectory", () => {
