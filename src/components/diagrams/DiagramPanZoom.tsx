@@ -16,11 +16,18 @@ interface FitRefs {
   contentKey?: string
 }
 
-const FitController = ({ fitRef, fitWidthRef, clearPendingFitRef, contentKey }: FitRefs) => {
+const FitController = ({
+  fitRef,
+  fitWidthRef,
+  clearPendingFitRef,
+  contentKey,
+}: FitRefs) => {
   const { instance, setTransform } = useControls()
   const instanceRef = useRef(instance)
   const setTransformRef = useRef(setTransform)
-  const pendingFitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const pendingFitTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  )
 
   useEffect(() => {
     instanceRef.current = instance
@@ -40,13 +47,16 @@ const FitController = ({ fitRef, fitWidthRef, clearPendingFitRef, contentKey }: 
     }
   }, [clearPendingFit, clearPendingFitRef])
 
-  const scheduleFit = useCallback((fitAction: () => void, delay = 50) => {
-    clearPendingFit()
-    pendingFitTimeoutRef.current = setTimeout(() => {
-      pendingFitTimeoutRef.current = null
-      fitAction()
-    }, delay)
-  }, [clearPendingFit])
+  const scheduleFit = useCallback(
+    (fitAction: () => void, delay = 50) => {
+      clearPendingFit()
+      pendingFitTimeoutRef.current = setTimeout(() => {
+        pendingFitTimeoutRef.current = null
+        fitAction()
+      }, delay)
+    },
+    [clearPendingFit],
+  )
 
   const getDimensions = useCallback(() => {
     const wrapper = instanceRef.current.wrapperComponent
@@ -148,7 +158,10 @@ interface DiagramPanZoomProps {
   contentKey?: string
 }
 
-export const DiagramPanZoom = ({ children, contentKey }: DiagramPanZoomProps) => {
+export const DiagramPanZoom = ({
+  children,
+  contentKey,
+}: DiagramPanZoomProps) => {
   const fitRef = useRef<() => void>(() => {})
   const fitWidthRef = useRef<() => void>(() => {})
   const clearPendingFitRef = useRef<() => void>(() => {})
@@ -164,7 +177,7 @@ export const DiagramPanZoom = ({ children, contentKey }: DiagramPanZoomProps) =>
         maxScale={20}
         limitToBounds={false}
         smooth={false}
-        wheel={{ step: 0.3 }}
+        wheel={{ step: 0.2 }}
         onWheelStart={() => clearPendingFitRef.current()}
         onPanningStart={() => clearPendingFitRef.current()}
         onZoomStart={() => clearPendingFitRef.current()}
