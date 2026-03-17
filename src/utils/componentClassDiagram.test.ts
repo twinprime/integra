@@ -360,9 +360,14 @@ describe("buildComponentClassDiagram", () => {
     const sdIncoming = makeSeqDiagram(
       "actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething(id: string)",
     )
-    const sdOutgoing = makeSeqDiagram(
-      "component compA\ncomponent compB\ncompA ->> compB: IBaz:process(data: string)",
-    )
+    const sdOutgoing = {
+      ...makeSeqDiagram(
+        "component compA\ncomponent compB\ncompA ->> compB: IBaz:process(data: string)",
+      ),
+      id: "seq-outgoing",
+      uuid: "seq-outgoing-uuid",
+      name: "Seq Outgoing",
+    }
     const root = makeRootWithCompBInterfaces([sdIncoming, sdOutgoing])
     const result = buildComponentClassDiagram(getCompA(root), root)
     // dependents section
@@ -560,4 +565,5 @@ describe("buildComponentClassDiagram", () => {
       expect(result.mermaidContent).toContain("compB ..> IFoo")
     })
   })
+
 })

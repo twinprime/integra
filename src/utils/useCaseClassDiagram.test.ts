@@ -275,4 +275,99 @@ describe("buildUseCaseClassDiagram", () => {
     expect(result.mermaidContent).not.toContain("user ..> IFoo")
     expect(result.mermaidContent).toContain("compA ..|> IFoo")
   })
+
+  it("follows referenced use cases and sequence diagrams with deduplication and cycle protection", () => {
+    const entrySeq = {
+      ...makeSeqDiagram(
+        [
+          "component compB",
+          "component compA",
+          "compB ->> compA: UseCase:secondary",
+          "compB ->> compA: Sequence:sharedFlow",
+        ].join("\n"),
+      ),
+      id: "entry",
+      uuid: "entry-seq-uuid",
+      name: "Entry Seq",
+    }
+    const sharedSeq = {
+      ...makeSeqDiagram(
+        [
+          "component compB",
+          "component compA",
+          "compB ->> compA: IFoo:doSomething(id: string)",
+          "compB ->> compA: Sequence:entry",
+        ].join("\n"),
+      ),
+      id: "sharedFlow",
+      uuid: "shared-seq-uuid",
+      name: "Shared Flow",
+    }
+    const secondarySeq = {
+      ...makeSeqDiagram(
+        [
+          "component compB",
+          "component compA",
+          "compB ->> compA: IBar:getAll(page: number?)",
+          "compB ->> compA: Sequence:sharedFlow",
+        ].join("\n"),
+      ),
+      id: "secondaryFlow",
+      uuid: "secondary-seq-uuid",
+      name: "Secondary Flow",
+    }
+
+    const primaryUseCase = { ...makeUseCase(entrySeq), id: "primary", uuid: "primary-uc-uuid", name: "Primary" }
+    const secondaryUseCase = {
+      ...makeUseCase(secondarySeq, sharedSeq),
+      id: "secondary",
+      uuid: "secondary-uc-uuid",
+      name: "Secondary",
+    }
+    const rootBase = makeRoot()
+    const root: ComponentNode = {
+      ...rootBase,
+      subComponents: [
+        {
+          ...rootBase.subComponents[0],
+          interfaces: [
+            ...rootBase.subComponents[0].interfaces,
+            {
+              uuid: "ibar-uuid",
+              id: "IBar",
+              name: "IBar",
+              type: "rest",
+              functions: [{ uuid: "ibar-fn-uuid", id: "getAll", parameters: [{ name: "page", type: "number", required: false }] }],
+            },
+          ],
+          useCaseDiagrams: [
+            {
+              uuid: "ucd-uuid",
+              id: "ucd",
+              name: "UCD",
+              type: "use-case-diagram",
+              content: "",
+              description: "",
+              ownerComponentUuid: "compa-uuid",
+              referencedNodeIds: [],
+              useCases: [primaryUseCase, secondaryUseCase],
+            },
+          ],
+        },
+        ...rootBase.subComponents.slice(1),
+      ],
+    }
+
+    const result = buildUseCaseClassDiagram(primaryUseCase, root)
+
+    expect(result.mermaidContent).toContain("+doSomething(id: string)")
+    expect(result.mermaidContent).toContain("+getAll(page: number?)")
+    expect((result.mermaidContent.match(/\+doSomething/g) ?? [])).toHaveLength(1)
+    expect(result.relationshipMetadata).toContainEqual({
+      sequenceDiagrams: [{ uuid: "shared-seq-uuid", name: "Shared Flow" }],
+    })
+    expect(result.relationshipMetadata).toContainEqual({
+      sequenceDiagrams: [{ uuid: "secondary-seq-uuid", name: "Secondary Flow" }],
+    })
+  })
 })

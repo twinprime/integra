@@ -8,6 +8,7 @@ import { findNodeByPath, getAncestorComponentChain } from "./nodeUtils"
 import { collectAllDiagrams } from "../nodes/nodeTree"
 import { buildRootClassDiagram } from "./rootClassDiagram"
 import { resolveEffectiveInterfaceFunctions } from "./interfaceFunctions"
+import { collectReferencedSequenceDiagrams } from "./referencedSequenceDiagrams"
 import {
   addSequenceDiagramSource,
   createSequenceDiagramSourceMap,
@@ -198,12 +199,17 @@ export function buildComponentClassDiagram(
   const outgoingSourcesByReceiver = new Map<string, Map<string, SequenceDiagramSources>>()
   const receiverParticipants = new Map<string, Participant>()
 
-  for (const { diagram, ownerComponentUuid } of collectAllDiagrams(rootComponent)) {
-    if (diagram.type !== "sequence-diagram") continue
-    const seqDiagram = diagram as SequenceDiagramNode
+  const reachableSequenceDiagrams = collectReferencedSequenceDiagrams(
+    rootComponent,
+    collectAllDiagrams(rootComponent)
+      .filter(({ diagram }) => diagram.type === "sequence-diagram")
+      .map(({ diagram }) => diagram as SequenceDiagramNode),
+  )
+
+  for (const seqDiagram of reachableSequenceDiagrams) {
     if (!seqDiagram.content?.trim()) continue
 
-    const ownerNode = findNode([rootComponent], ownerComponentUuid)
+    const ownerNode = findNode([rootComponent], seqDiagram.ownerComponentUuid)
     const ownerComp = ownerNode?.type === "component" ? (ownerNode) : null
 
     const ast = getCachedSeqAst(seqDiagram.content)

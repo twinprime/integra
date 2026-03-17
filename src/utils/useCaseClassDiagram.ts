@@ -5,6 +5,7 @@ import { flattenMessages } from "../parser/sequenceDiagram/visitor"
 import type { SeqAst } from "../parser/sequenceDiagram/visitor"
 import { getCachedSeqAst } from "./seqAstCache"
 import { findNodeByPath } from "./nodeUtils"
+import { collectReferencedSequenceDiagrams } from "./referencedSequenceDiagrams"
 import {
   addSequenceDiagramSource,
   createSequenceDiagramSourceMap,
@@ -207,7 +208,7 @@ export function buildUseCaseClassDiagram(
     directArrows: [],
   }
 
-  for (const seqDiagram of useCaseNode.sequenceDiagrams) {
+  for (const seqDiagram of collectReferencedSequenceDiagrams(rootComponent, useCaseNode.sequenceDiagrams)) {
     if (!seqDiagram.content?.trim()) continue
     const ownerNode = findNode([rootComponent], seqDiagram.ownerComponentUuid)
     const ownerComp = ownerNode?.type === "component" ? (ownerNode) : null
@@ -228,4 +229,3 @@ export function buildUseCaseClassDiagram(
 
   return buildMermaidLines(participantsMap, state, idToUuid)
 }
-

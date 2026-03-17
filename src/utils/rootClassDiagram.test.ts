@@ -305,4 +305,38 @@ describe("buildRootClassDiagram", () => {
     expect(result.mermaidContent).toContain("+doSomething(id: string)")
     expect(result.mermaidContent).not.toContain("+getAll(page: number?)")
   })
+
+  it("includes inter-child dependencies from referenced sequence diagrams", () => {
+    const entrySeq = {
+      ...makeSeqDiagram(
+        [
+          "component compA",
+          "component compB",
+          "compA ->> compB: Sequence:sharedFlow",
+        ].join("\n"),
+      ),
+      id: "entry",
+      uuid: "entry-seq-uuid",
+      name: "Entry Seq",
+    }
+    const sharedSeq = {
+      ...makeSeqDiagram(
+        [
+          "component compA",
+          "component compB",
+          "compA ->> compB: IBaz:process(data: string)",
+        ].join("\n"),
+      ),
+      id: "sharedFlow",
+      uuid: "shared-seq-uuid",
+      name: "Shared Flow",
+    }
+
+    const result = buildRootClassDiagram(makeRoot([entrySeq, sharedSeq]))
+
+    expect(result.mermaidContent).toContain("compA ..> IBaz")
+    expect(result.relationshipMetadata).toContainEqual({
+      sequenceDiagrams: [{ uuid: "shared-seq-uuid", name: "Shared Flow" }],
+    })
+  })
 })
