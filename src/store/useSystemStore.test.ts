@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest"
 import { act, renderHook } from "@testing-library/react"
 import { useSystemStore, type FunctionDecision } from "./useSystemStore"
 import type { ComponentNode, UseCaseDiagramNode } from "./types"
+import { sampleSystem, UUIDS } from "../../e2e/fixtures/sample-system"
 
 // Mock crypto.randomUUID for consistent UUIDs in tests
 const mockUUIDs = [
@@ -862,6 +863,34 @@ describe("useSystemStore", () => {
       expect(fn?.description).toBe("The main function")
       expect(fn?.parameters[0].description).toBe("The numeric ID")
       expect(result.current.parseError).toBeNull()
+    })
+  })
+
+  describe("renameNodeId", () => {
+    it("supports sequential use-case and actor renames on the sample fixture", () => {
+      const { result } = renderHook(() => useSystemStore())
+
+      act(() => {
+        useSystemStore.setState({
+          rootComponent: sampleSystem,
+          past: [],
+          future: [],
+          parseError: null,
+          selectedNodeId: null,
+        })
+      })
+
+      act(() => {
+        result.current.renameNodeId(UUIDS.uc, "SignIn")
+      })
+
+      act(() => {
+        result.current.renameNodeId(UUIDS.actor, "Customer")
+      })
+
+      expect(result.current.rootComponent.useCaseDiagrams[0].content).toContain("actor Customer")
+      expect(result.current.rootComponent.useCaseDiagrams[0].content).toContain("use case SignIn")
+      expect(result.current.rootComponent.useCaseDiagrams[0].content).not.toContain("actor User")
     })
   })
 })

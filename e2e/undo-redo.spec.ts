@@ -4,6 +4,7 @@ import { loadAppWithFixture } from "./helpers/app"
 import {
   getVisibleCodeMirrorEditor,
   renameNodeId,
+  renameSelectedNodeId,
   selectTreeItem,
   specificationEditor,
   treeItem,
@@ -81,8 +82,11 @@ test.describe("undo / redo", () => {
     // Change 1: rename "Login" use-case ID → "SignIn"
     await renameLoginToSignIn(page)
 
-    // Change 2: rename "User" actor ID → "Customer"
-    await renameNodeId(page, /^User$/, "Customer")
+    // Change 2: rename the root-scoped "User" actor ID → "Customer".
+    // The fixture also contains an OrderService-local "User" actor that should
+    // remain untouched.
+    await page.getByRole("treeitem").filter({ hasText: /^User$/ }).last().click()
+    await renameSelectedNodeId(page, "Customer")
 
     // Both changes are visible in the use-case diagram
     await selectTreeItem(page, "Main Use Cases")

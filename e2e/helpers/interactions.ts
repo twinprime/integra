@@ -45,11 +45,29 @@ export async function renameNodeId(
   hasText: TreeItemText,
   nextId: string,
 ): Promise<Locator> {
-  await selectTreeItem(page, hasText)
+  const item = await selectTreeItem(page, hasText)
   const input = nodeIdInput(page)
+  const currentId = typeof hasText === "string" ? hasText : (await item.textContent())?.trim()
+  if (currentId) {
+    await expect(input).toHaveValue(currentId)
+  }
+  return renameSelectedNodeId(page, nextId)
+}
+
+export async function renameSelectedNodeId(
+  page: Page,
+  nextId: string,
+): Promise<Locator> {
+  const input = nodeIdInput(page)
+  const persistedBefore = await page.evaluate(() => localStorage.getItem("integra-system"))
   await input.clear()
   await input.fill(nextId)
   await input.press("Enter")
+  await expect(input).not.toBeFocused()
+  await page.waitForFunction(
+    (previousSnapshot) => localStorage.getItem("integra-system") !== previousSnapshot,
+    persistedBefore,
+  )
   return input
 }
 

@@ -4,6 +4,7 @@ import { loadAppWithFixture } from "./helpers/app"
 import {
   nodeIdInput,
   renameNodeId,
+  renameSelectedNodeId,
   selectTreeItem,
   specificationEditor,
 } from "./helpers/interactions"
@@ -40,8 +41,11 @@ test.describe("node ID rename", () => {
   })
 
   test("renaming an actor ID propagates to all referencing diagrams", async ({ page }) => {
-    // The actor "User" appears in both the sequence diagram and the use-case diagram
-    await renameNodeId(page, /^User$/, "Customer")
+    // The fixture has two scoped "User" actors. Rename the root-scoped actor that
+    // is referenced by Main Use Cases and Login Flow, not the same-ID actor under
+    // OrderService.
+    await page.getByRole("treeitem").filter({ hasText: /^User$/ }).last().click()
+    await renameSelectedNodeId(page, "Customer")
 
     // Check the Login Flow sequence diagram
     await selectTreeItem(page, "Login Flow")
@@ -55,6 +59,12 @@ test.describe("node ID rename", () => {
     const useCaseEditor = specificationEditor(page)
     await expect(useCaseEditor).toContainText("actor Customer")
     await expect(useCaseEditor).not.toContainText("actor User")
+
+    // The OrderService-local actor with the same ID remains unchanged.
+    await selectTreeItem(page, "Order Use Cases")
+    const orderUseCaseEditor = specificationEditor(page)
+    await expect(orderUseCaseEditor).toContainText("actor User")
+    await expect(orderUseCaseEditor).not.toContainText("actor Customer")
   })
 
   test("invalid ID format shows inline error and does not save", async ({ page }) => {
