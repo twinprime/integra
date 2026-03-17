@@ -72,6 +72,18 @@ The diagram spec editor uses CodeMirror's built-in history, fully independent fr
 
 The toolbar above the system tree includes **← Back** and **→ Forward** buttons (before Undo/Redo). These work like browser navigation — clicking any node in the tree adds it to the history, and you can step backwards and forwards through your recent selections. The history is per-session and is not persisted across page reloads.
 
+When navigation happens from a rendered diagram or a markdown node link, the
+tree automatically expands the newly selected node's ancestor chain and scrolls
+that node into view.
+
+#### Description editing
+
+Node descriptions open in a **preview-first** mode. The selected node shows its
+rendered markdown immediately, without a separate description label or markdown
+toolbar. Click the description area to switch into the full markdown editor;
+when the description is empty, the preview shows a compact **No Description**
+placeholder until you enter edit mode.
+
 #### Panel Layout
 
 The split-panel layout can be adjusted by dragging the resize handles. Use the **›** button on the right-panel handle to expand/collapse the right panel.

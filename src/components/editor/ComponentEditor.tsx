@@ -3,7 +3,7 @@ import type { ComponentNode, InterfaceSpecification, InterfaceFunction } from ".
 import { useSystemStore } from "../../store/useSystemStore"
 import { collectReferencedFunctionUuids, findReferencingDiagrams } from "../../utils/nodeUtils"
 import { getNodeSiblingIds } from "../../nodes/nodeTree"
-import { MarkdownEditor } from "./MarkdownEditor"
+import { DescriptionField } from "./DescriptionField"
 import { InterfaceEditor } from "./InterfaceEditor"
 import { NodeReferencesButton } from "./NodeReferencesButton"
 import { PanelTitleInput } from "./PanelTitleInput"
@@ -182,11 +182,8 @@ export const ComponentEditor = ({
         </div>
       </div>
 
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-300 mb-2">
-          Description
-        </label>
-        <MarkdownEditor
+      <div className="mb-4 flex flex-col">
+        <DescriptionField
           value={description}
           onChange={setDescription}
           onBlur={handleDescriptionBlur}

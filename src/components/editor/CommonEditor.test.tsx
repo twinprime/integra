@@ -17,19 +17,29 @@ vi.mock("./MarkdownEditor", () => ({
     onChange,
     onBlur,
     placeholder,
+    previewOnly,
+    onPreviewClick,
   }: {
     value: string
     onChange: (v: string) => void
     onBlur?: () => void
     placeholder?: string
+    previewOnly?: boolean
+    onPreviewClick?: () => void
   }) => (
-    <textarea
-      data-testid="markdown-editor"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      onBlur={onBlur}
-      placeholder={placeholder}
-    />
+    previewOnly ? (
+      <button data-testid="markdown-preview" onClick={onPreviewClick}>
+        {value || "No Description"}
+      </button>
+    ) : (
+      <textarea
+        data-testid="markdown-editor"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
+        placeholder={placeholder}
+      />
+    )
   ),
 }))
 
@@ -124,10 +134,22 @@ describe("CommonEditor", () => {
       expect(screen.getByDisplayValue("test_actor")).toBeInTheDocument()
     })
 
-    it("renders the description in the markdown editor", () => {
+    it("renders the description in preview mode initially", () => {
       const node = makeActorNode({ description: "Some desc" })
       render(<CommonEditor node={node} onUpdate={vi.fn()} />)
-      expect(screen.getByDisplayValue("Some desc")).toBeInTheDocument()
+      expect(screen.getByTestId("markdown-preview")).toHaveTextContent("Some desc")
+      expect(screen.queryByTestId("markdown-editor")).not.toBeInTheDocument()
+    })
+
+    it("shows No Description placeholder when description is empty", () => {
+      const node = makeActorNode({ description: "" })
+      render(<CommonEditor node={node} onUpdate={vi.fn()} />)
+      expect(screen.getByTestId("markdown-preview")).toHaveTextContent("No Description")
+    })
+
+    it("does not render a Description label", () => {
+      render(<CommonEditor node={makeActorNode()} onUpdate={vi.fn()} />)
+      expect(screen.queryByText("Description")).not.toBeInTheDocument()
     })
   })
 
@@ -203,14 +225,24 @@ describe("CommonEditor", () => {
   })
 
   describe("description editing", () => {
+    it("clicking the preview switches description into edit mode", async () => {
+      const user = userEvent.setup()
+      render(<CommonEditor node={makeActorNode({ description: "Existing desc" })} onUpdate={vi.fn()} />)
+
+      await user.click(screen.getByTestId("markdown-preview"))
+
+      expect(screen.getByTestId("markdown-editor")).toBeInTheDocument()
+      expect(screen.queryByTestId("markdown-preview")).not.toBeInTheDocument()
+    })
+
     it("calls onUpdate with new description on blur", async () => {
       const user = userEvent.setup()
       const onUpdate = vi.fn()
       const node = makeActorNode({ description: "" })
       render(<CommonEditor node={node} onUpdate={onUpdate} />)
 
+      await user.click(screen.getByTestId("markdown-preview"))
       const editor = screen.getByTestId("markdown-editor")
-      await user.click(editor)
       await user.type(editor, "New description")
       await user.tab()
 
@@ -223,8 +255,7 @@ describe("CommonEditor", () => {
       const node = makeActorNode({ description: "Existing desc" })
       render(<CommonEditor node={node} onUpdate={onUpdate} />)
 
-      const editor = screen.getByTestId("markdown-editor")
-      await user.click(editor)
+      await user.click(screen.getByTestId("markdown-preview"))
       await user.tab()
 
       expect(onUpdate).not.toHaveBeenCalled()

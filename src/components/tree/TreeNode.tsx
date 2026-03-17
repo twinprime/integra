@@ -1,4 +1,4 @@
-import { useState, memo } from "react"
+import { useEffect, useRef, useState, memo } from "react"
 import { ChevronRight, ChevronDown, Trash2, GripVertical } from "lucide-react"
 import { useSystemStore } from "../../store/useSystemStore"
 import type { Node, ComponentNode } from "../../store/types"
@@ -31,6 +31,23 @@ interface SortableChildrenProps {
   onContextMenu: (e: React.MouseEvent, node: Node) => void
 }
 
+function subtreeContainsNode(node: Node, targetUuid: string | null): boolean {
+  if (!targetUuid) return false
+  if (node.uuid === targetUuid) return true
+  if (node.type === "component") {
+    return [...node.subComponents, ...node.actors, ...node.useCaseDiagrams].some((child) =>
+      subtreeContainsNode(child, targetUuid),
+    )
+  }
+  if (node.type === "use-case-diagram") {
+    return node.useCases.some((child) => subtreeContainsNode(child, targetUuid))
+  }
+  if (node.type === "use-case") {
+    return node.sequenceDiagrams.some((child) => subtreeContainsNode(child, targetUuid))
+  }
+  return false
+}
+
 /** Renders a SortableContext group of TreeNodes. Must be placed inside a DndContext. */
 const SortableChildren = ({ items, onContextMenu }: SortableChildrenProps) => (
   <SortableContext items={items.map((n) => n.uuid)} strategy={verticalListSortingStrategy}>
@@ -43,6 +60,7 @@ const SortableChildren = ({ items, onContextMenu }: SortableChildrenProps) => (
 export const TreeNode = memo(({ node, onContextMenu }: TreeNodeProps) => {
   const [expanded, setExpanded] = useState(true)
   const [hovered, setHovered] = useState(false)
+  const rowRef = useRef<HTMLDivElement | null>(null)
   const selectedNodeId = useSystemStore((state) => state.selectedNodeId)
   const selectNode = useSystemStore((state) => state.selectNode)
   const deleteNode = useSystemStore((state) => state.deleteNode)
@@ -67,6 +85,15 @@ export const TreeNode = memo(({ node, onContextMenu }: TreeNodeProps) => {
   }
 
   const hasChildren = children.length > 0
+
+  const autoExpanded = hasChildren && children.some((child) => subtreeContainsNode(child, selectedNodeId))
+  const isExpanded = expanded || autoExpanded
+
+  useEffect(() => {
+    if (isSelected) {
+      rowRef.current?.scrollIntoView({ block: "nearest" })
+    }
+  }, [isSelected])
 
   const {
     attributes,
@@ -146,7 +173,10 @@ export const TreeNode = memo(({ node, onContextMenu }: TreeNodeProps) => {
   return (
     <div className="pl-4">
       <div
-        ref={setNodeRef}
+        ref={(element) => {
+          rowRef.current = element
+          setNodeRef(element)
+        }}
         {...attributes}
         role="treeitem"
         aria-selected={isSelected}
@@ -163,12 +193,12 @@ export const TreeNode = memo(({ node, onContextMenu }: TreeNodeProps) => {
       >
         <button
           tabIndex={-1}
-          aria-label={expanded ? "Collapse" : "Expand"}
+          aria-label={isExpanded ? "Collapse" : "Expand"}
           className="w-4 h-4 flex items-center justify-center mr-1 text-gray-500 hover:text-gray-400 bg-transparent border-0 p-0 cursor-pointer"
           onClick={hasChildren ? handleToggle : undefined}
         >
           {hasChildren &&
-            (expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
+            (isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
         </button>
         <div className="mr-2 w-4 h-4">
           <NodeIcon type={node.type} />
@@ -198,7 +228,7 @@ export const TreeNode = memo(({ node, onContextMenu }: TreeNodeProps) => {
         </span>
       </div>
 
-      {hasChildren && expanded && (
+      {hasChildren && isExpanded && (
         <div>
           {renderSortableChildren()}
         </div>
