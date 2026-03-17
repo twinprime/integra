@@ -1,5 +1,5 @@
 import type { ComponentNode, InterfaceSpecification, SequenceDiagramNode } from "../store/types"
-import { findNode } from "../nodes/nodeTree"
+import { findNode, findParentNode } from "../nodes/nodeTree"
 import { findOwnerActorOrComponentUuidById } from "./diagramResolvers"
 import { flattenMessages } from "../parser/sequenceDiagram/visitor"
 import { getCachedSeqAst } from "./seqAstCache"
@@ -14,6 +14,58 @@ import {
   toRelationshipMetadata,
   type ClassDiagramBuildResult,
 } from "./classDiagramMetadata"
+
+type ParticipantKind = "actor" | "component"
+
+type Participant = {
+  nodeId: string
+  name: string
+  uuid: string
+  kind: ParticipantKind
+}
+
+function toParticipant(rootComponent: ComponentNode, uuid: string): Participant | null {
+  const node = findNode([rootComponent], uuid)
+  if (!node || (node.type !== "component" && node.type !== "actor")) return null
+  return {
+    nodeId: node.id,
+    name: node.name,
+    uuid,
+    kind: node.type,
+  }
+}
+
+function emitParticipantClass(participant: Participant, lines: string[]): void {
+  if (participant.kind === "actor") {
+    lines.push(`    class ${participant.nodeId}["${participant.name}"]:::actor {`)
+    lines.push(`        <<actor>>`)
+    lines.push(`    }`)
+    return
+  }
+
+  lines.push(`    class ${participant.nodeId}["${participant.name}"]`)
+}
+
+function resolveRootVisibleParticipantUuid(
+  rootComponent: ComponentNode,
+  childUuids: Set<string>,
+  rootActorUuids: Set<string>,
+  participantUuid: string,
+): string | undefined {
+  if (childUuids.has(participantUuid) || rootActorUuids.has(participantUuid)) {
+    return participantUuid
+  }
+
+  let currentUuid = participantUuid
+  let parent = findParentNode(rootComponent, currentUuid)
+  while (parent) {
+    if (parent.uuid === rootComponent.uuid) return currentUuid
+    currentUuid = parent.uuid
+    parent = findParentNode(rootComponent, currentUuid)
+  }
+
+  return undefined
+}
 
 function emitInterfaceClass(
   iface: InterfaceSpecification,
@@ -50,6 +102,9 @@ export function buildRootClassDiagram(
   if (children.length === 0) return { mermaidContent: "", idToUuid: {}, relationshipMetadata: [] }
 
   const childUuids = new Set(children.map((c) => c.uuid))
+  const rootActorUuids = new Set((rootComponent.actors ?? []).map((actor) => actor.uuid))
+  const participantMap = new Map<string, Participant>()
+  const participatingRootActorUuids = new Set<string>()
 
   // calledFunctionsByInterface: interfaceId → Set<functionId>
   // records functions called on any child's interface (from any diagram)
@@ -89,30 +144,38 @@ export function buildRootClassDiagram(
 
       const senderUuid = aliasToUuid.get(msg.from)
       const receiverUuid = aliasToUuid.get(msg.to)
+      const visibleSenderUuid = senderUuid
+        ? resolveRootVisibleParticipantUuid(rootComponent, childUuids, rootActorUuids, senderUuid)
+        : undefined
+      const visibleReceiverUuid = receiverUuid
+        ? resolveRootVisibleParticipantUuid(rootComponent, childUuids, rootActorUuids, receiverUuid)
+        : undefined
+
+      if (visibleSenderUuid && rootActorUuids.has(visibleSenderUuid)) participatingRootActorUuids.add(visibleSenderUuid)
+      if (visibleReceiverUuid && rootActorUuids.has(visibleReceiverUuid)) participatingRootActorUuids.add(visibleReceiverUuid)
 
       // Track called functions on any child's interface
-      if (receiverUuid && childUuids.has(receiverUuid)) {
+      if (visibleReceiverUuid && childUuids.has(visibleReceiverUuid)) {
         if (!calledFunctionsByInterface.has(interfaceId)) {
           calledFunctionsByInterface.set(interfaceId, new Set())
         }
         calledFunctionsByInterface.get(interfaceId)!.add(functionId)
       }
 
-      // Track inter-child dependency (both sender and receiver are direct children)
+      // Track visible root-level dependency (rolled up to direct children / root actors)
       if (
-        senderUuid &&
-        receiverUuid &&
-        childUuids.has(senderUuid) &&
-        childUuids.has(receiverUuid) &&
-        senderUuid !== receiverUuid
+        visibleSenderUuid &&
+        visibleReceiverUuid &&
+        visibleSenderUuid !== visibleReceiverUuid &&
+        childUuids.has(visibleReceiverUuid)
       ) {
-        if (!dependencies.has(senderUuid)) dependencies.set(senderUuid, new Map())
-        const ifaceMap = dependencies.get(senderUuid)!
+        if (!dependencies.has(visibleSenderUuid)) dependencies.set(visibleSenderUuid, new Map())
+        const ifaceMap = dependencies.get(visibleSenderUuid)!
         if (!ifaceMap.has(interfaceId)) ifaceMap.set(interfaceId, new Set())
         ifaceMap.get(interfaceId)!.add(functionId)
 
-        if (!dependencySources.has(senderUuid)) dependencySources.set(senderUuid, new Map())
-        const sourceIfaceMap = dependencySources.get(senderUuid)!
+        if (!dependencySources.has(visibleSenderUuid)) dependencySources.set(visibleSenderUuid, new Map())
+        const sourceIfaceMap = dependencySources.get(visibleSenderUuid)!
         if (!sourceIfaceMap.has(interfaceId)) {
           sourceIfaceMap.set(interfaceId, createSequenceDiagramSourceMap())
         }
@@ -135,7 +198,10 @@ export function buildRootClassDiagram(
 
   // ── Emit each direct child component and its interfaces ───────────────────
   for (const child of children) {
-    lines.push(`    class ${child.id}["${child.name}"]`)
+    const participant = toParticipant(rootComponent, child.uuid)
+    if (!participant) continue
+    participantMap.set(child.uuid, participant)
+    emitParticipantClass(participant, lines)
     idToUuid[child.id] = child.uuid
 
     for (const iface of child.interfaces ?? []) {
@@ -144,14 +210,22 @@ export function buildRootClassDiagram(
     }
   }
 
-  // ── Emit inter-child dependency arrows ────────────────────────────────────
+  for (const actorUuid of participatingRootActorUuids) {
+    const participant = toParticipant(rootComponent, actorUuid)
+    if (!participant) continue
+    participantMap.set(actorUuid, participant)
+    emitParticipantClass(participant, lines)
+    idToUuid[participant.nodeId] = participant.uuid
+  }
+
+  // ── Emit root-level dependency arrows ─────────────────────────────────────
   for (const [senderUuid, ifaceMap] of dependencies) {
-    const sender = children.find((c) => c.uuid === senderUuid)
+    const sender = participantMap.get(senderUuid)
     if (!sender) continue
 
     for (const [ifaceId] of ifaceMap) {
       addRelationship(
-        `    ${sender.id} ..> ${ifaceId}`,
+        `    ${sender.nodeId} ..> ${ifaceId}`,
         toRelationshipMetadata(dependencySources.get(senderUuid)?.get(ifaceId) ?? createSequenceDiagramSourceMap()),
       )
     }

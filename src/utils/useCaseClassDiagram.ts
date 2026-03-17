@@ -69,7 +69,6 @@ function registerParticipants(
     if (participantsMap.has(uuid)) continue
     const node = findNode([rootComponent], uuid)
     if (!node) continue
-    if (decl.entityType === "actor") continue
     participantsMap.set(uuid, {
       nodeId: node.id,
       name: node.name,
@@ -166,7 +165,13 @@ function buildMermaidLines(
   }
 
   for (const p of participantsMap.values()) {
-    lines.push(`    class ${p.nodeId}["${p.name}"]:::${p.kind}`)
+    if (p.kind === "actor") {
+      lines.push(`    class ${p.nodeId}["${p.name}"]:::actor {`)
+      lines.push(`        <<actor>>`)
+      lines.push(`    }`)
+      continue
+    }
+    lines.push(`    class ${p.nodeId}["${p.name}"]:::component`)
   }
 
   for (const { interfaceId, interfaceName } of interfaces) {

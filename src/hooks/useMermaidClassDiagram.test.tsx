@@ -341,7 +341,10 @@ describe("useMermaidClassDiagram", () => {
       />,
     )
 
-    await waitFor(() => expect(screen.getByText("Uses")).toBeInTheDocument())
+    await waitFor(() => {
+      expect(screen.getByText("Uses")).toBeInTheDocument()
+      expect(screen.getByTestId("diagram").querySelector('[data-integra-edge-hit-target="true"]')).not.toBeNull()
+    })
 
     const hitTarget = screen.getByTestId("diagram").querySelector('[data-integra-edge-hit-target="true"]')
     expect(hitTarget).not.toBeNull()
@@ -378,7 +381,10 @@ describe("useMermaidClassDiagram", () => {
       />,
     )
 
-    await waitFor(() => expect(screen.getByText("Uses")).toBeInTheDocument())
+    await waitFor(() => {
+      expect(screen.getByText("Uses")).toBeInTheDocument()
+      expect(screen.getByTestId("diagram").querySelector('[data-integra-edge-hit-target="true"]')).not.toBeNull()
+    })
 
     const hitTarget = screen.getByTestId("diagram").querySelector('[data-integra-edge-hit-target="true"]')
     expect(hitTarget).not.toBeNull()
@@ -417,7 +423,10 @@ describe("useMermaidClassDiagram", () => {
       />,
     )
 
-    await waitFor(() => expect(screen.getByText("Uses")).toBeInTheDocument())
+    await waitFor(() => {
+      expect(screen.getByText("Uses")).toBeInTheDocument()
+      expect(screen.getByTestId("diagram").querySelector('[data-integra-edge-hit-target="true"]')).not.toBeNull()
+    })
 
     const hitTarget = screen.getByTestId("diagram").querySelector('[data-integra-edge-hit-target="true"]')
     expect(hitTarget).not.toBeNull()
@@ -457,7 +466,10 @@ describe("useMermaidClassDiagram", () => {
       />,
     )
 
-    await waitFor(() => expect(screen.getByText("Uses")).toBeInTheDocument())
+    await waitFor(() => {
+      expect(screen.getByText("Uses")).toBeInTheDocument()
+      expect(screen.getByTestId("diagram").querySelector('[data-integra-edge-hit-target="true"]')).not.toBeNull()
+    })
 
     const hitTarget = screen.getByTestId("diagram").querySelector('[data-integra-edge-hit-target="true"]')
     expect(hitTarget).not.toBeNull()
@@ -500,6 +512,7 @@ describe("useMermaidClassDiagram", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Uses")).toBeInTheDocument()
+      expect(screen.getByTestId("diagram").querySelector('[data-integra-edge-hit-target="true"]')).not.toBeNull()
     })
 
     const hitTarget = screen.getByTestId("diagram").querySelector('[data-integra-edge-hit-target="true"]')
@@ -511,6 +524,10 @@ describe("useMermaidClassDiagram", () => {
 
     await user.click(screen.getByText("clear"))
     expect(screen.getByTestId("active-count")).toHaveTextContent("0")
+
+    await waitFor(() => {
+      expect(screen.getByTestId("diagram").querySelector('[data-integra-edge-hit-target="true"]')).not.toBeNull()
+    })
 
     const reopenedHitTarget = screen.getByTestId("diagram").querySelector('[data-integra-edge-hit-target="true"]')
     expect(reopenedHitTarget).not.toBeNull()

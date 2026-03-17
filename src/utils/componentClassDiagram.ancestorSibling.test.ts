@@ -9,6 +9,84 @@ import {
 } from "./componentClassDiagram.test.fixtures"
 
 describe("buildComponentClassDiagram ancestor sibling scope", () => {
+  it("shows a rolled-up child dependency when a direct child calls a sibling child", () => {
+    const sd = makeSeqDiagram(
+      [
+        "component parent/compA as compA",
+        "component parent/compB as compB",
+        "compA ->> compB: IBaz:process(data: string)",
+      ].join("\n"),
+    )
+    const root = makeNestedRootWithAncestorSibling([sd])
+    const result = buildComponentClassDiagram(root.subComponents[0], root)
+
+    expect(result.mermaidContent).toContain('class compA["Component A"]')
+    expect(result.mermaidContent).toContain('class compB["Component B"]')
+    expect(result.mermaidContent).toContain('class IBaz["IBaz"] {')
+    expect(result.mermaidContent).toContain("compB ..|> IBaz")
+    expect(result.mermaidContent).toContain("compA ..> IBaz")
+  })
+
+  it("shows a rolled-up child dependency when a direct child calls the selected ancestor", () => {
+    const sd = makeSeqDiagram(
+      [
+        "component parent/compA as compA",
+        "component parent",
+        "compA ->> parent: IParent:handleParent(value: string)",
+      ].join("\n"),
+    )
+    const root = makeNestedRootWithAncestorSibling([sd])
+    const result = buildComponentClassDiagram(
+      {
+        ...root.subComponents[0],
+        interfaces: [
+          {
+            uuid: "parent-iface-uuid",
+            id: "IParent",
+            name: "IParent",
+            type: "rest",
+            functions: [
+              {
+                uuid: "parent-fn-uuid",
+                id: "handleParent",
+                parameters: [{ name: "value", type: "string", required: true }],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        ...root,
+        subComponents: [
+          {
+            ...root.subComponents[0],
+            interfaces: [
+              {
+                uuid: "parent-iface-uuid",
+                id: "IParent",
+                name: "IParent",
+                type: "rest",
+                functions: [
+                  {
+                    uuid: "parent-fn-uuid",
+                    id: "handleParent",
+                    parameters: [{ name: "value", type: "string", required: true }],
+                  },
+                ],
+              },
+            ],
+          },
+          root.subComponents[1],
+        ],
+      },
+    )
+
+    expect(result.mermaidContent).toContain('class compA["Component A"]')
+    expect(result.mermaidContent).toContain('class IParent["IParent"] {')
+    expect(result.mermaidContent).toContain("parent ..|> IParent")
+    expect(result.mermaidContent).toContain("compA ..> IParent")
+  })
+
   it("includes outbound dependencies to a sibling of an ancestor component", () => {
     const sd = makeSeqDiagram(
       [
@@ -99,10 +177,27 @@ describe("buildComponentClassDiagram ancestor sibling scope", () => {
     const root = makeNestedRootWithAncestorSibling([sd])
     const result = buildComponentClassDiagram(getPlatform(root), root)
 
-    expect(result.mermaidContent).toContain('class parent["Parent"]:::component')
+    expect(result.mermaidContent).toContain('class parent["Parent"]')
     expect(result.mermaidContent).toContain("parent ..> IPlatform")
-    expect(result.mermaidContent).not.toContain('class compA["Component A"]:::component')
+    expect(result.mermaidContent).not.toContain('class compA["Component A"]')
     expect(result.idToUuid.parent).toBe("parent-uuid")
     expect(result.idToUuid.compA).toBeUndefined()
+  })
+
+  it("shows a rolled-up child dependency to an ancestor sibling component", () => {
+    const sd = makeSeqDiagram(
+      [
+        "component parent/compA as compA",
+        "component platform",
+        "compA ->> platform: IPlatform:handlePlatform(data: string)",
+      ].join("\n"),
+    )
+    const root = makeNestedRootWithAncestorSibling([sd])
+    const result = buildComponentClassDiagram(root.subComponents[0], root)
+
+    expect(result.mermaidContent).toContain('class compA["Component A"]')
+    expect(result.mermaidContent).toContain('class platform["Platform"]')
+    expect(result.mermaidContent).toContain("platform ..|> IPlatform")
+    expect(result.mermaidContent).toContain("compA ..> IPlatform")
   })
 })

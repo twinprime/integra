@@ -138,6 +138,95 @@ describe("buildRootClassDiagram", () => {
     expect(result.mermaidContent).toContain('click compB call __integraNavigate("compB")')
   })
 
+  it("includes root actors that participate in reachable diagrams", () => {
+    const sd = makeSeqDiagram(
+      "actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething(id: string)",
+    )
+    const root: ComponentNode = {
+      ...makeRoot([sd]),
+      actors: [{ uuid: "user-uuid", id: "user", name: "User", type: "actor", description: "" }],
+    }
+    const result = buildRootClassDiagram(root)
+
+    expect(result.mermaidContent).toContain('class user["User"]:::actor {')
+    expect(result.mermaidContent).toContain("<<actor>>")
+    expect(result.mermaidContent).toContain("user ..> IFoo")
+    expect(result.mermaidContent).toContain('click user call __integraNavigate("user")')
+    expect(result.idToUuid.user).toBe("user-uuid")
+  })
+
+  it("rolls nested descendant dependencies up to direct root children", () => {
+    const sd = makeSeqDiagram(
+      [
+        "component parent/compA as compA",
+        "component platform",
+        "compA ->> platform: IPlatform:handlePlatform(data: string)",
+      ].join("\n"),
+    )
+    const root: ComponentNode = {
+      uuid: "root-uuid",
+      id: "root",
+      name: "Root",
+      type: "component",
+      actors: [],
+      subComponents: [
+        {
+          uuid: "parent-uuid",
+          id: "parent",
+          name: "Parent",
+          type: "component",
+          actors: [],
+          subComponents: [
+            {
+              uuid: "nested-compa-uuid",
+              id: "compA",
+              name: "Component A",
+              type: "component",
+              subComponents: [],
+              actors: [],
+              useCaseDiagrams: [],
+              interfaces: [],
+            },
+          ],
+          useCaseDiagrams: [],
+          interfaces: [],
+        },
+        {
+          uuid: "platform-uuid",
+          id: "platform",
+          name: "Platform",
+          type: "component",
+          actors: [],
+          subComponents: [],
+          useCaseDiagrams: [],
+          interfaces: [
+            {
+              uuid: "platform-iface-uuid",
+              id: "IPlatform",
+              name: "IPlatform",
+              type: "rest",
+              functions: [
+                {
+                  uuid: "platform-fn-uuid",
+                  id: "handlePlatform",
+                  parameters: [{ name: "data", type: "string", required: true }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      useCaseDiagrams: [makeUcd("root-uuid", makeUseCase(sd))],
+      interfaces: [],
+    }
+
+    const result = buildRootClassDiagram(root)
+    expect(result.mermaidContent).toContain("platform ..|> IPlatform")
+    expect(result.mermaidContent).toContain("parent ..> IPlatform")
+    expect(result.idToUuid.parent).toBe("parent-uuid")
+    expect(result.idToUuid.compA).toBeUndefined()
+  })
+
   it("shows all functions when no messages reference the interface", () => {
     const root = makeRoot()
     const result = buildRootClassDiagram(root)

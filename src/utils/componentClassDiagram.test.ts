@@ -108,8 +108,7 @@ describe("buildComponentClassDiagram", () => {
     )
     const root = makeRoot([sd])
     const result = buildComponentClassDiagram(getCompA(root), root)
-    expect(result.mermaidContent).toContain('class compB["Component B"]:::component')
-    expect(result.mermaidContent).not.toMatch(/class compB\[.*\]:::component\s*\{/)
+    expect(result.mermaidContent).toContain('class compB["Component B"]')
     expect(result.mermaidContent).toContain("compB ..> IFoo")
   })
 
