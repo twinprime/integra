@@ -5,7 +5,7 @@
 import type { CstNode, IToken } from "chevrotain"
 import { ucdParser, parseUseCaseDiagramCst } from "./parser"
 import type { ComponentNode } from "../../store/types"
-import { resolveParticipant } from "../../utils/diagramResolvers"
+import { resolveDiagramDeclarationUuid } from "../../utils/diagramResolvers"
 
 export interface NavEntry {
   from: number
@@ -80,7 +80,7 @@ class UcdPositionedVisitorImpl extends BaseVisitor {
     const id = aliasToken?.image ?? pathIds[pathIds.length - 1]
     if (!id) return
     const fromPath = pathIds.length > 1 ? pathIds.join("/") : undefined
-    const uuid = resolveParticipant(keyword, id, fromPath, this._root, this._ownerComp)
+    const uuid = resolveDiagramDeclarationUuid(keyword, id, fromPath, this._root, this._ownerComp)
     if (uuid) this._participantMap.set(id, uuid)
   }
 

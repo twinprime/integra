@@ -16,12 +16,11 @@ import { upsertNodeInTree, mergeLists } from "../../nodes/nodeTree"
 import { findCompByUuid } from "../../nodes/nodeTree"
 import { findNodeByPath, isInScope } from "../../utils/nodeUtils"
 import {
-  resolveUseCaseByPath,
-  resolveSeqDiagramByPath,
-  autoCreateByPath,
-  resolveFunctionRefTarget,
-  assertUseCaseReferenceInScope,
-  assertSeqDiagramReferenceInScope,
+  resolveUseCaseReferenceUuid,
+  resolveSequenceReferenceUuid,
+  ensureScopedNodePath,
+  resolveFunctionReferenceTarget,
+  assertReferencePathInScope,
 } from "../../utils/diagramResolvers"
 import { parseSequenceDiagramCst } from "./parser"
 import { buildSeqAst, flattenMessages } from "./visitor"
@@ -311,7 +310,7 @@ export function analyzeSequenceDiagramChanges(
     seen.add(key)
 
     const newParams = parseParameters(rawParams)
-    const existing = resolveFunctionRefTarget(rootComponent, stmt.to, interfaceId, functionId)
+    const existing = resolveFunctionReferenceTarget(rootComponent, stmt.to, interfaceId, functionId)
     if (!existing || paramsMatch(existing.parameters, newParams)) continue
 
     const kind = existing.parameters.length === newParams.length ? "incompatible" : "compatible"
@@ -382,7 +381,7 @@ export function parseSequenceDiagram(
       const pathStr = decl.path.join("/")
       let uuid = findNodeByPath(root, pathStr, ownerComponentUuid)
       if (!uuid) {
-        const created = autoCreateByPath(root, decl.path, decl.entityType as "actor" | "component", ownerComponentUuid)
+        const created = ensureScopedNodePath(root, decl.path, decl.entityType as "actor" | "component", ownerComponentUuid)
         if (!created) throw new Error(`Cannot resolve path: "${pathStr}"`)
         root = created.updatedRoot
         uuid = created.uuid
@@ -496,7 +495,7 @@ export function parseSequenceDiagram(
   const referencedFunctionUuids: string[] = []
   for (const msg of astMessages) {
     if (msg.content.kind !== "functionRef") continue
-    const fnUuid = resolveFunctionRefTarget(
+    const fnUuid = resolveFunctionReferenceTarget(
       updatedRoot,
       msg.to,
       msg.content.interfaceId,
@@ -509,12 +508,12 @@ export function parseSequenceDiagram(
   if (updatedOwnerComp) {
     for (const msg of astMessages) {
       if (msg.content.kind === "useCaseRef") {
-        assertUseCaseReferenceInScope(msg.content.path, updatedRoot, ownerComponentUuid)
-        const ucUuid = resolveUseCaseByPath(msg.content.path, updatedRoot, updatedOwnerComp, ownerComponentUuid)
+        assertReferencePathInScope(msg.content.path, updatedRoot, ownerComponentUuid)
+        const ucUuid = resolveUseCaseReferenceUuid(msg.content.path, updatedRoot, updatedOwnerComp, ownerComponentUuid)
         if (ucUuid && !referencedNodeIds.includes(ucUuid)) referencedNodeIds.push(ucUuid)
       } else if (msg.content.kind === "seqDiagramRef") {
-        assertSeqDiagramReferenceInScope(msg.content.path, updatedRoot, ownerComponentUuid)
-        const seqUuid = resolveSeqDiagramByPath(msg.content.path, updatedRoot, updatedOwnerComp, ownerComponentUuid)
+        assertReferencePathInScope(msg.content.path, updatedRoot, ownerComponentUuid)
+        const seqUuid = resolveSequenceReferenceUuid(msg.content.path, updatedRoot, updatedOwnerComp, ownerComponentUuid)
         if (seqUuid && !referencedNodeIds.includes(seqUuid)) referencedNodeIds.push(seqUuid)
       }
     }

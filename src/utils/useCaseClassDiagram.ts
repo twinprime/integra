@@ -1,6 +1,6 @@
 import type { ComponentNode, UseCaseNode } from "../store/types"
 import { findNode } from "../nodes/nodeTree"
-import { findComponentByInterfaceId, resolveInOwner, findInterfaceNameByInterfaceId } from "./diagramResolvers"
+import { findComponentUuidByInterfaceId, findOwnerActorOrComponentUuidById, findInterfaceNameById } from "./diagramResolvers"
 import { flattenMessages } from "../parser/sequenceDiagram/visitor"
 import type { SeqAst } from "../parser/sequenceDiagram/visitor"
 import { getCachedSeqAst } from "./seqAstCache"
@@ -48,7 +48,7 @@ function resolveDeclarationUuid(
   root: ComponentNode,
 ): string | undefined {
   if (path.length === 1) {
-    return ownerComp ? resolveInOwner(ownerComp, path[0]) : undefined
+    return ownerComp ? findOwnerActorOrComponentUuidById(ownerComp, path[0]) : undefined
   }
   return findNodeByPath(root, path.join("/")) ?? undefined
 }
@@ -110,13 +110,13 @@ function processMessages(
         addSequenceDiagramSource(state.deps.find((dep) => dep.fromNodeId === sender.nodeId && dep.toNodeId === interfaceId)!.sequenceSources, seqDiagram)
       }
 
-      const ownerCompUuid = findComponentByInterfaceId(rootComponent, interfaceId)
+      const ownerCompUuid = findComponentUuidByInterfaceId(rootComponent, interfaceId)
       const ownerComp = ownerCompUuid ? participantsMap.get(ownerCompUuid) : undefined
       if (ownerComp) {
         const key = `iface|${ownerComp.nodeId}|${interfaceId}`
         if (!state.interfacesSet.has(key)) {
           state.interfacesSet.add(key)
-          const interfaceName = findInterfaceNameByInterfaceId(rootComponent, interfaceId) ?? interfaceId
+          const interfaceName = findInterfaceNameById(rootComponent, interfaceId) ?? interfaceId
           state.interfaces.push({ componentNodeId: ownerComp.nodeId, interfaceId, interfaceName })
         }
       }

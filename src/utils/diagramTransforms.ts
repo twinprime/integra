@@ -1,5 +1,5 @@
 import type { ComponentNode } from "../store/types"
-import { resolveInOwner, resolveParticipant } from "./diagramResolvers"
+import { findOwnerActorOrComponentUuidById, resolveDiagramDeclarationUuid } from "./diagramResolvers"
 
 // ─── Shared regex patterns ────────────────────────────────────────────────────
 
@@ -32,7 +32,7 @@ export function buildIdToUuidMap(
       const keyword = named[2]
       const fromPath = named[5]
       const id = named[7]
-      const uuid = resolveParticipant(keyword, id, fromPath, root, ownerComp)
+      const uuid = resolveDiagramDeclarationUuid(keyword, id, fromPath, root, ownerComp)
       if (uuid) {
         map[id] = uuid
         orderedUuids.push(uuid)
@@ -45,7 +45,7 @@ export function buildIdToUuidMap(
       const bare = RX_PART_BARE.exec(trimmed)
       if (bare) {
         const id = bare[4]
-        const uuid = resolveInOwner(ownerComp, id)
+        const uuid = findOwnerActorOrComponentUuidById(ownerComp, id)
         if (uuid) {
           map[id] = uuid
           orderedUuids.push(uuid)

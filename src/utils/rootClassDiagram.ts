@@ -1,6 +1,6 @@
 import type { ComponentNode, InterfaceSpecification, SequenceDiagramNode } from "../store/types"
 import { findNode } from "../nodes/nodeTree"
-import { resolveInOwner } from "./diagramResolvers"
+import { findOwnerActorOrComponentUuidById } from "./diagramResolvers"
 import { flattenMessages } from "../parser/sequenceDiagram/visitor"
 import { getCachedSeqAst } from "./seqAstCache"
 import type { SeqAst } from "../parser/sequenceDiagram/visitor"
@@ -72,7 +72,7 @@ export function buildRootClassDiagram(
     const aliasToUuid = new Map<string, string>()
     for (const decl of ast.declarations) {
       const uuid = decl.path.length === 1
-        ? (ownerComp ? resolveInOwner(ownerComp, decl.path[0]) : undefined)
+        ? (ownerComp ? findOwnerActorOrComponentUuidById(ownerComp, decl.path[0]) : undefined)
         : (findNodeByPath(rootComponent, decl.path.join("/")) ?? undefined)
       if (uuid) aliasToUuid.set(decl.id, uuid)
     }

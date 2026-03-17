@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest"
-import { autoCreateByPath, findComponentByInterfaceId, findInterfaceUuidByInterfaceId, findInterfaceOwnerPreferReceiver, findInterfaceUuidPreferReceiver, resolveFunctionRefTarget } from "./diagramResolvers"
+import { ensureScopedNodePath, findComponentUuidByInterfaceId, findInterfaceUuidById, findPreferredInterfaceOwnerUuid, findPreferredInterfaceUuid, resolveFunctionReferenceTarget } from "./diagramResolvers"
 import type { ComponentNode } from "../store/types"
 
 const makeComp = (uuid: string, id: string, subs: ComponentNode[] = []): ComponentNode => ({
@@ -7,10 +7,10 @@ const makeComp = (uuid: string, id: string, subs: ComponentNode[] = []): Compone
   description: "", subComponents: subs, actors: [], useCaseDiagrams: [], interfaces: [],
 })
 
-describe("autoCreateByPath", () => {
+describe("ensureScopedNodePath", () => {
   it("creates a component as direct child of owner when parent is owner", () => {
     const root = makeComp("root-uuid", "root")
-    const result = autoCreateByPath(root, ["newComp"], "component", "root-uuid")
+    const result = ensureScopedNodePath(root, ["newComp"], "component", "root-uuid")
     expect(result).not.toBeNull()
     expect(result!.updatedRoot.subComponents).toHaveLength(1)
     expect(result!.updatedRoot.subComponents[0].id).toBe("newComp")
@@ -19,7 +19,7 @@ describe("autoCreateByPath", () => {
 
   it("creates an actor as direct child of owner", () => {
     const root = makeComp("root-uuid", "root")
-    const result = autoCreateByPath(root, ["NewActor"], "actor", "root-uuid")
+    const result = ensureScopedNodePath(root, ["NewActor"], "actor", "root-uuid")
     expect(result).not.toBeNull()
     expect(result!.updatedRoot.actors).toHaveLength(1)
     expect(result!.updatedRoot.actors[0].id).toBe("NewActor")
@@ -29,7 +29,7 @@ describe("autoCreateByPath", () => {
     const child = makeComp("child-uuid", "child")
     const root = makeComp("root-uuid", "root", [child])
     // Owner is child; create under root (ancestor) — in scope
-    const result = autoCreateByPath(root, ["root", "newSibling"], "component", "child-uuid")
+    const result = ensureScopedNodePath(root, ["root", "newSibling"], "component", "child-uuid")
     expect(result).not.toBeNull()
     expect(result!.updatedRoot.subComponents).toHaveLength(2)
     const created = result!.updatedRoot.subComponents.find((c) => c.id === "newSibling")
@@ -39,7 +39,7 @@ describe("autoCreateByPath", () => {
   it("creates intermediate component nodes when they are missing", () => {
     const root = makeComp("root-uuid", "root")
     // Create "mid/leaf" — "mid" doesn't exist, should be created first
-    const result = autoCreateByPath(root, ["mid", "leaf"], "component", "root-uuid")
+    const result = ensureScopedNodePath(root, ["mid", "leaf"], "component", "root-uuid")
     expect(result).not.toBeNull()
     const mid = result!.updatedRoot.subComponents.find((c) => c.id === "mid")
     expect(mid).toBeDefined()
@@ -53,30 +53,30 @@ describe("autoCreateByPath", () => {
     const owner = makeComp("owner-uuid", "owner")
     const root = makeComp("root-uuid", "root", [owner, sibling])
     // Creating under sibling/cousin is out of scope for owner
-    const result = autoCreateByPath(root, ["sibling", "cousin", "target"], "component", "owner-uuid")
+    const result = ensureScopedNodePath(root, ["sibling", "cousin", "target"], "component", "owner-uuid")
     expect(result).toBeNull()
   })
 
   it("returns null for empty segments", () => {
     const root = makeComp("root-uuid", "root")
-    expect(autoCreateByPath(root, [], "component", "root-uuid")).toBeNull()
+    expect(ensureScopedNodePath(root, [], "component", "root-uuid")).toBeNull()
   })
 
   it("does not duplicate if same id already exists", () => {
-    // If node already exists, autoCreateByPath is called only when findNodeByPath returned null
+    // If node already exists, ensureScopedNodePath is called only when findNodeByPath returned null
     // — this test ensures idempotent creation does not double-add
     const existing = makeComp("existing-uuid", "existing")
     const root = makeComp("root-uuid", "root", [existing])
     // "existing" already exists under root — findNodeByPath would have returned it
     // If called anyway, it creates a duplicate (this is intentional: callers check first)
-    const result = autoCreateByPath(root, ["existing"], "component", "root-uuid")
+    const result = ensureScopedNodePath(root, ["existing"], "component", "root-uuid")
     expect(result).not.toBeNull()
     // Two components with same id would exist — callers are responsible for checking
     expect(result!.updatedRoot.subComponents).toHaveLength(2)
   })
 })
 
-// ─── findComponentByInterfaceId / findInterfaceUuidByInterfaceId ──────────────
+// ─── findComponentUuidByInterfaceId / findInterfaceUuidById ──────────────
 
 const makeCompWithIface = (
   uuid: string,
@@ -110,65 +110,65 @@ const makeCompWithFn = (
   }],
 })
 
-describe("findComponentByInterfaceId", () => {
+describe("findComponentUuidByInterfaceId", () => {
   it("returns component uuid when interface is on root", () => {
     const root = makeCompWithIface("root-uuid", "root", "IFace", "iface-uuid")
-    expect(findComponentByInterfaceId(root, "IFace")).toBe("root-uuid")
+    expect(findComponentUuidByInterfaceId(root, "IFace")).toBe("root-uuid")
   })
 
   it("returns component uuid when interface is on a sub-component", () => {
     const child = makeCompWithIface("child-uuid", "child", "IChild", "ichild-uuid")
     const root = makeComp("root-uuid", "root", [child])
-    expect(findComponentByInterfaceId(root, "IChild")).toBe("child-uuid")
+    expect(findComponentUuidByInterfaceId(root, "IChild")).toBe("child-uuid")
   })
 
   it("returns undefined when interface is not found", () => {
     const root = makeComp("root-uuid", "root")
-    expect(findComponentByInterfaceId(root, "INotExist")).toBeUndefined()
+    expect(findComponentUuidByInterfaceId(root, "INotExist")).toBeUndefined()
   })
 })
 
-describe("findInterfaceUuidByInterfaceId", () => {
+describe("findInterfaceUuidById", () => {
   it("returns interface uuid when interface is on root", () => {
     const root = makeCompWithIface("root-uuid", "root", "IFace", "iface-uuid")
-    expect(findInterfaceUuidByInterfaceId(root, "IFace")).toBe("iface-uuid")
+    expect(findInterfaceUuidById(root, "IFace")).toBe("iface-uuid")
   })
 
   it("returns interface uuid when interface is on a sub-component", () => {
     const child = makeCompWithIface("child-uuid", "child", "IChild", "ichild-uuid")
     const root = makeComp("root-uuid", "root", [child])
-    expect(findInterfaceUuidByInterfaceId(root, "IChild")).toBe("ichild-uuid")
+    expect(findInterfaceUuidById(root, "IChild")).toBe("ichild-uuid")
   })
 
   it("returns undefined when interface is not found", () => {
     const root = makeComp("root-uuid", "root")
-    expect(findInterfaceUuidByInterfaceId(root, "INotExist")).toBeUndefined()
+    expect(findInterfaceUuidById(root, "INotExist")).toBeUndefined()
   })
 
   it("returns the interface uuid (not the component uuid)", () => {
     const root = makeCompWithIface("comp-uuid", "comp", "IFace", "distinct-iface-uuid")
-    const result = findInterfaceUuidByInterfaceId(root, "IFace")
+    const result = findInterfaceUuidById(root, "IFace")
     expect(result).toBe("distinct-iface-uuid")
     expect(result).not.toBe("comp-uuid")
   })
 })
 
-// ─── findInterfaceOwnerPreferReceiver ─────────────────────────────────────────
+// ─── findPreferredInterfaceOwnerUuid ─────────────────────────────────────────
 
-describe("findInterfaceOwnerPreferReceiver", () => {
+describe("findPreferredInterfaceOwnerUuid", () => {
   it("returns the receiver UUID when receiver directly has the interface", () => {
     const svcA = makeCompWithIface("a-uuid", "ServiceA", "API", "a-iface-uuid")
     const svcB = makeCompWithIface("b-uuid", "ServiceB", "API", "b-iface-uuid")
     const root = makeComp("root-uuid", "root", [svcA, svcB])
     // ServiceB is the receiver — should return ServiceB UUID, not ServiceA's
-    expect(findInterfaceOwnerPreferReceiver(root, "API", "ServiceB")).toBe("b-uuid")
+    expect(findPreferredInterfaceOwnerUuid(root, "API", "ServiceB")).toBe("b-uuid")
   })
 
   it("returns ServiceA UUID when ServiceA is the receiver", () => {
     const svcA = makeCompWithIface("a-uuid", "ServiceA", "API", "a-iface-uuid")
     const svcB = makeCompWithIface("b-uuid", "ServiceB", "API", "b-iface-uuid")
     const root = makeComp("root-uuid", "root", [svcA, svcB])
-    expect(findInterfaceOwnerPreferReceiver(root, "API", "ServiceA")).toBe("a-uuid")
+    expect(findPreferredInterfaceOwnerUuid(root, "API", "ServiceA")).toBe("a-uuid")
   })
 
   it("returns the sub-component UUID when the interface is on a child of the receiver", () => {
@@ -178,38 +178,38 @@ describe("findInterfaceOwnerPreferReceiver", () => {
     const svcB = makeComp("b-uuid", "ServiceB", [child])
     const root = makeComp("root-uuid", "root", [svcA, svcB])
     // Receiver is ServiceB; interface is on ServiceB's child
-    expect(findInterfaceOwnerPreferReceiver(root, "API", "ServiceB")).toBe("child-uuid")
+    expect(findPreferredInterfaceOwnerUuid(root, "API", "ServiceB")).toBe("child-uuid")
   })
 
   it("falls back to global DFS search when receiver is not found", () => {
     const svcA = makeCompWithIface("a-uuid", "ServiceA", "API", "a-iface-uuid")
     const root = makeComp("root-uuid", "root", [svcA])
     // "Unknown" is not a component in the tree
-    expect(findInterfaceOwnerPreferReceiver(root, "API", "Unknown")).toBe("a-uuid")
+    expect(findPreferredInterfaceOwnerUuid(root, "API", "Unknown")).toBe("a-uuid")
   })
 
   it("returns undefined when no component has the interface", () => {
     const root = makeComp("root-uuid", "root")
-    expect(findInterfaceOwnerPreferReceiver(root, "API", "root")).toBeUndefined()
+    expect(findPreferredInterfaceOwnerUuid(root, "API", "root")).toBeUndefined()
   })
 })
 
-// ─── findInterfaceUuidPreferReceiver ──────────────────────────────────────────
+// ─── findPreferredInterfaceUuid ──────────────────────────────────────────
 
-describe("findInterfaceUuidPreferReceiver", () => {
+describe("findPreferredInterfaceUuid", () => {
   it("returns the receiver's interface UUID when receiver directly has it", () => {
     const svcA = makeCompWithIface("a-uuid", "ServiceA", "API", "a-iface-uuid")
     const svcB = makeCompWithIface("b-uuid", "ServiceB", "API", "b-iface-uuid")
     const root = makeComp("root-uuid", "root", [svcA, svcB])
     // Receiver is ServiceB — must return ServiceB's interface UUID, not ServiceA's
-    expect(findInterfaceUuidPreferReceiver(root, "API", "ServiceB")).toBe("b-iface-uuid")
+    expect(findPreferredInterfaceUuid(root, "API", "ServiceB")).toBe("b-iface-uuid")
   })
 
   it("returns ServiceA's interface UUID when ServiceA is the receiver", () => {
     const svcA = makeCompWithIface("a-uuid", "ServiceA", "API", "a-iface-uuid")
     const svcB = makeCompWithIface("b-uuid", "ServiceB", "API", "b-iface-uuid")
     const root = makeComp("root-uuid", "root", [svcA, svcB])
-    expect(findInterfaceUuidPreferReceiver(root, "API", "ServiceA")).toBe("a-iface-uuid")
+    expect(findPreferredInterfaceUuid(root, "API", "ServiceA")).toBe("a-iface-uuid")
   })
 
   it("returns the sub-component's interface UUID when interface is on a child of the receiver", () => {
@@ -218,28 +218,28 @@ describe("findInterfaceUuidPreferReceiver", () => {
     const svcB = makeComp("b-uuid", "ServiceB", [child])
     const root = makeComp("root-uuid", "root", [svcA, svcB])
     // Receiver is ServiceB; interface is on child — must NOT fall back to ServiceA's interface
-    expect(findInterfaceUuidPreferReceiver(root, "API", "ServiceB")).toBe("child-iface-uuid")
+    expect(findPreferredInterfaceUuid(root, "API", "ServiceB")).toBe("child-iface-uuid")
   })
 
   it("falls back to global DFS search when receiver is not found", () => {
     const svcA = makeCompWithIface("a-uuid", "ServiceA", "API", "a-iface-uuid")
     const root = makeComp("root-uuid", "root", [svcA])
-    expect(findInterfaceUuidPreferReceiver(root, "API", "Unknown")).toBe("a-iface-uuid")
+    expect(findPreferredInterfaceUuid(root, "API", "Unknown")).toBe("a-iface-uuid")
   })
 
   it("returns undefined when no component has the interface", () => {
     const root = makeComp("root-uuid", "root")
-    expect(findInterfaceUuidPreferReceiver(root, "API", "root")).toBeUndefined()
+    expect(findPreferredInterfaceUuid(root, "API", "root")).toBeUndefined()
   })
 })
 
-describe("resolveFunctionRefTarget", () => {
+describe("resolveFunctionReferenceTarget", () => {
   it("returns the receiver's matching component, interface, and function UUIDs", () => {
     const svcA = makeCompWithFn("a-uuid", "ServiceA", "API", "a-iface-uuid", "getData", "a-fn-uuid")
     const svcB = makeCompWithFn("b-uuid", "ServiceB", "API", "b-iface-uuid", "getData", "b-fn-uuid")
     const root = makeComp("root-uuid", "root", [svcA, svcB])
 
-    expect(resolveFunctionRefTarget(root, "ServiceB", "API", "getData")).toEqual({
+    expect(resolveFunctionReferenceTarget(root, "ServiceB", "API", "getData")).toEqual({
       componentUuid: "b-uuid",
       interfaceUuid: "b-iface-uuid",
       functionUuid: "b-fn-uuid",
@@ -253,7 +253,7 @@ describe("resolveFunctionRefTarget", () => {
     const svcB = makeComp("b-uuid", "ServiceB", [child])
     const root = makeComp("root-uuid", "root", [svcA, svcB])
 
-    expect(resolveFunctionRefTarget(root, "ServiceB", "API", "getData")).toEqual({
+    expect(resolveFunctionReferenceTarget(root, "ServiceB", "API", "getData")).toEqual({
       componentUuid: "child-uuid",
       interfaceUuid: "child-iface-uuid",
       functionUuid: "child-fn-uuid",
@@ -265,7 +265,7 @@ describe("resolveFunctionRefTarget", () => {
     const svcA = makeCompWithFn("a-uuid", "ServiceA", "API", "a-iface-uuid", "getData", "a-fn-uuid")
     const root = makeComp("root-uuid", "root", [svcA])
 
-    expect(resolveFunctionRefTarget(root, "Unknown", "API", "getData")).toEqual({
+    expect(resolveFunctionReferenceTarget(root, "Unknown", "API", "getData")).toEqual({
       componentUuid: "a-uuid",
       interfaceUuid: "a-iface-uuid",
       functionUuid: "a-fn-uuid",
@@ -275,7 +275,7 @@ describe("resolveFunctionRefTarget", () => {
 
   it("returns null when no matching function exists", () => {
     const root = makeComp("root-uuid", "root")
-    expect(resolveFunctionRefTarget(root, "root", "API", "getData")).toBeNull()
+    expect(resolveFunctionReferenceTarget(root, "root", "API", "getData")).toBeNull()
   })
 
   it("resolves inherited interface functions on the receiver component", () => {
@@ -317,7 +317,7 @@ describe("resolveFunctionRefTarget", () => {
       ],
     }
 
-    expect(resolveFunctionRefTarget(root, "child", "API", "getData")).toEqual({
+    expect(resolveFunctionReferenceTarget(root, "child", "API", "getData")).toEqual({
       componentUuid: "child-uuid",
       interfaceUuid: "child-iface-uuid",
       functionUuid: "parent-fn-uuid",

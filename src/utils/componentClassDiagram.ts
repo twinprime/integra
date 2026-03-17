@@ -1,6 +1,6 @@
 import type { ComponentNode, InterfaceSpecification, SequenceDiagramNode } from "../store/types"
 import { findNode, findParentNode } from "../nodes/nodeTree"
-import { resolveInOwner } from "./diagramResolvers"
+import { findOwnerActorOrComponentUuidById } from "./diagramResolvers"
 import { flattenMessages } from "../parser/sequenceDiagram/visitor"
 import { getCachedSeqAst } from "./seqAstCache"
 import type { SeqAst } from "../parser/sequenceDiagram/visitor"
@@ -40,7 +40,7 @@ function resolveDeclarationUuid(
   root: ComponentNode,
 ): string | undefined {
   if (path.length === 1) {
-    return ownerComp ? resolveInOwner(ownerComp, path[0]) : undefined
+    return ownerComp ? findOwnerActorOrComponentUuidById(ownerComp, path[0]) : undefined
   }
   return findNodeByPath(root, path.join("/")) ?? undefined
 }

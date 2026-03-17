@@ -5,7 +5,7 @@ import { UcdLexer, UcdArrow } from "../../parser/useCaseDiagram/lexer"
 import { Actor, Component, Use, Case, Identifier } from "../../parser/tokens"
 import { SeqColon, SeqArrow } from "../../parser/sequenceDiagram/lexer"
 import { isInScope, getComponentAbsolutePath } from "../../utils/nodeUtils"
-import { isSequenceReferenceComponentInScope } from "../../utils/diagramResolvers"
+import { isReferenceTargetComponentInScope } from "../../utils/diagramResolvers"
 import { resolveEffectiveInterfaceFunctions } from "../../utils/interfaceFunctions"
 
 export type Suggestion = {
@@ -376,7 +376,7 @@ function buildFunctionRefSuggestions(
   // suggestions appear regardless of which component receives the message arrow,
   // but only for components that are in scope for the owning diagram.
   const scopedComps = collectAllComponents(rootComponent)
-    .filter((comp) => isSequenceReferenceComponentInScope(rootComponent, ownerComp.uuid, comp.uuid))
+    .filter((comp) => isReferenceTargetComponentInScope(rootComponent, ownerComp.uuid, comp.uuid))
 
   for (const comp of scopedComps) {
     const isLocal = comp.uuid === ownerComp.uuid

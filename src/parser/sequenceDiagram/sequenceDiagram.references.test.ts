@@ -4,7 +4,7 @@
 import { describe, it, expect } from "vitest"
 import { SeqLexer, UseCaseRef, SequenceRef } from "./lexer"
 import { parseSequenceDiagram } from "./systemUpdater"
-import { resolveUseCaseByPath, resolveSeqDiagramByPath } from "../../utils/diagramResolvers"
+import { resolveUseCaseReferenceUuid, resolveSequenceReferenceUuid } from "../../utils/diagramResolvers"
 import type { ComponentNode } from "../../store/types"
 import { parse, makeNamedComp } from "./sequenceDiagram.test.helpers"
 
@@ -73,7 +73,7 @@ describe("UseCaseRef — visitor (SeqMessage.useCaseRef)", () => {
   })
 })
 
-describe("resolveUseCaseByPath", () => {
+describe("resolveUseCaseReferenceUuid", () => {
   const makeUc = (uuid: string, id: string) => ({
     uuid, id, name: id, type: "use-case" as const, sequenceDiagrams: [],
   })
@@ -93,7 +93,7 @@ describe("resolveUseCaseByPath", () => {
   it("resolves local use case (no compPath)", () => {
     const owner = makeCompWithUcs("owner-uuid", "owner", ["placeOrder"])
     const root = makeNamedComp("root-uuid", "root", "root", [owner])
-    const result = resolveUseCaseByPath(["placeOrder"], root, owner, "owner-uuid")
+    const result = resolveUseCaseReferenceUuid(["placeOrder"], root, owner, "owner-uuid")
     expect(result).toBe("owner-uuid-placeOrder-uuid")
   })
 
@@ -101,7 +101,7 @@ describe("resolveUseCaseByPath", () => {
     const orders = makeCompWithUcs("orders-uuid", "orders", ["placeOrder"])
     const owner = makeNamedComp("owner-uuid", "owner", "owner")
     const root = makeNamedComp("root-uuid", "root", "root", [owner, orders])
-    const result = resolveUseCaseByPath(["orders", "placeOrder"], root, owner, "owner-uuid")
+    const result = resolveUseCaseReferenceUuid(["orders", "placeOrder"], root, owner, "owner-uuid")
     expect(result).toBe("orders-uuid-placeOrder-uuid")
   })
 
@@ -110,7 +110,7 @@ describe("resolveUseCaseByPath", () => {
     const parent = makeNamedComp("parent-uuid", "parent", "parent", [makeNamedComp("owner-uuid", "owner", "owner"), uncle])
     const root = makeNamedComp("root-uuid", "root", "root", [parent])
     const owner = parent.subComponents[0]
-    const result = resolveUseCaseByPath(["parent", "uncle", "placeOrder"], root, owner, "owner-uuid")
+    const result = resolveUseCaseReferenceUuid(["parent", "uncle", "placeOrder"], root, owner, "owner-uuid")
     expect(result).toBe("uncle-uuid-placeOrder-uuid")
   })
 
@@ -119,35 +119,35 @@ describe("resolveUseCaseByPath", () => {
     const sibling = makeNamedComp("sibling-uuid", "sibling", "sibling", [cousin])
     const owner = makeNamedComp("owner-uuid", "owner", "owner")
     const root = makeNamedComp("root-uuid", "root", "root", [owner, sibling])
-    const result = resolveUseCaseByPath(["sibling", "cousin", "placeOrder"], root, owner, "owner-uuid")
+    const result = resolveUseCaseReferenceUuid(["sibling", "cousin", "placeOrder"], root, owner, "owner-uuid")
     expect(result).toBeUndefined()
   })
 
   it("returns undefined for unknown use case id", () => {
     const owner = makeCompWithUcs("owner-uuid", "owner", ["placeOrder"])
     const root = makeNamedComp("root-uuid", "root", "root", [owner])
-    const result = resolveUseCaseByPath(["unknown"], root, owner, "owner-uuid")
+    const result = resolveUseCaseReferenceUuid(["unknown"], root, owner, "owner-uuid")
     expect(result).toBeUndefined()
   })
 
   it("returns undefined for unknown component path", () => {
     const owner = makeCompWithUcs("owner-uuid", "owner", ["placeOrder"])
     const root = makeNamedComp("root-uuid", "root", "root", [owner])
-    const result = resolveUseCaseByPath(["nonexistent", "placeOrder"], root, owner, "owner-uuid")
+    const result = resolveUseCaseReferenceUuid(["nonexistent", "placeOrder"], root, owner, "owner-uuid")
     expect(result).toBeUndefined()
   })
 
   it("resolves a use case directly under root for a root-owned sequence diagram", () => {
     const service = makeCompWithUcs("service-uuid", "service", ["placeOrder"])
     const root = makeNamedComp("root-uuid", "root", "root", [service])
-    const result = resolveUseCaseByPath(["service", "placeOrder"], root, root, "root-uuid")
+    const result = resolveUseCaseReferenceUuid(["service", "placeOrder"], root, root, "root-uuid")
     expect(result).toBe("service-uuid-placeOrder-uuid")
   })
 
   it("resolves a root-prefixed direct-child use case for a root-owned sequence diagram", () => {
     const service = makeCompWithUcs("service-uuid", "service", ["placeOrder"])
     const root = makeNamedComp("root-uuid", "root", "root", [service])
-    const result = resolveUseCaseByPath(["root", "service", "placeOrder"], root, root, "root-uuid")
+    const result = resolveUseCaseReferenceUuid(["root", "service", "placeOrder"], root, root, "root-uuid")
     expect(result).toBe("service-uuid-placeOrder-uuid")
   })
 
@@ -155,7 +155,7 @@ describe("resolveUseCaseByPath", () => {
     const nested = makeCompWithUcs("nested-uuid", "nested", ["placeOrder"])
     const service = makeNamedComp("service-uuid", "service", "service", [nested])
     const root = makeNamedComp("root-uuid", "root", "root", [service])
-    const result = resolveUseCaseByPath(["service", "nested", "placeOrder"], root, root, "root-uuid")
+    const result = resolveUseCaseReferenceUuid(["service", "nested", "placeOrder"], root, root, "root-uuid")
     expect(result).toBeUndefined()
   })
 })
@@ -163,7 +163,7 @@ describe("resolveUseCaseByPath", () => {
 describe("parseSequenceDiagram — UseCase referencedNodeIds", () => {
   it("adds local use case UUID to referencedNodeIds via direct AST inspection", () => {
     // We test via the visitor directly: parse AST and verify useCaseRef is populated,
-    // then verify resolveUseCaseByPath returns the correct UUID.
+    // then verify resolveUseCaseReferenceUuid returns the correct UUID.
     const { ast } = parse("actor customer\ncustomer ->> customer: UseCase:placeOrder")
     expect(ast.messages[0].content).toEqual({ kind: "useCaseRef", path: ["placeOrder"], label: null })
 
@@ -184,7 +184,7 @@ describe("parseSequenceDiagram — UseCase referencedNodeIds", () => {
       uuid: "root-uuid", id: "root", name: "root", type: "component",
       actors: [], subComponents: [owner], interfaces: [], useCaseDiagrams: [],
     }
-    const uuid = resolveUseCaseByPath(["placeOrder"], root, owner, "owner-uuid")
+    const uuid = resolveUseCaseReferenceUuid(["placeOrder"], root, owner, "owner-uuid")
     expect(uuid).toBe("uc-uuid")
   })
 })
@@ -298,7 +298,7 @@ describe("SequenceRef — visitor (SeqMessage.seqDiagramRef)", () => {
   })
 })
 
-describe("resolveSeqDiagramByPath", () => {
+describe("resolveSequenceReferenceUuid", () => {
   const makeSeq = (uuid: string, id: string, name = id) => ({
     uuid, id, name, type: "sequence-diagram" as const,
     ownerComponentUuid: "", referencedNodeIds: [], referencedFunctionUuids: [], content: "",
@@ -321,7 +321,7 @@ describe("resolveSeqDiagramByPath", () => {
   it("resolves local sequence diagram (no compPath)", () => {
     const owner = makeCompWithSeqs("owner-uuid", "owner", [{ id: "loginFlow" }])
     const root = makeNamedComp("root-uuid", "root", "root", [owner])
-    const result = resolveSeqDiagramByPath(["loginFlow"], root, owner, "owner-uuid")
+    const result = resolveSequenceReferenceUuid(["loginFlow"], root, owner, "owner-uuid")
     expect(result).toBe("owner-uuid-uc-loginFlow-uuid")
   })
 
@@ -329,7 +329,7 @@ describe("resolveSeqDiagramByPath", () => {
     const auth = makeCompWithSeqs("auth-uuid", "auth", [{ id: "loginFlow" }])
     const owner = makeNamedComp("owner-uuid", "owner", "owner")
     const root = makeNamedComp("root-uuid", "root", "root", [owner, auth])
-    const result = resolveSeqDiagramByPath(["auth", "loginFlow"], root, owner, "owner-uuid")
+    const result = resolveSequenceReferenceUuid(["auth", "loginFlow"], root, owner, "owner-uuid")
     expect(result).toBe("auth-uuid-uc-loginFlow-uuid")
   })
 
@@ -338,7 +338,7 @@ describe("resolveSeqDiagramByPath", () => {
     const parent = makeNamedComp("parent-uuid", "parent", "parent", [makeNamedComp("owner-uuid", "owner", "owner"), uncle])
     const root = makeNamedComp("root-uuid", "root", "root", [parent])
     const owner = parent.subComponents[0]
-    const result = resolveSeqDiagramByPath(["parent", "uncle", "loginFlow"], root, owner, "owner-uuid")
+    const result = resolveSequenceReferenceUuid(["parent", "uncle", "loginFlow"], root, owner, "owner-uuid")
     expect(result).toBe("uncle-uuid-uc-loginFlow-uuid")
   })
 
@@ -347,35 +347,35 @@ describe("resolveSeqDiagramByPath", () => {
     const sibling = makeNamedComp("sibling-uuid", "sibling", "sibling", [cousin])
     const owner = makeNamedComp("owner-uuid", "owner", "owner")
     const root = makeNamedComp("root-uuid", "root", "root", [owner, sibling])
-    const result = resolveSeqDiagramByPath(["sibling", "cousin", "loginFlow"], root, owner, "owner-uuid")
+    const result = resolveSequenceReferenceUuid(["sibling", "cousin", "loginFlow"], root, owner, "owner-uuid")
     expect(result).toBeUndefined()
   })
 
   it("returns undefined for unknown sequence diagram id", () => {
     const owner = makeCompWithSeqs("owner-uuid", "owner", [{ id: "loginFlow" }])
     const root = makeNamedComp("root-uuid", "root", "root", [owner])
-    const result = resolveSeqDiagramByPath(["unknown"], root, owner, "owner-uuid")
+    const result = resolveSequenceReferenceUuid(["unknown"], root, owner, "owner-uuid")
     expect(result).toBeUndefined()
   })
 
   it("returns undefined for unknown component path", () => {
     const owner = makeCompWithSeqs("owner-uuid", "owner", [{ id: "loginFlow" }])
     const root = makeNamedComp("root-uuid", "root", "root", [owner])
-    const result = resolveSeqDiagramByPath(["nonexistent", "loginFlow"], root, owner, "owner-uuid")
+    const result = resolveSequenceReferenceUuid(["nonexistent", "loginFlow"], root, owner, "owner-uuid")
     expect(result).toBeUndefined()
   })
 
   it("resolves a sequence diagram directly under root for a root-owned sequence diagram", () => {
     const service = makeCompWithSeqs("service-uuid", "service", [{ id: "loginFlow" }])
     const root = makeNamedComp("root-uuid", "root", "root", [service])
-    const result = resolveSeqDiagramByPath(["service", "loginFlow"], root, root, "root-uuid")
+    const result = resolveSequenceReferenceUuid(["service", "loginFlow"], root, root, "root-uuid")
     expect(result).toBe("service-uuid-uc-loginFlow-uuid")
   })
 
   it("resolves a root-prefixed direct-child sequence diagram for a root-owned sequence diagram", () => {
     const service = makeCompWithSeqs("service-uuid", "service", [{ id: "loginFlow" }])
     const root = makeNamedComp("root-uuid", "root", "root", [service])
-    const result = resolveSeqDiagramByPath(["root", "service", "loginFlow"], root, root, "root-uuid")
+    const result = resolveSequenceReferenceUuid(["root", "service", "loginFlow"], root, root, "root-uuid")
     expect(result).toBe("service-uuid-uc-loginFlow-uuid")
   })
 
@@ -383,7 +383,7 @@ describe("resolveSeqDiagramByPath", () => {
     const nested = makeCompWithSeqs("nested-uuid", "nested", [{ id: "loginFlow" }])
     const service = makeNamedComp("service-uuid", "service", "service", [nested])
     const root = makeNamedComp("root-uuid", "root", "root", [service])
-    const result = resolveSeqDiagramByPath(["service", "nested", "loginFlow"], root, root, "root-uuid")
+    const result = resolveSequenceReferenceUuid(["service", "nested", "loginFlow"], root, root, "root-uuid")
     expect(result).toBeUndefined()
   })
 })

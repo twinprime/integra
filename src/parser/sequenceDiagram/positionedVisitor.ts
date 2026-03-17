@@ -10,10 +10,10 @@ import type { CstNode, IToken } from "chevrotain"
 import { seqParser, parseSequenceDiagramCst } from "./parser"
 import type { ComponentNode } from "../../store/types"
 import {
-  resolveParticipant,
-  resolveFunctionRefTarget,
-  resolveUseCaseByPath,
-  resolveSeqDiagramByPath,
+  resolveDiagramDeclarationUuid,
+  resolveFunctionReferenceTarget,
+  resolveUseCaseReferenceUuid,
+  resolveSequenceReferenceUuid,
 } from "../../utils/diagramResolvers"
 
 export interface NavEntry {
@@ -105,7 +105,7 @@ class SeqPositionedVisitorImpl extends BaseVisitor {
     const id = aliasToken?.image ?? pathIds[pathIds.length - 1]
     if (!id) return
     const fromPath = pathIds.length > 1 ? pathIds.join("/") : undefined
-    const uuid = resolveParticipant(keyword, id, fromPath, this._root, this._ownerComp)
+    const uuid = resolveDiagramDeclarationUuid(keyword, id, fromPath, this._root, this._ownerComp)
     if (uuid) this._participantMap.set(id, uuid)
   }
 
@@ -168,7 +168,7 @@ class SeqPositionedVisitorImpl extends BaseVisitor {
         const ifaceId = match[1]
         const functionId = match[2]
         const receiverId = toRef ? participantRefId(toRef) : ""
-        const target = resolveFunctionRefTarget(this._root, receiverId, ifaceId, functionId)
+        const target = resolveFunctionReferenceTarget(this._root, receiverId, ifaceId, functionId)
         if (target) {
           this._entries.push({
             from: fnRef.startOffset,
@@ -187,7 +187,7 @@ class SeqPositionedVisitorImpl extends BaseVisitor {
       const secondColonIdx = withoutPrefix.indexOf(":")
       const pathStr = secondColonIdx === -1 ? withoutPrefix : withoutPrefix.slice(0, secondColonIdx)
       const path = pathStr.split("/")
-      const uuid = resolveUseCaseByPath(path, this._root, this._ownerComp, this._ownerCompUuid)
+      const uuid = resolveUseCaseReferenceUuid(path, this._root, this._ownerComp, this._ownerCompUuid)
       if (uuid) this._entries.push({ from: ucRef.startOffset, to: tokenEnd(ucRef), uuid })
     }
     // SequenceRef → navigate to sequence diagram node
@@ -198,7 +198,7 @@ class SeqPositionedVisitorImpl extends BaseVisitor {
       const secondColonIdx = withoutPrefix.indexOf(":")
       const pathStr = secondColonIdx === -1 ? withoutPrefix : withoutPrefix.slice(0, secondColonIdx)
       const path = pathStr.split("/")
-      const uuid = resolveSeqDiagramByPath(path, this._root, this._ownerComp, this._ownerCompUuid)
+      const uuid = resolveSequenceReferenceUuid(path, this._root, this._ownerComp, this._ownerCompUuid)
       if (uuid) this._entries.push({ from: seqRef.startOffset, to: tokenEnd(seqRef), uuid })
     }
   }

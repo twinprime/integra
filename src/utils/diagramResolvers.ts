@@ -4,30 +4,30 @@ import { findCompByUuid, upsertNodeInTree } from "../nodes/nodeTree"
 import { deriveNameFromId } from "./nameUtils"
 import { resolveEffectiveInterfaceFunctions } from "./interfaceFunctions"
 
-export function resolveInOwner(
+export function findOwnerActorOrComponentUuidById(
   ownerComp: ComponentNode,
   id: string,
 ): string | undefined {
   if (ownerComp.id === id) return ownerComp.uuid
   return (
-    ownerComp.actors?.find((a) => a.id === id)?.uuid ??
-    ownerComp.subComponents?.find((c) => c.id === id)?.uuid ??
+    ownerComp.actors?.find((actor) => actor.id === id)?.uuid ??
+    ownerComp.subComponents?.find((component) => component.id === id)?.uuid ??
     undefined
   )
 }
 
-export function resolveUseCaseInOwner(
+export function findOwnerUseCaseUuidById(
   ownerComp: ComponentNode,
   id: string,
 ): string | undefined {
-  for (const d of ownerComp.useCaseDiagrams) {
-    const uc = d.useCases?.find((u) => u.id === id)
-    if (uc) return uc.uuid
+  for (const diagram of ownerComp.useCaseDiagrams) {
+    const useCase = diagram.useCases?.find((candidate) => candidate.id === id)
+    if (useCase) return useCase.uuid
   }
   return undefined
 }
 
-export function resolveParticipant(
+export function resolveDiagramDeclarationUuid(
   keyword: string,
   id: string,
   fromPath: string | undefined,
@@ -37,37 +37,49 @@ export function resolveParticipant(
   if (fromPath) return findNodeByPath(root, fromPath) ?? undefined
   if (!ownerComp) return undefined
   if (keyword.startsWith("use")) {
-    return resolveUseCaseInOwner(ownerComp, id) ?? resolveInOwner(ownerComp, id)
+    return findOwnerUseCaseUuidById(ownerComp, id) ?? findOwnerActorOrComponentUuidById(ownerComp, id)
   }
-  return resolveInOwner(ownerComp, id)
+  return findOwnerActorOrComponentUuidById(ownerComp, id)
 }
 
-export function findComponentByInterfaceId(
+export function findComponentUuidByInterfaceId(
   root: ComponentNode,
   ifaceId: string,
 ): string | undefined {
-  if (root.interfaces?.some((i) => i.id === ifaceId)) return root.uuid
+  if (root.interfaces?.some((iface) => iface.id === ifaceId)) return root.uuid
   for (const sub of root.subComponents) {
-    const found = findComponentByInterfaceId(sub, ifaceId)
+    const found = findComponentUuidByInterfaceId(sub, ifaceId)
     if (found) return found
   }
   return undefined
 }
 
 /**
- * Finds the UUID of the component with the given node `id` (not UUID).
- * Searches the entire subtree rooted at `root`.
+ * Finds the component with the given node `id`, searching the subtree rooted at `root`.
  */
-export function findComponentUuidByNodeId(
+function findComponentByIdInSubtree(
   root: ComponentNode,
   nodeId: string,
-): string | undefined {
-  if (root.id === nodeId) return root.uuid
+): ComponentNode | undefined {
+  if (root.id === nodeId) return root
   for (const sub of root.subComponents) {
-    const found = findComponentUuidByNodeId(sub, nodeId)
+    const found = findComponentByIdInSubtree(sub, nodeId)
     if (found) return found
   }
   return undefined
+}
+
+function findPreferredSubtreeMatch<T>(
+  root: ComponentNode,
+  preferredComponentId: string,
+  findInTree: (searchRoot: ComponentNode) => T | undefined,
+): T | undefined {
+  const preferredComponent = findComponentByIdInSubtree(root, preferredComponentId)
+  if (preferredComponent) {
+    const preferredMatch = findInTree(preferredComponent)
+    if (preferredMatch !== undefined) return preferredMatch
+  }
+  return findInTree(root)
 }
 
 /**
@@ -75,36 +87,24 @@ export function findComponentUuidByNodeId(
  * preferring a match within the subtree rooted at the component identified by `receiverNodeId`.
  * Falls back to a global search if the receiver doesn't own the interface.
  */
-export function findInterfaceOwnerPreferReceiver(
+export function findPreferredInterfaceOwnerUuid(
   root: ComponentNode,
   ifaceId: string,
   receiverNodeId: string,
 ): string | undefined {
-  const receiverComp = root.id === receiverNodeId ? root : findReceiverComp(root, receiverNodeId)
-  if (receiverComp) {
-    const ownerUuid = findComponentByInterfaceId(receiverComp, ifaceId)
-    if (ownerUuid) return ownerUuid
-  }
-  return findComponentByInterfaceId(root, ifaceId)
+  return findPreferredSubtreeMatch(root, receiverNodeId, (searchRoot) =>
+    findComponentUuidByInterfaceId(searchRoot, ifaceId),
+  )
 }
 
-function findReceiverComp(root: ComponentNode, nodeId: string): ComponentNode | undefined {
-  for (const sub of root.subComponents) {
-    if (sub.id === nodeId) return sub
-    const found = findReceiverComp(sub, nodeId)
-    if (found) return found
-  }
-  return undefined
-}
-
-export function findInterfaceUuidByInterfaceId(
+export function findInterfaceUuidById(
   root: ComponentNode,
   ifaceId: string,
 ): string | undefined {
-  const match = root.interfaces?.find((i) => i.id === ifaceId)
+  const match = root.interfaces?.find((iface) => iface.id === ifaceId)
   if (match) return match.uuid
   for (const sub of root.subComponents) {
-    const found = findInterfaceUuidByInterfaceId(sub, ifaceId)
+    const found = findInterfaceUuidById(sub, ifaceId)
     if (found) return found
   }
   return undefined
@@ -114,17 +114,14 @@ export function findInterfaceUuidByInterfaceId(
  * Finds the UUID of the interface with `ifaceId`, preferring the interface on
  * the component identified by `receiverNodeId` (or its subtree). Falls back to global search.
  */
-export function findInterfaceUuidPreferReceiver(
+export function findPreferredInterfaceUuid(
   root: ComponentNode,
   ifaceId: string,
   receiverNodeId: string,
 ): string | undefined {
-  const receiverComp = root.id === receiverNodeId ? root : findReceiverComp(root, receiverNodeId)
-  if (receiverComp) {
-    const ifaceUuid = findInterfaceUuidByInterfaceId(receiverComp, ifaceId)
-    if (ifaceUuid) return ifaceUuid
-  }
-  return findInterfaceUuidByInterfaceId(root, ifaceId)
+  return findPreferredSubtreeMatch(root, receiverNodeId, (searchRoot) =>
+    findInterfaceUuidById(searchRoot, ifaceId),
+  )
 }
 
 export type ResolvedFunctionRefTarget = {
@@ -134,7 +131,7 @@ export type ResolvedFunctionRefTarget = {
   parameters: ReadonlyArray<Parameter>
 }
 
-function findFunctionRefTargetInTree(
+function findFunctionReferenceTargetInTree(
   current: ComponentNode,
   treeRoot: ComponentNode,
   interfaceId: string,
@@ -154,34 +151,31 @@ function findFunctionRefTargetInTree(
     }
   }
   for (const sub of current.subComponents) {
-    const found = findFunctionRefTargetInTree(sub, treeRoot, interfaceId, functionId)
+    const found = findFunctionReferenceTargetInTree(sub, treeRoot, interfaceId, functionId)
     if (found) return found
   }
   return null
 }
 
-export function resolveFunctionRefTarget(
+export function resolveFunctionReferenceTarget(
   root: ComponentNode,
   receiverNodeId: string,
   interfaceId: string,
   functionId: string,
 ): ResolvedFunctionRefTarget | null {
-  const receiverComp = root.id === receiverNodeId ? root : findReceiverComp(root, receiverNodeId)
-  if (receiverComp) {
-    const inReceiver = findFunctionRefTargetInTree(receiverComp, root, interfaceId, functionId)
-    if (inReceiver) return inReceiver
-  }
-  return findFunctionRefTargetInTree(root, root, interfaceId, functionId)
+  return findPreferredSubtreeMatch(root, receiverNodeId, (searchRoot) =>
+    findFunctionReferenceTargetInTree(searchRoot, root, interfaceId, functionId) ?? undefined,
+  ) ?? null
 }
 
-export function findInterfaceNameByInterfaceId(
+export function findInterfaceNameById(
   root: ComponentNode,
   ifaceId: string,
 ): string | undefined {
-  const match = root.interfaces?.find((i) => i.id === ifaceId)
+  const match = root.interfaces?.find((iface) => iface.id === ifaceId)
   if (match) return match.name
   for (const sub of root.subComponents) {
-    const found = findInterfaceNameByInterfaceId(sub, ifaceId)
+    const found = findInterfaceNameById(sub, ifaceId)
     if (found) return found
   }
   return undefined
@@ -195,7 +189,7 @@ export function findInterfaceNameByInterfaceId(
  * - The terminal segment is created as the given entityType (actor or component).
  * - Returns null if the parent cannot be created/found or is out of scope.
  */
-export function autoCreateByPath(
+export function ensureScopedNodePath(
   root: ComponentNode,
   segments: string[],
   entityType: "actor" | "component",
@@ -206,29 +200,24 @@ export function autoCreateByPath(
   const parentSegments = segments.slice(0, -1)
   const terminalId = segments[segments.length - 1]
 
-  // Resolve (or recursively auto-create) the parent component
   let updatedRoot = root
   let parentUuid: string | null = null
 
   if (parentSegments.length === 0) {
-    // Terminal is a direct child of owner
     parentUuid = ownerUuid
   } else {
     const parentPath = parentSegments.join("/")
     parentUuid = findNodeByPath(updatedRoot, parentPath, ownerUuid)
     if (!parentUuid) {
-      // Recursively create the parent (always as a component)
-      const parentResult = autoCreateByPath(updatedRoot, parentSegments, "component", ownerUuid)
+      const parentResult = ensureScopedNodePath(updatedRoot, parentSegments, "component", ownerUuid)
       if (!parentResult) return null
       updatedRoot = parentResult.updatedRoot
       parentUuid = parentResult.uuid
     }
   }
 
-  // Scope check: parent must be in scope for the diagram owner
   if (!isInScope(updatedRoot, ownerUuid, parentUuid)) return null
 
-  // Create the terminal node inside the parent component
   const newUuid = crypto.randomUUID()
   if (entityType === "actor") {
     const newActor: ActorNode = {
@@ -252,103 +241,89 @@ export function autoCreateByPath(
   return { updatedRoot, uuid: newUuid }
 }
 
-type ScopedComponentPathResolution =
+type ScopedReferenceComponentResolution =
   | { kind: "resolved"; component: ComponentNode }
   | { kind: "not-found" }
   | { kind: "out-of-scope"; path: string }
 
-export function isSequenceReferenceComponentInScope(
+export function isReferenceTargetComponentInScope(
   root: ComponentNode,
   ownerCompUuid: string,
   candidateCompUuid: string,
 ): boolean {
   if (ownerCompUuid === root.uuid) {
-    return candidateCompUuid === root.uuid || root.subComponents.some((c) => c.uuid === candidateCompUuid)
+    return candidateCompUuid === root.uuid || root.subComponents.some((component) => component.uuid === candidateCompUuid)
   }
   return isInScope(root, ownerCompUuid, candidateCompUuid)
 }
 
-function resolveScopedComponentByPath(
+function resolveScopedReferenceComponentByPath(
   compPath: string[],
   root: ComponentNode,
   ownerCompUuid: string,
-): ScopedComponentPathResolution {
+): ScopedReferenceComponentResolution {
   const pathStr = compPath.join("/")
   const compUuid = findNodeByPath(root, pathStr, ownerCompUuid)
   if (!compUuid) return { kind: "not-found" }
   const comp = findCompByUuid(root, compUuid)
   if (!comp) return { kind: "not-found" }
-  if (!isSequenceReferenceComponentInScope(root, ownerCompUuid, comp.uuid)) {
+  if (!isReferenceTargetComponentInScope(root, ownerCompUuid, comp.uuid)) {
     return { kind: "out-of-scope", path: pathStr }
   }
   return { kind: "resolved", component: comp }
 }
 
-function assertScopedReferencePath(
+export function assertReferencePathInScope(
   path: string[],
   root: ComponentNode,
   ownerCompUuid: string,
 ): void {
   const compPath = path.slice(0, -1)
   if (compPath.length === 0) return
-  const resolution = resolveScopedComponentByPath(compPath, root, ownerCompUuid)
+  const resolution = resolveScopedReferenceComponentByPath(compPath, root, ownerCompUuid)
   if (resolution.kind === "out-of-scope") {
     throw new Error(`Reference "${path.join("/")}" is out of scope for this diagram`)
   }
 }
 
-export function assertUseCaseReferenceInScope(
+function resolveOwnerScopedReferenceUuid(
   path: string[],
   root: ComponentNode,
+  ownerComp: ComponentNode,
   ownerCompUuid: string,
-): void {
-  assertScopedReferencePath(path, root, ownerCompUuid)
-}
+  findInOwner: (component: ComponentNode, id: string) => string | undefined,
+): string | undefined {
+  const targetId = path[path.length - 1]
+  const compPath = path.slice(0, -1)
 
-export function assertSeqDiagramReferenceInScope(
-  path: string[],
-  root: ComponentNode,
-  ownerCompUuid: string,
-): void {
-  assertScopedReferencePath(path, root, ownerCompUuid)
+  if (compPath.length === 0) {
+    return findInOwner(ownerComp, targetId)
+  }
+
+  const resolution = resolveScopedReferenceComponentByPath(compPath, root, ownerCompUuid)
+  if (resolution.kind !== "resolved") return undefined
+  return findInOwner(resolution.component, targetId)
 }
 
 /**
  * Resolves a `UseCase:<path>` reference to a use case UUID.
- *
- * @param path - Segments from the UseCase reference (last = use case ID,
- *               preceding = path to the owning component).
- * @param root - Root component of the system tree.
- * @param ownerComp - Component that owns the sequence diagram (local scope).
- * @param ownerCompUuid - UUID of ownerComp (used for relative path resolution).
- * @returns The use case UUID, or undefined if it cannot be resolved.
  */
-export function resolveUseCaseByPath(
+export function resolveUseCaseReferenceUuid(
   path: string[],
   root: ComponentNode,
   ownerComp: ComponentNode,
   ownerCompUuid: string,
 ): string | undefined {
-  const ucId = path[path.length - 1]
-  const compPath = path.slice(0, -1)
-
-  if (compPath.length === 0) {
-    // Local reference — search within ownerComp
-    return resolveUseCaseInOwner(ownerComp, ucId)
-  }
-
-  const resolution = resolveScopedComponentByPath(compPath, root, ownerCompUuid)
-  if (resolution.kind !== "resolved") return undefined
-  return resolveUseCaseInOwner(resolution.component, ucId)
+  return resolveOwnerScopedReferenceUuid(path, root, ownerComp, ownerCompUuid, findOwnerUseCaseUuidById)
 }
 
-/**
- * Searches all sequence diagrams nested within a component's use case diagrams.
- */
-function resolveSeqDiagramInOwner(ownerComp: ComponentNode, seqId: string): string | undefined {
+function findOwnerSequenceDiagramUuidById(
+  ownerComp: ComponentNode,
+  seqId: string,
+): string | undefined {
   for (const ucDiag of ownerComp.useCaseDiagrams) {
     for (const uc of ucDiag.useCases) {
-      const seq = uc.sequenceDiagrams?.find((s) => s.id === seqId)
+      const seq = uc.sequenceDiagrams?.find((candidate) => candidate.id === seqId)
       if (seq) return seq.uuid
     }
   }
@@ -357,29 +332,12 @@ function resolveSeqDiagramInOwner(ownerComp: ComponentNode, seqId: string): stri
 
 /**
  * Resolves a `Sequence:<path>` reference to a sequence diagram UUID.
- *
- * @param path - Segments from the Sequence reference (last = sequence diagram ID,
- *               preceding = path to the owning component).
- * @param root - Root component of the system tree.
- * @param ownerComp - Component that owns the referencing sequence diagram (local scope).
- * @param ownerCompUuid - UUID of ownerComp (used for relative path resolution).
- * @returns The sequence diagram UUID, or undefined if it cannot be resolved.
  */
-export function resolveSeqDiagramByPath(
+export function resolveSequenceReferenceUuid(
   path: string[],
   root: ComponentNode,
   ownerComp: ComponentNode,
   ownerCompUuid: string,
 ): string | undefined {
-  const seqId = path[path.length - 1]
-  const compPath = path.slice(0, -1)
-
-  if (compPath.length === 0) {
-    // Local reference — search within ownerComp
-    return resolveSeqDiagramInOwner(ownerComp, seqId)
-  }
-
-  const resolution = resolveScopedComponentByPath(compPath, root, ownerCompUuid)
-  if (resolution.kind !== "resolved") return undefined
-  return resolveSeqDiagramInOwner(resolution.component, seqId)
+  return resolveOwnerScopedReferenceUuid(path, root, ownerComp, ownerCompUuid, findOwnerSequenceDiagramUuidById)
 }

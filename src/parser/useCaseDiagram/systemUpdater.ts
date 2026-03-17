@@ -8,7 +8,7 @@ import type { ComponentNode, ActorNode, UseCaseNode, UseCaseDiagramNode } from "
 import { upsertNodeInTree, mergeLists } from "../../nodes/nodeTree"
 import { findCompByUuid } from "../../nodes/nodeTree"
 import { findNodeByPath, isInScope } from "../../utils/nodeUtils"
-import { autoCreateByPath } from "../../utils/diagramResolvers"
+import { ensureScopedNodePath } from "../../utils/diagramResolvers"
 import { parseUseCaseDiagramCst } from "./parser"
 import { deriveNameFromId } from "../../utils/nameUtils"
 import { buildUcdAst } from "./visitor"
@@ -82,7 +82,7 @@ export function parseUseCaseDiagram(
       const pathStr = decl.path.join("/")
       let uuid = findNodeByPath(root, pathStr, ownerComponentUuid)
       if (!uuid) {
-        const created = autoCreateByPath(root, decl.path, decl.entityType as "actor" | "component", ownerComponentUuid)
+        const created = ensureScopedNodePath(root, decl.path, decl.entityType as "actor" | "component", ownerComponentUuid)
         if (!created) throw new Error(`Cannot resolve path: "${pathStr}"`)
         root = created.updatedRoot
         uuid = created.uuid

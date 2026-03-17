@@ -8,11 +8,11 @@
 import type { ComponentNode } from "../../store/types"
 import { findNodeByPath } from "../../utils/nodeUtils"
 import {
-  resolveFunctionRefTarget,
-  resolveUseCaseByPath,
-  resolveSeqDiagramByPath,
-  assertUseCaseReferenceInScope,
-  assertSeqDiagramReferenceInScope,
+  findOwnerActorOrComponentUuidById,
+  resolveFunctionReferenceTarget,
+  resolveUseCaseReferenceUuid,
+  resolveSequenceReferenceUuid,
+  assertReferencePathInScope,
 } from "../../utils/diagramResolvers"
 import { findNodeByUuid } from "../../nodes/nodeTree"
 import { parseSequenceDiagramCst } from "./parser"
@@ -46,17 +46,13 @@ function sanitizeMermaidId(id: string): string {
   return id.replace(/\s+/g, "_")
 }
 
-function resolveParticipantUuid(
+function resolveDeclarationUuid(
   path: string[],
   ownerComp: ComponentNode,
   root: ComponentNode,
 ): string | null {
   if (path.length === 1) {
-    const id = path[0]
-    if (ownerComp.id === id) return ownerComp.uuid
-    return ownerComp.actors?.find((a) => a.id === id)?.uuid
-      ?? ownerComp.subComponents?.find((c) => c.id === id)?.uuid
-      ?? null
+    return findOwnerActorOrComponentUuidById(ownerComp, path[0]) ?? null
   }
   return findNodeByPath(root, path.join("/"))
 }
@@ -99,7 +95,7 @@ export function generateSequenceMermaidFromAst(
   for (const decl of ast.declarations) {
     const mermaidId = sanitizeMermaidId(decl.id)
     declaredMermaidIds.add(mermaidId)
-    const uuid = ownerComp ? resolveParticipantUuid(decl.path, ownerComp, root) : null
+    const uuid = ownerComp ? resolveDeclarationUuid(decl.path, ownerComp, root) : null
     if (uuid) idToUuid[mermaidId] = uuid
     const node = uuid ? findNodeByUuid([root], uuid) : null
     const lastSegment = decl.path[decl.path.length - 1]
@@ -197,7 +193,7 @@ function emitStatements(
       switch (c.kind) {
         case "functionRef": {
           const baseLabel = c.label != null ? c.label : `${c.functionId}(${extractParamNames(c.rawParams)})`
-          const target = resolveFunctionRefTarget(root, msg.to, c.interfaceId, c.functionId)
+          const target = resolveFunctionReferenceTarget(root, msg.to, c.interfaceId, c.functionId)
           const fnKey = `${msg.to}:${c.interfaceId}:${c.functionId}`
           const mermaidLabel = resolveLabel(baseLabel, fnKey, labelMap)
           const renderedLabel = escapeLabel(mermaidLabel)
@@ -214,10 +210,10 @@ function emitStatements(
           break
         }
         case "useCaseRef": {
-          if (ownerCompUuid) assertUseCaseReferenceInScope(c.path, root, ownerCompUuid)
+          if (ownerCompUuid) assertReferencePathInScope(c.path, root, ownerCompUuid)
           const ucId = c.path[c.path.length - 1]
           const ucUuid = ownerComp && ownerCompUuid
-            ? resolveUseCaseByPath(c.path, root, ownerComp, ownerCompUuid)
+            ? resolveUseCaseReferenceUuid(c.path, root, ownerComp, ownerCompUuid)
             : undefined
           const ucNode = ucUuid ? findNodeByUuid([root], ucUuid) : null
           const baseLabel = c.label ?? ucNode?.name ?? ucId
@@ -234,10 +230,10 @@ function emitStatements(
           break
         }
         case "seqDiagramRef": {
-          if (ownerCompUuid) assertSeqDiagramReferenceInScope(c.path, root, ownerCompUuid)
+          if (ownerCompUuid) assertReferencePathInScope(c.path, root, ownerCompUuid)
           const seqId = c.path[c.path.length - 1]
           const seqUuid = ownerComp && ownerCompUuid
-            ? resolveSeqDiagramByPath(c.path, root, ownerComp, ownerCompUuid)
+            ? resolveSequenceReferenceUuid(c.path, root, ownerComp, ownerCompUuid)
             : undefined
           const seqNode = seqUuid ? findNodeByUuid([root], seqUuid) : null
           const baseLabel = c.label ?? seqNode?.name ?? seqId
