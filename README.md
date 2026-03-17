@@ -81,7 +81,8 @@ that node into view.
 Node descriptions open in a **preview-first** mode. The selected node shows its
 rendered markdown immediately, without a separate description label or markdown
 toolbar. Click the description area to switch into the full markdown editor;
-when the description is empty, the preview shows **No Description**.
+when the description is empty, the preview shows a compact **No Description**
+placeholder until you enter edit mode.
 
 #### Panel Layout
 

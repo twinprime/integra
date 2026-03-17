@@ -21,6 +21,7 @@ export const DescriptionField = ({
   className,
 }: DescriptionFieldProps) => {
   const [isEditing, setIsEditing] = useState(false)
+  const hasDescription = value.trim().length > 0
 
   if (isEditing) {
     return (
@@ -48,7 +49,7 @@ export const DescriptionField = ({
       height={height}
       placeholder={placeholder}
       contextComponentUuid={contextComponentUuid}
-      className={className}
+      className={hasDescription ? className : undefined}
       previewOnly={true}
       onPreviewClick={() => setIsEditing(true)}
     />

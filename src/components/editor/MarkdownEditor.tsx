@@ -62,6 +62,7 @@ export const MarkdownEditor = ({
   const NodeLinkWithContext = ({ href, children }: { href?: string; children?: React.ReactNode }) => (
     <NodeLink href={href} contextComponentUuid={contextComponentUuid}>{children}</NodeLink>
   )
+  const hasDescription = value.trim().length > 0
 
   if (previewOnly) {
     return (
@@ -69,7 +70,7 @@ export const MarkdownEditor = ({
         role="button"
         tabIndex={0}
         data-color-mode="dark"
-        className={`min-h-0 flex-1 overflow-auto rounded-md border border-gray-700 bg-gray-950 p-3 cursor-text hover:border-gray-600 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400${className ? ` ${className}` : ""}`}
+        className={`overflow-auto rounded-md border border-gray-700 bg-gray-950 cursor-text hover:border-gray-600 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 ${hasDescription ? "min-h-0 flex-1 p-3" : "px-3 py-2"}${className ? ` ${className}` : ""}`}
         onClick={(e) => {
           if (e.target instanceof Element && e.target.closest("a, [role='link']")) return
           onPreviewClick?.()
@@ -82,14 +83,14 @@ export const MarkdownEditor = ({
         }}
         aria-label={value ? "Description preview — click to edit" : "No Description — click to edit"}
       >
-        {value ? (
+        {hasDescription ? (
           <MDEditor.Markdown
             source={value}
             components={{ a: NodeLinkWithContext as React.ComponentType<React.HTMLProps<HTMLAnchorElement>> }}
             className="bg-transparent text-sm"
           />
         ) : (
-          <div className="h-full min-h-24 flex items-center justify-center text-sm text-gray-500 italic">
+          <div className="text-sm text-gray-500 italic">
             No Description
           </div>
         )}
