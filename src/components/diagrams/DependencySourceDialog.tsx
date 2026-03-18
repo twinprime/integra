@@ -57,12 +57,13 @@ export function DependencySourceDialog({
                 )}
             </div>
 
-            <dl className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-2 px-4 py-3 text-sm">
-                <dt className="text-gray-400">{isDependency ? 'Source' : 'Component'}</dt>
-                <dd className="text-gray-100">{relationship.sourceName}</dd>
-                <dt className="text-gray-400">{isDependency ? 'Target' : 'Interface'}</dt>
-                <dd className="text-gray-100">{relationship.targetName}</dd>
-            </dl>
+            <p className="px-4 py-3 text-sm text-gray-100">
+                <span className="text-gray-400">{isDependency ? 'Source' : 'Component'}:</span>{' '}
+                <span>{relationship.sourceName}</span>
+                <span className="mx-2 text-gray-500">→</span>
+                <span className="text-gray-400">{isDependency ? 'Target' : 'Interface'}:</span>{' '}
+                <span>{relationship.targetName}</span>
+            </p>
 
             {isDependency && sources.length > 0 && (
                 <ul className="space-y-2 p-3 pt-0">

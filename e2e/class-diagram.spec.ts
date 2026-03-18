@@ -233,10 +233,8 @@ test.describe('component class diagram — dependency arrows', () => {
             has: page.getByText('Derived from sequence diagrams', { exact: true }),
         })
         await expect(dependencyDialog).toBeVisible()
-        await expect(dependencyDialog.getByText('Source', { exact: true })).toBeVisible()
-        await expect(dependencyDialog.getByText('AuthService', { exact: true })).toBeVisible()
-        await expect(dependencyDialog.getByText('Target', { exact: true })).toBeVisible()
-        await expect(dependencyDialog.getByText('IOrder', { exact: true })).toBeVisible()
+        await expect(dependencyDialog).toContainText('Source: AuthService')
+        await expect(dependencyDialog).toContainText('Target: IOrder')
         await expect(dependencyDialog.getByText('Auth To Order', { exact: true })).toBeVisible()
 
         expect(await getDiagramTransform(svgContainer)).toBe(zoomedTransform)
@@ -250,7 +248,9 @@ test.describe('component class diagram — dependency arrows', () => {
         await svgContainer.waitFor({ timeout: 5000 })
         await expect(svgContainer.locator('svg')).toBeVisible()
 
-        const implementationHitTarget = page.locator('[data-integra-edge-hit-target="true"]').first()
+        const implementationHitTarget = page
+            .locator('[data-integra-edge-hit-target="true"]')
+            .first()
         const hitTargetBox = await implementationHitTarget.boundingBox()
         expect(hitTargetBox).not.toBeNull()
         await implementationHitTarget.dispatchEvent('mousemove', {
@@ -263,10 +263,8 @@ test.describe('component class diagram — dependency arrows', () => {
             has: page.getByText('Implementation details', { exact: true }),
         })
         await expect(implementationDialog).toBeVisible()
-        await expect(implementationDialog.getByText('Component', { exact: true })).toBeVisible()
-        await expect(implementationDialog.getByText('AuthService', { exact: true })).toBeVisible()
-        await expect(implementationDialog.getByText('Interface', { exact: true })).toBeVisible()
-        await expect(implementationDialog.getByText('IAuth', { exact: true })).toBeVisible()
+        await expect(implementationDialog).toContainText('Component: AuthService')
+        await expect(implementationDialog).toContainText('Interface: IAuth')
     })
 })
 

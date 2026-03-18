@@ -185,10 +185,10 @@ describe('ComponentClassDiagram — error display', () => {
         )
         render(<ComponentClassDiagram componentNode={makeCompNode()} />)
 
-        expect(screen.getByText('Source')).toBeInTheDocument()
-        expect(screen.getByText('AuthService')).toBeInTheDocument()
-        expect(screen.getByText('Target')).toBeInTheDocument()
-        expect(screen.getByText('IOrder')).toBeInTheDocument()
+        const dialog = screen.getByText('Derived from sequence diagrams').closest('div.fixed')
+        expect(dialog).not.toBeNull()
+        expect(dialog).toHaveTextContent(/Source:\s*AuthService/)
+        expect(dialog).toHaveTextContent(/Target:\s*IOrder/)
     })
 
     it('shows implementation component and interface details in the popup', () => {
@@ -206,11 +206,10 @@ describe('ComponentClassDiagram — error display', () => {
         )
         render(<ComponentClassDiagram componentNode={makeCompNode()} />)
 
-        expect(screen.getByText('Implementation details')).toBeInTheDocument()
-        expect(screen.getByText('Component')).toBeInTheDocument()
-        expect(screen.getByText('AuthService')).toBeInTheDocument()
-        expect(screen.getByText('Interface')).toBeInTheDocument()
-        expect(screen.getByText('IAuth')).toBeInTheDocument()
+        const dialog = screen.getByText('Implementation details').closest('div.fixed')
+        expect(dialog).not.toBeNull()
+        expect(dialog).toHaveTextContent(/Component:\s*AuthService/)
+        expect(dialog).toHaveTextContent(/Interface:\s*IAuth/)
     })
 
     it('routes popup actions back to the hook callbacks', async () => {
