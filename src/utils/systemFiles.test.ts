@@ -329,6 +329,104 @@ describe("saveToDirectory", () => {
     expect(expectedGetFile).not.toHaveBeenCalled()
     expect(staleGetFile).not.toHaveBeenCalled()
   })
+
+  it("overlaps descendant writes instead of forcing them to run sequentially", async () => {
+    const releaseWrites: Array<() => void> = []
+    let activeWrites = 0
+    let maxActiveWrites = 0
+
+    const rootWritable = {
+      write: vi.fn().mockResolvedValue(undefined),
+      close: vi.fn().mockResolvedValue(undefined),
+    }
+    const descendantWrites = new Map<string, string>()
+
+    const mockSubdir: FileSystemDirectoryHandle = {
+      kind: "directory",
+      name: "my-system",
+      values: async function* () {},
+      getFileHandle: vi.fn().mockImplementation(async (name: string) => ({
+        createWritable: async () => ({
+          write: vi.fn().mockImplementation(async (content: string) => {
+            descendantWrites.set(name, content)
+            activeWrites += 1
+            maxActiveWrites = Math.max(maxActiveWrites, activeWrites)
+            await new Promise<void>((resolve) => {
+              releaseWrites.push(() => {
+                activeWrites -= 1
+                resolve()
+              })
+            })
+          }),
+          close: vi.fn().mockResolvedValue(undefined),
+        }),
+      })),
+      removeEntry: vi.fn().mockResolvedValue(undefined),
+    } as unknown as FileSystemDirectoryHandle
+
+    const mockDir: FileSystemDirectoryHandle = {
+      kind: "directory",
+      name: "test",
+      values: async function* () {},
+      getFileHandle: vi.fn().mockImplementation(async (_name: string) => ({
+        createWritable: async () => rootWritable,
+      })),
+      getDirectoryHandle: vi.fn().mockResolvedValue(mockSubdir),
+      removeEntry: vi.fn().mockResolvedValue(undefined),
+    } as unknown as FileSystemDirectoryHandle
+
+    const savePromise = saveToDirectory(mockDir, root)
+
+    for (let attempt = 0; attempt < 20 && releaseWrites.length < 3; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    }
+
+    expect(rootWritable.write).toHaveBeenCalledOnce()
+    expect(releaseWrites).toHaveLength(3)
+    expect(maxActiveWrites).toBeGreaterThan(1)
+
+    for (const release of releaseWrites) release()
+    await savePromise
+
+    expect(descendantWrites.has("my-system-gateway.yaml")).toBe(true)
+    expect(descendantWrites.has("gateway-auth.yaml")).toBe(true)
+    expect(descendantWrites.has("gateway-orders.yaml")).toBe(true)
+  })
+
+  it("rejects when a concurrent descendant write fails", async () => {
+    const writeError = new Error("disk full")
+
+    const mockSubdir: FileSystemDirectoryHandle = {
+      kind: "directory",
+      name: "my-system",
+      values: async function* () {},
+      getFileHandle: vi.fn().mockImplementation(async (name: string) => ({
+        createWritable: async () => ({
+          write: vi.fn().mockImplementation(async () => {
+            if (name === "gateway-auth.yaml") throw writeError
+          }),
+          close: vi.fn().mockResolvedValue(undefined),
+        }),
+      })),
+      removeEntry: vi.fn().mockResolvedValue(undefined),
+    } as unknown as FileSystemDirectoryHandle
+
+    const mockDir: FileSystemDirectoryHandle = {
+      kind: "directory",
+      name: "test",
+      values: async function* () {},
+      getFileHandle: vi.fn().mockImplementation(async (_name: string) => ({
+        createWritable: async () => ({
+          write: vi.fn().mockResolvedValue(undefined),
+          close: vi.fn().mockResolvedValue(undefined),
+        }),
+      })),
+      getDirectoryHandle: vi.fn().mockResolvedValue(mockSubdir),
+      removeEntry: vi.fn().mockResolvedValue(undefined),
+    } as unknown as FileSystemDirectoryHandle
+
+    await expect(saveToDirectory(mockDir, root)).rejects.toThrow("disk full")
+  })
 })
 
 describe("loadFromDirectory", () => {

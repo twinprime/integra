@@ -23,6 +23,7 @@ import { parseComponentNode } from "../store/modelSchema"
 
 // Fields that are derived at runtime and should not be persisted
 const DERIVED_KEYS = new Set(["ownerComponentUuid", "referencedNodeIds", "referencedFunctionUuids"])
+const DESCENDANT_WRITE_CONCURRENCY = 4
 
 // ── File path helpers ─────────────────────────────────────────────────────────
 
@@ -89,6 +90,37 @@ export function serializeComponentYaml(comp: ComponentNode, childPaths: string[]
   return yaml.dump(plain, { indent: 2, noRefs: true, skipInvalid: true })
 }
 
+async function writeComponentFile(
+  dir: FileSystemDirectoryHandle,
+  filename: string,
+  content: string,
+): Promise<void> {
+  const fileHandle = await dir.getFileHandle(filename, { create: true })
+  const writable = await fileHandle.createWritable()
+  await writable.write(content)
+  await writable.close()
+}
+
+async function runWithConcurrency<T>(
+  items: T[],
+  concurrency: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  let nextIndex = 0
+
+  async function runWorker(): Promise<void> {
+    while (nextIndex < items.length) {
+      const currentIndex = nextIndex
+      nextIndex += 1
+      await worker(items[currentIndex])
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, items.length) }, () => runWorker()),
+  )
+}
+
 // ── Deserialization ───────────────────────────────────────────────────────────
 
 /** Shape of a parsed component YAML before subComponents are resolved */
@@ -144,18 +176,23 @@ export async function saveToDirectory(
     }
   }
 
-  // Write all component files
-  for (const { relativePath, comp, childPaths } of entries) {
-    const content = serializeComponentYaml(comp, childPaths)
-    const isRoot = relativePath === rootFilename(root.id)
-    const targetDir = isRoot ? dir : subdir
-    const filename = isRoot ? relativePath : relativePath.slice(subdirName.length + 1)
-
-    const fileHandle = await targetDir.getFileHandle(filename, { create: true })
-    const writable = await fileHandle.createWritable()
-    await writable.write(content)
-    await writable.close()
+  const rootEntry = entries.find(({ relativePath }) => relativePath === rootPath)
+  if (!rootEntry) {
+    throw new Error(`Missing root file entry for component ${root.id}`)
   }
+
+  await writeComponentFile(dir, rootPath, serializeComponentYaml(rootEntry.comp, rootEntry.childPaths))
+
+  const descendantJobs = entries
+    .filter(({ relativePath }) => relativePath !== rootPath)
+    .map(({ relativePath, comp, childPaths }) => ({
+      filename: relativePath.slice(subdirName.length + 1),
+      content: serializeComponentYaml(comp, childPaths),
+    }))
+
+  await runWithConcurrency(descendantJobs, DESCENDANT_WRITE_CONCURRENCY, async ({ filename, content }) => {
+    await writeComponentFile(subdir, filename, content)
+  })
 }
 
 /**
