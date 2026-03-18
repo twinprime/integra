@@ -2,7 +2,7 @@ import type { ComponentNode } from "../../store/types"
 import { paramsToString } from "../../parser/sequenceDiagram/systemUpdater"
 import { SeqLexer } from "../../parser/sequenceDiagram/lexer"
 import { UcdLexer, UcdArrow } from "../../parser/useCaseDiagram/lexer"
-import { Actor, Component, Use, Case, Identifier } from "../../parser/tokens"
+import { Actor, Component, Use, Case, Identifier, Note, Over, Right, Left, Of, Comma } from "../../parser/tokens"
 import { SeqColon, SeqArrow } from "../../parser/sequenceDiagram/lexer"
 import { isInScope, getComponentAbsolutePath } from "../../utils/nodeUtils"
 import { isReferenceTargetComponentInScope } from "../../utils/diagramResolvers"
@@ -17,7 +17,7 @@ export type Suggestion = {
 export type DiagramType = "sequence-diagram" | "use-case-diagram"
 
 export const UC_KEYWORDS = ["actor", "component", "use case"]
-export const SEQ_KEYWORDS = ["actor", "component", "loop", "alt", "par", "opt", "else", "and", "end"]
+export const SEQ_KEYWORDS = ["actor", "component", "loop", "alt", "par", "opt", "else", "and", "end", "note over ", "note right of ", "note left of "]
 
 export type Context =
   | {
@@ -55,6 +55,12 @@ export type Context =
     }
   | {
       type: "declared-entity"
+      partial: string
+      replaceFrom: number
+      anchorLine: number
+    }
+  | {
+      type: "note-participant"
       partial: string
       replaceFrom: number
       anchorLine: number
@@ -161,6 +167,39 @@ export function detectContext(
   // ─── Keyword + entity-name contexts ───────────────────────────────────────
 
   const firstTok = toks[0]
+
+  // ─── Note position context ─────────────────────────────────────────────────
+
+  if (diagramType === "sequence-diagram" && firstTok?.tokenType === Note) {
+    const overIdx = toks.findIndex((t) => t.tokenType === Over)
+    if (overIdx >= 0) {
+      const afterOver = toks.slice(overIdx + 1)
+      const commaIdx = afterOver.findIndex((t) => t.tokenType === Comma)
+      const segment = commaIdx >= 0 ? afterOver.slice(commaIdx + 1) : afterOver
+      const lastId = segment.filter((t) => t.tokenType === Identifier).at(-1)
+      const partial = lastId?.image ?? ""
+      const replaceFrom = lastId != null
+        ? lineStart + lastId.startOffset
+        : lineStart + currentLine.length
+      return { type: "note-participant", partial, replaceFrom, anchorLine }
+    }
+
+    const rightIdx = toks.findIndex((t) => t.tokenType === Right)
+    const leftIdx = toks.findIndex((t) => t.tokenType === Left)
+    const sideIdx = rightIdx >= 0 ? rightIdx : leftIdx
+    if (sideIdx >= 0) {
+      const ofIdx = toks.findIndex((t, i) => t.tokenType === Of && i > sideIdx)
+      if (ofIdx >= 0) {
+        const afterOf = toks.slice(ofIdx + 1).filter((t) => t.tokenType === Identifier)
+        const lastId = afterOf.at(-1)
+        const partial = lastId?.image ?? ""
+        const replaceFrom = lastId != null
+          ? lineStart + lastId.startOffset
+          : lineStart + currentLine.length
+        return { type: "note-participant", partial, replaceFrom, anchorLine }
+      }
+    }
+  }
 
   if (diagramType === "use-case-diagram" && firstTok?.tokenType === Use) {
     const caseIdx = toks.findIndex((t) => t.tokenType === Case)
@@ -434,7 +473,8 @@ export function buildSuggestions(
   if (
     ctx.type === "seq-receiver" ||
     ctx.type === "uc-link-target" ||
-    ctx.type === "declared-entity"
+    ctx.type === "declared-entity" ||
+    ctx.type === "note-participant"
   ) {
     return buildDeclaredIdSuggestions(ctx, content)
   }
