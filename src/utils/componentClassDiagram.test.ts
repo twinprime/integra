@@ -563,6 +563,83 @@ describe('buildComponentClassDiagram', () => {
         expect(result.mermaidContent).not.toContain('+getAll(page: number?)')
     })
 
+    it('emits a single realization link when a child inherits the selected component interface', () => {
+        const parentSeq = makeSeqDiagram(
+            'component childCaller\ncomponent childReceiver\nchildCaller ->> childReceiver: IFoo:doSomething(id: string)',
+            'compa-uuid'
+        )
+        const root: ComponentNode = {
+            uuid: 'root-uuid',
+            id: 'root',
+            name: 'Root',
+            type: 'component',
+            actors: [],
+            interfaces: [],
+            useCaseDiagrams: [makeUcd(makeUseCase(parentSeq))],
+            subComponents: [
+                {
+                    uuid: 'compa-uuid',
+                    id: 'compA',
+                    name: 'Component A',
+                    type: 'component',
+                    actors: [],
+                    useCaseDiagrams: [],
+                    interfaces: [
+                        {
+                            uuid: 'ifoo-parent-uuid',
+                            id: 'IFoo',
+                            name: 'IFoo',
+                            type: 'rest',
+                            functions: [
+                                {
+                                    uuid: 'ifoo-parent-fn-uuid',
+                                    id: 'doSomething',
+                                    parameters: [{ name: 'id', type: 'string', required: true }],
+                                },
+                            ],
+                        },
+                    ],
+                    subComponents: [
+                        {
+                            uuid: 'child-receiver-uuid',
+                            id: 'childReceiver',
+                            name: 'Child Receiver',
+                            type: 'component',
+                            actors: [],
+                            useCaseDiagrams: [],
+                            subComponents: [],
+                            interfaces: [
+                                {
+                                    uuid: 'ifoo-child-uuid',
+                                    id: 'IFoo',
+                                    name: 'IFoo',
+                                    type: 'rest',
+                                    functions: [],
+                                    parentInterfaceUuid: 'ifoo-parent-uuid',
+                                },
+                            ],
+                        },
+                        {
+                            uuid: 'child-caller-uuid',
+                            id: 'childCaller',
+                            name: 'Child Caller',
+                            type: 'component',
+                            actors: [],
+                            useCaseDiagrams: [],
+                            subComponents: [],
+                            interfaces: [],
+                        },
+                    ],
+                },
+            ],
+        }
+
+        const result = buildComponentClassDiagram(root.subComponents[0], root)
+        const occurrences = (result.mermaidContent.match(/compA \.\.\|> IFoo/g) ?? []).length
+
+        expect(occurrences).toBe(1)
+    })
+
     it('delegates to root diagram when component is the root', () => {
         const root = makeRoot()
         const result = buildComponentClassDiagram(root, root)

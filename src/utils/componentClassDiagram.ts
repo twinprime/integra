@@ -15,20 +15,15 @@ import {
     toRelationshipMetadata,
     type ClassDiagramBuildResult,
 } from './classDiagramMetadata'
-
 type ParticipantKind = 'actor' | 'component'
-
 type Participant = {
     nodeId: string
     name: string
     uuid: string
     kind: ParticipantKind
 }
-
 type SequenceDiagramSources = Map<string, { uuid: string; name: string }>
-
 type ComponentScope = 'immediate-sibling' | 'ancestor-sibling'
-
 type VisibleParticipants = {
     componentScopes: Map<string, ComponentScope>
     immediateSiblingUuids: Set<string>
@@ -432,6 +427,7 @@ export function buildComponentClassDiagram(
     const lines: string[] = ['---', 'config:', '  layout: elk', '---', 'classDiagram']
     const violationParticipantIds = new Set<string>()
     const relationshipMetadata: ClassDiagramBuildResult['relationshipMetadata'] = []
+    const emittedRealizationRelationships = new Set<string>()
 
     const addRelationship = (
         line: string,
@@ -440,19 +436,22 @@ export function buildComponentClassDiagram(
         lines.push(line)
         relationshipMetadata.push(metadata)
     }
+    const addRealizationRelationship = (fromNodeId: string, toNodeId: string): void => {
+        const key = `${fromNodeId}|${toNodeId}`
+        if (emittedRealizationRelationships.has(key)) return
+        emittedRealizationRelationships.add(key)
+        addRelationship(`    ${fromNodeId} ..|> ${toNodeId}`)
+    }
 
-    // ── Subject component ──────────────────────────────────────────────────────
     lines.push(`    class ${component.id}["${component.name}"]`)
 
-    // ── Subject's own interfaces ───────────────────────────────────────────────
     for (const iface of component.interfaces ?? []) {
         emitInterfaceClass(iface, component, rootComponent, lines, calledOwnFunctions.get(iface.id))
     }
     for (const iface of component.interfaces ?? []) {
-        addRelationship(`    ${component.id} ..|> ${iface.id}`)
+        addRealizationRelationship(component.id, iface.id)
     }
 
-    // ── Visible participants ───────────────────────────────────────────────────
     for (const participant of visibleParticipants.values()) {
         if (participant.uuid === component.uuid) continue
         if (participant.kind === 'actor') {
@@ -480,14 +479,7 @@ export function buildComponentClassDiagram(
     const emittedReceiverInterfaces = new Set<string>()
     for (const [senderUuid, receiverMap] of outgoingBySender) {
         const sender =
-            senderUuid === component.uuid
-                ? {
-                      nodeId: component.id,
-                      name: component.name,
-                      uuid: component.uuid,
-                      kind: 'component' as const,
-                  }
-                : visibleParticipants.get(senderUuid)
+            senderUuid === component.uuid ? subjectParticipant : visibleParticipants.get(senderUuid)
         if (!sender) continue
 
         for (const [receiverActualUuid, ifaceMap] of receiverMap) {
@@ -521,7 +513,7 @@ export function buildComponentClassDiagram(
                         lines,
                         calledFunctionIds
                     )
-                    addRelationship(`    ${receiver.nodeId} ..|> ${ifaceId}`)
+                    addRealizationRelationship(receiver.nodeId, ifaceId)
                 }
                 if (receiverNode && ifaceSpec) hasInterfaceArrow = true
                 addRelationship(
