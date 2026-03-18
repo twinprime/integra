@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import type { InterfaceSpecification, InterfaceFunction } from '../../store/types'
 import { useSystemStore } from '../../store/useSystemStore'
-import { MarkdownEditor } from './MarkdownEditor'
+import { DescriptionField } from './DescriptionField'
 import { FunctionEditor } from './FunctionEditor'
 import {
     isInheritedInterface,
@@ -212,7 +212,7 @@ export const InterfaceEditor = ({
                 </div>
                 {idError && <p className="text-xs text-red-400 mt-0.5">{idError}</p>}
             </div>
-            <MarkdownEditor
+            <DescriptionField
                 value={description}
                 onChange={setDescription}
                 onBlur={() => {

@@ -9,6 +9,7 @@ type DescriptionFieldProps = {
     contextComponentUuid?: string
     height?: number | string
     className?: string
+    readOnly?: boolean
 }
 
 export const DescriptionField = ({
@@ -19,9 +20,24 @@ export const DescriptionField = ({
     contextComponentUuid,
     height = '100%',
     className,
+    readOnly = false,
 }: DescriptionFieldProps) => {
     const [isEditing, setIsEditing] = useState(false)
     const hasDescription = value.trim().length > 0
+
+    if (readOnly) {
+        return (
+            <MarkdownEditor
+                value={value}
+                onChange={onChange}
+                height={height}
+                placeholder={placeholder}
+                contextComponentUuid={contextComponentUuid}
+                className={hasDescription ? className : undefined}
+                previewOnly={true}
+            />
+        )
+    }
 
     if (isEditing) {
         return (

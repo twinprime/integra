@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Trash2 } from 'lucide-react'
 import type { InterfaceFunction } from '../../store/types'
-import { MarkdownEditor } from './MarkdownEditor'
+import { DescriptionField } from './DescriptionField'
 import { useSystemStore, getSequenceDiagrams } from '../../store/useSystemStore'
 import { NodeReferencesButton } from './NodeReferencesButton'
 
@@ -104,7 +104,7 @@ export const FunctionEditor = ({
                     </button>
                 )}
             </div>
-            <MarkdownEditor
+            <DescriptionField
                 value={fnDescription}
                 onChange={setFnDescription}
                 onBlur={() => {
@@ -114,6 +114,7 @@ export const FunctionEditor = ({
                 height={70}
                 placeholder="Function description..."
                 contextComponentUuid={contextComponentUuid}
+                readOnly={readOnly}
             />
             {fn.parameters && fn.parameters.length > 0 && (
                 <div className="mt-1">
