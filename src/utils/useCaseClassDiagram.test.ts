@@ -229,10 +229,10 @@ describe('buildUseCaseClassDiagram', () => {
         })
     })
 
-    it('starts with classDiagram keyword', () => {
+    it('generates elk front-matter and classDiagram header', () => {
         const content = `actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething()`
         const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
-        expect(result.mermaidContent).toMatch(/classDiagram/)
+        expect(result.mermaidContent).toMatch(/^---\nconfig:\n  layout: elk\n---\nclassDiagram/)
     })
 
     it('keeps interface extraction when actor sender is referenced via alias', () => {
