@@ -494,3 +494,104 @@ describe("buildSuggestions — uc-link-target includes local use cases", () => {
     expect(suggs.find((s) => s.insertText === "user")).toBeDefined()
   })
 })
+
+// ─── detectContext — note position ────────────────────────────────────────────
+
+describe("detectContext — note position (sequence-diagram)", () => {
+  it("returns note-participant context after 'note over '", () => {
+    const content = "note over "
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    expect(ctx?.type).toBe("note-participant")
+    if (ctx?.type === "note-participant") {
+      expect(ctx.partial).toBe("")
+    }
+  })
+
+  it("returns note-participant context with partial after 'note over ali'", () => {
+    const content = "note over ali"
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    expect(ctx?.type).toBe("note-participant")
+    if (ctx?.type === "note-participant") {
+      expect(ctx.partial).toBe("ali")
+    }
+  })
+
+  it("returns note-participant context after comma in 'note over alice, '", () => {
+    const content = "note over alice, "
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    expect(ctx?.type).toBe("note-participant")
+    if (ctx?.type === "note-participant") {
+      expect(ctx.partial).toBe("")
+    }
+  })
+
+  it("returns note-participant context with partial after comma in 'note over alice, bo'", () => {
+    const content = "note over alice, bo"
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    expect(ctx?.type).toBe("note-participant")
+    if (ctx?.type === "note-participant") {
+      expect(ctx.partial).toBe("bo")
+    }
+  })
+
+  it("returns note-participant context after 'note right of '", () => {
+    const content = "note right of "
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    expect(ctx?.type).toBe("note-participant")
+    if (ctx?.type === "note-participant") {
+      expect(ctx.partial).toBe("")
+    }
+  })
+
+  it("returns note-participant context with partial after 'note left of al'", () => {
+    const content = "note left of al"
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    expect(ctx?.type).toBe("note-participant")
+    if (ctx?.type === "note-participant") {
+      expect(ctx.partial).toBe("al")
+    }
+  })
+
+  it("does not trigger note-participant context in use-case-diagram", () => {
+    const content = "note over "
+    const ctx = detectContext(content, content.length, "use-case-diagram")
+    expect(ctx?.type).not.toBe("note-participant")
+  })
+})
+
+// ─── buildSuggestions — note-participant ──────────────────────────────────────
+
+describe("buildSuggestions — note-participant", () => {
+  it("suggests all declared participant ids", () => {
+    const root = makeComp("r", "root")
+    const content = "actor alice\nactor bob\nnote over "
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    expect(ctx?.type).toBe("note-participant")
+
+    const suggs = buildSuggestions(ctx!, content, root, root, "sequence-diagram")
+    expect(suggs.find((s) => s.insertText === "alice")).toBeDefined()
+    expect(suggs.find((s) => s.insertText === "bob")).toBeDefined()
+  })
+
+  it("filters suggestions by partial text", () => {
+    const root = makeComp("r", "root")
+    const content = "actor alice\nactor bob\nnote over al"
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    expect(ctx?.type).toBe("note-participant")
+
+    const suggs = buildSuggestions(ctx!, content, root, root, "sequence-diagram")
+    expect(suggs.find((s) => s.insertText === "alice")).toBeDefined()
+    expect(suggs.find((s) => s.insertText === "bob")).toBeUndefined()
+  })
+
+  it("suggests all participants for second position after comma", () => {
+    const root = makeComp("r", "root")
+    const content = "actor alice\nactor bob\nnote over alice, "
+    const ctx = detectContext(content, content.length, "sequence-diagram")
+    expect(ctx?.type).toBe("note-participant")
+
+    const suggs = buildSuggestions(ctx!, content, root, root, "sequence-diagram")
+    expect(suggs.find((s) => s.insertText === "alice")).toBeDefined()
+    expect(suggs.find((s) => s.insertText === "bob")).toBeDefined()
+  })
+})
