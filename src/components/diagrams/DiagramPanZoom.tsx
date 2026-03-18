@@ -1,10 +1,10 @@
-import { type ReactNode, useCallback, useEffect, useRef } from "react"
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import {
   TransformWrapper,
   TransformComponent,
   useControls,
 } from "react-zoom-pan-pinch"
-import { ZoomIn, ZoomOut, Maximize2, ArrowLeftRight } from "lucide-react"
+import { ZoomIn, ZoomOut, Maximize2, ArrowLeftRight, Clipboard, Check } from "lucide-react"
 
 const btnClass =
   "bg-white/90 hover:bg-white border border-gray-200 rounded p-1 text-gray-600 hover:text-gray-900 shadow-sm transition-colors"
@@ -125,10 +125,28 @@ const FitController = ({
   return null
 }
 
-const ZoomControls = ({ fitRef, fitWidthRef }: FitRefs) => {
+interface ZoomControlsProps extends FitRefs {
+  mermaidSource?: string
+}
+
+const ZoomControls = ({ fitRef, fitWidthRef, mermaidSource }: ZoomControlsProps) => {
   const { zoomIn, zoomOut } = useControls()
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = useCallback(() => {
+    if (!mermaidSource) return
+    void navigator.clipboard.writeText(mermaidSource).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }, [mermaidSource])
   return (
     <div className="absolute top-2 right-2 z-10 flex gap-1">
+      {mermaidSource && (
+        <button onClick={handleCopy} className={btnClass} title="Copy Mermaid source">
+          {copied ? <Check size={14} /> : <Clipboard size={14} />}
+        </button>
+      )}
       <button onClick={() => zoomIn()} className={btnClass} title="Zoom in">
         <ZoomIn size={14} />
       </button>
@@ -156,11 +174,13 @@ const ZoomControls = ({ fitRef, fitWidthRef }: FitRefs) => {
 interface DiagramPanZoomProps {
   children: ReactNode
   contentKey?: string
+  mermaidSource?: string
 }
 
 export const DiagramPanZoom = ({
   children,
   contentKey,
+  mermaidSource,
 }: DiagramPanZoomProps) => {
   const fitRef = useRef<() => void>(() => {})
   const fitWidthRef = useRef<() => void>(() => {})
@@ -188,7 +208,7 @@ export const DiagramPanZoom = ({
           clearPendingFitRef={clearPendingFitRef}
           contentKey={contentKey}
         />
-        <ZoomControls fitRef={fitRef} fitWidthRef={fitWidthRef} />
+        <ZoomControls fitRef={fitRef} fitWidthRef={fitWidthRef} mermaidSource={mermaidSource} />
         <TransformComponent
           wrapperStyle={{ width: "100%", height: "100%" }}
           contentStyle={{ width: "100%" }}
