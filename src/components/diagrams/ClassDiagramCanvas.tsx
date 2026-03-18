@@ -7,6 +7,7 @@ type ClassDiagramCanvasProps = {
   handleDiagramClick: MouseEventHandler<HTMLDivElement>
   handleDiagramMouseMove: MouseEventHandler<HTMLDivElement>
   handleDiagramMouseLeave: () => void
+  mermaidSource?: string
 }
 
 export const ClassDiagramCanvas = memo(function ClassDiagramCanvas({
@@ -15,9 +16,10 @@ export const ClassDiagramCanvas = memo(function ClassDiagramCanvas({
   handleDiagramClick,
   handleDiagramMouseMove,
   handleDiagramMouseLeave,
+  mermaidSource,
 }: ClassDiagramCanvasProps) {
   return (
-    <DiagramPanZoom contentKey={svg}>
+    <DiagramPanZoom contentKey={svg} mermaidSource={mermaidSource}>
       <div
         ref={elementRef}
         data-testid="diagram-svg-container"

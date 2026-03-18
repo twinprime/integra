@@ -44,6 +44,7 @@ export const UseCaseClassDiagram = ({ useCaseNode }: UseCaseClassDiagramProps) =
           handleDiagramClick={handleDiagramClick}
           handleDiagramMouseMove={handleDiagramMouseMove}
           handleDiagramMouseLeave={handleDiagramMouseLeave}
+          mermaidSource={mermaidSource}
         />
       ) : error && mermaidSource ? (
         <pre className="flex-1 overflow-auto p-4 text-xs text-gray-300 bg-gray-900 rounded-lg whitespace-pre-wrap font-mono">
