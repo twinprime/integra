@@ -107,7 +107,7 @@ describe('buildUseCaseClassDiagram', () => {
     it('generates interface class with <<interface>> and method', () => {
         const content = `actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething(id: string)`
         const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
-        expect(result.mermaidContent).toContain('class IFoo["IFoo"] {')
+        expect(result.mermaidContent).toContain('class iface_ifoo_uuid["IFoo"] {')
         expect(result.mermaidContent).toContain('<<interface>>')
         expect(result.mermaidContent).toContain('+doSomething(id: string)')
     })
@@ -137,20 +137,63 @@ describe('buildUseCaseClassDiagram', () => {
             makeUseCase(makeSeqDiagram(content)),
             rootWithNamedIface
         )
-        expect(result.mermaidContent).toContain('class IFoo["Foo Interface"] {')
-        expect(result.mermaidContent).not.toContain('class IFoo {')
+        expect(result.mermaidContent).toContain('class iface_ifoo_uuid["Foo Interface"] {')
+        expect(result.mermaidContent).not.toContain('class iface_ifoo_uuid {')
     })
 
     it('generates realization arrow from component to interface (..|>)', () => {
         const content = `actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething()`
         const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
-        expect(result.mermaidContent).toContain('compA ..|> IFoo')
+        expect(result.mermaidContent).toContain('compA ..|> iface_ifoo_uuid')
+    })
+
+    it('renders separate interface boxes when multiple participants share the same interface id', () => {
+        const root: ComponentNode = {
+            ...makeRoot(),
+            subComponents: [
+                {
+                    ...makeRoot().subComponents[0],
+                    subComponents: [
+                        {
+                            ...makeRoot().subComponents[0].subComponents[0],
+                            interfaces: [
+                                {
+                                    uuid: 'ifoo-b-uuid',
+                                    id: 'IFoo',
+                                    name: 'IFoo',
+                                    type: 'rest',
+                                    functions: [
+                                        { uuid: 'ifoo-b-fn-uuid', id: 'process', parameters: [] },
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        }
+        const content = [
+            'actor user',
+            'component compA',
+            'component compB',
+            'user ->> compA: IFoo:doSomething()',
+            'user ->> compB: IFoo:process()',
+        ].join('\n')
+
+        const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), root)
+
+        expect(result.mermaidContent).toContain('class iface_ifoo_uuid["IFoo"] {')
+        expect(result.mermaidContent).toContain('class iface_ifoo_b_uuid["IFoo"] {')
+        expect(result.mermaidContent).toContain('compA ..|> iface_ifoo_uuid')
+        expect(result.mermaidContent).toContain('compB ..|> iface_ifoo_b_uuid')
+        expect(result.mermaidContent).toContain('user ..> iface_ifoo_uuid')
+        expect(result.mermaidContent).toContain('user ..> iface_ifoo_b_uuid')
     })
 
     it('generates actor dependency arrows to interfaces', () => {
         const content = `actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething()`
         const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
-        expect(result.mermaidContent).toContain('user ..> IFoo')
+        expect(result.mermaidContent).toContain('user ..> iface_ifoo_uuid')
     })
 
     it('generates direct dependency arrow for non-interface messages (..>)', () => {
@@ -177,7 +220,7 @@ describe('buildUseCaseClassDiagram', () => {
     it('omits interface messages from direct arrows', () => {
         const content = `actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething()`
         const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
-        expect(result.mermaidContent).toContain('user ..> IFoo')
+        expect(result.mermaidContent).toContain('user ..> iface_ifoo_uuid')
         expect(result.mermaidContent).not.toContain('user ..> compA')
     })
 
@@ -240,8 +283,8 @@ describe('buildUseCaseClassDiagram', () => {
         const content = `actor user as u\ncomponent compA\nu ->> compA: IFoo:doSomething()`
         const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
         expect(result.mermaidContent).toContain('class user["User"]:::actor {')
-        expect(result.mermaidContent).toContain('class IFoo["IFoo"] {')
-        expect(result.mermaidContent).toContain('compA ..|> IFoo')
+        expect(result.mermaidContent).toContain('class iface_ifoo_uuid["IFoo"] {')
+        expect(result.mermaidContent).toContain('compA ..|> iface_ifoo_uuid')
     })
 
     it('resolves participant via path (component root/compA/compB)', () => {
@@ -261,9 +304,9 @@ describe('buildUseCaseClassDiagram', () => {
             'end',
         ].join('\n')
         const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
-        expect(result.mermaidContent).toContain('class IFoo["IFoo"] {')
-        expect(result.mermaidContent).toContain('user ..> IFoo')
-        expect(result.mermaidContent).toContain('compA ..|> IFoo')
+        expect(result.mermaidContent).toContain('class iface_ifoo_uuid["IFoo"] {')
+        expect(result.mermaidContent).toContain('user ..> iface_ifoo_uuid')
+        expect(result.mermaidContent).toContain('compA ..|> iface_ifoo_uuid')
     })
 
     it('includes interface calls inside an opt block', () => {
@@ -275,8 +318,8 @@ describe('buildUseCaseClassDiagram', () => {
             'end',
         ].join('\n')
         const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
-        expect(result.mermaidContent).toContain('user ..> IFoo')
-        expect(result.mermaidContent).toContain('compA ..|> IFoo')
+        expect(result.mermaidContent).toContain('user ..> iface_ifoo_uuid')
+        expect(result.mermaidContent).toContain('compA ..|> iface_ifoo_uuid')
     })
 
     it('follows referenced use cases and sequence diagrams with deduplication and cycle protection', () => {

@@ -1,4 +1,4 @@
-import type { ComponentNode, InterfaceSpecification, SequenceDiagramNode } from '../store/types'
+import type { ComponentNode, SequenceDiagramNode } from '../store/types'
 import { findNode, findParentNode } from '../nodes/nodeTree'
 import { findOwnerActorOrComponentUuidById } from './diagramResolvers'
 import { flattenMessages } from '../parser/sequenceDiagram/visitor'
@@ -7,8 +7,9 @@ import type { SeqAst } from '../parser/sequenceDiagram/visitor'
 import { findNodeByPath, getAncestorComponentChain } from './nodeUtils'
 import { collectAllDiagrams } from '../nodes/nodeTree'
 import { buildRootClassDiagram } from './rootClassDiagram'
-import { resolveEffectiveInterfaceFunctions } from './interfaceFunctions'
 import { collectReferencedSequenceDiagrams } from './referencedSequenceDiagrams'
+import { getInterfaceDiagramNodeId } from './classDiagramNodeIds'
+import { emitInterfaceClass, emitParticipantClass } from './classDiagramRendering'
 import {
     addSequenceDiagramSource,
     createSequenceDiagramSourceMap,
@@ -218,32 +219,6 @@ function setNestedSource(
     addSequenceDiagramSource(ifaceSources.get(interfaceId)!, seqDiagram)
 }
 
-function emitInterfaceClass(
-    iface: InterfaceSpecification,
-    ownerComponent: ComponentNode,
-    rootComponent: ComponentNode,
-    lines: string[],
-    calledFunctionIds?: Set<string>
-): void {
-    lines.push(`    class ${iface.id}["${iface.name}"] {`)
-    lines.push(`        <<interface>>`)
-    const effectiveFunctions = resolveEffectiveInterfaceFunctions(
-        iface,
-        ownerComponent,
-        rootComponent
-    )
-    const fns = calledFunctionIds
-        ? effectiveFunctions.filter((fn) => calledFunctionIds.has(fn.id))
-        : effectiveFunctions
-    for (const fn of fns) {
-        const params = fn.parameters
-            .map((p) => `${p.name}: ${p.type}${p.required ? '' : '?'}`)
-            .join(', ')
-        lines.push(`        +${fn.id}(${params})`)
-    }
-    lines.push(`    }`)
-}
-
 // eslint-disable-next-line complexity
 export function buildComponentClassDiagram(
     component: ComponentNode,
@@ -260,7 +235,10 @@ export function buildComponentClassDiagram(
         return { mermaidContent: '', idToUuid: {}, relationshipMetadata: [] }
     }
 
-    const targetInterfaceIds = new Set((component.interfaces ?? []).map((i) => i.id))
+    const ownInterfacesById = new Map(
+        (component.interfaces ?? []).map((iface) => [iface.id, iface])
+    )
+    const targetInterfaceIds = new Set(ownInterfacesById.keys())
 
     // dependents: participants that call INTO this component's interfaces
     const dependentParticipants = new Map<string, Participant>()
@@ -274,7 +252,7 @@ export function buildComponentClassDiagram(
     const depArrowSources = new Map<string, SequenceDiagramSources>()
 
     // Track which functions are called on own interfaces (for filtering)
-    const calledOwnFunctions = new Map<string, Set<string>>() // interfaceId → Set<functionId>
+    const calledOwnFunctions = new Map<string, Set<string>>() // interfaceNodeId → Set<functionId>
 
     // dependencies: (receiverUuid → interfaceId → Set<functionId>) that this component calls out to
     const visibleParticipants = new Map<string, Participant>()
@@ -323,6 +301,9 @@ export function buildComponentClassDiagram(
 
             // ── Dependents: someone calls INTO this component's interface ───────────
             if (targetInterfaceIds.has(interfaceId) && receiverUuid === component.uuid) {
+                const ownInterface = ownInterfacesById.get(interfaceId)
+                if (!ownInterface) continue
+                const ownInterfaceNodeId = getInterfaceDiagramNodeId(ownInterface)
                 let resolvedSender: {
                     participant: Participant
                     isViolation: boolean
@@ -348,24 +329,23 @@ export function buildComponentClassDiagram(
 
                 dependentParticipants.set(sender.uuid, sender)
                 visibleParticipants.set(sender.uuid, sender)
-                const arrowKey = `${sender.nodeId}|${interfaceId}`
+                const arrowKey = `${sender.nodeId}|${ownInterfaceNodeId}`
                 if (!depArrowsSet.has(arrowKey)) {
                     depArrowsSet.add(arrowKey)
                     const sequenceSources = createSequenceDiagramSourceMap()
                     depArrowSources.set(arrowKey, sequenceSources)
                     depArrows.push({
                         fromNodeId: sender.nodeId,
-                        toNodeId: interfaceId,
+                        toNodeId: ownInterfaceNodeId,
                         isViolation,
                         sequenceSources,
                     })
                 }
                 addSequenceDiagramSource(depArrowSources.get(arrowKey)!, seqDiagram)
 
-                // Track called function on own interface
-                if (!calledOwnFunctions.has(interfaceId))
-                    calledOwnFunctions.set(interfaceId, new Set())
-                calledOwnFunctions.get(interfaceId)!.add(functionId)
+                if (!calledOwnFunctions.has(ownInterfaceNodeId))
+                    calledOwnFunctions.set(ownInterfaceNodeId, new Set())
+                calledOwnFunctions.get(ownInterfaceNodeId)!.add(functionId)
             }
 
             // ── Dependencies: this component or one of its descendants calls OUT ───
@@ -446,21 +426,23 @@ export function buildComponentClassDiagram(
     lines.push(`    class ${component.id}["${component.name}"]`)
 
     for (const iface of component.interfaces ?? []) {
-        emitInterfaceClass(iface, component, rootComponent, lines, calledOwnFunctions.get(iface.id))
+        const interfaceNodeId = getInterfaceDiagramNodeId(iface)
+        emitInterfaceClass(
+            iface,
+            component,
+            rootComponent,
+            lines,
+            interfaceNodeId,
+            calledOwnFunctions.get(interfaceNodeId)
+        )
     }
     for (const iface of component.interfaces ?? []) {
-        addRealizationRelationship(component.id, iface.id)
+        addRealizationRelationship(component.id, getInterfaceDiagramNodeId(iface))
     }
 
     for (const participant of visibleParticipants.values()) {
         if (participant.uuid === component.uuid) continue
-        if (participant.kind === 'actor') {
-            lines.push(`    class ${participant.nodeId}["${participant.name}"]:::actor {`)
-            lines.push(`        <<actor>>`)
-            lines.push(`    }`)
-            continue
-        }
-        lines.push(`    class ${participant.nodeId}["${participant.name}"]`)
+        emitParticipantClass(participant, lines)
     }
 
     // ── Dependents (callers of this component's interfaces) ───────────────────
@@ -505,19 +487,21 @@ export function buildComponentClassDiagram(
                 const ifaceSpec = receiverNode?.interfaces?.find((i) => i.id === ifaceId)
                 const emitKey = `${receiverDisplayUuid}|${ifaceId}`
                 if (receiverNode && ifaceSpec && !emittedReceiverInterfaces.has(emitKey)) {
+                    const interfaceNodeId = getInterfaceDiagramNodeId(ifaceSpec)
                     emittedReceiverInterfaces.add(emitKey)
                     emitInterfaceClass(
                         ifaceSpec,
                         receiverNode,
                         rootComponent,
                         lines,
+                        interfaceNodeId,
                         calledFunctionIds
                     )
-                    addRealizationRelationship(receiver.nodeId, ifaceId)
+                    addRealizationRelationship(receiver.nodeId, interfaceNodeId)
                 }
                 if (receiverNode && ifaceSpec) hasInterfaceArrow = true
                 addRelationship(
-                    `    ${sender.nodeId} ..> ${ifaceId}`,
+                    `    ${sender.nodeId} ..> ${receiverNode && ifaceSpec ? getInterfaceDiagramNodeId(ifaceSpec) : ifaceId}`,
                     toRelationshipMetadata(
                         outgoingSourcesBySender
                             .get(senderUuid)
@@ -558,7 +542,9 @@ export function buildComponentClassDiagram(
     // ── Subject styling (applied after all nodes so style targets exist) ───────
     lines.push(`    style ${component.id} fill:#1d4ed8,stroke:#1e3a5f,color:#ffffff`)
     for (const iface of component.interfaces ?? []) {
-        lines.push(`    style ${iface.id} fill:#bfdbfe,stroke:#2563eb,color:#1e3a5f`)
+        lines.push(
+            `    style ${getInterfaceDiagramNodeId(iface)} fill:#bfdbfe,stroke:#2563eb,color:#1e3a5f`
+        )
     }
     for (const nodeId of violationParticipantIds) {
         lines.push(`    style ${nodeId} fill:#fee2e2,stroke:#dc2626,color:#7f1d1d`)

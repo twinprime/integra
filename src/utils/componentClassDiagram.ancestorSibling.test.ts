@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 import { buildComponentClassDiagram } from './componentClassDiagram'
+import { getInterfaceDiagramNodeId } from './classDiagramNodeIds'
 import {
     getPlatform,
     getNestedCompA,
@@ -10,6 +11,7 @@ import {
 
 describe('buildComponentClassDiagram ancestor sibling scope', () => {
     it('hides internal child endpoints when a direct child calls a sibling child', () => {
+        const bazNodeId = getInterfaceDiagramNodeId({ uuid: 'nested-ibaz-uuid' })
         const sd = makeSeqDiagram(
             [
                 'component parent/compA as compA',
@@ -23,14 +25,15 @@ describe('buildComponentClassDiagram ancestor sibling scope', () => {
         expect(result.mermaidContent).toContain('class parent["Parent"]')
         expect(result.mermaidContent).not.toContain('class compA["Component A"]')
         expect(result.mermaidContent).not.toContain('class compB["Component B"]')
-        expect(result.mermaidContent).toContain('class IBaz["IBaz"] {')
-        expect(result.mermaidContent).toContain('parent ..|> IBaz')
-        expect(result.mermaidContent).toContain('parent ..> IBaz')
+        expect(result.mermaidContent).toContain(`class ${bazNodeId}["IBaz"] {`)
+        expect(result.mermaidContent).toContain(`parent ..|> ${bazNodeId}`)
+        expect(result.mermaidContent).toContain(`parent ..> ${bazNodeId}`)
         expect(result.idToUuid.compA).toBeUndefined()
         expect(result.idToUuid.compB).toBeUndefined()
     })
 
     it('collapses a direct child caller into the selected ancestor', () => {
+        const parentNodeId = getInterfaceDiagramNodeId({ uuid: 'parent-iface-uuid' })
         const sd = makeSeqDiagram(
             [
                 'component parent/compA as compA',
@@ -87,13 +90,14 @@ describe('buildComponentClassDiagram ancestor sibling scope', () => {
         )
 
         expect(result.mermaidContent).not.toContain('class compA["Component A"]')
-        expect(result.mermaidContent).toContain('class IParent["IParent"] {')
-        expect(result.mermaidContent).toContain('parent ..|> IParent')
-        expect(result.mermaidContent).toContain('parent ..> IParent')
+        expect(result.mermaidContent).toContain(`class ${parentNodeId}["IParent"] {`)
+        expect(result.mermaidContent).toContain(`parent ..|> ${parentNodeId}`)
+        expect(result.mermaidContent).toContain(`parent ..> ${parentNodeId}`)
         expect(result.idToUuid.compA).toBeUndefined()
     })
 
     it('includes outbound dependencies to a sibling of an ancestor component', () => {
+        const platformNodeId = getInterfaceDiagramNodeId({ uuid: 'platform-iface-uuid' })
         const sd = makeSeqDiagram(
             [
                 'component parent/compA as compA',
@@ -104,13 +108,14 @@ describe('buildComponentClassDiagram ancestor sibling scope', () => {
         const root = makeNestedRootWithAncestorSibling([sd])
         const result = buildComponentClassDiagram(getNestedCompA(root), root)
 
-        expect(result.mermaidContent).toContain('class IPlatform["IPlatform"] {')
+        expect(result.mermaidContent).toContain(`class ${platformNodeId}["IPlatform"] {`)
         expect(result.mermaidContent).toContain('+handlePlatform(data: string)')
-        expect(result.mermaidContent).toContain('platform ..|> IPlatform')
-        expect(result.mermaidContent).toContain('compA ..> IPlatform')
+        expect(result.mermaidContent).toContain(`platform ..|> ${platformNodeId}`)
+        expect(result.mermaidContent).toContain(`compA ..> ${platformNodeId}`)
     })
 
     it('shows inbound dependencies from ancestor siblings as red violations', () => {
+        const fooNodeId = getInterfaceDiagramNodeId({ uuid: 'nested-ifoo-uuid' })
         const sd = makeSeqDiagram(
             [
                 'component platform',
@@ -121,13 +126,14 @@ describe('buildComponentClassDiagram ancestor sibling scope', () => {
         const root = makeNestedRootWithAncestorSibling([sd])
         const result = buildComponentClassDiagram(getNestedCompA(root), root)
 
-        expect(result.mermaidContent).toContain('platform ..> IFoo')
+        expect(result.mermaidContent).toContain(`platform ..> ${fooNodeId}`)
         expect(result.mermaidContent).toContain(
             'style platform fill:#fee2e2,stroke:#dc2626,color:#7f1d1d'
         )
     })
 
     it('does not mark immediate sibling inbound dependencies as violations', () => {
+        const fooNodeId = getInterfaceDiagramNodeId({ uuid: 'nested-ifoo-uuid' })
         const sd = makeSeqDiagram(
             [
                 'component parent/compB as compB',
@@ -138,7 +144,7 @@ describe('buildComponentClassDiagram ancestor sibling scope', () => {
         const root = makeNestedRootWithAncestorSibling([sd])
         const result = buildComponentClassDiagram(getNestedCompA(root), root)
 
-        expect(result.mermaidContent).toContain('compB ..> IFoo')
+        expect(result.mermaidContent).toContain(`compB ..> ${fooNodeId}`)
         expect(result.mermaidContent).not.toContain('stroke:#dc2626')
         expect(result.mermaidContent).not.toContain('fill:#fee2e2')
     })
@@ -175,6 +181,7 @@ describe('buildComponentClassDiagram ancestor sibling scope', () => {
     })
 
     it('shows the immediate sibling ancestor as the inbound dependent in the selected ancestor sibling diagram', () => {
+        const platformNodeId = getInterfaceDiagramNodeId({ uuid: 'platform-iface-uuid' })
         const sd = makeSeqDiagram(
             [
                 'component parent/compA as compA',
@@ -186,13 +193,14 @@ describe('buildComponentClassDiagram ancestor sibling scope', () => {
         const result = buildComponentClassDiagram(getPlatform(root), root)
 
         expect(result.mermaidContent).toContain('class parent["Parent"]')
-        expect(result.mermaidContent).toContain('parent ..> IPlatform')
+        expect(result.mermaidContent).toContain(`parent ..> ${platformNodeId}`)
         expect(result.mermaidContent).not.toContain('class compA["Component A"]')
         expect(result.idToUuid.parent).toBe('parent-uuid')
         expect(result.idToUuid.compA).toBeUndefined()
     })
 
     it('uses the selected component as the dependency source for child outbound calls', () => {
+        const platformNodeId = getInterfaceDiagramNodeId({ uuid: 'platform-iface-uuid' })
         const sd = makeSeqDiagram(
             [
                 'component parent/compA as compA',
@@ -206,8 +214,8 @@ describe('buildComponentClassDiagram ancestor sibling scope', () => {
         expect(result.mermaidContent).toContain('class parent["Parent"]')
         expect(result.mermaidContent).not.toContain('class compA["Component A"]')
         expect(result.mermaidContent).toContain('class platform["Platform"]')
-        expect(result.mermaidContent).toContain('platform ..|> IPlatform')
-        expect(result.mermaidContent).toContain('parent ..> IPlatform')
+        expect(result.mermaidContent).toContain(`platform ..|> ${platformNodeId}`)
+        expect(result.mermaidContent).toContain(`parent ..> ${platformNodeId}`)
         expect(result.idToUuid.compA).toBeUndefined()
     })
 })

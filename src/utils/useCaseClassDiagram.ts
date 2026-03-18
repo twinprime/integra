@@ -1,15 +1,13 @@
 import type { ComponentNode, UseCaseNode } from '../store/types'
 import { findNode } from '../nodes/nodeTree'
-import {
-    findComponentUuidByInterfaceId,
-    findOwnerActorOrComponentUuidById,
-    findInterfaceNameById,
-} from './diagramResolvers'
+import { findOwnerActorOrComponentUuidById } from './diagramResolvers'
 import { flattenMessages } from '../parser/sequenceDiagram/visitor'
 import type { SeqAst } from '../parser/sequenceDiagram/visitor'
 import { getCachedSeqAst } from './seqAstCache'
 import { findNodeByPath } from './nodeUtils'
 import { collectReferencedSequenceDiagrams } from './referencedSequenceDiagrams'
+import { getInterfaceDiagramNodeId } from './classDiagramNodeIds'
+import { emitParticipantClass } from './classDiagramRendering'
 import {
     addSequenceDiagramSource,
     createSequenceDiagramSourceMap,
@@ -33,7 +31,7 @@ type Arrow = {
 }
 type InterfaceEntry = {
     componentNodeId: string
-    interfaceId: string
+    interfaceNodeId: string
     interfaceName: string
 }
 
@@ -99,43 +97,49 @@ function processMessages(
     for (const msg of messages) {
         if (msg.content.kind === 'functionRef') {
             const { interfaceId, functionId, rawParams } = msg.content
+            const receiverUuid = aliasToUuid.get(msg.to)
+            const receiverNode = receiverUuid ? findNode([rootComponent], receiverUuid) : null
+            const receiverInterface =
+                receiverNode?.type === 'component'
+                    ? receiverNode.interfaces.find((iface) => iface.id === interfaceId)
+                    : undefined
+            if (!receiverInterface) continue
+            const interfaceNodeId = getInterfaceDiagramNodeId(receiverInterface)
 
-            if (!state.interfaceMethods.has(interfaceId))
-                state.interfaceMethods.set(interfaceId, new Set())
-            state.interfaceMethods.get(interfaceId)!.add(`${functionId}(${rawParams})`)
+            if (!state.interfaceMethods.has(interfaceNodeId))
+                state.interfaceMethods.set(interfaceNodeId, new Set())
+            state.interfaceMethods.get(interfaceNodeId)!.add(`${functionId}(${rawParams})`)
 
             const senderUuid = aliasToUuid.get(msg.from)
             const sender = senderUuid ? participantsMap.get(senderUuid) : undefined
             if (sender) {
-                const key = `dep|${sender.nodeId}|${interfaceId}`
+                const key = `dep|${sender.nodeId}|${interfaceNodeId}`
                 if (!state.depsSet.has(key)) {
                     state.depsSet.add(key)
                     state.deps.push({
                         fromNodeId: sender.nodeId,
-                        toNodeId: interfaceId,
+                        toNodeId: interfaceNodeId,
                         sequenceSources: createSequenceDiagramSourceMap(),
                     })
                 }
                 addSequenceDiagramSource(
                     state.deps.find(
-                        (dep) => dep.fromNodeId === sender.nodeId && dep.toNodeId === interfaceId
+                        (dep) =>
+                            dep.fromNodeId === sender.nodeId && dep.toNodeId === interfaceNodeId
                     )!.sequenceSources,
                     seqDiagram
                 )
             }
 
-            const ownerCompUuid = findComponentUuidByInterfaceId(rootComponent, interfaceId)
-            const ownerComp = ownerCompUuid ? participantsMap.get(ownerCompUuid) : undefined
+            const ownerComp = receiverUuid ? participantsMap.get(receiverUuid) : undefined
             if (ownerComp) {
-                const key = `iface|${ownerComp.nodeId}|${interfaceId}`
+                const key = `iface|${ownerComp.nodeId}|${interfaceNodeId}`
                 if (!state.interfacesSet.has(key)) {
                     state.interfacesSet.add(key)
-                    const interfaceName =
-                        findInterfaceNameById(rootComponent, interfaceId) ?? interfaceId
                     state.interfaces.push({
                         componentNodeId: ownerComp.nodeId,
-                        interfaceId,
-                        interfaceName,
+                        interfaceNodeId,
+                        interfaceName: receiverInterface.name,
                     })
                 }
             }
@@ -186,26 +190,23 @@ function buildMermaidLines(
     }
 
     for (const p of participantsMap.values()) {
-        if (p.kind === 'actor') {
-            lines.push(`    class ${p.nodeId}["${p.name}"]:::actor {`)
-            lines.push(`        <<actor>>`)
-            lines.push(`    }`)
-            continue
+        emitParticipantClass(p, lines)
+        if (p.kind === 'component') {
+            lines[lines.length - 1] = `    class ${p.nodeId}["${p.name}"]:::component`
         }
-        lines.push(`    class ${p.nodeId}["${p.name}"]:::component`)
     }
 
-    for (const { interfaceId, interfaceName } of interfaces) {
-        lines.push(`    class ${interfaceId}["${interfaceName}"] {`)
+    for (const { interfaceNodeId, interfaceName } of interfaces) {
+        lines.push(`    class ${interfaceNodeId}["${interfaceName}"] {`)
         lines.push(`        <<interface>>`)
-        for (const method of interfaceMethods.get(interfaceId) ?? []) {
+        for (const method of interfaceMethods.get(interfaceNodeId) ?? []) {
             lines.push(`        +${method}`)
         }
         lines.push(`    }`)
     }
 
-    for (const { componentNodeId, interfaceId } of interfaces) {
-        addRelationship(`    ${componentNodeId} ..|> ${interfaceId}`)
+    for (const { componentNodeId, interfaceNodeId } of interfaces) {
+        addRelationship(`    ${componentNodeId} ..|> ${interfaceNodeId}`)
     }
     for (const { fromNodeId, toNodeId, sequenceSources } of deps) {
         addRelationship(

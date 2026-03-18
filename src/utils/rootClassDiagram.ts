@@ -1,4 +1,4 @@
-import type { ComponentNode, InterfaceSpecification, SequenceDiagramNode } from '../store/types'
+import type { ComponentNode, SequenceDiagramNode } from '../store/types'
 import { findNode, findParentNode } from '../nodes/nodeTree'
 import { findOwnerActorOrComponentUuidById } from './diagramResolvers'
 import { flattenMessages } from '../parser/sequenceDiagram/visitor'
@@ -6,8 +6,9 @@ import { getCachedSeqAst } from './seqAstCache'
 import type { SeqAst } from '../parser/sequenceDiagram/visitor'
 import { findNodeByPath } from './nodeUtils'
 import { collectAllDiagrams } from '../nodes/nodeTree'
-import { resolveEffectiveInterfaceFunctions } from './interfaceFunctions'
 import { collectReferencedSequenceDiagrams } from './referencedSequenceDiagrams'
+import { getInterfaceDiagramNodeId } from './classDiagramNodeIds'
+import { emitInterfaceClass, emitParticipantClass } from './classDiagramRendering'
 import {
     addSequenceDiagramSource,
     createSequenceDiagramSourceMap,
@@ -35,17 +36,6 @@ function toParticipant(rootComponent: ComponentNode, uuid: string): Participant 
     }
 }
 
-function emitParticipantClass(participant: Participant, lines: string[]): void {
-    if (participant.kind === 'actor') {
-        lines.push(`    class ${participant.nodeId}["${participant.name}"]:::actor {`)
-        lines.push(`        <<actor>>`)
-        lines.push(`    }`)
-        return
-    }
-
-    lines.push(`    class ${participant.nodeId}["${participant.name}"]`)
-}
-
 function resolveRootVisibleParticipantUuid(
     rootComponent: ComponentNode,
     childUuids: Set<string>,
@@ -65,32 +55,6 @@ function resolveRootVisibleParticipantUuid(
     }
 
     return undefined
-}
-
-function emitInterfaceClass(
-    iface: InterfaceSpecification,
-    ownerComponent: ComponentNode,
-    rootComponent: ComponentNode,
-    lines: string[],
-    calledFunctionIds?: Set<string>
-): void {
-    lines.push(`    class ${iface.id}["${iface.name}"] {`)
-    lines.push(`        <<interface>>`)
-    const effectiveFunctions = resolveEffectiveInterfaceFunctions(
-        iface,
-        ownerComponent,
-        rootComponent
-    )
-    const fns = calledFunctionIds
-        ? effectiveFunctions.filter((fn) => calledFunctionIds.has(fn.id))
-        : effectiveFunctions
-    for (const fn of fns) {
-        const params = fn.parameters
-            .map((p) => `${p.name}: ${p.type}${p.required ? '' : '?'}`)
-            .join(', ')
-        lines.push(`        +${fn.id}(${params})`)
-    }
-    lines.push(`    }`)
 }
 
 /**
@@ -176,10 +140,18 @@ export function buildRootClassDiagram(rootComponent: ComponentNode): ClassDiagra
 
             // Track called functions on any child's interface
             if (visibleReceiverUuid && childUuids.has(visibleReceiverUuid)) {
-                if (!calledFunctionsByInterface.has(interfaceId)) {
-                    calledFunctionsByInterface.set(interfaceId, new Set())
+                const receiverNode = findNode([rootComponent], visibleReceiverUuid)
+                const receiverIface =
+                    receiverNode?.type === 'component'
+                        ? receiverNode.interfaces?.find((iface) => iface.id === interfaceId)
+                        : undefined
+                if (receiverIface) {
+                    const interfaceNodeId = getInterfaceDiagramNodeId(receiverIface)
+                    if (!calledFunctionsByInterface.has(interfaceNodeId)) {
+                        calledFunctionsByInterface.set(interfaceNodeId, new Set())
+                    }
+                    calledFunctionsByInterface.get(interfaceNodeId)!.add(functionId)
                 }
-                calledFunctionsByInterface.get(interfaceId)!.add(functionId)
             }
 
             // Track visible root-level dependency (rolled up to direct children / root actors)
@@ -189,19 +161,26 @@ export function buildRootClassDiagram(rootComponent: ComponentNode): ClassDiagra
                 visibleSenderUuid !== visibleReceiverUuid &&
                 childUuids.has(visibleReceiverUuid)
             ) {
+                const receiverNode = findNode([rootComponent], visibleReceiverUuid)
+                const receiverIface =
+                    receiverNode?.type === 'component'
+                        ? receiverNode.interfaces?.find((iface) => iface.id === interfaceId)
+                        : undefined
+                if (!receiverIface) continue
+                const interfaceNodeId = getInterfaceDiagramNodeId(receiverIface)
                 if (!dependencies.has(visibleSenderUuid))
                     dependencies.set(visibleSenderUuid, new Map())
                 const ifaceMap = dependencies.get(visibleSenderUuid)!
-                if (!ifaceMap.has(interfaceId)) ifaceMap.set(interfaceId, new Set())
-                ifaceMap.get(interfaceId)!.add(functionId)
+                if (!ifaceMap.has(interfaceNodeId)) ifaceMap.set(interfaceNodeId, new Set())
+                ifaceMap.get(interfaceNodeId)!.add(functionId)
 
                 if (!dependencySources.has(visibleSenderUuid))
                     dependencySources.set(visibleSenderUuid, new Map())
                 const sourceIfaceMap = dependencySources.get(visibleSenderUuid)!
-                if (!sourceIfaceMap.has(interfaceId)) {
-                    sourceIfaceMap.set(interfaceId, createSequenceDiagramSourceMap())
+                if (!sourceIfaceMap.has(interfaceNodeId)) {
+                    sourceIfaceMap.set(interfaceNodeId, createSequenceDiagramSourceMap())
                 }
-                addSequenceDiagramSource(sourceIfaceMap.get(interfaceId)!, seqDiagram)
+                addSequenceDiagramSource(sourceIfaceMap.get(interfaceNodeId)!, seqDiagram)
             }
         }
     }
@@ -227,14 +206,16 @@ export function buildRootClassDiagram(rootComponent: ComponentNode): ClassDiagra
         idToUuid[child.id] = child.uuid
 
         for (const iface of child.interfaces ?? []) {
+            const interfaceNodeId = getInterfaceDiagramNodeId(iface)
             emitInterfaceClass(
                 iface,
                 child,
                 rootComponent,
                 lines,
-                calledFunctionsByInterface.get(iface.id)
+                interfaceNodeId,
+                calledFunctionsByInterface.get(interfaceNodeId)
             )
-            addRelationship(`    ${child.id} ..|> ${iface.id}`)
+            addRelationship(`    ${child.id} ..|> ${interfaceNodeId}`)
         }
     }
 

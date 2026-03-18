@@ -169,7 +169,7 @@ describe('buildRootClassDiagram', () => {
 
         expect(result.mermaidContent).toContain('class user["User"]:::actor {')
         expect(result.mermaidContent).toContain('<<actor>>')
-        expect(result.mermaidContent).toContain('user ..> IFoo')
+        expect(result.mermaidContent).toContain('user ..> iface_ifoo_uuid')
         expect(result.mermaidContent).toContain('click user call __integraNavigate("user")')
         expect(result.idToUuid.user).toBe('user-uuid')
     })
@@ -240,8 +240,8 @@ describe('buildRootClassDiagram', () => {
         }
 
         const result = buildRootClassDiagram(root)
-        expect(result.mermaidContent).toContain('platform ..|> IPlatform')
-        expect(result.mermaidContent).toContain('parent ..> IPlatform')
+        expect(result.mermaidContent).toContain('platform ..|> iface_platform_iface_uuid')
+        expect(result.mermaidContent).toContain('parent ..> iface_platform_iface_uuid')
         expect(result.idToUuid.parent).toBe('parent-uuid')
         expect(result.idToUuid.compA).toBeUndefined()
     })
@@ -258,8 +258,42 @@ describe('buildRootClassDiagram', () => {
     it('shows realization arrows from component to its interfaces', () => {
         const root = makeRoot()
         const result = buildRootClassDiagram(root)
-        expect(result.mermaidContent).toContain('compA ..|> IFoo')
-        expect(result.mermaidContent).toContain('compB ..|> IBaz')
+        expect(result.mermaidContent).toContain('compA ..|> iface_ifoo_uuid')
+        expect(result.mermaidContent).toContain('compB ..|> iface_ibaz_uuid')
+    })
+
+    it('renders separate interface boxes when direct children share the same interface id', () => {
+        const root: ComponentNode = {
+            ...makeRoot(),
+            subComponents: [
+                makeRoot().subComponents[0],
+                {
+                    ...makeRoot().subComponents[1],
+                    interfaces: [
+                        {
+                            uuid: 'ifoo-b-uuid',
+                            id: 'IFoo',
+                            name: 'IFoo',
+                            type: 'rest',
+                            functions: [
+                                {
+                                    uuid: 'ifoo-b-fn-uuid',
+                                    id: 'process',
+                                    parameters: [{ name: 'data', type: 'string', required: true }],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        }
+
+        const result = buildRootClassDiagram(root)
+
+        expect(result.mermaidContent).toContain('class iface_ifoo_uuid["IFoo"] {')
+        expect(result.mermaidContent).toContain('class iface_ifoo_b_uuid["IFoo"] {')
+        expect(result.mermaidContent).toContain('compA ..|> iface_ifoo_uuid')
+        expect(result.mermaidContent).toContain('compB ..|> iface_ifoo_b_uuid')
     })
 
     it('filters interface functions to only those called in a message (partial call)', () => {
@@ -283,7 +317,7 @@ describe('buildRootClassDiagram', () => {
         )
         const root = makeRoot([sd])
         const result = buildRootClassDiagram(root)
-        expect(result.mermaidContent).toContain('compA ..> IBaz')
+        expect(result.mermaidContent).toContain('compA ..> iface_ibaz_uuid')
     })
 
     it('records sequence-diagram provenance for dependency arrows', () => {
@@ -305,7 +339,7 @@ describe('buildRootClassDiagram', () => {
         const root = makeRoot([sd])
         const result = buildRootClassDiagram(root)
         expect(result.mermaidContent).not.toContain('compA ..> compA')
-        expect(result.mermaidContent).not.toContain('compA ..> IFoo')
+        expect(result.mermaidContent).not.toContain('compA ..> iface_ifoo_uuid')
     })
 
     it('generates elk front-matter and classDiagram header', () => {
@@ -334,7 +368,7 @@ describe('buildRootClassDiagram', () => {
             ],
         }
         const result = buildRootClassDiagram(root)
-        expect(result.mermaidContent).toContain('class IFoo["Foo Interface"] {')
+        expect(result.mermaidContent).toContain('class iface_ifoo_uuid["Foo Interface"] {')
     })
 
     it('shows parent functions for an inherited child interface', () => {
@@ -456,7 +490,7 @@ describe('buildRootClassDiagram', () => {
 
         const result = buildRootClassDiagram(makeRoot([entrySeq, sharedSeq]))
 
-        expect(result.mermaidContent).toContain('compA ..> IBaz')
+        expect(result.mermaidContent).toContain('compA ..> iface_ibaz_uuid')
         expect(result.relationshipMetadata).toContainEqual({
             sequenceDiagrams: [{ uuid: 'shared-seq-uuid', name: 'Shared Flow' }],
         })

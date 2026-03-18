@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
 import { buildComponentClassDiagram } from './componentClassDiagram'
+import { getInterfaceDiagramNodeId } from './classDiagramNodeIds'
 import {
     getCompA,
     makeRoot,
@@ -11,6 +12,7 @@ import {
 
 describe('buildComponentClassDiagram reference traversal', () => {
     it('includes dependencies from referenced sequence diagrams', () => {
+        const fooNodeId = getInterfaceDiagramNodeId({ uuid: 'ifoo-uuid' })
         const entrySeq = {
             ...makeSeqDiagram(
                 ['component compB', 'component compA', 'compB ->> compA: Sequence:sharedFlow'].join(
@@ -37,13 +39,15 @@ describe('buildComponentClassDiagram reference traversal', () => {
         const root = makeRoot([entrySeq, sharedSeq])
         const result = buildComponentClassDiagram(getCompA(root), root)
 
-        expect(result.mermaidContent).toContain('compB ..> IFoo')
+        expect(result.mermaidContent).toContain(`compB ..> ${fooNodeId}`)
         expect(result.relationshipMetadata).toContainEqual({
             sequenceDiagrams: [{ uuid: 'shared-seq-uuid', name: 'Shared Flow' }],
         })
     })
 
     it('includes all sequence diagrams from referenced use cases and avoids cycles', () => {
+        const fooNodeId = getInterfaceDiagramNodeId({ uuid: 'ifoo-uuid' })
+        const barNodeId = getInterfaceDiagramNodeId({ uuid: 'ibar-uuid' })
         const entrySeq = {
             ...makeSeqDiagram(
                 ['component compB', 'component compA', 'compB ->> compA: UseCase:secondary'].join(
@@ -101,9 +105,11 @@ describe('buildComponentClassDiagram reference traversal', () => {
         }
         const result = buildComponentClassDiagram(getCompA(root), root)
 
-        expect(result.mermaidContent).toContain('compB ..> IFoo')
-        expect(result.mermaidContent).toContain('compB ..> IBar')
-        expect(result.mermaidContent.match(/compB \.\.> IFoo/g) ?? []).toHaveLength(1)
+        expect(result.mermaidContent).toContain(`compB ..> ${fooNodeId}`)
+        expect(result.mermaidContent).toContain(`compB ..> ${barNodeId}`)
+        expect(
+            result.mermaidContent.match(new RegExp(`compB \\.\\.> ${fooNodeId}`, 'g')) ?? []
+        ).toHaveLength(1)
         expect(result.relationshipMetadata).toContainEqual({
             sequenceDiagrams: [{ uuid: 'secondary-a-uuid', name: 'Secondary A' }],
         })
