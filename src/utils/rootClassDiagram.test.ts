@@ -311,7 +311,7 @@ describe('buildRootClassDiagram', () => {
     it('generates elk front-matter and classDiagram header', () => {
         const root = makeRoot()
         const result = buildRootClassDiagram(root)
-        expect(result.mermaidContent).toMatch(/^---\nconfig:\n  layout: elk\n---\nclassDiagram/)
+        expect(result.mermaidContent).toMatch(/^---\nconfig:\n {2}layout: elk\n---\nclassDiagram/)
     })
 
     it('includes interface name (not just id) as class label', () => {
