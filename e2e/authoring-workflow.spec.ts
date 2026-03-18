@@ -30,21 +30,34 @@ async function openDiagramEditor(page: Page, targetText: string | RegExp) {
 
     const emptyState = page.getByRole('button', { name: 'Click to edit specification' })
     const preview = page.getByRole('button', { name: 'Diagram specification — click to edit' })
-    const editor = codeMirrorEditor(page)
-    await expect(editor.or(emptyState).or(preview).first()).toBeVisible({ timeout: 10000 })
+    let sawStableEditor = false
 
-    if (await editor.isVisible().catch(() => false)) {
-        return getVisibleCodeMirrorEditor(page, 10000)
-    }
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+        const editor = codeMirrorEditor(page)
+        const emptyVisible = await emptyState.isVisible().catch(() => false)
+        const previewVisible = await preview.isVisible().catch(() => false)
 
-    if (await emptyState.isVisible().catch(() => false)) {
-        await emptyState.click({ force: true })
-        return getVisibleCodeMirrorEditor(page, 10000)
-    }
+        if (emptyVisible) {
+            await emptyState.click()
+            return getVisibleCodeMirrorEditor(page, 10000)
+        }
 
-    if (await preview.isVisible().catch(() => false)) {
-        await preview.click({ force: true })
-        return getVisibleCodeMirrorEditor(page, 10000)
+        if (previewVisible) {
+            await preview.click()
+            return getVisibleCodeMirrorEditor(page, 10000)
+        }
+
+        const editorVisible = await editor.isVisible().catch(() => false)
+        if (editorVisible) {
+            if (sawStableEditor) {
+                return getVisibleCodeMirrorEditor(page, 10000)
+            }
+            sawStableEditor = true
+        } else {
+            sawStableEditor = false
+        }
+
+        await page.waitForTimeout(100)
     }
 
     throw new Error(`Could not open the specification editor for ${targetLabel}`)
