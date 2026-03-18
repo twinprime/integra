@@ -220,7 +220,7 @@ test.describe('component class diagram — dependency arrows', () => {
         const zoomedTransform = await getDiagramTransform(svgContainer)
         expect(zoomedTransform).not.toBe(initialTransform)
 
-        const dependencyHitTarget = page.locator('[data-integra-edge-hit-target="true"]').first()
+        const dependencyHitTarget = page.locator('[data-integra-edge-hit-target="true"]').last()
         const hitTargetBox = await dependencyHitTarget.boundingBox()
         expect(hitTargetBox).not.toBeNull()
         await dependencyHitTarget.dispatchEvent('mousemove', {
@@ -229,10 +229,44 @@ test.describe('component class diagram — dependency arrows', () => {
             clientY: hitTargetBox!.y + hitTargetBox!.height / 2,
         })
 
-        await expect(page.getByText('Derived from sequence diagrams')).toBeVisible()
-        await expect(page.getByText('Auth To Order')).toBeVisible()
+        const dependencyDialog = page.locator('div.fixed.z-50').filter({
+            has: page.getByText('Derived from sequence diagrams', { exact: true }),
+        })
+        await expect(dependencyDialog).toBeVisible()
+        await expect(dependencyDialog.getByText('Source', { exact: true })).toBeVisible()
+        await expect(dependencyDialog.getByText('AuthService', { exact: true })).toBeVisible()
+        await expect(dependencyDialog.getByText('Target', { exact: true })).toBeVisible()
+        await expect(dependencyDialog.getByText('IOrder', { exact: true })).toBeVisible()
+        await expect(dependencyDialog.getByText('Auth To Order', { exact: true })).toBeVisible()
 
         expect(await getDiagramTransform(svgContainer)).toBe(zoomedTransform)
+    })
+
+    test('shows implementation details when hovering an implementation link', async ({ page }) => {
+        await loadAppWithFixture(page, makeLocalStorageValueWithDependency())
+        await page.getByRole('treeitem').filter({ hasText: 'AuthService' }).first().click()
+
+        const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
+        await svgContainer.waitFor({ timeout: 5000 })
+        await expect(svgContainer.locator('svg')).toBeVisible()
+
+        const implementationHitTarget = page.locator('[data-integra-edge-hit-target="true"]').first()
+        const hitTargetBox = await implementationHitTarget.boundingBox()
+        expect(hitTargetBox).not.toBeNull()
+        await implementationHitTarget.dispatchEvent('mousemove', {
+            bubbles: true,
+            clientX: hitTargetBox!.x + hitTargetBox!.width / 2,
+            clientY: hitTargetBox!.y + hitTargetBox!.height / 2,
+        })
+
+        const implementationDialog = page.locator('div.fixed.z-50').filter({
+            has: page.getByText('Implementation details', { exact: true }),
+        })
+        await expect(implementationDialog).toBeVisible()
+        await expect(implementationDialog.getByText('Component', { exact: true })).toBeVisible()
+        await expect(implementationDialog.getByText('AuthService', { exact: true })).toBeVisible()
+        await expect(implementationDialog.getByText('Interface', { exact: true })).toBeVisible()
+        await expect(implementationDialog.getByText('IAuth', { exact: true })).toBeVisible()
     })
 })
 

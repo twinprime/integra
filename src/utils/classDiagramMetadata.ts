@@ -3,9 +3,24 @@ export type SequenceDiagramSource = {
     name: string
 }
 
-export type ClassDiagramRelationshipMetadata = {
+type ClassDiagramRelationshipBase = {
+    sourceName: string
+    targetName: string
+}
+
+export type DependencyRelationshipMetadata = ClassDiagramRelationshipBase & {
+    kind: 'dependency'
     sequenceDiagrams: SequenceDiagramSource[]
 }
+
+export type ImplementationRelationshipMetadata = ClassDiagramRelationshipBase & {
+    kind: 'implementation'
+    sequenceDiagrams: SequenceDiagramSource[]
+}
+
+export type ClassDiagramRelationshipMetadata =
+    | DependencyRelationshipMetadata
+    | ImplementationRelationshipMetadata
 
 export type ClassDiagramBuildResult = {
     mermaidContent: string
@@ -29,9 +44,28 @@ export function addSequenceDiagramSource(
     target.set(diagram.uuid, { uuid: diagram.uuid, name: diagram.name })
 }
 
-export function toRelationshipMetadata(
+export function createDependencyRelationshipMetadata(
+    sourceName: string,
+    targetName: string,
     sourceMap: Map<string, SequenceDiagramSource>
-): ClassDiagramRelationshipMetadata | null {
+): DependencyRelationshipMetadata | null {
     if (sourceMap.size === 0) return null
-    return { sequenceDiagrams: Array.from(sourceMap.values()) }
+    return {
+        kind: 'dependency',
+        sourceName,
+        targetName,
+        sequenceDiagrams: Array.from(sourceMap.values()),
+    }
+}
+
+export function createImplementationRelationshipMetadata(
+    sourceName: string,
+    targetName: string
+): ImplementationRelationshipMetadata {
+    return {
+        kind: 'implementation',
+        sourceName,
+        targetName,
+        sequenceDiagrams: [],
+    }
 }

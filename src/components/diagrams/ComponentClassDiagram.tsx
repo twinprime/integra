@@ -17,7 +17,7 @@ export const ComponentClassDiagram = ({ componentNode }: ComponentClassDiagramPr
         handleDiagramClick,
         handleDiagramMouseMove,
         handleDiagramMouseLeave,
-        activeSequenceDiagrams,
+        activeRelationship,
         activePopupPosition,
         isPopupPinned,
         clearActiveSequenceDiagrams,
@@ -54,7 +54,7 @@ export const ComponentClassDiagram = ({ componentNode }: ComponentClassDiagramPr
                 <div ref={elementRef} className="flex-1" style={{ minHeight: '100px' }} />
             )}
             <DependencySourceDialog
-                sources={activeSequenceDiagrams}
+                relationship={activeRelationship}
                 position={activePopupPosition}
                 pinned={isPopupPinned}
                 onClose={clearActiveSequenceDiagrams}

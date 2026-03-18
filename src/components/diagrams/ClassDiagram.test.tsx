@@ -45,6 +45,7 @@ function makeHookState(overrides: Record<string, unknown> = {}) {
         handleDiagramClick: vi.fn(),
         handleDiagramMouseMove: vi.fn(),
         handleDiagramMouseLeave: vi.fn(),
+        activeRelationship: null,
         activeSequenceDiagrams: [],
         activePopupPosition: null,
         isPopupPinned: false,
@@ -154,12 +155,62 @@ describe('ComponentClassDiagram — error display', () => {
                 svg: '<svg>ok</svg>',
                 activeSequenceDiagrams: [{ uuid: 'seq-1', name: 'Checkout Flow' }],
                 activePopupPosition: { x: 100, y: 120 },
+                activeRelationship: {
+                    kind: 'dependency',
+                    sourceName: 'Source',
+                    targetName: 'Target',
+                    sequenceDiagrams: [{ uuid: 'seq-1', name: 'Checkout Flow' }],
+                },
             })
         )
         render(<ComponentClassDiagram componentNode={makeCompNode()} />)
 
         expect(screen.getByText('Derived from sequence diagrams')).toBeInTheDocument()
         expect(screen.getByText('Checkout Flow')).toBeInTheDocument()
+    })
+
+    it('shows dependency source and target names in the popup', () => {
+        mockUseCompClass.mockReturnValue(
+            makeHookState({
+                svg: '<svg>ok</svg>',
+                activeSequenceDiagrams: [{ uuid: 'seq-1', name: 'Checkout Flow' }],
+                activePopupPosition: { x: 100, y: 120 },
+                activeRelationship: {
+                    kind: 'dependency',
+                    sourceName: 'AuthService',
+                    targetName: 'IOrder',
+                    sequenceDiagrams: [{ uuid: 'seq-1', name: 'Checkout Flow' }],
+                },
+            })
+        )
+        render(<ComponentClassDiagram componentNode={makeCompNode()} />)
+
+        expect(screen.getByText('Source')).toBeInTheDocument()
+        expect(screen.getByText('AuthService')).toBeInTheDocument()
+        expect(screen.getByText('Target')).toBeInTheDocument()
+        expect(screen.getByText('IOrder')).toBeInTheDocument()
+    })
+
+    it('shows implementation component and interface details in the popup', () => {
+        mockUseCompClass.mockReturnValue(
+            makeHookState({
+                svg: '<svg>ok</svg>',
+                activePopupPosition: { x: 100, y: 120 },
+                activeRelationship: {
+                    kind: 'implementation',
+                    sourceName: 'AuthService',
+                    targetName: 'IAuth',
+                    sequenceDiagrams: [],
+                },
+            })
+        )
+        render(<ComponentClassDiagram componentNode={makeCompNode()} />)
+
+        expect(screen.getByText('Implementation details')).toBeInTheDocument()
+        expect(screen.getByText('Component')).toBeInTheDocument()
+        expect(screen.getByText('AuthService')).toBeInTheDocument()
+        expect(screen.getByText('Interface')).toBeInTheDocument()
+        expect(screen.getByText('IAuth')).toBeInTheDocument()
     })
 
     it('routes popup actions back to the hook callbacks', async () => {
@@ -172,6 +223,12 @@ describe('ComponentClassDiagram — error display', () => {
                 activeSequenceDiagrams: [{ uuid: 'seq-1', name: 'Checkout Flow' }],
                 activePopupPosition: { x: 100, y: 120 },
                 isPopupPinned: true,
+                activeRelationship: {
+                    kind: 'dependency',
+                    sourceName: 'Source',
+                    targetName: 'Target',
+                    sequenceDiagrams: [{ uuid: 'seq-1', name: 'Checkout Flow' }],
+                },
                 clearActiveSequenceDiagrams,
                 selectSequenceDiagram,
             })

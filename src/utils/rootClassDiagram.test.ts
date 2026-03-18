@@ -260,6 +260,12 @@ describe('buildRootClassDiagram', () => {
         const result = buildRootClassDiagram(root)
         expect(result.mermaidContent).toContain('compA ..|> iface_ifoo_uuid')
         expect(result.mermaidContent).toContain('compB ..|> iface_ibaz_uuid')
+        expect(result.relationshipMetadata).toContainEqual({
+            kind: 'implementation',
+            sourceName: 'Component A',
+            targetName: 'IFoo',
+            sequenceDiagrams: [],
+        })
     })
 
     it('renders separate interface boxes when direct children share the same interface id', () => {
@@ -328,6 +334,9 @@ describe('buildRootClassDiagram', () => {
         const result = buildRootClassDiagram(root)
 
         expect(result.relationshipMetadata).toContainEqual({
+            kind: 'dependency',
+            sourceName: 'Component A',
+            targetName: 'IBaz',
             sequenceDiagrams: [{ uuid: 'seq-uuid', name: 'Seq' }],
         })
     })
@@ -492,6 +501,9 @@ describe('buildRootClassDiagram', () => {
 
         expect(result.mermaidContent).toContain('compA ..> iface_ibaz_uuid')
         expect(result.relationshipMetadata).toContainEqual({
+            kind: 'dependency',
+            sourceName: 'Component A',
+            targetName: 'IBaz',
             sequenceDiagrams: [{ uuid: 'shared-seq-uuid', name: 'Shared Flow' }],
         })
     })

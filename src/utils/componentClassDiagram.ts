@@ -1,3 +1,4 @@
+/* eslint-disable max-lines */
 import type { ComponentNode, SequenceDiagramNode } from '../store/types'
 import { findNode, findParentNode } from '../nodes/nodeTree'
 import { findOwnerActorOrComponentUuidById } from './diagramResolvers'
@@ -12,8 +13,9 @@ import { getInterfaceDiagramNodeId } from './classDiagramNodeIds'
 import { emitInterfaceClass, emitParticipantClass } from './classDiagramRendering'
 import {
     addSequenceDiagramSource,
+    createDependencyRelationshipMetadata,
+    createImplementationRelationshipMetadata,
     createSequenceDiagramSourceMap,
-    toRelationshipMetadata,
     type ClassDiagramBuildResult,
 } from './classDiagramMetadata'
 type ParticipantKind = 'actor' | 'component'
@@ -244,7 +246,9 @@ export function buildComponentClassDiagram(
     const dependentParticipants = new Map<string, Participant>()
     const depArrows: Array<{
         fromNodeId: string
+        fromName: string
         toNodeId: string
+        toName: string
         isViolation: boolean
         sequenceSources: SequenceDiagramSources
     }> = []
@@ -336,7 +340,9 @@ export function buildComponentClassDiagram(
                     depArrowSources.set(arrowKey, sequenceSources)
                     depArrows.push({
                         fromNodeId: sender.nodeId,
+                        fromName: sender.name,
                         toNodeId: ownInterfaceNodeId,
+                        toName: ownInterface.name,
                         isViolation,
                         sequenceSources,
                     })
@@ -411,16 +417,24 @@ export function buildComponentClassDiagram(
 
     const addRelationship = (
         line: string,
-        metadata: ReturnType<typeof toRelationshipMetadata> = null
+        metadata: ClassDiagramBuildResult['relationshipMetadata'][number] = null
     ): void => {
         lines.push(line)
         relationshipMetadata.push(metadata)
     }
-    const addRealizationRelationship = (fromNodeId: string, toNodeId: string): void => {
+    const addRealizationRelationship = (
+        fromNodeId: string,
+        toNodeId: string,
+        sourceName: string,
+        targetName: string
+    ): void => {
         const key = `${fromNodeId}|${toNodeId}`
         if (emittedRealizationRelationships.has(key)) return
         emittedRealizationRelationships.add(key)
-        addRelationship(`    ${fromNodeId} ..|> ${toNodeId}`)
+        addRelationship(
+            `    ${fromNodeId} ..|> ${toNodeId}`,
+            createImplementationRelationshipMetadata(sourceName, targetName)
+        )
     }
 
     lines.push(`    class ${component.id}["${component.name}"]`)
@@ -437,7 +451,12 @@ export function buildComponentClassDiagram(
         )
     }
     for (const iface of component.interfaces ?? []) {
-        addRealizationRelationship(component.id, getInterfaceDiagramNodeId(iface))
+        addRealizationRelationship(
+            component.id,
+            getInterfaceDiagramNodeId(iface),
+            component.name,
+            iface.name
+        )
     }
 
     for (const participant of visibleParticipants.values()) {
@@ -446,11 +465,13 @@ export function buildComponentClassDiagram(
     }
 
     // ── Dependents (callers of this component's interfaces) ───────────────────
-    for (const { fromNodeId, toNodeId, isViolation } of depArrows) {
+    for (const { fromNodeId, fromName, toNodeId, toName, isViolation } of depArrows) {
         const arrowKey = `${fromNodeId}|${toNodeId}`
         addRelationship(
             `    ${fromNodeId} ..> ${toNodeId}`,
-            toRelationshipMetadata(
+            createDependencyRelationshipMetadata(
+                fromName,
+                toName,
                 depArrowSources.get(arrowKey) ?? createSequenceDiagramSourceMap()
             )
         )
@@ -497,12 +518,19 @@ export function buildComponentClassDiagram(
                         interfaceNodeId,
                         calledFunctionIds
                     )
-                    addRealizationRelationship(receiver.nodeId, interfaceNodeId)
+                    addRealizationRelationship(
+                        receiver.nodeId,
+                        interfaceNodeId,
+                        receiver.name,
+                        ifaceSpec.name
+                    )
                 }
                 if (receiverNode && ifaceSpec) hasInterfaceArrow = true
                 addRelationship(
                     `    ${sender.nodeId} ..> ${receiverNode && ifaceSpec ? getInterfaceDiagramNodeId(ifaceSpec) : ifaceId}`,
-                    toRelationshipMetadata(
+                    createDependencyRelationshipMetadata(
+                        sender.name,
+                        receiverNode && ifaceSpec ? ifaceSpec.name : ifaceId,
                         outgoingSourcesBySender
                             .get(senderUuid)
                             ?.get(receiverActualUuid)
@@ -523,7 +551,11 @@ export function buildComponentClassDiagram(
                 }
                 addRelationship(
                     `    ${sender.nodeId} ..> ${receiver.nodeId}`,
-                    toRelationshipMetadata(receiverSources)
+                    createDependencyRelationshipMetadata(
+                        sender.name,
+                        receiver.name,
+                        receiverSources
+                    )
                 )
             }
         }

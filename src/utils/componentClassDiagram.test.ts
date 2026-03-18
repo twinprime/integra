@@ -70,6 +70,12 @@ describe('buildComponentClassDiagram', () => {
         const result = buildComponentClassDiagram(getCompA(root), root)
         expect(result.mermaidContent).toContain('compA ..|> iface_ifoo_uuid')
         expect(result.mermaidContent).toContain('compA ..|> iface_ibar_uuid')
+        expect(result.relationshipMetadata).toContainEqual({
+            kind: 'implementation',
+            sourceName: 'Component A',
+            targetName: 'IFoo',
+            sequenceDiagrams: [],
+        })
     })
 
     it('includes click handler for the component itself', () => {
@@ -98,6 +104,9 @@ describe('buildComponentClassDiagram', () => {
         const result = buildComponentClassDiagram(getCompA(root), root)
 
         expect(result.relationshipMetadata).toContainEqual({
+            kind: 'dependency',
+            sourceName: 'User',
+            targetName: 'IFoo',
             sequenceDiagrams: [{ uuid: 'seq-uuid', name: 'Seq' }],
         })
     })

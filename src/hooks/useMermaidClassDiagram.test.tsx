@@ -7,7 +7,11 @@ import { useMermaidClassDiagram } from './useMermaidClassDiagram'
 import type { ComponentNode } from '../store/types'
 import type { SystemState } from '../store/useSystemStore'
 import type { RenderResult } from 'mermaid'
-import type { ClassDiagramBuildResult } from '../utils/classDiagramMetadata'
+import type {
+    ClassDiagramBuildResult,
+    ClassDiagramRelationshipMetadata,
+    SequenceDiagramSource,
+} from '../utils/classDiagramMetadata'
 
 vi.mock('mermaid', () => ({
     default: {
@@ -51,6 +55,17 @@ const defaultBuildResult: ClassDiagramBuildResult = {
     mermaidContent: 'classDiagram\n  class Foo',
     idToUuid: { Foo: 'uuid-foo' },
     relationshipMetadata: [],
+}
+
+function makeDependencyRelationship(
+    sequenceDiagrams: SequenceDiagramSource[]
+): ClassDiagramRelationshipMetadata {
+    return {
+        kind: 'dependency',
+        sourceName: 'Source',
+        targetName: 'Target',
+        sequenceDiagrams,
+    }
 }
 
 const mockBuildFn = vi.fn()
@@ -257,7 +272,7 @@ describe('useMermaidClassDiagram', () => {
                     mermaidContent: 'classDiagram\n  A ..> B\n  B ..|> C',
                     idToUuid: {},
                     relationshipMetadata: [
-                        { sequenceDiagrams: [{ uuid: 'seq-1', name: 'Checkout Flow' }] },
+                        makeDependencyRelationship([{ uuid: 'seq-1', name: 'Checkout Flow' }]),
                         null,
                     ],
                 }}
@@ -276,6 +291,56 @@ describe('useMermaidClassDiagram', () => {
         expect(
             screen.getByTestId('diagram').querySelector('[data-integra-edge-hit-target="true"]')
         ).not.toBeNull()
+    })
+
+    it('annotates implementation edges and pins their popup on click', async () => {
+        vi.mocked(mermaid.render).mockResolvedValueOnce({
+            svg: `
+        <svg>
+          <g class="edgePaths">
+            <path data-edge="true" data-id="edge-0"></path>
+          </g>
+          <g class="edgeLabels">
+            <g class="edgeLabel"><g class="label" data-id="edge-0"><foreignObject><div>Implements</div></foreignObject></g></g>
+          </g>
+        </svg>
+      `,
+            diagramType: 'classDiagram',
+            bindFunctions: undefined,
+        } satisfies RenderResult)
+
+        render(
+            <HookHarness
+                buildResult={{
+                    mermaidContent: 'classDiagram\n  A ..|> B',
+                    idToUuid: {},
+                    relationshipMetadata: [
+                        {
+                            kind: 'implementation',
+                            sourceName: 'AuthService',
+                            targetName: 'IAuth',
+                            sequenceDiagrams: [],
+                        } as ClassDiagramBuildResult['relationshipMetadata'][number],
+                    ],
+                }}
+            />
+        )
+
+        await waitFor(() => {
+            expect(
+                screen.getByTestId('diagram').querySelector('[data-integra-edge-index="0"]')
+            ).not.toBeNull()
+        })
+
+        const hitTarget = screen
+            .getByTestId('diagram')
+            .querySelector('[data-integra-edge-hit-target="true"]')
+        expect(hitTarget).not.toBeNull()
+
+        fireEvent.click(hitTarget!, { clientX: 120, clientY: 140 })
+
+        expect(screen.getByTestId('popup-pinned')).toHaveTextContent('true')
+        expect(mockSelectNode).not.toHaveBeenCalled()
     })
 
     it('shows dependency sources on hover', async () => {
@@ -300,7 +365,7 @@ describe('useMermaidClassDiagram', () => {
                     mermaidContent: 'classDiagram\n  A ..> B',
                     idToUuid: {},
                     relationshipMetadata: [
-                        { sequenceDiagrams: [{ uuid: 'seq-1', name: 'Checkout Flow' }] },
+                        makeDependencyRelationship([{ uuid: 'seq-1', name: 'Checkout Flow' }]),
                     ],
                 }}
             />
@@ -345,7 +410,7 @@ describe('useMermaidClassDiagram', () => {
                     mermaidContent: 'classDiagram\n  A ..> B',
                     idToUuid: {},
                     relationshipMetadata: [
-                        { sequenceDiagrams: [{ uuid: 'seq-1', name: 'Checkout Flow' }] },
+                        makeDependencyRelationship([{ uuid: 'seq-1', name: 'Checkout Flow' }]),
                     ],
                 }}
             />
@@ -391,7 +456,7 @@ describe('useMermaidClassDiagram', () => {
                     mermaidContent: 'classDiagram\n  A ..> B',
                     idToUuid: {},
                     relationshipMetadata: [
-                        { sequenceDiagrams: [{ uuid: 'seq-1', name: 'Checkout Flow' }] },
+                        makeDependencyRelationship([{ uuid: 'seq-1', name: 'Checkout Flow' }]),
                     ],
                 }}
             />
@@ -439,7 +504,7 @@ describe('useMermaidClassDiagram', () => {
                     mermaidContent: 'classDiagram\n  A ..> B',
                     idToUuid: {},
                     relationshipMetadata: [
-                        { sequenceDiagrams: [{ uuid: 'seq-1', name: 'Checkout Flow' }] },
+                        makeDependencyRelationship([{ uuid: 'seq-1', name: 'Checkout Flow' }]),
                     ],
                 }}
             />
@@ -483,12 +548,10 @@ describe('useMermaidClassDiagram', () => {
                     mermaidContent: 'classDiagram\n  A ..> B',
                     idToUuid: {},
                     relationshipMetadata: [
-                        {
-                            sequenceDiagrams: [
-                                { uuid: 'seq-1', name: 'Checkout Flow' },
-                                { uuid: 'seq-2', name: 'Retry Flow' },
-                            ],
-                        },
+                        makeDependencyRelationship([
+                            { uuid: 'seq-1', name: 'Checkout Flow' },
+                            { uuid: 'seq-2', name: 'Retry Flow' },
+                        ]),
                     ],
                 }}
             />
@@ -533,12 +596,10 @@ describe('useMermaidClassDiagram', () => {
                     mermaidContent: 'classDiagram\n  A ..> B',
                     idToUuid: {},
                     relationshipMetadata: [
-                        {
-                            sequenceDiagrams: [
-                                { uuid: 'seq-1', name: 'Checkout Flow' },
-                                { uuid: 'seq-2', name: 'Retry Flow' },
-                            ],
-                        },
+                        makeDependencyRelationship([
+                            { uuid: 'seq-1', name: 'Checkout Flow' },
+                            { uuid: 'seq-2', name: 'Retry Flow' },
+                        ]),
                     ],
                 }}
             />

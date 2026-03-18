@@ -1,7 +1,7 @@
-import type { SequenceDiagramSource } from '../../utils/classDiagramMetadata'
+import type { ClassDiagramRelationshipMetadata } from '../../utils/classDiagramMetadata'
 
 type DependencySourceDialogProps = {
-    sources: SequenceDiagramSource[]
+    relationship: ClassDiagramRelationshipMetadata | null
     position: { x: number; y: number } | null
     pinned: boolean
     onClose: () => void
@@ -11,7 +11,7 @@ type DependencySourceDialogProps = {
 }
 
 export function DependencySourceDialog({
-    sources,
+    relationship,
     position,
     pinned,
     onClose,
@@ -19,7 +19,10 @@ export function DependencySourceDialog({
     onMouseEnter,
     onMouseLeave,
 }: DependencySourceDialogProps) {
-    if (sources.length === 0 || !position) return null
+    if (!relationship || !position) return null
+
+    const isDependency = relationship.kind === 'dependency'
+    const sources = relationship.sequenceDiagrams
 
     return (
         <div
@@ -35,10 +38,12 @@ export function DependencySourceDialog({
             <div className="flex items-start justify-between gap-4 px-4 py-3 border-b border-gray-700">
                 <div>
                     <h2 className="text-sm font-semibold text-gray-100">
-                        Derived from sequence diagrams
+                        {isDependency ? 'Derived from sequence diagrams' : 'Implementation details'}
                     </h2>
                     <p className="mt-1 text-xs text-gray-400">
-                        Select a sequence diagram to inspect the dependency source.
+                        {isDependency
+                            ? 'Inspect the dependency endpoints or select a sequence diagram to trace it.'
+                            : 'Inspect the component and interface linked by this implementation.'}
                     </p>
                 </div>
                 {pinned && (
@@ -52,19 +57,28 @@ export function DependencySourceDialog({
                 )}
             </div>
 
-            <ul className="p-3 space-y-2">
-                {sources.map((source) => (
-                    <li key={source.uuid}>
-                        <button
-                            type="button"
-                            className="w-full rounded border border-gray-700 px-3 py-2 text-left text-sm text-blue-300 hover:border-blue-500 hover:bg-blue-950/30"
-                            onClick={() => onSelect(source.uuid)}
-                        >
-                            {source.name}
-                        </button>
-                    </li>
-                ))}
-            </ul>
+            <dl className="grid grid-cols-[auto,1fr] gap-x-3 gap-y-2 px-4 py-3 text-sm">
+                <dt className="text-gray-400">{isDependency ? 'Source' : 'Component'}</dt>
+                <dd className="text-gray-100">{relationship.sourceName}</dd>
+                <dt className="text-gray-400">{isDependency ? 'Target' : 'Interface'}</dt>
+                <dd className="text-gray-100">{relationship.targetName}</dd>
+            </dl>
+
+            {isDependency && sources.length > 0 && (
+                <ul className="space-y-2 p-3 pt-0">
+                    {sources.map((source) => (
+                        <li key={source.uuid}>
+                            <button
+                                type="button"
+                                className="w-full rounded border border-gray-700 px-3 py-2 text-left text-sm text-blue-300 hover:border-blue-500 hover:bg-blue-950/30"
+                                onClick={() => onSelect(source.uuid)}
+                            >
+                                {source.name}
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            )}
         </div>
     )
 }

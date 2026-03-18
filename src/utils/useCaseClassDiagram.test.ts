@@ -145,6 +145,12 @@ describe('buildUseCaseClassDiagram', () => {
         const content = `actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething()`
         const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
         expect(result.mermaidContent).toContain('compA ..|> iface_ifoo_uuid')
+        expect(result.relationshipMetadata).toContainEqual({
+            kind: 'implementation',
+            sourceName: 'Component A',
+            targetName: 'IFoo',
+            sequenceDiagrams: [],
+        })
     })
 
     it('renders separate interface boxes when multiple participants share the same interface id', () => {
@@ -207,6 +213,9 @@ describe('buildUseCaseClassDiagram', () => {
         const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
 
         expect(result.relationshipMetadata).toContainEqual({
+            kind: 'dependency',
+            sourceName: 'Component A',
+            targetName: 'Component B',
             sequenceDiagrams: [{ uuid: 'seq-uuid', name: 'Sequence Diagram' }],
         })
     })
@@ -421,9 +430,15 @@ describe('buildUseCaseClassDiagram', () => {
         expect(result.mermaidContent).toContain('+getAll(page: number?)')
         expect(result.mermaidContent.match(/\+doSomething/g) ?? []).toHaveLength(1)
         expect(result.relationshipMetadata).toContainEqual({
+            kind: 'dependency',
+            sourceName: 'Component B',
+            targetName: 'IFoo',
             sequenceDiagrams: [{ uuid: 'shared-seq-uuid', name: 'Shared Flow' }],
         })
         expect(result.relationshipMetadata).toContainEqual({
+            kind: 'dependency',
+            sourceName: 'Component B',
+            targetName: 'IBar',
             sequenceDiagrams: [{ uuid: 'secondary-seq-uuid', name: 'Secondary Flow' }],
         })
     })

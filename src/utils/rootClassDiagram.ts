@@ -11,8 +11,9 @@ import { getInterfaceDiagramNodeId } from './classDiagramNodeIds'
 import { emitInterfaceClass, emitParticipantClass } from './classDiagramRendering'
 import {
     addSequenceDiagramSource,
+    createDependencyRelationshipMetadata,
+    createImplementationRelationshipMetadata,
     createSequenceDiagramSourceMap,
-    toRelationshipMetadata,
     type ClassDiagramBuildResult,
 } from './classDiagramMetadata'
 
@@ -188,10 +189,11 @@ export function buildRootClassDiagram(rootComponent: ComponentNode): ClassDiagra
     const lines: string[] = ['---', 'config:', '  layout: elk', '---', 'classDiagram']
     const idToUuid: Record<string, string> = {}
     const relationshipMetadata: ClassDiagramBuildResult['relationshipMetadata'] = []
+    const interfaceNamesByNodeId = new Map<string, string>()
 
     const addRelationship = (
         line: string,
-        metadata: ReturnType<typeof toRelationshipMetadata> = null
+        metadata: ClassDiagramBuildResult['relationshipMetadata'][number] = null
     ): void => {
         lines.push(line)
         relationshipMetadata.push(metadata)
@@ -207,6 +209,7 @@ export function buildRootClassDiagram(rootComponent: ComponentNode): ClassDiagra
 
         for (const iface of child.interfaces ?? []) {
             const interfaceNodeId = getInterfaceDiagramNodeId(iface)
+            interfaceNamesByNodeId.set(interfaceNodeId, iface.name)
             emitInterfaceClass(
                 iface,
                 child,
@@ -215,7 +218,10 @@ export function buildRootClassDiagram(rootComponent: ComponentNode): ClassDiagra
                 interfaceNodeId,
                 calledFunctionsByInterface.get(interfaceNodeId)
             )
-            addRelationship(`    ${child.id} ..|> ${interfaceNodeId}`)
+            addRelationship(
+                `    ${child.id} ..|> ${interfaceNodeId}`,
+                createImplementationRelationshipMetadata(child.name, iface.name)
+            )
         }
     }
 
@@ -235,7 +241,9 @@ export function buildRootClassDiagram(rootComponent: ComponentNode): ClassDiagra
         for (const [ifaceId] of ifaceMap) {
             addRelationship(
                 `    ${sender.nodeId} ..> ${ifaceId}`,
-                toRelationshipMetadata(
+                createDependencyRelationshipMetadata(
+                    sender.name,
+                    interfaceNamesByNodeId.get(ifaceId) ?? ifaceId,
                     dependencySources.get(senderUuid)?.get(ifaceId) ??
                         createSequenceDiagramSourceMap()
                 )

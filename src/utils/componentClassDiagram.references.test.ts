@@ -41,6 +41,9 @@ describe('buildComponentClassDiagram reference traversal', () => {
 
         expect(result.mermaidContent).toContain(`compB ..> ${fooNodeId}`)
         expect(result.relationshipMetadata).toContainEqual({
+            kind: 'dependency',
+            sourceName: 'Component B',
+            targetName: 'IFoo',
             sequenceDiagrams: [{ uuid: 'shared-seq-uuid', name: 'Shared Flow' }],
         })
     })
@@ -111,9 +114,15 @@ describe('buildComponentClassDiagram reference traversal', () => {
             result.mermaidContent.match(new RegExp(`compB \\.\\.> ${fooNodeId}`, 'g')) ?? []
         ).toHaveLength(1)
         expect(result.relationshipMetadata).toContainEqual({
+            kind: 'dependency',
+            sourceName: 'Component B',
+            targetName: 'IFoo',
             sequenceDiagrams: [{ uuid: 'secondary-a-uuid', name: 'Secondary A' }],
         })
         expect(result.relationshipMetadata).toContainEqual({
+            kind: 'dependency',
+            sourceName: 'Component B',
+            targetName: 'IBar',
             sequenceDiagrams: [{ uuid: 'secondary-b-uuid', name: 'Secondary B' }],
         })
     })

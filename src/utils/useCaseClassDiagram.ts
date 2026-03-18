@@ -10,8 +10,9 @@ import { getInterfaceDiagramNodeId } from './classDiagramNodeIds'
 import { emitParticipantClass } from './classDiagramRendering'
 import {
     addSequenceDiagramSource,
+    createDependencyRelationshipMetadata,
+    createImplementationRelationshipMetadata,
     createSequenceDiagramSourceMap,
-    toRelationshipMetadata,
     type ClassDiagramBuildResult,
 } from './classDiagramMetadata'
 
@@ -26,11 +27,14 @@ type Participant = {
 
 type Arrow = {
     fromNodeId: string
+    fromName: string
     toNodeId: string
+    toName: string
     sequenceSources: Map<string, { uuid: string; name: string }>
 }
 type InterfaceEntry = {
     componentNodeId: string
+    componentName: string
     interfaceNodeId: string
     interfaceName: string
 }
@@ -118,7 +122,9 @@ function processMessages(
                     state.depsSet.add(key)
                     state.deps.push({
                         fromNodeId: sender.nodeId,
+                        fromName: sender.name,
                         toNodeId: interfaceNodeId,
+                        toName: receiverInterface.name,
                         sequenceSources: createSequenceDiagramSourceMap(),
                     })
                 }
@@ -138,6 +144,7 @@ function processMessages(
                     state.interfacesSet.add(key)
                     state.interfaces.push({
                         componentNodeId: ownerComp.nodeId,
+                        componentName: ownerComp.name,
                         interfaceNodeId,
                         interfaceName: receiverInterface.name,
                     })
@@ -156,7 +163,9 @@ function processMessages(
                     state.depsSet.add(key)
                     state.directArrows.push({
                         fromNodeId: sender.nodeId,
+                        fromName: sender.name,
                         toNodeId: receiver.nodeId,
+                        toName: receiver.name,
                         sequenceSources: createSequenceDiagramSourceMap(),
                     })
                 }
@@ -183,7 +192,7 @@ function buildMermaidLines(
 
     const addRelationship = (
         line: string,
-        metadata: ReturnType<typeof toRelationshipMetadata> = null
+        metadata: ClassDiagramBuildResult['relationshipMetadata'][number] = null
     ): void => {
         lines.push(line)
         relationshipMetadata.push(metadata)
@@ -205,19 +214,22 @@ function buildMermaidLines(
         lines.push(`    }`)
     }
 
-    for (const { componentNodeId, interfaceNodeId } of interfaces) {
-        addRelationship(`    ${componentNodeId} ..|> ${interfaceNodeId}`)
-    }
-    for (const { fromNodeId, toNodeId, sequenceSources } of deps) {
+    for (const { componentNodeId, componentName, interfaceNodeId, interfaceName } of interfaces) {
         addRelationship(
-            `    ${fromNodeId} ..> ${toNodeId}`,
-            toRelationshipMetadata(sequenceSources)
+            `    ${componentNodeId} ..|> ${interfaceNodeId}`,
+            createImplementationRelationshipMetadata(componentName, interfaceName)
         )
     }
-    for (const { fromNodeId, toNodeId, sequenceSources } of directArrows) {
+    for (const { fromNodeId, fromName, toNodeId, toName, sequenceSources } of deps) {
         addRelationship(
             `    ${fromNodeId} ..> ${toNodeId}`,
-            toRelationshipMetadata(sequenceSources)
+            createDependencyRelationshipMetadata(fromName, toName, sequenceSources)
+        )
+    }
+    for (const { fromNodeId, fromName, toNodeId, toName, sequenceSources } of directArrows) {
+        addRelationship(
+            `    ${fromNodeId} ..> ${toNodeId}`,
+            createDependencyRelationshipMetadata(fromName, toName, sequenceSources)
         )
     }
 
