@@ -121,6 +121,7 @@ export const MarkdownEditor = ({
                 onChange={(v) => onChange(v ?? '')}
                 preview="edit"
                 height={height}
+                autoFocus={true}
                 textareaProps={{ placeholder, onBlur }}
                 previewOptions={{
                     components: {
