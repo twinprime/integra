@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import type { ComponentNode } from '../../store/types'
 import { TreeNode } from './TreeNode'
 import type { SystemState } from '../../store/useSystemStore'
@@ -12,9 +13,14 @@ vi.mock('../../utils/nodeUtils', () => ({
     isNodeOrphaned: vi.fn(() => false),
 }))
 
-vi.mock('../../nodes/nodeTree', () => ({
-    getNodeHandler: vi.fn(() => ({ orphanWhenUnreferenced: false })),
-}))
+vi.mock('../../nodes/nodeTree', async () => {
+    const actual =
+        await vi.importActual<typeof import('../../nodes/nodeTree')>('../../nodes/nodeTree')
+    return {
+        ...actual,
+        getNodeHandler: vi.fn(() => ({ orphanWhenUnreferenced: false })),
+    }
+})
 
 vi.mock('./NodeIcon', () => ({
     NodeIcon: () => <span data-testid="node-icon" />,
@@ -64,14 +70,14 @@ function makeComponentNode(): ComponentNode {
         id: 'root',
         name: 'Root Component',
         type: 'component',
-        description: '',
+        description: '<!-- TODO Review root roadmap -->',
         subComponents: [
             {
                 uuid: 'child-uuid',
                 id: 'child',
                 name: 'Child Component',
                 type: 'component',
-                description: '',
+                description: '<!-- TODO Validate child contract -->',
                 subComponents: [],
                 actors: [],
                 useCaseDiagrams: [],
@@ -108,5 +114,46 @@ describe('TreeNode', () => {
         ).not.toBeInTheDocument()
 
         expect(screen.getByText('Child Component')).toBeInTheDocument()
+    })
+
+    it('shows a TODO icon when the node subtree has TODOs', () => {
+        render(<TreeNode node={makeComponentNode()} onContextMenu={vi.fn()} />)
+
+        expect(screen.getByLabelText('Show TODOs for Root Component')).toBeInTheDocument()
+    })
+
+    it('opens the TODO popup and selects the defining node when a TODO is clicked', async () => {
+        const user = userEvent.setup()
+
+        render(<TreeNode node={makeComponentNode()} onContextMenu={vi.fn()} />)
+
+        await user.click(screen.getByLabelText('Show TODOs for Root Component'))
+
+        expect(screen.getByText('Review root roadmap')).toBeInTheDocument()
+        expect(screen.getByText('Validate child contract')).toBeInTheDocument()
+        expect(screen.getAllByText('Child Component')[0]).toBeInTheDocument()
+
+        await user.click(screen.getByText('Validate child contract'))
+
+        expect(mockState.selectNode).toHaveBeenCalledWith('child-uuid')
+    })
+
+    it('hides the TODO icon when the subtree has no TODOs', () => {
+        const rootWithoutTodos: ComponentNode = {
+            ...makeComponentNode(),
+            description: '',
+            subComponents: [{ ...makeComponentNode().subComponents[0], description: '' }],
+        }
+
+        vi.mocked(useSystemStore).mockImplementation((selector: (state: SystemState) => unknown) =>
+            selector({
+                ...mockState,
+                rootComponent: rootWithoutTodos,
+            } as unknown as SystemState)
+        )
+
+        render(<TreeNode node={rootWithoutTodos} onContextMenu={vi.fn()} />)
+
+        expect(screen.queryByLabelText('Show TODOs for Root Component')).not.toBeInTheDocument()
     })
 })

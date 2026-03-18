@@ -84,6 +84,20 @@ toolbar. Click the description area to switch into the full markdown editor;
 when the description is empty, the preview shows a compact **No Description**
 placeholder until you enter edit mode.
 
+#### TODO comments
+
+Nodes can expose a derived TODO list in the tree.
+
+- Add a TODO in description markdown with an HTML comment:
+  `<!-- TODO review naming -->`
+- Add a TODO in diagram text with a line comment:
+  `# TODO review naming`
+
+Each node's TODO indicator aggregates TODOs defined on that node plus all of its
+descendants. Clicking the indicator opens a flat list showing each TODO and the
+node where it is defined; clicking a TODO navigates to that source node in the
+tree. TODOs are derived at runtime and are not saved with the model.
+
 #### Panel Layout
 
 The split-panel layout can be adjusted by dragging the resize handles. Use the **›** button on the right-panel handle to expand/collapse the right panel.

@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState, memo } from 'react'
-import { ChevronRight, ChevronDown, Trash2, GripVertical } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, memo } from 'react'
+import { ChevronRight, ChevronDown, Trash2, GripVertical, ListTodo } from 'lucide-react'
 import { useSystemStore } from '../../store/useSystemStore'
 import type { Node, ComponentNode } from '../../store/types'
 import { isNodeOrphaned } from '../../utils/nodeUtils'
 import { getNodeHandler } from '../../nodes/nodeTree'
 import { NodeIcon } from './NodeIcon'
+import { getAggregatedNodeTodos } from '../../utils/nodeTodos'
+import { NodeTodoPopup } from './NodeTodoPopup'
 import {
     DndContext,
     closestCenter,
@@ -27,21 +29,23 @@ interface SortableChildrenProps {
     onContextMenu: (e: React.MouseEvent, node: Node) => void
 }
 
+function getTreeNodeChildren(node: Node): ReadonlyArray<Node> {
+    if (node.type === 'component') {
+        return [...node.subComponents, ...node.actors, ...node.useCaseDiagrams]
+    }
+    if (node.type === 'use-case-diagram') {
+        return node.useCases
+    }
+    if (node.type === 'use-case') {
+        return node.sequenceDiagrams
+    }
+    return []
+}
+
 function subtreeContainsNode(node: Node, targetUuid: string | null): boolean {
     if (!targetUuid) return false
     if (node.uuid === targetUuid) return true
-    if (node.type === 'component') {
-        return [...node.subComponents, ...node.actors, ...node.useCaseDiagrams].some((child) =>
-            subtreeContainsNode(child, targetUuid)
-        )
-    }
-    if (node.type === 'use-case-diagram') {
-        return node.useCases.some((child) => subtreeContainsNode(child, targetUuid))
-    }
-    if (node.type === 'use-case') {
-        return node.sequenceDiagrams.some((child) => subtreeContainsNode(child, targetUuid))
-    }
-    return false
+    return getTreeNodeChildren(node).some((child) => subtreeContainsNode(child, targetUuid))
 }
 
 /** Renders a SortableContext group of TreeNodes. Must be placed inside a DndContext. */
@@ -56,7 +60,12 @@ const SortableChildren = ({ items, onContextMenu }: SortableChildrenProps) => (
 export const TreeNode = memo(({ node, onContextMenu }: TreeNodeProps) => {
     const [expanded, setExpanded] = useState(true)
     const [hovered, setHovered] = useState(false)
+    const [todoPopupPosition, setTodoPopupPosition] = useState<{ x: number; y: number } | null>(
+        null
+    )
     const rowRef = useRef<HTMLDivElement | null>(null)
+    const todoButtonRef = useRef<HTMLButtonElement | null>(null)
+    const todoPopupRef = useRef<HTMLDivElement | null>(null)
     const selectedNodeId = useSystemStore((state) => state.selectedNodeId)
     const selectNode = useSystemStore((state) => state.selectNode)
     const deleteNode = useSystemStore((state) => state.deleteNode)
@@ -67,15 +76,13 @@ export const TreeNode = memo(({ node, onContextMenu }: TreeNodeProps) => {
     const isDeletable = node.uuid !== rootComponent.uuid && isNodeOrphaned(node, rootComponent)
     const isOrphaned = isDeletable && !!getNodeHandler(node.type).orphanWhenUnreferenced
 
-    let children: ReadonlyArray<Node> = []
-    if (node.type === 'component') {
-        children = [...node.subComponents, ...node.actors, ...node.useCaseDiagrams]
-    } else if (node.type === 'use-case-diagram') {
-        children = node.useCases
-    } else if (node.type === 'use-case') {
-        children = node.sequenceDiagrams
-    }
+    const aggregatedTodos = useMemo(
+        () => getAggregatedNodeTodos(rootComponent, node.uuid),
+        [rootComponent, node.uuid]
+    )
+    const hasTodos = aggregatedTodos.length > 0
 
+    const children = getTreeNodeChildren(node)
     const hasChildren = children.length > 0
 
     const autoExpanded =
@@ -87,6 +94,21 @@ export const TreeNode = memo(({ node, onContextMenu }: TreeNodeProps) => {
             rowRef.current?.scrollIntoView({ block: 'nearest' })
         }
     }, [isSelected])
+
+    useEffect(() => {
+        if (!todoPopupPosition) return
+
+        const handlePointerDown = (event: PointerEvent) => {
+            const target = event.target
+            if (!(target instanceof globalThis.Node)) return
+            if (todoButtonRef.current?.contains(target)) return
+            if (todoPopupRef.current?.contains(target)) return
+            setTodoPopupPosition(null)
+        }
+
+        document.addEventListener('pointerdown', handlePointerDown)
+        return () => document.removeEventListener('pointerdown', handlePointerDown)
+    }, [todoPopupPosition])
 
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: node.uuid,
@@ -116,6 +138,21 @@ export const TreeNode = memo(({ node, onContextMenu }: TreeNodeProps) => {
     const handleDelete = (e: React.MouseEvent) => {
         e.stopPropagation()
         deleteNode(node.uuid)
+    }
+
+    const handleTodoButtonClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+        e.stopPropagation()
+        if (todoPopupPosition) {
+            setTodoPopupPosition(null)
+            return
+        }
+        const rect = e.currentTarget.getBoundingClientRect()
+        setTodoPopupPosition({ x: rect.right, y: rect.top })
+    }
+
+    const handleTodoSelect = (nodeUuid: string) => {
+        selectNode(nodeUuid)
+        setTodoPopupPosition(null)
     }
 
     const style = {
@@ -216,6 +253,17 @@ export const TreeNode = memo(({ node, onContextMenu }: TreeNodeProps) => {
                 >
                     {node.name}
                 </div>
+                {hasTodos && (
+                    <button
+                        ref={todoButtonRef}
+                        type="button"
+                        aria-label={`Show TODOs for ${node.name}`}
+                        className="ml-1 rounded p-0.5 text-amber-400 hover:bg-amber-900/20 hover:text-amber-300"
+                        onClick={handleTodoButtonClick}
+                    >
+                        <ListTodo size={12} />
+                    </button>
+                )}
                 {isDeletable && hovered && (
                     <button
                         className="ml-1 p-0.5 rounded text-gray-500 hover:text-red-400 hover:bg-red-900/20 transition-colors"
@@ -233,6 +281,15 @@ export const TreeNode = memo(({ node, onContextMenu }: TreeNodeProps) => {
                     <GripVertical size={12} />
                 </span>
             </div>
+            {hasTodos && todoPopupPosition && (
+                <div ref={todoPopupRef}>
+                    <NodeTodoPopup
+                        todos={aggregatedTodos}
+                        position={todoPopupPosition}
+                        onSelect={handleTodoSelect}
+                    />
+                </div>
+            )}
 
             {hasChildren && isExpanded && <div>{renderSortableChildren()}</div>}
         </div>
