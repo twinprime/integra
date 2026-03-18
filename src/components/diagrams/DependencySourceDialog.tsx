@@ -40,11 +40,6 @@ export function DependencySourceDialog({
                     <h2 className="text-sm font-semibold text-gray-100">
                         {isDependency ? 'Derived from sequence diagrams' : 'Implementation details'}
                     </h2>
-                    <p className="mt-1 text-xs text-gray-400">
-                        {isDependency
-                            ? 'Inspect the dependency endpoints or select a sequence diagram to trace it.'
-                            : 'Inspect the component and interface linked by this implementation.'}
-                    </p>
                 </div>
                 {pinned && (
                     <button
