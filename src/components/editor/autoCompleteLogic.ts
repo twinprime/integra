@@ -17,7 +17,7 @@ export type Suggestion = {
 export type DiagramType = "sequence-diagram" | "use-case-diagram"
 
 export const UC_KEYWORDS = ["actor", "component", "use case"]
-export const SEQ_KEYWORDS = ["actor", "component", "loop", "alt", "par", "opt", "else", "and", "end", "note over ", "note right of ", "note left of "]
+export const SEQ_KEYWORDS = ["actor", "component", "loop", "alt", "par", "opt", "else", "and", "end", "note over", "note right of", "note left of"]
 
 export type Context =
   | {
