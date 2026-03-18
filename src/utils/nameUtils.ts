@@ -9,4 +9,7 @@
  *   "user_profile" → "User Profile"
  */
 export const deriveNameFromId = (id: string): string =>
-  id.split(/_/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
+    id
+        .split(/_/)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+        .join(' ')

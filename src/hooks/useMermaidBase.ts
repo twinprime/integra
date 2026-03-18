@@ -1,81 +1,90 @@
-import { useEffect, useRef, useState } from "react"
-import mermaid from "mermaid"
-import { useSystemStore } from "../store/useSystemStore"
-import { findNode } from "../nodes/nodeTree"
-import type { ComponentNode, DiagramNode } from "../store/types"
+import { useEffect, useRef, useState } from 'react'
+import mermaid from 'mermaid'
+import elkLayouts from '@mermaid-js/layout-elk'
+import { useSystemStore } from '../store/useSystemStore'
+import { findNode } from '../nodes/nodeTree'
+import type { ComponentNode, DiagramNode } from '../store/types'
 
 declare global {
-  interface Window {
-    __integraNavigate?: (id: string) => void
-    __integraIdMap?: Record<string, string>
-  }
+    interface Window {
+        __integraNavigate?: (id: string) => void
+        __integraIdMap?: Record<string, string>
+    }
 }
 
+mermaid.registerLayoutLoaders(elkLayouts)
 mermaid.initialize({
-  startOnLoad: false,
-  theme: "default",
-  securityLevel: "loose",
+    startOnLoad: false,
+    theme: 'default',
+    securityLevel: 'loose',
 })
 
 export type BuildContent = (
-  content: string,
-  ownerComp: ComponentNode | null,
-  root: ComponentNode,
-  ownerCompUuid: string,
+    content: string,
+    ownerComp: ComponentNode | null,
+    root: ComponentNode,
+    ownerCompUuid: string
 ) => { mermaidContent: string; idToUuid: Record<string, string> }
 
 export function useMermaidBase(diagramNode: DiagramNode | null, buildContent: BuildContent) {
-  const rootComponent = useSystemStore((s) => s.rootComponent)
-  const selectNode = useSystemStore((s) => s.selectNode)
-  const elementRef = useRef<HTMLDivElement>(null)
-  const bindFunctionsRef = useRef<((el: Element) => void) | undefined>(undefined)
-  const [svg, setSvg] = useState("")
-  const [error, setError] = useState("")
-  const [errorDetails, setErrorDetails] = useState("")
-  const [mermaidSource, setMermaidSource] = useState("")
+    const rootComponent = useSystemStore((s) => s.rootComponent)
+    const selectNode = useSystemStore((s) => s.selectNode)
+    const elementRef = useRef<HTMLDivElement>(null)
+    const bindFunctionsRef = useRef<((el: Element) => void) | undefined>(undefined)
+    const [svg, setSvg] = useState('')
+    const [error, setError] = useState('')
+    const [errorDetails, setErrorDetails] = useState('')
+    const [mermaidSource, setMermaidSource] = useState('')
 
-  useEffect(() => {
-    const render = async () => {
-      if (!diagramNode?.content?.trim()) {
-        setSvg("")
-        setError("")
-        setErrorDetails("")
-        setMermaidSource("")
-        return
-      }
-      try {
-        const ownerNode = findNode([rootComponent], diagramNode.ownerComponentUuid)
-        const ownerComp =
-          ownerNode?.type === "component" ? (ownerNode) : null
-        const { mermaidContent, idToUuid } = buildContent(
-          diagramNode.content,
-          ownerComp,
-          rootComponent,
-          diagramNode.ownerComponentUuid,
-        )
-        window.__integraIdMap = idToUuid
-        window.__integraNavigate = (nodeId: string) => {
-          const uuid = window.__integraIdMap?.[nodeId]
-          if (uuid) selectNode(uuid)
+    useEffect(() => {
+        const render = async () => {
+            if (!diagramNode?.content?.trim()) {
+                setSvg('')
+                setError('')
+                setErrorDetails('')
+                setMermaidSource('')
+                return
+            }
+            try {
+                const ownerNode = findNode([rootComponent], diagramNode.ownerComponentUuid)
+                const ownerComp = ownerNode?.type === 'component' ? ownerNode : null
+                const { mermaidContent, idToUuid } = buildContent(
+                    diagramNode.content,
+                    ownerComp,
+                    rootComponent,
+                    diagramNode.ownerComponentUuid
+                )
+                window.__integraIdMap = idToUuid
+                window.__integraNavigate = (nodeId: string) => {
+                    const uuid = window.__integraIdMap?.[nodeId]
+                    if (uuid) selectNode(uuid)
+                }
+                setMermaidSource(mermaidContent)
+                const { svg: renderedSvg, bindFunctions } = await mermaid.render(
+                    `mermaid-${Date.now()}`,
+                    mermaidContent
+                )
+                bindFunctionsRef.current = bindFunctions
+                setSvg(renderedSvg)
+                setError('')
+            } catch (err) {
+                setError('Invalid Diagram Syntax')
+                setErrorDetails(err instanceof Error ? err.message : String(err))
+                setSvg('')
+                console.error(err instanceof Error ? err.stack : err)
+            }
         }
-        setMermaidSource(mermaidContent)
-        const { svg: renderedSvg, bindFunctions } = await mermaid.render(
-          `mermaid-${Date.now()}`,
-          mermaidContent,
-        )
-        bindFunctionsRef.current = bindFunctions
-        setSvg(renderedSvg)
-        setError("")
-      } catch (err) {
-        setError("Invalid Diagram Syntax")
-        setErrorDetails(err instanceof Error ? err.message : String(err))
-        setSvg("")
-        console.error(err instanceof Error ? err.stack : err)
-      }
-    }
-    void render()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [diagramNode, buildContent])
+        void render()
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [diagramNode, buildContent])
 
-  return { svg, error, errorDetails, mermaidSource, bindFunctionsRef, elementRef, selectNode }
+    return {
+        svg,
+        error,
+        errorDetails,
+        mermaidSource,
+        bindFunctionsRef,
+        elementRef,
+        selectNode,
+    }
 }

@@ -1,5 +1,5 @@
-import { test, expect } from "@playwright/test"
-import { makeLocalStorageValue } from "./fixtures/sample-system"
+import { test, expect } from '@playwright/test'
+import { makeLocalStorageValue } from './fixtures/sample-system'
 
 // ─── In-memory mock for window.showDirectoryPicker (save) ─────────────────────
 
@@ -96,153 +96,155 @@ const LOAD_MOCK_SCRIPT = `
 // ─── Shared setup ─────────────────────────────────────────────────────────────
 
 test.beforeEach(async ({ page }) => {
-  const lsValue = makeLocalStorageValue()
-  await page.addInitScript((value) => {
-    localStorage.setItem("integra-system", value)
-  }, lsValue)
+    const lsValue = makeLocalStorageValue()
+    await page.addInitScript((value) => {
+        localStorage.setItem('integra-system', value)
+    }, lsValue)
 })
 
 // ─── Button visibility ────────────────────────────────────────────────────────
 
-test.describe("toolbar button visibility", () => {
-  test("Save button is visible in the toolbar", async ({ page }) => {
-    await page.goto("/")
-    await expect(page.getByTitle("Save system to YAML file")).toBeVisible()
-  })
+test.describe('toolbar button visibility', () => {
+    test('Save button is visible in the toolbar', async ({ page }) => {
+        await page.goto('/')
+        await expect(page.getByTitle('Save system to YAML file')).toBeVisible()
+    })
 
-  test("Load button is visible in the toolbar", async ({ page }) => {
-    await page.goto("/")
-    await expect(page.getByTitle("Load system from YAML file")).toBeVisible()
-  })
+    test('Load button is visible in the toolbar', async ({ page }) => {
+        await page.goto('/')
+        await expect(page.getByTitle('Load system from YAML file')).toBeVisible()
+    })
 })
 
 // ─── Unsaved changes indicator ────────────────────────────────────────────────
 
-test.describe("unsaved changes indicator", () => {
-  test("yellow dot appears after modifying the loaded fixture", async ({ page }) => {
-    await page.goto("/")
+test.describe('unsaved changes indicator', () => {
+    test('yellow dot appears after modifying the loaded fixture', async ({ page }) => {
+        await page.goto('/')
 
-    // No unsaved changes initially
-    await expect(page.getByTitle("Unsaved changes")).not.toBeVisible()
+        // No unsaved changes initially
+        await expect(page.getByTitle('Unsaved changes')).not.toBeVisible()
 
-    // Rename the "Login" use-case node to dirty the state
-    await page.getByRole("treeitem").filter({ hasText: "Login" }).first().click()
-    const idInput = page.getByLabel("Node ID")
-    await idInput.clear()
-    await idInput.fill("SignIn")
-    await idInput.press("Enter")
+        // Rename the "Login" use-case node to dirty the state
+        await page.getByRole('treeitem').filter({ hasText: 'Login' }).first().click()
+        const idInput = page.getByLabel('Node ID')
+        await idInput.clear()
+        await idInput.fill('SignIn')
+        await idInput.press('Enter')
 
-    // The unsaved-changes indicator (yellow dot) should now be visible
-    await expect(page.getByTitle("Unsaved changes")).toBeVisible()
-  })
+        // The unsaved-changes indicator (yellow dot) should now be visible
+        await expect(page.getByTitle('Unsaved changes')).toBeVisible()
+    })
 })
 
 // ─── Save flow (mocked showDirectoryPicker) ───────────────────────────────────
 
-test.describe("save flow with mocked directory picker", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.addInitScript({ content: SAVE_MOCK_SCRIPT })
-  })
+test.describe('save flow with mocked directory picker', () => {
+    test.beforeEach(async ({ page }) => {
+        await page.addInitScript({ content: SAVE_MOCK_SCRIPT })
+    })
 
-  test("clicking Save invokes showDirectoryPicker and writes YAML files", async ({ page }) => {
-    await page.goto("/")
+    test('clicking Save invokes showDirectoryPicker and writes YAML files', async ({ page }) => {
+        await page.goto('/')
 
-    // Make a change so the system is dirty and the save path is meaningful
-    await page.getByRole("treeitem").filter({ hasText: "Login" }).first().click()
-    const idInput = page.getByLabel("Node ID")
-    await idInput.clear()
-    await idInput.fill("SignIn")
-    await idInput.press("Enter")
+        // Make a change so the system is dirty and the save path is meaningful
+        await page.getByRole('treeitem').filter({ hasText: 'Login' }).first().click()
+        const idInput = page.getByLabel('Node ID')
+        await idInput.clear()
+        await idInput.fill('SignIn')
+        await idInput.press('Enter')
 
-    await expect(page.getByTitle("Unsaved changes")).toBeVisible()
+        await expect(page.getByTitle('Unsaved changes')).toBeVisible()
 
-    // Click Save — should trigger the mock picker
-    await page.getByTitle("Save system to YAML file").click()
+        // Click Save — should trigger the mock picker
+        await page.getByTitle('Save system to YAML file').click()
 
-    // Wait for the mock to register the call
-    await page.waitForFunction(() =>
-      (globalThis as unknown as { __pickerCalled: boolean }).__pickerCalled === true,
-    )
+        // Wait for the mock to register the call
+        await page.waitForFunction(
+            () => (globalThis as unknown as { __pickerCalled: boolean }).__pickerCalled === true
+        )
 
-    const pickerCalled = await page.evaluate(
-      () => (globalThis as unknown as { __pickerCalled: boolean }).__pickerCalled,
-    )
-    expect(pickerCalled).toBe(true)
+        const pickerCalled = await page.evaluate(
+            () => (globalThis as unknown as { __pickerCalled: boolean }).__pickerCalled
+        )
+        expect(pickerCalled).toBe(true)
 
-    // At least the root YAML file should have been written
-    const savedFiles = await page.evaluate(
-      () => (globalThis as unknown as { __savedFiles: Record<string, string> }).__savedFiles,
-    )
-    const filenames = Object.keys(savedFiles)
-    expect(filenames.some((f) => f.endsWith(".yaml"))).toBe(true)
-  })
+        // At least the root YAML file should have been written
+        const savedFiles = await page.evaluate(
+            () => (globalThis as unknown as { __savedFiles: Record<string, string> }).__savedFiles
+        )
+        const filenames = Object.keys(savedFiles)
+        expect(filenames.some((f) => f.endsWith('.yaml'))).toBe(true)
+    })
 
-  test("unsaved indicator disappears after a successful save", async ({ page }) => {
-    await page.goto("/")
+    test('unsaved indicator disappears after a successful save', async ({ page }) => {
+        await page.goto('/')
 
-    // Dirty the state
-    await page.getByRole("treeitem").filter({ hasText: "Login" }).first().click()
-    const idInput = page.getByLabel("Node ID")
-    await idInput.clear()
-    await idInput.fill("SignIn")
-    await idInput.press("Enter")
-    await expect(page.getByTitle("Unsaved changes")).toBeVisible()
+        // Dirty the state
+        await page.getByRole('treeitem').filter({ hasText: 'Login' }).first().click()
+        const idInput = page.getByLabel('Node ID')
+        await idInput.clear()
+        await idInput.fill('SignIn')
+        await idInput.press('Enter')
+        await expect(page.getByTitle('Unsaved changes')).toBeVisible()
 
-    // Save
-    await page.getByTitle("Save system to YAML file").click()
-    await page.waitForFunction(() =>
-      (globalThis as unknown as { __pickerCalled: boolean }).__pickerCalled === true,
-    )
+        // Save
+        await page.getByTitle('Save system to YAML file').click()
+        await page.waitForFunction(
+            () => (globalThis as unknown as { __pickerCalled: boolean }).__pickerCalled === true
+        )
 
-    // After a successful save markSaved() is called, so the indicator should vanish
-    await expect(page.getByTitle("Unsaved changes")).not.toBeVisible()
-  })
+        // After a successful save markSaved() is called, so the indicator should vanish
+        await expect(page.getByTitle('Unsaved changes')).not.toBeVisible()
+    })
 
-  test("cancelling the directory picker (AbortError) shows no error alert", async ({ page }) => {
-    // Override to throw AbortError like a real user cancellation
-    await page.addInitScript({
-      content: `
+    test('cancelling the directory picker (AbortError) shows no error alert', async ({ page }) => {
+        // Override to throw AbortError like a real user cancellation
+        await page.addInitScript({
+            content: `
         window.showDirectoryPicker = async function() {
           throw new DOMException('User aborted', 'AbortError');
         };
       `,
+        })
+
+        await page.goto('/')
+
+        // Capture any dialog that appears
+        let alertShown = false
+        page.on('dialog', (dialog) => {
+            alertShown = true
+            void dialog.dismiss()
+        })
+
+        await page.getByTitle('Save system to YAML file').click()
+        // Short wait to let any async alert surface
+        await page.waitForTimeout(300)
+
+        expect(alertShown).toBe(false)
     })
-
-    await page.goto("/")
-
-    // Capture any dialog that appears
-    let alertShown = false
-    page.on("dialog", (dialog) => {
-      alertShown = true
-      void dialog.dismiss()
-    })
-
-    await page.getByTitle("Save system to YAML file").click()
-    // Short wait to let any async alert surface
-    await page.waitForTimeout(300)
-
-    expect(alertShown).toBe(false)
-  })
 })
 
 // ─── Load flow (mocked showDirectoryPicker) ───────────────────────────────────
 
-test.describe("load flow with mocked directory picker", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.addInitScript({ content: LOAD_MOCK_SCRIPT })
-  })
+test.describe('load flow with mocked directory picker', () => {
+    test.beforeEach(async ({ page }) => {
+        await page.addInitScript({ content: LOAD_MOCK_SCRIPT })
+    })
 
-  test("clicking Load reads YAML from the mock directory and updates the tree", async ({ page }) => {
-    await page.goto("/")
+    test('clicking Load reads YAML from the mock directory and updates the tree', async ({
+        page,
+    }) => {
+        await page.goto('/')
 
-    // Dismiss any confirmation dialog (none expected on clean state, but be safe)
-    page.on("dialog", (dialog) => void dialog.accept())
+        // Dismiss any confirmation dialog (none expected on clean state, but be safe)
+        page.on('dialog', (dialog) => void dialog.accept())
 
-    await page.getByTitle("Load system from YAML file").click()
+        await page.getByTitle('Load system from YAML file').click()
 
-    // The root component name "Loaded System" should appear in the tree
-    await expect(
-      page.getByRole("treeitem").filter({ hasText: "Loaded System" }).first(),
-    ).toBeVisible()
-  })
+        // The root component name "Loaded System" should appear in the tree
+        await expect(
+            page.getByRole('treeitem').filter({ hasText: 'Loaded System' }).first()
+        ).toBeVisible()
+    })
 })

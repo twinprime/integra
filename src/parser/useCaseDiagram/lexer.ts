@@ -22,30 +22,30 @@
  *   ===   →  ===    (thick open)
  *   ~~~   →  ~~~    (invisible)
  */
-import { createToken, Lexer } from "chevrotain"
+import { createToken, Lexer } from 'chevrotain'
 import {
-  sharedTokens,
-  Arrow as SharedArrow,
-  Colon as SharedColon,
-  Newline,
-  WhiteSpace,
-  Identifier,
-} from "../tokens"
+    sharedTokens,
+    Arrow as SharedArrow,
+    Colon as SharedColon,
+    Newline,
+    WhiteSpace,
+    Identifier,
+} from '../tokens'
 
 // ─── Arrow token (default_mode only) ─────────────────────────────────────────
 // Longer patterns must come first to prevent prefix matches.
 
 export const UcdArrow = createToken({
-  name: "UcdArrow",
-  pattern: /<-->|o--o|x--x|-\.->|-\.-|===|==>|~~~|-->>|-->|---|--o|--x|->>|--\)|-->|->/,
+    name: 'UcdArrow',
+    pattern: /<-->|o--o|x--x|-\.->|-\.-|===|==>|~~~|-->>|-->|---|--o|--x|->>|--\)|-->|->/,
 })
 
 // ─── Colon that pushes label_mode ─────────────────────────────────────────────
 
 export const UcdColon = createToken({
-  name: "UcdColon",
-  pattern: /:/,
-  push_mode: "label_mode",
+    name: 'UcdColon',
+    pattern: /:/,
+    push_mode: 'label_mode',
 })
 
 // ─── Comment token (default_mode only) ───────────────────────────────────────
@@ -55,25 +55,25 @@ export const UcdColon = createToken({
  * Must be placed before Identifier in the token list so it takes priority.
  */
 export const UcdComment = createToken({
-  name: "UcdComment",
-  pattern: /#[^\r\n]*/,
+    name: 'UcdComment',
+    pattern: /#[^\r\n]*/,
 })
 
 // ─── label_mode tokens ────────────────────────────────────────────────────────
 
 /** Catch-all: rest-of-line text for link labels */
 export const UcdLabelText = createToken({
-  name: "UcdLabelText",
-  pattern: /[^\r\n]+/,
+    name: 'UcdLabelText',
+    pattern: /[^\r\n]+/,
 })
 
 /** Newline that pops label_mode back to default_mode */
 const LabelNewlineExit = createToken({
-  name: "LabelNewlineExit",
-  pattern: /\r?\n/,
-  line_breaks: true,
-  pop_mode: true,
-  categories: [Newline],
+    name: 'LabelNewlineExit',
+    pattern: /\r?\n/,
+    line_breaks: true,
+    pop_mode: true,
+    categories: [Newline],
 })
 
 // ─── Build default_mode token list ───────────────────────────────────────────
@@ -81,35 +81,31 @@ const LabelNewlineExit = createToken({
 // Insert UcdComment before Identifier so `#` is not misidentified.
 
 const defaultModeTokensBase = sharedTokens
-  .map((t) => (t === SharedArrow ? UcdArrow : t))
-  .map((t) => (t === SharedColon ? UcdColon : t))
+    .map((t) => (t === SharedArrow ? UcdArrow : t))
+    .map((t) => (t === SharedColon ? UcdColon : t))
 
 const identifierIdx = defaultModeTokensBase.indexOf(Identifier)
 const defaultModeTokens = [
-  ...defaultModeTokensBase.slice(0, identifierIdx),
-  UcdComment,
-  ...defaultModeTokensBase.slice(identifierIdx),
+    ...defaultModeTokensBase.slice(0, identifierIdx),
+    UcdComment,
+    ...defaultModeTokensBase.slice(identifierIdx),
 ]
 
 // ─── Lexer definition ─────────────────────────────────────────────────────────
 
 const ucdLexerDefinition = {
-  modes: {
-    default_mode: defaultModeTokens,
-    label_mode: [LabelNewlineExit, WhiteSpace, UcdLabelText],
-  },
-  defaultMode: "default_mode",
+    modes: {
+        default_mode: defaultModeTokens,
+        label_mode: [LabelNewlineExit, WhiteSpace, UcdLabelText],
+    },
+    defaultMode: 'default_mode',
 }
 
 export const UcdLexer = new Lexer(ucdLexerDefinition)
 
 /** All unique tokens across all modes — needed by CstParser */
-export const allUcdTokens = [
-  ...defaultModeTokens,
-  LabelNewlineExit,
-  UcdLabelText,
-]
+export const allUcdTokens = [...defaultModeTokens, LabelNewlineExit, UcdLabelText]
 
 export function tokenizeUseCaseDiagram(input: string) {
-  return UcdLexer.tokenize(input)
+    return UcdLexer.tokenize(input)
 }

@@ -3,34 +3,34 @@
  *
  * Also builds idToUuid: participantId → node UUID (for click navigation).
  */
-import type { ComponentNode } from "../../store/types"
-import { findNodeByPath } from "../../utils/nodeUtils"
-import { findNodeByUuid } from "../../nodes/nodeTree"
-import { parseUseCaseDiagramCst } from "./parser"
-import { buildUcdAst, type UcdAst } from "./visitor"
+import type { ComponentNode } from '../../store/types'
+import { findNodeByPath } from '../../utils/nodeUtils'
+import { findNodeByUuid } from '../../nodes/nodeTree'
+import { parseUseCaseDiagramCst } from './parser'
+import { buildUcdAst, type UcdAst } from './visitor'
 
 function resolveUcdParticipantUuid(
-  path: string[],
-  ownerComp: ComponentNode,
-  root: ComponentNode,
+    path: string[],
+    ownerComp: ComponentNode,
+    root: ComponentNode
 ): string | null {
-  if (path.length === 1) {
-    const id = path[0]
-    if (ownerComp.id === id) return ownerComp.uuid
-    // actors
-    const actor = ownerComp.actors?.find((a) => a.id === id)
-    if (actor) return actor.uuid
-    // subComponents
-    const comp = ownerComp.subComponents?.find((c) => c.id === id)
-    if (comp) return comp.uuid
-    // use cases inside diagrams
-    for (const d of ownerComp.useCaseDiagrams) {
-      const uc = d.useCases?.find((u) => u.id === id)
-      if (uc) return uc.uuid
+    if (path.length === 1) {
+        const id = path[0]
+        if (ownerComp.id === id) return ownerComp.uuid
+        // actors
+        const actor = ownerComp.actors?.find((a) => a.id === id)
+        if (actor) return actor.uuid
+        // subComponents
+        const comp = ownerComp.subComponents?.find((c) => c.id === id)
+        if (comp) return comp.uuid
+        // use cases inside diagrams
+        for (const d of ownerComp.useCaseDiagrams) {
+            const uc = d.useCases?.find((u) => u.id === id)
+            if (uc) return uc.uuid
+        }
+        return null
     }
-    return null
-  }
-  return findNodeByPath(root, path.join("/"))
+    return findNodeByPath(root, path.join('/'))
 }
 
 /**
@@ -39,62 +39,60 @@ function resolveUcdParticipantUuid(
  * All other arrows pass through unchanged — they are valid Mermaid graph arrows.
  */
 function toMermaidArrow(dslArrow: string): string {
-  return dslArrow === "->>" ? "-->" : dslArrow
+    return dslArrow === '->>' ? '-->' : dslArrow
 }
 
 export function generateUseCaseMermaidFromAst(
-  ast: UcdAst,
-  ownerComp: ComponentNode | null,
-  root: ComponentNode,
+    ast: UcdAst,
+    ownerComp: ComponentNode | null,
+    root: ComponentNode
 ): { mermaidContent: string; idToUuid: Record<string, string> } {
-  const idToUuid: Record<string, string> = {}
+    const idToUuid: Record<string, string> = {}
 
-  let mermaidContent = "graph LR\n"
+    let mermaidContent = 'graph LR\n'
 
-  for (const decl of ast.declarations) {
-    const uuid = ownerComp
-      ? resolveUcdParticipantUuid(decl.path, ownerComp, root)
-      : null
-    if (uuid) idToUuid[decl.id] = uuid
+    for (const decl of ast.declarations) {
+        const uuid = ownerComp ? resolveUcdParticipantUuid(decl.path, ownerComp, root) : null
+        if (uuid) idToUuid[decl.id] = uuid
 
-    const node = uuid ? findNodeByUuid([root], uuid) : null
-    const lastSegment = decl.path[decl.path.length - 1]
-    const displayName = node?.name ?? lastSegment
+        const node = uuid ? findNodeByUuid([root], uuid) : null
+        const lastSegment = decl.path[decl.path.length - 1]
+        const displayName = node?.name ?? lastSegment
 
-    if (decl.entityType === "actor" || decl.entityType === "component") {
-      mermaidContent += `    ${decl.id}["${displayName}"]\n`
-    } else {
-      // use-case
-      mermaidContent += `    ${decl.id}(("${displayName}"))\n`
+        if (decl.entityType === 'actor' || decl.entityType === 'component') {
+            mermaidContent += `    ${decl.id}["${displayName}"]\n`
+        } else {
+            // use-case
+            mermaidContent += `    ${decl.id}(("${displayName}"))\n`
+        }
     }
-  }
 
-  for (const link of ast.links) {
-    const mermaidArrow = toMermaidArrow(link.arrow)
-    if (link.label != null) {
-      mermaidContent += `    ${link.from} ${mermaidArrow}|${link.label}| ${link.to}\n`
-    } else {
-      mermaidContent += `    ${link.from} ${mermaidArrow} ${link.to}\n`
+    for (const link of ast.links) {
+        const mermaidArrow = toMermaidArrow(link.arrow)
+        if (link.label != null) {
+            mermaidContent += `    ${link.from} ${mermaidArrow}|${link.label}| ${link.to}\n`
+        } else {
+            mermaidContent += `    ${link.from} ${mermaidArrow} ${link.to}\n`
+        }
     }
-  }
 
-  // Click directives for navigation
-  for (const id of Object.keys(idToUuid)) {
-    mermaidContent += `click ${id} __integraNavigate\n`
-  }
+    // Click directives for navigation
+    for (const id of Object.keys(idToUuid)) {
+        mermaidContent += `click ${id} __integraNavigate\n`
+    }
 
-  return { mermaidContent, idToUuid }
+    return { mermaidContent, idToUuid }
 }
 
 export function generateUseCaseMermaid(
-  content: string,
-  ownerComp: ComponentNode | null,
-  root: ComponentNode,
+    content: string,
+    ownerComp: ComponentNode | null,
+    root: ComponentNode
 ): { mermaidContent: string; idToUuid: Record<string, string> } {
-  const { cst, lexErrors } = parseUseCaseDiagramCst(content)
-  if (lexErrors.length) {
-    return { mermaidContent: "graph LR\n", idToUuid: {} }
-  }
-  const ast = buildUcdAst(cst)
-  return generateUseCaseMermaidFromAst(ast, ownerComp, root)
+    const { cst, lexErrors } = parseUseCaseDiagramCst(content)
+    if (lexErrors.length) {
+        return { mermaidContent: 'graph LR\n', idToUuid: {} }
+    }
+    const ast = buildUcdAst(cst)
+    return generateUseCaseMermaidFromAst(ast, ownerComp, root)
 }

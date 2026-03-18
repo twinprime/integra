@@ -1,290 +1,311 @@
-import { useCallback, useEffect, useRef, useState } from "react"
-import type React from "react"
-import mermaid from "mermaid"
-import { useSystemStore } from "../store/useSystemStore"
-import type { ComponentNode } from "../store/types"
-import type { ClassDiagramBuildResult, SequenceDiagramSource } from "../utils/classDiagramMetadata"
+import { useCallback, useEffect, useRef, useState } from 'react'
+import type React from 'react'
+import mermaid from 'mermaid'
+import { useSystemStore } from '../store/useSystemStore'
+import type { ComponentNode } from '../store/types'
+import type { ClassDiagramBuildResult, SequenceDiagramSource } from '../utils/classDiagramMetadata'
 
 declare global {
-  var __integraNavigate: ((id: string) => void) | undefined
+    var __integraNavigate: ((id: string) => void) | undefined
 }
 
 export function useMermaidClassDiagram<T>(
-  buildFn: (node: T, rootComponent: ComponentNode) => ClassDiagramBuildResult,
-  node: T | null,
-  idPrefix: string,
+    buildFn: (node: T, rootComponent: ComponentNode) => ClassDiagramBuildResult,
+    node: T | null,
+    idPrefix: string
 ): {
-  svg: string
-  error: string
-  mermaidSource: string
-  elementRef: React.RefObject<HTMLDivElement | null>
-  handleDiagramClick: (event: React.MouseEvent<HTMLDivElement>) => void
-  handleDiagramMouseMove: (event: React.MouseEvent<HTMLDivElement>) => void
-  handleDiagramMouseLeave: () => void
-  activeSequenceDiagrams: SequenceDiagramSource[]
-  activePopupPosition: { x: number; y: number } | null
-  isPopupPinned: boolean
-  clearActiveSequenceDiagrams: () => void
-  selectSequenceDiagram: (uuid: string) => void
-  handlePopupMouseEnter: () => void
-  handlePopupMouseLeave: () => void
+    svg: string
+    error: string
+    mermaidSource: string
+    elementRef: React.RefObject<HTMLDivElement | null>
+    handleDiagramClick: (event: React.MouseEvent<HTMLDivElement>) => void
+    handleDiagramMouseMove: (event: React.MouseEvent<HTMLDivElement>) => void
+    handleDiagramMouseLeave: () => void
+    activeSequenceDiagrams: SequenceDiagramSource[]
+    activePopupPosition: { x: number; y: number } | null
+    isPopupPinned: boolean
+    clearActiveSequenceDiagrams: () => void
+    selectSequenceDiagram: (uuid: string) => void
+    handlePopupMouseEnter: () => void
+    handlePopupMouseLeave: () => void
 } {
-  const rootComponent = useSystemStore((s) => s.rootComponent)
-  const selectNode = useSystemStore((s) => s.selectNode)
-  const elementRef = useRef<HTMLDivElement>(null)
-  const bindFunctionsRef = useRef<((el: Element) => void) | undefined>(undefined)
-  const idToUuidRef = useRef<Record<string, string>>({})
-  const relationshipMetadataRef = useRef<ClassDiagramBuildResult["relationshipMetadata"]>([])
-  const isPopupPinnedRef = useRef(false)
-  const popupHoveredRef = useRef(false)
-  const popupCloseTimeoutRef = useRef<number | null>(null)
-  const [svg, setSvg] = useState("")
-  const [error, setError] = useState("")
-  const [mermaidSource, setMermaidSource] = useState("")
-  const [activeSequenceDiagrams, setActiveSequenceDiagrams] = useState<SequenceDiagramSource[]>([])
-  const [activePopupPosition, setActivePopupPosition] = useState<{ x: number; y: number } | null>(null)
-  const [isPopupPinned, setIsPopupPinned] = useState(false)
+    const rootComponent = useSystemStore((s) => s.rootComponent)
+    const selectNode = useSystemStore((s) => s.selectNode)
+    const elementRef = useRef<HTMLDivElement>(null)
+    const bindFunctionsRef = useRef<((el: Element) => void) | undefined>(undefined)
+    const idToUuidRef = useRef<Record<string, string>>({})
+    const relationshipMetadataRef = useRef<ClassDiagramBuildResult['relationshipMetadata']>([])
+    const isPopupPinnedRef = useRef(false)
+    const popupHoveredRef = useRef(false)
+    const popupCloseTimeoutRef = useRef<number | null>(null)
+    const [svg, setSvg] = useState('')
+    const [error, setError] = useState('')
+    const [mermaidSource, setMermaidSource] = useState('')
+    const [activeSequenceDiagrams, setActiveSequenceDiagrams] = useState<SequenceDiagramSource[]>(
+        []
+    )
+    const [activePopupPosition, setActivePopupPosition] = useState<{ x: number; y: number } | null>(
+        null
+    )
+    const [isPopupPinned, setIsPopupPinned] = useState(false)
 
-  useEffect(() => {
-    isPopupPinnedRef.current = isPopupPinned
-  }, [isPopupPinned])
+    useEffect(() => {
+        isPopupPinnedRef.current = isPopupPinned
+    }, [isPopupPinned])
 
-  const openSequencePopup = useCallback(
-    (
-      sources: SequenceDiagramSource[],
-      position: { x: number; y: number } | null,
-      pinned: boolean,
-    ) => {
-      setActiveSequenceDiagrams(sources)
-      setActivePopupPosition(position)
-      setIsPopupPinned(pinned)
-    },
-    [],
-  )
+    const openSequencePopup = useCallback(
+        (
+            sources: SequenceDiagramSource[],
+            position: { x: number; y: number } | null,
+            pinned: boolean
+        ) => {
+            setActiveSequenceDiagrams(sources)
+            setActivePopupPosition(position)
+            setIsPopupPinned(pinned)
+        },
+        []
+    )
 
-  const clearActiveSequenceDiagrams = useCallback(() => {
-    if (popupCloseTimeoutRef.current != null) {
-      window.clearTimeout(popupCloseTimeoutRef.current)
-      popupCloseTimeoutRef.current = null
-    }
-    setActiveSequenceDiagrams([])
-    setActivePopupPosition(null)
-    setIsPopupPinned(false)
-  }, [])
-
-  const selectSequenceDiagram = useCallback(
-    (uuid: string) => {
-      selectNode(uuid)
-      setActiveSequenceDiagrams([])
-      setActivePopupPosition(null)
-      setIsPopupPinned(false)
-    },
-    [selectNode],
-  )
-
-  useEffect(() => {
-    const render = async () => {
-      if (!node) {
-        setSvg("")
-        setError("")
-        setMermaidSource("")
-        relationshipMetadataRef.current = []
+    const clearActiveSequenceDiagrams = useCallback(() => {
+        if (popupCloseTimeoutRef.current != null) {
+            window.clearTimeout(popupCloseTimeoutRef.current)
+            popupCloseTimeoutRef.current = null
+        }
         setActiveSequenceDiagrams([])
         setActivePopupPosition(null)
         setIsPopupPinned(false)
-        return
-      }
+    }, [])
 
-      const { mermaidContent, idToUuid, relationshipMetadata } = buildFn(node, rootComponent)
+    const selectSequenceDiagram = useCallback(
+        (uuid: string) => {
+            selectNode(uuid)
+            setActiveSequenceDiagrams([])
+            setActivePopupPosition(null)
+            setIsPopupPinned(false)
+        },
+        [selectNode]
+    )
 
-      if (!mermaidContent) {
-        setSvg("")
-        setError("")
-        setMermaidSource("")
-        relationshipMetadataRef.current = []
-        setActiveSequenceDiagrams([])
-        setActivePopupPosition(null)
-        setIsPopupPinned(false)
-        return
-      }
+    useEffect(() => {
+        const render = async () => {
+            if (!node) {
+                setSvg('')
+                setError('')
+                setMermaidSource('')
+                relationshipMetadataRef.current = []
+                setActiveSequenceDiagrams([])
+                setActivePopupPosition(null)
+                setIsPopupPinned(false)
+                return
+            }
 
-      idToUuidRef.current = idToUuid
-      relationshipMetadataRef.current = relationshipMetadata
-      globalThis.__integraNavigate = (nodeId: string) => {
-        const uuid = idToUuidRef.current[nodeId]
-        if (uuid) selectNode(uuid)
-      }
+            const { mermaidContent, idToUuid, relationshipMetadata } = buildFn(node, rootComponent)
 
-      setMermaidSource(mermaidContent)
-      try {
-        const { svg: renderedSvg, bindFunctions } = await mermaid.render(
-          `mermaid-${idPrefix}-${Date.now()}`,
-          mermaidContent,
-        )
-        bindFunctionsRef.current = bindFunctions
-        setSvg(renderedSvg)
-        setError("")
-      } catch (err) {
-        setError(err instanceof Error ? err.message : String(err))
-        setSvg("")
-      }
-    }
+            if (!mermaidContent) {
+                setSvg('')
+                setError('')
+                setMermaidSource('')
+                relationshipMetadataRef.current = []
+                setActiveSequenceDiagrams([])
+                setActivePopupPosition(null)
+                setIsPopupPinned(false)
+                return
+            }
 
-    void render()
-  }, [node, rootComponent, selectNode, buildFn, idPrefix])
+            idToUuidRef.current = idToUuid
+            relationshipMetadataRef.current = relationshipMetadata
+            globalThis.__integraNavigate = (nodeId: string) => {
+                const uuid = idToUuidRef.current[nodeId]
+                if (uuid) selectNode(uuid)
+            }
 
-  useEffect(() => {
-    if (!svg || !elementRef.current) return
-    bindFunctionsRef.current?.(elementRef.current)
-  }, [svg])
+            setMermaidSource(mermaidContent)
+            try {
+                const { svg: renderedSvg, bindFunctions } = await mermaid.render(
+                    `mermaid-${idPrefix}-${Date.now()}`,
+                    mermaidContent
+                )
+                bindFunctionsRef.current = bindFunctions
+                setSvg(renderedSvg)
+                setError('')
+            } catch (err) {
+                setError(err instanceof Error ? err.message : String(err))
+                setSvg('')
+            }
+        }
 
-  const annotateDependencyEdges = useCallback(() => {
-    if (!svg || !elementRef.current) return
+        void render()
+    }, [node, rootComponent, selectNode, buildFn, idPrefix])
 
-    const labelByEdgeId = new Map<string, Element>()
-    elementRef.current.querySelectorAll<Element>("g.edgeLabels g.label[data-id]").forEach((label) => {
-      const edgeId = label.getAttribute("data-id")
-      if (edgeId) labelByEdgeId.set(edgeId, label)
-    })
+    useEffect(() => {
+        if (!svg || !elementRef.current) return
+        bindFunctionsRef.current?.(elementRef.current)
+    }, [svg])
 
-    elementRef.current.querySelectorAll("[data-integra-edge-hit-target='true']").forEach((target) => {
-      target.remove()
-    })
+    const annotateDependencyEdges = useCallback(() => {
+        if (!svg || !elementRef.current) return
 
-    elementRef.current.querySelectorAll<SVGPathElement>("g.edgePaths path[data-edge='true']").forEach((path, index) => {
-      const metadata = relationshipMetadataRef.current[index]
-      if (!metadata?.sequenceDiagrams.length) return
+        const labelByEdgeId = new Map<string, Element>()
+        elementRef.current
+            .querySelectorAll<Element>('g.edgeLabels g.label[data-id]')
+            .forEach((label) => {
+                const edgeId = label.getAttribute('data-id')
+                if (edgeId) labelByEdgeId.set(edgeId, label)
+            })
 
-      const edgeIndex = String(index)
-      path.setAttribute("data-integra-edge-index", edgeIndex)
-      path.setAttribute("data-integra-edge-clickable", "true")
-      path.setAttribute("tabindex", "0")
-      path.setAttribute("role", "button")
-      path.style.cursor = "pointer"
+        elementRef.current
+            .querySelectorAll("[data-integra-edge-hit-target='true']")
+            .forEach((target) => {
+                target.remove()
+            })
 
-      const hitTarget = path.cloneNode() as SVGPathElement
-      hitTarget.removeAttribute("marker-start")
-      hitTarget.removeAttribute("marker-end")
-      hitTarget.setAttribute("data-integra-edge-index", edgeIndex)
-      hitTarget.setAttribute("data-integra-edge-clickable", "true")
-      hitTarget.setAttribute("data-integra-edge-hit-target", "true")
-      hitTarget.setAttribute("tabindex", "0")
-      hitTarget.setAttribute("role", "button")
-      hitTarget.style.stroke = "transparent"
-      hitTarget.style.fill = "none"
-      hitTarget.style.strokeWidth = "16px"
-      hitTarget.style.pointerEvents = "stroke"
-      hitTarget.style.cursor = "pointer"
-      path.parentNode?.insertBefore(hitTarget, path.nextSibling)
+        elementRef.current
+            .querySelectorAll<SVGPathElement>("g.edgePaths path[data-edge='true']")
+            .forEach((path, index) => {
+                const metadata = relationshipMetadataRef.current[index]
+                if (!metadata?.sequenceDiagrams.length) return
 
-      const edgeId = path.getAttribute("data-id") ?? path.getAttribute("id")
-      if (!edgeId) return
+                const edgeIndex = String(index)
+                path.setAttribute('data-integra-edge-index', edgeIndex)
+                path.setAttribute('data-integra-edge-clickable', 'true')
+                path.setAttribute('tabindex', '0')
+                path.setAttribute('role', 'button')
+                path.style.cursor = 'pointer'
 
-      const label = labelByEdgeId.get(edgeId)
-      if (!label) return
+                const hitTarget = path.cloneNode() as SVGPathElement
+                hitTarget.removeAttribute('marker-start')
+                hitTarget.removeAttribute('marker-end')
+                hitTarget.setAttribute('data-integra-edge-index', edgeIndex)
+                hitTarget.setAttribute('data-integra-edge-clickable', 'true')
+                hitTarget.setAttribute('data-integra-edge-hit-target', 'true')
+                hitTarget.setAttribute('tabindex', '0')
+                hitTarget.setAttribute('role', 'button')
+                hitTarget.style.stroke = 'transparent'
+                hitTarget.style.fill = 'none'
+                hitTarget.style.strokeWidth = '16px'
+                hitTarget.style.pointerEvents = 'stroke'
+                hitTarget.style.cursor = 'pointer'
+                path.parentNode?.insertBefore(hitTarget, path.nextSibling)
 
-      label.setAttribute("data-integra-edge-index", edgeIndex)
-      label.setAttribute("data-integra-edge-clickable", "true")
-      label.closest("g.edgeLabel")?.setAttribute("data-integra-edge-index", edgeIndex)
-      label.closest("g.edgeLabel")?.setAttribute("data-integra-edge-clickable", "true")
-      label.querySelectorAll("*").forEach((child) => {
-        if (child instanceof HTMLElement) child.style.cursor = "pointer"
-      })
-    })
-  }, [svg])
+                const edgeId = path.getAttribute('data-id') ?? path.getAttribute('id')
+                if (!edgeId) return
 
-  useEffect(() => {
-    annotateDependencyEdges()
-  }, [annotateDependencyEdges])
+                const label = labelByEdgeId.get(edgeId)
+                if (!label) return
 
-  const getEdgeMetadata = useCallback((target: Element): {
-    sources: SequenceDiagramSource[]
-  } | null => {
-    const edgeTarget = target.closest("[data-integra-edge-index]")
-    const edgeIndexValue = edgeTarget?.getAttribute("data-integra-edge-index")
-    if (!edgeIndexValue) return null
+                label.setAttribute('data-integra-edge-index', edgeIndex)
+                label.setAttribute('data-integra-edge-clickable', 'true')
+                label.closest('g.edgeLabel')?.setAttribute('data-integra-edge-index', edgeIndex)
+                label.closest('g.edgeLabel')?.setAttribute('data-integra-edge-clickable', 'true')
+                label.querySelectorAll('*').forEach((child) => {
+                    if (child instanceof HTMLElement) child.style.cursor = 'pointer'
+                })
+            })
+    }, [svg])
 
-    const metadata = relationshipMetadataRef.current[Number(edgeIndexValue)]
-    if (!metadata?.sequenceDiagrams.length) return null
+    useEffect(() => {
+        annotateDependencyEdges()
+    }, [annotateDependencyEdges])
+
+    const getEdgeMetadata = useCallback(
+        (
+            target: Element
+        ): {
+            sources: SequenceDiagramSource[]
+        } | null => {
+            const edgeTarget = target.closest('[data-integra-edge-index]')
+            const edgeIndexValue = edgeTarget?.getAttribute('data-integra-edge-index')
+            if (!edgeIndexValue) return null
+
+            const metadata = relationshipMetadataRef.current[Number(edgeIndexValue)]
+            if (!metadata?.sequenceDiagrams.length) return null
+
+            return {
+                sources: metadata.sequenceDiagrams,
+            }
+        },
+        []
+    )
+
+    const cancelPendingPopupClose = useCallback(() => {
+        if (popupCloseTimeoutRef.current != null) {
+            window.clearTimeout(popupCloseTimeoutRef.current)
+            popupCloseTimeoutRef.current = null
+        }
+    }, [])
+
+    const hideUnpinnedPopup = useCallback(() => {
+        if (popupHoveredRef.current || isPopupPinnedRef.current) return
+        clearActiveSequenceDiagrams()
+    }, [clearActiveSequenceDiagrams])
+
+    const schedulePopupClose = useCallback(() => {
+        cancelPendingPopupClose()
+        popupCloseTimeoutRef.current = window.setTimeout(() => {
+            popupCloseTimeoutRef.current = null
+            hideUnpinnedPopup()
+        }, 80)
+    }, [cancelPendingPopupClose, hideUnpinnedPopup])
+
+    const handleDiagramMouseMove = useCallback(
+        (event: React.MouseEvent<HTMLDivElement>) => {
+            cancelPendingPopupClose()
+            const target = event.target as Element
+            const edgeInfo = getEdgeMetadata(target)
+            if (!edgeInfo) {
+                hideUnpinnedPopup()
+                return
+            }
+
+            openSequencePopup(edgeInfo.sources, { x: event.clientX, y: event.clientY }, false)
+        },
+        [cancelPendingPopupClose, getEdgeMetadata, hideUnpinnedPopup, openSequencePopup]
+    )
+
+    const handleDiagramMouseLeave = useCallback(() => {
+        schedulePopupClose()
+    }, [schedulePopupClose])
+
+    const handleDiagramClick = useCallback(
+        (event: React.MouseEvent<HTMLDivElement>) => {
+            const target = event.target as Element
+            const edgeInfo = getEdgeMetadata(target)
+            if (!edgeInfo) return
+
+            if (edgeInfo.sources.length === 1) {
+                selectSequenceDiagram(edgeInfo.sources[0].uuid)
+                return
+            }
+
+            openSequencePopup(edgeInfo.sources, { x: event.clientX, y: event.clientY }, true)
+        },
+        [getEdgeMetadata, openSequencePopup, selectSequenceDiagram]
+    )
+
+    const handlePopupMouseEnter = useCallback(() => {
+        cancelPendingPopupClose()
+        popupHoveredRef.current = true
+    }, [cancelPendingPopupClose])
+
+    const handlePopupMouseLeave = useCallback(() => {
+        popupHoveredRef.current = false
+        schedulePopupClose()
+    }, [schedulePopupClose])
 
     return {
-      sources: metadata.sequenceDiagrams,
+        svg,
+        error,
+        mermaidSource,
+        elementRef,
+        handleDiagramClick,
+        handleDiagramMouseMove,
+        handleDiagramMouseLeave,
+        activeSequenceDiagrams,
+        activePopupPosition,
+        isPopupPinned,
+        clearActiveSequenceDiagrams,
+        selectSequenceDiagram,
+        handlePopupMouseEnter,
+        handlePopupMouseLeave,
     }
-  }, [])
-
-  const cancelPendingPopupClose = useCallback(() => {
-    if (popupCloseTimeoutRef.current != null) {
-      window.clearTimeout(popupCloseTimeoutRef.current)
-      popupCloseTimeoutRef.current = null
-    }
-  }, [])
-
-  const hideUnpinnedPopup = useCallback(() => {
-    if (popupHoveredRef.current || isPopupPinnedRef.current) return
-    clearActiveSequenceDiagrams()
-  }, [clearActiveSequenceDiagrams])
-
-  const schedulePopupClose = useCallback(() => {
-    cancelPendingPopupClose()
-    popupCloseTimeoutRef.current = window.setTimeout(() => {
-      popupCloseTimeoutRef.current = null
-      hideUnpinnedPopup()
-    }, 80)
-  }, [cancelPendingPopupClose, hideUnpinnedPopup])
-
-  const handleDiagramMouseMove = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-    cancelPendingPopupClose()
-    const target = event.target as Element
-    const edgeInfo = getEdgeMetadata(target)
-    if (!edgeInfo) {
-      hideUnpinnedPopup()
-      return
-    }
-
-    openSequencePopup(edgeInfo.sources, { x: event.clientX, y: event.clientY }, false)
-  }, [cancelPendingPopupClose, getEdgeMetadata, hideUnpinnedPopup, openSequencePopup])
-
-  const handleDiagramMouseLeave = useCallback(() => {
-    schedulePopupClose()
-  }, [schedulePopupClose])
-
-  const handleDiagramClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
-    const target = event.target as Element
-    const edgeInfo = getEdgeMetadata(target)
-    if (!edgeInfo) return
-
-    if (edgeInfo.sources.length === 1) {
-      selectSequenceDiagram(edgeInfo.sources[0].uuid)
-      return
-    }
-
-    openSequencePopup(edgeInfo.sources, { x: event.clientX, y: event.clientY }, true)
-  }, [getEdgeMetadata, openSequencePopup, selectSequenceDiagram])
-
-  const handlePopupMouseEnter = useCallback(() => {
-    cancelPendingPopupClose()
-    popupHoveredRef.current = true
-  }, [cancelPendingPopupClose])
-
-  const handlePopupMouseLeave = useCallback(() => {
-    popupHoveredRef.current = false
-    schedulePopupClose()
-  }, [schedulePopupClose])
-
-  return {
-    svg,
-    error,
-    mermaidSource,
-    elementRef,
-    handleDiagramClick,
-    handleDiagramMouseMove,
-    handleDiagramMouseLeave,
-    activeSequenceDiagrams,
-    activePopupPosition,
-    isPopupPinned,
-    clearActiveSequenceDiagrams,
-    selectSequenceDiagram,
-    handlePopupMouseEnter,
-    handlePopupMouseLeave,
-  }
 }

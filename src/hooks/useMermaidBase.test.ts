@@ -1,177 +1,186 @@
-import { describe, it, expect, vi, beforeEach } from "vitest"
-import { renderHook, waitFor } from "@testing-library/react"
-import { useMermaidBase } from "./useMermaidBase"
-import type { UseCaseDiagramNode, ComponentNode } from "../store/types"
-import type { SystemState } from "../store/useSystemStore"
-import type { RenderResult } from "mermaid"
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { renderHook, waitFor } from '@testing-library/react'
+import { useMermaidBase } from './useMermaidBase'
+import type { UseCaseDiagramNode, ComponentNode } from '../store/types'
+import type { SystemState } from '../store/useSystemStore'
+import type { RenderResult } from 'mermaid'
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
-vi.mock("mermaid", () => ({
-  default: {
-    initialize: vi.fn(),
-    render: vi.fn().mockResolvedValue({ svg: "<svg>test</svg>", bindFunctions: undefined }),
-  },
+vi.mock('mermaid', () => ({
+    default: {
+        initialize: vi.fn(),
+        render: vi.fn().mockResolvedValue({ svg: '<svg>test</svg>', bindFunctions: undefined }),
+    },
 }))
 
-vi.mock("../store/useSystemStore", () => ({
-  useSystemStore: vi.fn(),
+vi.mock('../store/useSystemStore', () => ({
+    useSystemStore: vi.fn(),
 }))
 
-vi.mock("../nodes/nodeTree", () => ({
-  findNode: vi.fn(),
+vi.mock('../nodes/nodeTree', () => ({
+    findNode: vi.fn(),
 }))
 
-import mermaid from "mermaid"
-import { useSystemStore } from "../store/useSystemStore"
-import { findNode } from "../nodes/nodeTree"
+import mermaid from 'mermaid'
+import { useSystemStore } from '../store/useSystemStore'
+import { findNode } from '../nodes/nodeTree'
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
 const mockSelectNode = vi.fn()
 
 const mockRootComponent: ComponentNode = {
-  uuid: "root-uuid",
-  id: "root",
-  name: "Root",
-  type: "component",
-  subComponents: [],
-  actors: [],
-  useCaseDiagrams: [],
-  interfaces: [],
+    uuid: 'root-uuid',
+    id: 'root',
+    name: 'Root',
+    type: 'component',
+    subComponents: [],
+    actors: [],
+    useCaseDiagrams: [],
+    interfaces: [],
 }
 
 const mockDiagramNode: UseCaseDiagramNode = {
-  uuid: "diag-uuid",
-  id: "diag",
-  name: "Test Diagram",
-  type: "use-case-diagram",
-  content: "actor A\nusecase B",
-  referencedNodeIds: [],
-  ownerComponentUuid: "root-uuid",
-  useCases: [],
+    uuid: 'diag-uuid',
+    id: 'diag',
+    name: 'Test Diagram',
+    type: 'use-case-diagram',
+    content: 'actor A\nusecase B',
+    referencedNodeIds: [],
+    ownerComponentUuid: 'root-uuid',
+    useCases: [],
 }
 
 const mockBuildContent = vi.fn().mockReturnValue({
-  mermaidContent: "graph TD\n  A --> B",
-  idToUuid: { A: "uuid-a", B: "uuid-b" },
+    mermaidContent: 'graph TD\n  A --> B',
+    idToUuid: { A: 'uuid-a', B: 'uuid-b' },
 })
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
-describe("useMermaidBase", () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    vi.mocked(useSystemStore).mockImplementation((selector: (s: SystemState) => unknown) =>
-      selector({ rootComponent: mockRootComponent, selectNode: mockSelectNode } as unknown as SystemState),
-    )
-    vi.mocked(findNode).mockReturnValue(mockRootComponent)
-    vi.mocked(mermaid.render).mockResolvedValue({
-      svg: "<svg>test</svg>",
-      diagramType: "graph",
-      bindFunctions: undefined,
-    } satisfies RenderResult)
-    mockBuildContent.mockReturnValue({ mermaidContent: "graph TD\n  A --> B", idToUuid: { A: "uuid-a" } })
-  })
-
-  it("returns SVG string on successful render", async () => {
-    const { result } = renderHook(() => useMermaidBase(mockDiagramNode, mockBuildContent))
-
-    await waitFor(() => {
-      expect(result.current.svg).toBe("<svg>test</svg>")
-    })
-    expect(result.current.error).toBe("")
-    expect(result.current.errorDetails).toBe("")
-  })
-
-  it("returns error state when mermaid.render throws", async () => {
-    vi.mocked(mermaid.render).mockRejectedValueOnce(new Error("Parse error"))
-
-    const { result } = renderHook(() => useMermaidBase(mockDiagramNode, mockBuildContent))
-
-    await waitFor(() => {
-      expect(result.current.error).toBe("Invalid Diagram Syntax")
-    })
-    expect(result.current.errorDetails).toBe("Parse error")
-    expect(result.current.svg).toBe("")
-  })
-
-  it("calls mermaid.render with the mermaidContent returned by buildContent", async () => {
-    const { result } = renderHook(() => useMermaidBase(mockDiagramNode, mockBuildContent))
-
-    await waitFor(() => expect(result.current.svg).toBe("<svg>test</svg>"))
-
-    expect(mermaid.render).toHaveBeenCalledWith(
-      expect.stringMatching(/^mermaid-\d+$/),
-      "graph TD\n  A --> B",
-    )
-  })
-
-  it("does not call mermaid.render when diagramNode is null", async () => {
-    renderHook(() => useMermaidBase(null, mockBuildContent))
-
-    await new Promise((r) => setTimeout(r, 20))
-
-    expect(mermaid.render).not.toHaveBeenCalled()
-  })
-
-  it("does not call mermaid.render when diagramNode content is empty", async () => {
-    const emptyNode = { ...mockDiagramNode, content: "   " }
-
-    const { result } = renderHook(() => useMermaidBase(emptyNode, mockBuildContent))
-
-    await new Promise((r) => setTimeout(r, 20))
-
-    expect(mermaid.render).not.toHaveBeenCalled()
-    expect(result.current.svg).toBe("")
-    expect(result.current.error).toBe("")
-  })
-
-  it("re-renders and fetches new SVG when diagramNode content changes", async () => {
-    let diagramNode = mockDiagramNode
-
-    const { result, rerender } = renderHook(() => useMermaidBase(diagramNode, mockBuildContent))
-
-    await waitFor(() => expect(result.current.svg).toBe("<svg>test</svg>"))
-
-    vi.mocked(mermaid.render).mockResolvedValueOnce({
-      svg: "<svg>updated</svg>",
-      diagramType: "graph",
-      bindFunctions: undefined,
-    } satisfies RenderResult)
-    mockBuildContent.mockReturnValueOnce({ mermaidContent: "graph TD\n  C --> D", idToUuid: {} })
-
-    diagramNode = { ...mockDiagramNode, content: "updated content" }
-    rerender()
-
-    await waitFor(() => expect(result.current.svg).toBe("<svg>updated</svg>"))
-  })
-
-  it("exposes elementRef and selectNode in return value", () => {
-    const { result } = renderHook(() => useMermaidBase(null, mockBuildContent))
-
-    expect(result.current.elementRef).toBeDefined()
-    expect(result.current.selectNode).toBe(mockSelectNode)
-  })
-
-  it("sets window.__integraIdMap from buildContent idToUuid", async () => {
-    mockBuildContent.mockReturnValueOnce({
-      mermaidContent: "graph TD\n  X --> Y",
-      idToUuid: { X: "uuid-x", Y: "uuid-y" },
+describe('useMermaidBase', () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        vi.mocked(useSystemStore).mockImplementation((selector: (s: SystemState) => unknown) =>
+            selector({
+                rootComponent: mockRootComponent,
+                selectNode: mockSelectNode,
+            } as unknown as SystemState)
+        )
+        vi.mocked(findNode).mockReturnValue(mockRootComponent)
+        vi.mocked(mermaid.render).mockResolvedValue({
+            svg: '<svg>test</svg>',
+            diagramType: 'graph',
+            bindFunctions: undefined,
+        } satisfies RenderResult)
+        mockBuildContent.mockReturnValue({
+            mermaidContent: 'graph TD\n  A --> B',
+            idToUuid: { A: 'uuid-a' },
+        })
     })
 
-    const { result } = renderHook(() => useMermaidBase(mockDiagramNode, mockBuildContent))
+    it('returns SVG string on successful render', async () => {
+        const { result } = renderHook(() => useMermaidBase(mockDiagramNode, mockBuildContent))
 
-    await waitFor(() => expect(result.current.svg).toBe("<svg>test</svg>"))
+        await waitFor(() => {
+            expect(result.current.svg).toBe('<svg>test</svg>')
+        })
+        expect(result.current.error).toBe('')
+        expect(result.current.errorDetails).toBe('')
+    })
 
-    expect(window.__integraIdMap).toEqual({ X: "uuid-x", Y: "uuid-y" })
-  })
+    it('returns error state when mermaid.render throws', async () => {
+        vi.mocked(mermaid.render).mockRejectedValueOnce(new Error('Parse error'))
 
-  it("preserves mermaidSource after successful render so the copy button can use it", async () => {
-    const { result } = renderHook(() => useMermaidBase(mockDiagramNode, mockBuildContent))
+        const { result } = renderHook(() => useMermaidBase(mockDiagramNode, mockBuildContent))
 
-    await waitFor(() => expect(result.current.svg).toBe("<svg>test</svg>"))
+        await waitFor(() => {
+            expect(result.current.error).toBe('Invalid Diagram Syntax')
+        })
+        expect(result.current.errorDetails).toBe('Parse error')
+        expect(result.current.svg).toBe('')
+    })
 
-    expect(result.current.mermaidSource).toBe("graph TD\n  A --> B")
-  })
+    it('calls mermaid.render with the mermaidContent returned by buildContent', async () => {
+        const { result } = renderHook(() => useMermaidBase(mockDiagramNode, mockBuildContent))
+
+        await waitFor(() => expect(result.current.svg).toBe('<svg>test</svg>'))
+
+        expect(mermaid.render).toHaveBeenCalledWith(
+            expect.stringMatching(/^mermaid-\d+$/),
+            'graph TD\n  A --> B'
+        )
+    })
+
+    it('does not call mermaid.render when diagramNode is null', async () => {
+        renderHook(() => useMermaidBase(null, mockBuildContent))
+
+        await new Promise((r) => setTimeout(r, 20))
+
+        expect(mermaid.render).not.toHaveBeenCalled()
+    })
+
+    it('does not call mermaid.render when diagramNode content is empty', async () => {
+        const emptyNode = { ...mockDiagramNode, content: '   ' }
+
+        const { result } = renderHook(() => useMermaidBase(emptyNode, mockBuildContent))
+
+        await new Promise((r) => setTimeout(r, 20))
+
+        expect(mermaid.render).not.toHaveBeenCalled()
+        expect(result.current.svg).toBe('')
+        expect(result.current.error).toBe('')
+    })
+
+    it('re-renders and fetches new SVG when diagramNode content changes', async () => {
+        let diagramNode = mockDiagramNode
+
+        const { result, rerender } = renderHook(() => useMermaidBase(diagramNode, mockBuildContent))
+
+        await waitFor(() => expect(result.current.svg).toBe('<svg>test</svg>'))
+
+        vi.mocked(mermaid.render).mockResolvedValueOnce({
+            svg: '<svg>updated</svg>',
+            diagramType: 'graph',
+            bindFunctions: undefined,
+        } satisfies RenderResult)
+        mockBuildContent.mockReturnValueOnce({
+            mermaidContent: 'graph TD\n  C --> D',
+            idToUuid: {},
+        })
+
+        diagramNode = { ...mockDiagramNode, content: 'updated content' }
+        rerender()
+
+        await waitFor(() => expect(result.current.svg).toBe('<svg>updated</svg>'))
+    })
+
+    it('exposes elementRef and selectNode in return value', () => {
+        const { result } = renderHook(() => useMermaidBase(null, mockBuildContent))
+
+        expect(result.current.elementRef).toBeDefined()
+        expect(result.current.selectNode).toBe(mockSelectNode)
+    })
+
+    it('sets window.__integraIdMap from buildContent idToUuid', async () => {
+        mockBuildContent.mockReturnValueOnce({
+            mermaidContent: 'graph TD\n  X --> Y',
+            idToUuid: { X: 'uuid-x', Y: 'uuid-y' },
+        })
+
+        const { result } = renderHook(() => useMermaidBase(mockDiagramNode, mockBuildContent))
+
+        await waitFor(() => expect(result.current.svg).toBe('<svg>test</svg>'))
+
+        expect(window.__integraIdMap).toEqual({ X: 'uuid-x', Y: 'uuid-y' })
+    })
+
+    it('preserves mermaidSource after successful render so the copy button can use it', async () => {
+        const { result } = renderHook(() => useMermaidBase(mockDiagramNode, mockBuildContent))
+
+        await waitFor(() => expect(result.current.svg).toBe('<svg>test</svg>'))
+
+        expect(result.current.mermaidSource).toBe('graph TD\n  A --> B')
+    })
 })

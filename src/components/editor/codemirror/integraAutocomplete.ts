@@ -8,15 +8,19 @@
  * always reads the latest rootComponent / ownerComp values without requiring a
  * Compartment reconfigure on every tree change.
  */
-import { autocompletion, type CompletionSource, type CompletionResult } from "@codemirror/autocomplete"
-import type { Extension } from "@codemirror/state"
-import type { ComponentNode } from "../../../store/types"
-import { detectContext, buildSuggestions, type DiagramType } from "../autoCompleteLogic"
+import {
+    autocompletion,
+    type CompletionSource,
+    type CompletionResult,
+} from '@codemirror/autocomplete'
+import type { Extension } from '@codemirror/state'
+import type { ComponentNode } from '../../../store/types'
+import { detectContext, buildSuggestions, type DiagramType } from '../autoCompleteLogic'
 
 export interface CompletionContext {
-  diagramType: DiagramType
-  ownerComp: ComponentNode | null
-  rootComponent: ComponentNode
+    diagramType: DiagramType
+    ownerComp: ComponentNode | null
+    rootComponent: ComponentNode
 }
 
 /**
@@ -25,40 +29,38 @@ export interface CompletionContext {
  * so it always reflects the latest React prop values.
  */
 export function createIntegralCompletionSource(
-  getContext: () => CompletionContext,
+    getContext: () => CompletionContext
 ): CompletionSource {
-  return (cmCtx): CompletionResult | null => {
-    const { diagramType, ownerComp, rootComponent } = getContext()
-    if (!ownerComp) return null
+    return (cmCtx): CompletionResult | null => {
+        const { diagramType, ownerComp, rootComponent } = getContext()
+        if (!ownerComp) return null
 
-    const doc = cmCtx.state.doc.toString()
-    const pos = cmCtx.pos
+        const doc = cmCtx.state.doc.toString()
+        const pos = cmCtx.pos
 
-    const ctx = detectContext(doc, pos, diagramType)
-    if (!ctx) return null
+        const ctx = detectContext(doc, pos, diagramType)
+        if (!ctx) return null
 
-    const suggestions = buildSuggestions(ctx, doc, ownerComp, rootComponent, diagramType)
-    if (!suggestions.length) return null
+        const suggestions = buildSuggestions(ctx, doc, ownerComp, rootComponent, diagramType)
+        if (!suggestions.length) return null
 
-    return {
-      from: ctx.replaceFrom,
-      options: suggestions.map((s) => ({
-        label: s.label,
-        apply: s.insertText,
-      })),
-      // Don't filter options — buildSuggestions already filters by partial
-      filter: false,
+        return {
+            from: ctx.replaceFrom,
+            options: suggestions.map((s) => ({
+                label: s.label,
+                apply: s.insertText,
+            })),
+            // Don't filter options — buildSuggestions already filters by partial
+            filter: false,
+        }
     }
-  }
 }
 
 /** Returns the autocompletion extension wired to the Integra completion source */
-export function integraAutocomplete(
-  getContext: () => CompletionContext,
-): Extension {
-  return autocompletion({
-    override: [createIntegralCompletionSource(getContext)],
-    activateOnTyping: true,
-    closeOnBlur: true,
-  })
+export function integraAutocomplete(getContext: () => CompletionContext): Extension {
+    return autocompletion({
+        override: [createIntegralCompletionSource(getContext)],
+        activateOnTyping: true,
+        closeOnBlur: true,
+    })
 }

@@ -1,51 +1,53 @@
 import type {
-  ComponentNode,
-  InheritedInterfaceSpecification,
-  InterfaceFunction,
-  InterfaceSpecification,
-  LocalInterfaceSpecification,
-} from "../store/types"
-import { findParentNode } from "../nodes/nodeTree"
+    ComponentNode,
+    InheritedInterfaceSpecification,
+    InterfaceFunction,
+    InterfaceSpecification,
+    LocalInterfaceSpecification,
+} from '../store/types'
+import { findParentNode } from '../nodes/nodeTree'
 
 export type ResolvedInterface =
-  | (LocalInterfaceSpecification & {
-    readonly effectiveFunctions: ReadonlyArray<InterfaceFunction>
-    readonly inheritedFrom: null
-    readonly isDangling: false
-  })
-  | (InheritedInterfaceSpecification & {
-    readonly effectiveFunctions: ReadonlyArray<InterfaceFunction>
-    readonly inheritedFrom: LocalInterfaceSpecification | null
-    readonly isDangling: boolean
-  })
+    | (LocalInterfaceSpecification & {
+          readonly effectiveFunctions: ReadonlyArray<InterfaceFunction>
+          readonly inheritedFrom: null
+          readonly isDangling: false
+      })
+    | (InheritedInterfaceSpecification & {
+          readonly effectiveFunctions: ReadonlyArray<InterfaceFunction>
+          readonly inheritedFrom: LocalInterfaceSpecification | null
+          readonly isDangling: boolean
+      })
 
 export function isInheritedInterface(
-  iface: InterfaceSpecification,
+    iface: InterfaceSpecification
 ): iface is InheritedInterfaceSpecification {
-  return iface.kind === "inherited" || "parentInterfaceUuid" in iface
+    return iface.kind === 'inherited' || 'parentInterfaceUuid' in iface
 }
 
 export function isLocalInterface(
-  iface: InterfaceSpecification,
+    iface: InterfaceSpecification
 ): iface is LocalInterfaceSpecification {
-  return !isInheritedInterface(iface)
+    return !isInheritedInterface(iface)
 }
 
 export function getStoredInterfaceFunctions(
-  iface: InterfaceSpecification,
+    iface: InterfaceSpecification
 ): ReadonlyArray<InterfaceFunction> {
-  return isLocalInterface(iface) ? iface.functions : []
+    return isLocalInterface(iface) ? iface.functions : []
 }
 
 export function getParentInterface(
-  iface: InheritedInterfaceSpecification,
-  ownerComp: ComponentNode,
-  rootComponent: ComponentNode,
+    iface: InheritedInterfaceSpecification,
+    ownerComp: ComponentNode,
+    rootComponent: ComponentNode
 ): LocalInterfaceSpecification | null {
-  const parentNode = findParentNode(rootComponent, ownerComp.uuid)
-  if (parentNode?.type !== "component") return null
-  const parentIface = parentNode.interfaces.find((candidate) => candidate.uuid === iface.parentInterfaceUuid)
-  return parentIface && isLocalInterface(parentIface) ? parentIface : null
+    const parentNode = findParentNode(rootComponent, ownerComp.uuid)
+    if (parentNode?.type !== 'component') return null
+    const parentIface = parentNode.interfaces.find(
+        (candidate) => candidate.uuid === iface.parentInterfaceUuid
+    )
+    return parentIface && isLocalInterface(parentIface) ? parentIface : null
 }
 
 /**
@@ -56,40 +58,40 @@ export function getParentInterface(
  * helper instead of reading stored functions directly.
  */
 export function resolveEffectiveInterfaceFunctions(
-  iface: InterfaceSpecification,
-  ownerComp: ComponentNode,
-  rootComponent: ComponentNode,
+    iface: InterfaceSpecification,
+    ownerComp: ComponentNode,
+    rootComponent: ComponentNode
 ): ReadonlyArray<InterfaceFunction> {
-  if (isLocalInterface(iface)) return iface.functions
-  return getParentInterface(iface, ownerComp, rootComponent)?.functions ?? []
+    if (isLocalInterface(iface)) return iface.functions
+    return getParentInterface(iface, ownerComp, rootComponent)?.functions ?? []
 }
 
 export function resolveInterface(
-  iface: InterfaceSpecification,
-  ownerComp: ComponentNode,
-  rootComponent: ComponentNode,
+    iface: InterfaceSpecification,
+    ownerComp: ComponentNode,
+    rootComponent: ComponentNode
 ): ResolvedInterface {
-  if (isLocalInterface(iface)) {
-    return {
-      ...iface,
-      effectiveFunctions: iface.functions,
-      inheritedFrom: null,
-      isDangling: false,
+    if (isLocalInterface(iface)) {
+        return {
+            ...iface,
+            effectiveFunctions: iface.functions,
+            inheritedFrom: null,
+            isDangling: false,
+        }
     }
-  }
 
-  const inheritedFrom = getParentInterface(iface, ownerComp, rootComponent)
-  return {
-    ...iface,
-    effectiveFunctions: inheritedFrom?.functions ?? [],
-    inheritedFrom,
-    isDangling: inheritedFrom == null,
-  }
+    const inheritedFrom = getParentInterface(iface, ownerComp, rootComponent)
+    return {
+        ...iface,
+        effectiveFunctions: inheritedFrom?.functions ?? [],
+        inheritedFrom,
+        isDangling: inheritedFrom == null,
+    }
 }
 
 export function resolveComponentInterfaces(
-  ownerComp: ComponentNode,
-  rootComponent: ComponentNode,
+    ownerComp: ComponentNode,
+    rootComponent: ComponentNode
 ): ReadonlyArray<ResolvedInterface> {
-  return ownerComp.interfaces.map((iface) => resolveInterface(iface, ownerComp, rootComponent))
+    return ownerComp.interfaces.map((iface) => resolveInterface(iface, ownerComp, rootComponent))
 }

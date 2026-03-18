@@ -9,8 +9,15 @@
  *
  * text_mode and block_header_mode both pop back to default_mode on NEWLINE.
  */
-import { createToken, Lexer } from "chevrotain"
-import { sharedTokens, Colon as SharedColon, Arrow as SharedArrow, Newline, WhiteSpace, Identifier } from "../tokens"
+import { createToken, Lexer } from 'chevrotain'
+import {
+    sharedTokens,
+    Colon as SharedColon,
+    Arrow as SharedArrow,
+    Newline,
+    WhiteSpace,
+    Identifier,
+} from '../tokens'
 
 // ─── Indent token (default_mode only) ────────────────────────────────────────
 
@@ -21,16 +28,17 @@ import { sharedTokens, Colon as SharedColon, Arrow as SharedArrow, Newline, Whit
  * Must be placed before WhiteSpace in the token list so it gets priority.
  */
 export const Indent = createToken({
-  name: "Indent",
-  pattern: (text, offset) => {
-    if (offset === 0 || text[offset - 1] !== "\n") return null
-    const match = /^[ \t]+/.exec(text.slice(offset))
-    if (!match) return null
-    const afterIndent = offset + match[0].length
-    if (afterIndent >= text.length || text[afterIndent] === "\n" || text[afterIndent] === "\r") return null
-    return match
-  },
-  line_breaks: false,
+    name: 'Indent',
+    pattern: (text, offset) => {
+        if (offset === 0 || text[offset - 1] !== '\n') return null
+        const match = /^[ \t]+/.exec(text.slice(offset))
+        if (!match) return null
+        const afterIndent = offset + match[0].length
+        if (afterIndent >= text.length || text[afterIndent] === '\n' || text[afterIndent] === '\r')
+            return null
+        return match
+    },
+    line_breaks: false,
 })
 
 // ─── Comment token (default_mode only) ───────────────────────────────────────
@@ -41,8 +49,8 @@ export const Indent = createToken({
  * Must be placed before Identifier in the token list so it takes priority.
  */
 export const Comment = createToken({
-  name: "Comment",
-  pattern: /#[^\r\n]*/,
+    name: 'Comment',
+    pattern: /#[^\r\n]*/,
 })
 
 // ─── Label / note text tokens (only in text_mode) ─────────────────────────────
@@ -52,8 +60,8 @@ export const Comment = createToken({
  * (e.g. `IAuth:login():my label`).  Tried first in text_mode.
  */
 export const FunctionRef = createToken({
-  name: "FunctionRef",
-  pattern: /[A-Za-z_]\w*:[A-Za-z_]\w*\([^)]*\)(?::[^\r\n]*)?/,
+    name: 'FunctionRef',
+    pattern: /[A-Za-z_]\w*:[A-Za-z_]\w*\([^)]*\)(?::[^\r\n]*)?/,
 })
 
 /**
@@ -63,8 +71,8 @@ export const FunctionRef = createToken({
  * Tried before LabelText so it takes priority.
  */
 export const UseCaseRef = createToken({
-  name: "UseCaseRef",
-  pattern: /UseCase:[A-Za-z_][A-Za-z0-9_]*(?:\/[A-Za-z_][A-Za-z0-9_]*)*(?::[^\r\n]*)?/,
+    name: 'UseCaseRef',
+    pattern: /UseCase:[A-Za-z_][A-Za-z0-9_]*(?:\/[A-Za-z_][A-Za-z0-9_]*)*(?::[^\r\n]*)?/,
 })
 
 /**
@@ -74,14 +82,14 @@ export const UseCaseRef = createToken({
  * Tried before LabelText so it takes priority.
  */
 export const SequenceRef = createToken({
-  name: "SequenceRef",
-  pattern: /Sequence:[A-Za-z_][A-Za-z0-9_]*(?:\/[A-Za-z_][A-Za-z0-9_]*)*(?::[^\r\n]*)?/,
+    name: 'SequenceRef',
+    pattern: /Sequence:[A-Za-z_][A-Za-z0-9_]*(?:\/[A-Za-z_][A-Za-z0-9_]*)*(?::[^\r\n]*)?/,
 })
 
 /** Catch-all: rest of line text for plain message labels and note bodies */
 export const LabelText = createToken({
-  name: "LabelText",
-  pattern: /[^\r\n]+/,
+    name: 'LabelText',
+    pattern: /[^\r\n]+/,
 })
 
 // text_mode alias for note body (same pattern, separate token for visitor clarity)
@@ -90,11 +98,11 @@ export const NoteText = LabelText
 // ─── Newline that pops text_mode back to default ──────────────────────────────
 
 const NewlineExit = createToken({
-  name: "NewlineExit",
-  pattern: /\r?\n/,
-  line_breaks: true,
-  pop_mode: true,
-  categories: [Newline], // treated as a Newline by the parser
+    name: 'NewlineExit',
+    pattern: /\r?\n/,
+    line_breaks: true,
+    pop_mode: true,
+    categories: [Newline], // treated as a Newline by the parser
 })
 
 // ─── Colon that pushes text_mode ─────────────────────────────────────────────
@@ -105,9 +113,9 @@ const NewlineExit = createToken({
  * FunctionRef or LabelText (rest-of-line).
  */
 export const SeqColon = createToken({
-  name: "SeqColon",
-  pattern: /:/,
-  push_mode: "text_mode",
+    name: 'SeqColon',
+    pattern: /:/,
+    push_mode: 'text_mode',
 })
 
 // ─── Block keywords (sequence-diagram-specific) ───────────────────────────────
@@ -128,8 +136,8 @@ export const SeqColon = createToken({
  * | --)   | Dotted line, open arrowhead            |
  */
 export const SeqArrow = createToken({
-  name: "SeqArrow",
-  pattern: /-->>|--x|--\)|-->|->>|-x|-\)|->/ ,
+    name: 'SeqArrow',
+    pattern: /-->>|--x|--\)|-->|->>|-x|-\)|->/,
 })
 
 /**
@@ -137,40 +145,64 @@ export const SeqArrow = createToken({
  * priority. loop/alt/par/opt/else/and push block_header_mode to capture
  * optional condition text. end stays in default_mode (no condition text).
  */
-export const Loop = createToken({ name: "Loop", pattern: /loop(?![a-zA-Z0-9_])/, push_mode: "block_header_mode" })
-export const Alt  = createToken({ name: "Alt",  pattern: /alt(?![a-zA-Z0-9_])/,  push_mode: "block_header_mode" })
-export const Par  = createToken({ name: "Par",  pattern: /par(?![a-zA-Z0-9_])/,  push_mode: "block_header_mode" })
-export const Opt  = createToken({ name: "Opt",  pattern: /opt(?![a-zA-Z0-9_])/,  push_mode: "block_header_mode" })
-export const Else = createToken({ name: "Else", pattern: /else(?![a-zA-Z0-9_])/, push_mode: "block_header_mode" })
-export const And  = createToken({ name: "And",  pattern: /and(?![a-zA-Z0-9_])/,  push_mode: "block_header_mode" })
-export const End  = createToken({ name: "End",  pattern: /end(?![a-zA-Z0-9_])/ })
+export const Loop = createToken({
+    name: 'Loop',
+    pattern: /loop(?![a-zA-Z0-9_])/,
+    push_mode: 'block_header_mode',
+})
+export const Alt = createToken({
+    name: 'Alt',
+    pattern: /alt(?![a-zA-Z0-9_])/,
+    push_mode: 'block_header_mode',
+})
+export const Par = createToken({
+    name: 'Par',
+    pattern: /par(?![a-zA-Z0-9_])/,
+    push_mode: 'block_header_mode',
+})
+export const Opt = createToken({
+    name: 'Opt',
+    pattern: /opt(?![a-zA-Z0-9_])/,
+    push_mode: 'block_header_mode',
+})
+export const Else = createToken({
+    name: 'Else',
+    pattern: /else(?![a-zA-Z0-9_])/,
+    push_mode: 'block_header_mode',
+})
+export const And = createToken({
+    name: 'And',
+    pattern: /and(?![a-zA-Z0-9_])/,
+    push_mode: 'block_header_mode',
+})
+export const End = createToken({ name: 'End', pattern: /end(?![a-zA-Z0-9_])/ })
 
-export const Activate   = createToken({ name: "Activate",   pattern: /activate(?![a-zA-Z0-9_])/ })
-export const Deactivate = createToken({ name: "Deactivate", pattern: /deactivate(?![a-zA-Z0-9_])/ })
+export const Activate = createToken({ name: 'Activate', pattern: /activate(?![a-zA-Z0-9_])/ })
+export const Deactivate = createToken({ name: 'Deactivate', pattern: /deactivate(?![a-zA-Z0-9_])/ })
 
 // ─── block_header_mode tokens ─────────────────────────────────────────────────
 
 /** Optional rest-of-line condition/label text after a block keyword. */
 export const BlockConditionText = createToken({
-  name: "BlockConditionText",
-  pattern: /[^\r\n]+/,
+    name: 'BlockConditionText',
+    pattern: /[^\r\n]+/,
 })
 
 /** Newline that pops block_header_mode back to default_mode. */
 const BlockNewlineExit = createToken({
-  name: "BlockNewlineExit",
-  pattern: /\r?\n/,
-  line_breaks: true,
-  pop_mode: true,
-  categories: [Newline], // treated as Newline by the parser
+    name: 'BlockNewlineExit',
+    pattern: /\r?\n/,
+    line_breaks: true,
+    pop_mode: true,
+    categories: [Newline], // treated as Newline by the parser
 })
 
 // ─── Lexer definition ─────────────────────────────────────────────────────────
 
 // Shared tokens with Colon replaced by SeqColon, and Arrow replaced by SeqArrow
 const sharedWithSeqTokens = sharedTokens
-  .map((t) => (t === SharedColon ? SeqColon : t))
-  .map((t) => (t === SharedArrow ? SeqArrow : t))
+    .map((t) => (t === SharedColon ? SeqColon : t))
+    .map((t) => (t === SharedArrow ? SeqArrow : t))
 
 // Insert block keywords before Identifier (so they have lexer priority).
 // Indent must come first (before WhiteSpace) so it wins at line starts.
@@ -178,37 +210,44 @@ const sharedWithSeqTokens = sharedTokens
 const whitespaceIdx = sharedWithSeqTokens.indexOf(WhiteSpace)
 const identifierIdx = sharedWithSeqTokens.indexOf(Identifier)
 const defaultModeTokens = [
-  Indent,                                                          // before WhiteSpace
-  ...sharedWithSeqTokens.slice(0, whitespaceIdx),
-  WhiteSpace,
-  ...sharedWithSeqTokens.slice(whitespaceIdx + 1, identifierIdx),
-  Loop, Alt, Par, Opt, Else, And, End,
-  Activate, Deactivate,                                            // before Identifier
-  Comment,                                                         // before Identifier
-  ...sharedWithSeqTokens.slice(identifierIdx),
+    Indent, // before WhiteSpace
+    ...sharedWithSeqTokens.slice(0, whitespaceIdx),
+    WhiteSpace,
+    ...sharedWithSeqTokens.slice(whitespaceIdx + 1, identifierIdx),
+    Loop,
+    Alt,
+    Par,
+    Opt,
+    Else,
+    And,
+    End,
+    Activate,
+    Deactivate, // before Identifier
+    Comment, // before Identifier
+    ...sharedWithSeqTokens.slice(identifierIdx),
 ]
 
 export const seqLexerDefinition = {
-  modes: {
-    default_mode: defaultModeTokens,
-    text_mode: [NewlineExit, WhiteSpace, FunctionRef, UseCaseRef, SequenceRef, LabelText],
-    block_header_mode: [BlockNewlineExit, WhiteSpace, BlockConditionText],
-  },
-  defaultMode: "default_mode",
+    modes: {
+        default_mode: defaultModeTokens,
+        text_mode: [NewlineExit, WhiteSpace, FunctionRef, UseCaseRef, SequenceRef, LabelText],
+        block_header_mode: [BlockNewlineExit, WhiteSpace, BlockConditionText],
+    },
+    defaultMode: 'default_mode',
 }
 
 export const SeqLexer = new Lexer(seqLexerDefinition)
 
 // All unique tokens (all modes, deduped) — needed by the CstParser
 export const allSeqTokens = [
-  ...defaultModeTokens,
-  NewlineExit,
-  FunctionRef,
-  UseCaseRef,
-  SequenceRef,
-  LabelText,
-  BlockNewlineExit,
-  BlockConditionText,
+    ...defaultModeTokens,
+    NewlineExit,
+    FunctionRef,
+    UseCaseRef,
+    SequenceRef,
+    LabelText,
+    BlockNewlineExit,
+    BlockConditionText,
 ]
 
 export { Newline }

@@ -1,5 +1,5 @@
-import { test, expect } from "@playwright/test"
-import { makeLocalStorageValue } from "./fixtures/sample-system"
+import { test, expect } from '@playwright/test'
+import { makeLocalStorageValue } from './fixtures/sample-system'
 
 const SAVE_FAILURE_MOCK_SCRIPT = `
   window.showDirectoryPicker = async function() {
@@ -45,30 +45,30 @@ const SAVE_FAILURE_MOCK_SCRIPT = `
 `
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript((value) => {
-    localStorage.setItem("integra-system", value)
-  }, makeLocalStorageValue())
-  await page.addInitScript({ content: SAVE_FAILURE_MOCK_SCRIPT })
+    await page.addInitScript((value) => {
+        localStorage.setItem('integra-system', value)
+    }, makeLocalStorageValue())
+    await page.addInitScript({ content: SAVE_FAILURE_MOCK_SCRIPT })
 })
 
-test("save failure shows an alert and keeps the model marked as unsaved", async ({ page }) => {
-  await page.goto("/")
+test('save failure shows an alert and keeps the model marked as unsaved', async ({ page }) => {
+    await page.goto('/')
 
-  await page.getByRole("treeitem").filter({ hasText: "Login" }).first().click()
-  const idInput = page.getByLabel("Node ID")
-  await idInput.clear()
-  await idInput.fill("SignIn")
-  await idInput.press("Enter")
+    await page.getByRole('treeitem').filter({ hasText: 'Login' }).first().click()
+    const idInput = page.getByLabel('Node ID')
+    await idInput.clear()
+    await idInput.fill('SignIn')
+    await idInput.press('Enter')
 
-  await expect(page.getByTitle("Unsaved changes")).toBeVisible()
+    await expect(page.getByTitle('Unsaved changes')).toBeVisible()
 
-  let alertMessage = ""
-  page.on("dialog", async (dialog) => {
-    alertMessage = dialog.message()
-    await dialog.dismiss()
-  })
+    let alertMessage = ''
+    page.on('dialog', async (dialog) => {
+        alertMessage = dialog.message()
+        await dialog.dismiss()
+    })
 
-  await page.getByTitle("Save system to YAML file").click()
-  await expect.poll(() => alertMessage).toContain("Failed to save system: disk full")
-  await expect(page.getByTitle("Unsaved changes")).toBeVisible()
+    await page.getByTitle('Save system to YAML file').click()
+    await expect.poll(() => alertMessage).toContain('Failed to save system: disk full')
+    await expect(page.getByTitle('Unsaved changes')).toBeVisible()
 })

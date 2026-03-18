@@ -1,161 +1,157 @@
 import type {
-  ComponentNode,
-  ActorNode,
-  UseCaseDiagramNode,
-  SequenceDiagramNode,
-  UseCaseNode,
-  InterfaceSpecification,
-} from "../../src/store/types"
+    ComponentNode,
+    ActorNode,
+    UseCaseDiagramNode,
+    SequenceDiagramNode,
+    UseCaseNode,
+    InterfaceSpecification,
+} from '../../src/store/types'
 
 // ─── UUIDs ────────────────────────────────────────────────────────────────────
 
 export const UUIDS = {
-  root: "test-root-uuid",
-  actor: "test-actor-uuid",
-  ucd: "test-ucd-uuid",
-  uc: "test-uc-uuid",
-  seq: "test-seq-uuid",
-  authComp: "test-auth-uuid",
-  iface: "test-iface-uuid",
-  emptyIface: "test-empty-iface-uuid",
-  fn: "test-fn-uuid",
-  orderComp: "test-order-uuid",
-  orderUcd: "test-order-ucd-uuid",
-  orderUc: "test-order-uc-uuid",
-  orderIface: "test-order-iface-uuid",
-  orderFn: "test-order-fn-uuid",
-  emptySeq: "test-empty-seq-uuid",
+    root: 'test-root-uuid',
+    actor: 'test-actor-uuid',
+    ucd: 'test-ucd-uuid',
+    uc: 'test-uc-uuid',
+    seq: 'test-seq-uuid',
+    authComp: 'test-auth-uuid',
+    iface: 'test-iface-uuid',
+    emptyIface: 'test-empty-iface-uuid',
+    fn: 'test-fn-uuid',
+    orderComp: 'test-order-uuid',
+    orderUcd: 'test-order-ucd-uuid',
+    orderUc: 'test-order-uc-uuid',
+    orderIface: 'test-order-iface-uuid',
+    orderFn: 'test-order-fn-uuid',
+    emptySeq: 'test-empty-seq-uuid',
 } as const
 
 // ─── Fixture ─────────────────────────────────────────────────────────────────
 
 const actor: ActorNode = {
-  uuid: UUIDS.actor,
-  id: "User",
-  name: "User",
-  type: "actor",
+    uuid: UUIDS.actor,
+    id: 'User',
+    name: 'User',
+    type: 'actor',
 }
 
 const orderUcNode: UseCaseNode = {
-  uuid: UUIDS.orderUc,
-  id: "PlaceOrder",
-  name: "Place Order",
-  type: "use-case",
-  sequenceDiagrams: [],
+    uuid: UUIDS.orderUc,
+    id: 'PlaceOrder',
+    name: 'Place Order',
+    type: 'use-case',
+    sequenceDiagrams: [],
 }
 
 const orderUcd: UseCaseDiagramNode = {
-  uuid: UUIDS.orderUcd,
-  id: "OrderUCD",
-  name: "Order Use Cases",
-  type: "use-case-diagram",
-  ownerComponentUuid: UUIDS.orderComp,
-  referencedNodeIds: [UUIDS.actor, UUIDS.orderUc],
-  content: ["actor User", "use case PlaceOrder", "User ->> PlaceOrder"].join("\n"),
-  useCases: [orderUcNode],
+    uuid: UUIDS.orderUcd,
+    id: 'OrderUCD',
+    name: 'Order Use Cases',
+    type: 'use-case-diagram',
+    ownerComponentUuid: UUIDS.orderComp,
+    referencedNodeIds: [UUIDS.actor, UUIDS.orderUc],
+    content: ['actor User', 'use case PlaceOrder', 'User ->> PlaceOrder'].join('\n'),
+    useCases: [orderUcNode],
 }
 
 const orderComp: ComponentNode = {
-  uuid: UUIDS.orderComp,
-  id: "OrderService",
-  name: "OrderService",
-  type: "component",
-  subComponents: [],
-  actors: [],
-  useCaseDiagrams: [orderUcd],
-  interfaces: [],
+    uuid: UUIDS.orderComp,
+    id: 'OrderService',
+    name: 'OrderService',
+    type: 'component',
+    subComponents: [],
+    actors: [],
+    useCaseDiagrams: [orderUcd],
+    interfaces: [],
 }
 
 const seqDiagram: SequenceDiagramNode = {
-  uuid: UUIDS.seq,
-  id: "LoginFlow",
-  name: "Login Flow",
-  type: "sequence-diagram",
-  ownerComponentUuid: UUIDS.root,
-  referencedNodeIds: [UUIDS.authComp, UUIDS.orderUc],
-  referencedFunctionUuids: [UUIDS.fn],
-  content: [
-    "actor User",
-    "component AuthService",
-    "component OrderService",
-    "User ->> AuthService: IAuth:login()",
-    "AuthService -->> User: done",
-    "opt if order pending",
-    "  User ->> AuthService: IAuth:login()",
-    "end",
-    "User ->> OrderService: UseCase:OrderService/PlaceOrder:Place an order",
-  ].join("\n"),
+    uuid: UUIDS.seq,
+    id: 'LoginFlow',
+    name: 'Login Flow',
+    type: 'sequence-diagram',
+    ownerComponentUuid: UUIDS.root,
+    referencedNodeIds: [UUIDS.authComp, UUIDS.orderUc],
+    referencedFunctionUuids: [UUIDS.fn],
+    content: [
+        'actor User',
+        'component AuthService',
+        'component OrderService',
+        'User ->> AuthService: IAuth:login()',
+        'AuthService -->> User: done',
+        'opt if order pending',
+        '  User ->> AuthService: IAuth:login()',
+        'end',
+        'User ->> OrderService: UseCase:OrderService/PlaceOrder:Place an order',
+    ].join('\n'),
 }
 
 const ucNode: UseCaseNode = {
-  uuid: UUIDS.uc,
-  id: "Login",
-  name: "Login",
-  type: "use-case",
-  sequenceDiagrams: [seqDiagram],
+    uuid: UUIDS.uc,
+    id: 'Login',
+    name: 'Login',
+    type: 'use-case',
+    sequenceDiagrams: [seqDiagram],
 }
 
 const ucDiagram: UseCaseDiagramNode = {
-  uuid: UUIDS.ucd,
-  id: "MainUCD",
-  name: "Main Use Cases",
-  type: "use-case-diagram",
-  ownerComponentUuid: UUIDS.root,
-  referencedNodeIds: [UUIDS.actor, UUIDS.uc],
-  content: [
-    "actor User",
-    "use case Login",
-    "User ->> Login",
-  ].join("\n"),
-  useCases: [ucNode],
+    uuid: UUIDS.ucd,
+    id: 'MainUCD',
+    name: 'Main Use Cases',
+    type: 'use-case-diagram',
+    ownerComponentUuid: UUIDS.root,
+    referencedNodeIds: [UUIDS.actor, UUIDS.uc],
+    content: ['actor User', 'use case Login', 'User ->> Login'].join('\n'),
+    useCases: [ucNode],
 }
 
 const authComp: ComponentNode = {
-  uuid: UUIDS.authComp,
-  id: "AuthService",
-  name: "AuthService",
-  type: "component",
-  subComponents: [],
-  actors: [],
-  useCaseDiagrams: [],
-  interfaces: [
-    {
-      uuid: UUIDS.iface,
-      id: "IAuth",
-      name: "IAuth",
-      type: "rest",
-      functions: [
+    uuid: UUIDS.authComp,
+    id: 'AuthService',
+    name: 'AuthService',
+    type: 'component',
+    subComponents: [],
+    actors: [],
+    useCaseDiagrams: [],
+    interfaces: [
         {
-          uuid: UUIDS.fn,
-          id: "login",
-          parameters: [],
+            uuid: UUIDS.iface,
+            id: 'IAuth',
+            name: 'IAuth',
+            type: 'rest',
+            functions: [
+                {
+                    uuid: UUIDS.fn,
+                    id: 'login',
+                    parameters: [],
+                },
+            ],
         },
-      ],
-    },
-    {
-      uuid: UUIDS.emptyIface,
-      id: "IEmpty",
-      name: "IEmpty",
-      type: "other",
-      functions: [],
-    },
-  ],
+        {
+            uuid: UUIDS.emptyIface,
+            id: 'IEmpty',
+            name: 'IEmpty',
+            type: 'other',
+            functions: [],
+        },
+    ],
 }
 
 export const sampleSystem: ComponentNode = {
-  uuid: UUIDS.root,
-  id: "System",
-  name: "System",
-  type: "component",
-  subComponents: [authComp, orderComp],
-  actors: [actor],
-  useCaseDiagrams: [ucDiagram],
-  interfaces: [],
+    uuid: UUIDS.root,
+    id: 'System',
+    name: 'System',
+    type: 'component',
+    subComponents: [authComp, orderComp],
+    actors: [actor],
+    useCaseDiagrams: [ucDiagram],
+    interfaces: [],
 }
 
 /** Zustand persist envelope written to localStorage["integra-system"] */
 export function makeLocalStorageValue(): string {
-  return JSON.stringify({ state: { rootComponent: sampleSystem }, version: 0 })
+    return JSON.stringify({ state: { rootComponent: sampleSystem }, version: 0 })
 }
 
 /**
@@ -163,29 +159,29 @@ export function makeLocalStorageValue(): string {
  * The empty diagram starts in edit mode (no content), making e2e interaction easier.
  */
 export function makeLocalStorageValueWithEmptySeq(): string {
-  const emptySeq: SequenceDiagramNode = {
-    uuid: UUIDS.emptySeq,
-    id: "NewFlow",
-    name: "New Flow",
-    type: "sequence-diagram",
-    ownerComponentUuid: UUIDS.root,
-    referencedNodeIds: [],
-    referencedFunctionUuids: [],
-    content: "",
-  }
+    const emptySeq: SequenceDiagramNode = {
+        uuid: UUIDS.emptySeq,
+        id: 'NewFlow',
+        name: 'New Flow',
+        type: 'sequence-diagram',
+        ownerComponentUuid: UUIDS.root,
+        referencedNodeIds: [],
+        referencedFunctionUuids: [],
+        content: '',
+    }
 
-  const systemWithEmptySeq: ComponentNode = {
-    ...sampleSystem,
-    useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
-      ...ucd,
-      useCases: ucd.useCases.map((uc) => ({
-        ...uc,
-        sequenceDiagrams: [...uc.sequenceDiagrams, emptySeq],
-      })),
-    })),
-  }
+    const systemWithEmptySeq: ComponentNode = {
+        ...sampleSystem,
+        useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
+            ...ucd,
+            useCases: ucd.useCases.map((uc) => ({
+                ...uc,
+                sequenceDiagrams: [...uc.sequenceDiagrams, emptySeq],
+            })),
+        })),
+    }
 
-  return JSON.stringify({ state: { rootComponent: systemWithEmptySeq }, version: 0 })
+    return JSON.stringify({ state: { rootComponent: systemWithEmptySeq }, version: 0 })
 }
 
 /**
@@ -193,36 +189,36 @@ export function makeLocalStorageValueWithEmptySeq(): string {
  * Used to verify that block-nested messages are included in the component class diagram.
  */
 export function makeLocalStorageValueWithBlockOnlyCall(): string {
-  const blockOnlySeq: SequenceDiagramNode = {
-    uuid: "block-only-seq-uuid",
-    id: "BlockFlow",
-    name: "Block Flow",
-    type: "sequence-diagram",
-    ownerComponentUuid: UUIDS.root,
-    referencedNodeIds: [UUIDS.authComp],
-    referencedFunctionUuids: [UUIDS.fn],
-    content: [
-      "actor User",
-      "component AuthService",
-      "opt if refresh needed",
-      "  User ->> AuthService: IAuth:login()",
-      "end",
-    ].join("\n"),
-  }
+    const blockOnlySeq: SequenceDiagramNode = {
+        uuid: 'block-only-seq-uuid',
+        id: 'BlockFlow',
+        name: 'Block Flow',
+        type: 'sequence-diagram',
+        ownerComponentUuid: UUIDS.root,
+        referencedNodeIds: [UUIDS.authComp],
+        referencedFunctionUuids: [UUIDS.fn],
+        content: [
+            'actor User',
+            'component AuthService',
+            'opt if refresh needed',
+            '  User ->> AuthService: IAuth:login()',
+            'end',
+        ].join('\n'),
+    }
 
-  const systemWithBlockOnly: ComponentNode = {
-    ...sampleSystem,
-    // Replace the Login Flow with one that only calls IAuth inside a block
-    useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
-      ...ucd,
-      useCases: ucd.useCases.map((uc) => ({
-        ...uc,
-        sequenceDiagrams: [blockOnlySeq],
-      })),
-    })),
-  }
+    const systemWithBlockOnly: ComponentNode = {
+        ...sampleSystem,
+        // Replace the Login Flow with one that only calls IAuth inside a block
+        useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
+            ...ucd,
+            useCases: ucd.useCases.map((uc) => ({
+                ...uc,
+                sequenceDiagrams: [blockOnlySeq],
+            })),
+        })),
+    }
 
-  return JSON.stringify({ state: { rootComponent: systemWithBlockOnly }, version: 0 })
+    return JSON.stringify({ state: { rootComponent: systemWithBlockOnly }, version: 0 })
 }
 
 /**
@@ -233,53 +229,53 @@ export function makeLocalStorageValueWithBlockOnlyCall(): string {
  * A new sequence diagram shows AuthService ->> OrderService: IOrder:process()
  */
 export function makeLocalStorageValueWithDependency(): string {
-  const orderWithIface: ComponentNode = {
-    ...sampleSystem.subComponents[1],
-    interfaces: [
-      {
-        uuid: UUIDS.orderIface,
-        id: "IOrder",
-        name: "IOrder",
-        type: "rest",
-        functions: [
-          {
-            uuid: UUIDS.orderFn,
-            id: "process",
-            parameters: [{ name: "orderId", type: "string", required: true }],
-          },
+    const orderWithIface: ComponentNode = {
+        ...sampleSystem.subComponents[1],
+        interfaces: [
+            {
+                uuid: UUIDS.orderIface,
+                id: 'IOrder',
+                name: 'IOrder',
+                type: 'rest',
+                functions: [
+                    {
+                        uuid: UUIDS.orderFn,
+                        id: 'process',
+                        parameters: [{ name: 'orderId', type: 'string', required: true }],
+                    },
+                ],
+            },
         ],
-      },
-    ],
-  }
+    }
 
-  const depSeq: SequenceDiagramNode = {
-    uuid: "dep-seq-uuid",
-    id: "AuthToOrder",
-    name: "Auth To Order",
-    type: "sequence-diagram",
-    ownerComponentUuid: UUIDS.root,
-    referencedNodeIds: [UUIDS.authComp, UUIDS.orderComp],
-    referencedFunctionUuids: [UUIDS.orderFn],
-    content: [
-      "component AuthService",
-      "component OrderService",
-      "AuthService ->> OrderService: IOrder:process(orderId: string)",
-    ].join("\n"),
-  }
+    const depSeq: SequenceDiagramNode = {
+        uuid: 'dep-seq-uuid',
+        id: 'AuthToOrder',
+        name: 'Auth To Order',
+        type: 'sequence-diagram',
+        ownerComponentUuid: UUIDS.root,
+        referencedNodeIds: [UUIDS.authComp, UUIDS.orderComp],
+        referencedFunctionUuids: [UUIDS.orderFn],
+        content: [
+            'component AuthService',
+            'component OrderService',
+            'AuthService ->> OrderService: IOrder:process(orderId: string)',
+        ].join('\n'),
+    }
 
-  const systemWithDep: ComponentNode = {
-    ...sampleSystem,
-    subComponents: [sampleSystem.subComponents[0], orderWithIface],
-    useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
-      ...ucd,
-      useCases: ucd.useCases.map((uc) => ({
-        ...uc,
-        sequenceDiagrams: [...uc.sequenceDiagrams, depSeq],
-      })),
-    })),
-  }
+    const systemWithDep: ComponentNode = {
+        ...sampleSystem,
+        subComponents: [sampleSystem.subComponents[0], orderWithIface],
+        useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
+            ...ucd,
+            useCases: ucd.useCases.map((uc) => ({
+                ...uc,
+                sequenceDiagrams: [...uc.sequenceDiagrams, depSeq],
+            })),
+        })),
+    }
 
-  return JSON.stringify({ state: { rootComponent: systemWithDep }, version: 0 })
+    return JSON.stringify({ state: { rootComponent: systemWithDep }, version: 0 })
 }
 
 /**
@@ -288,58 +284,61 @@ export function makeLocalStorageValueWithDependency(): string {
  * Used to verify that a dependency-only component still renders a class diagram.
  */
 export function makeLocalStorageValueWithDependencyOnlyComponent(): string {
-  const authWithoutInterfaces: ComponentNode = {
-    ...sampleSystem.subComponents[0],
-    interfaces: [],
-  }
+    const authWithoutInterfaces: ComponentNode = {
+        ...sampleSystem.subComponents[0],
+        interfaces: [],
+    }
 
-  const orderWithIface: ComponentNode = {
-    ...sampleSystem.subComponents[1],
-    interfaces: [
-      {
-        uuid: UUIDS.orderIface,
-        id: "IOrder",
-        name: "IOrder",
-        type: "rest",
-        functions: [
-          {
-            uuid: UUIDS.orderFn,
-            id: "process",
-            parameters: [{ name: "orderId", type: "string", required: true }],
-          },
+    const orderWithIface: ComponentNode = {
+        ...sampleSystem.subComponents[1],
+        interfaces: [
+            {
+                uuid: UUIDS.orderIface,
+                id: 'IOrder',
+                name: 'IOrder',
+                type: 'rest',
+                functions: [
+                    {
+                        uuid: UUIDS.orderFn,
+                        id: 'process',
+                        parameters: [{ name: 'orderId', type: 'string', required: true }],
+                    },
+                ],
+            },
         ],
-      },
-    ],
-  }
+    }
 
-  const depSeq: SequenceDiagramNode = {
-    uuid: "dep-only-seq-uuid",
-    id: "AuthToOrderWithoutOwnInterfaces",
-    name: "Auth To Order Without Own Interfaces",
-    type: "sequence-diagram",
-    ownerComponentUuid: UUIDS.root,
-    referencedNodeIds: [UUIDS.authComp, UUIDS.orderComp],
-    referencedFunctionUuids: [UUIDS.orderFn],
-    content: [
-      "component AuthService",
-      "component OrderService",
-      "AuthService ->> OrderService: IOrder:process(orderId: string)",
-    ].join("\n"),
-  }
+    const depSeq: SequenceDiagramNode = {
+        uuid: 'dep-only-seq-uuid',
+        id: 'AuthToOrderWithoutOwnInterfaces',
+        name: 'Auth To Order Without Own Interfaces',
+        type: 'sequence-diagram',
+        ownerComponentUuid: UUIDS.root,
+        referencedNodeIds: [UUIDS.authComp, UUIDS.orderComp],
+        referencedFunctionUuids: [UUIDS.orderFn],
+        content: [
+            'component AuthService',
+            'component OrderService',
+            'AuthService ->> OrderService: IOrder:process(orderId: string)',
+        ].join('\n'),
+    }
 
-  const systemWithDependencyOnlyComponent: ComponentNode = {
-    ...sampleSystem,
-    subComponents: [authWithoutInterfaces, orderWithIface],
-    useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
-      ...ucd,
-      useCases: ucd.useCases.map((uc) => ({
-        ...uc,
-        sequenceDiagrams: [...uc.sequenceDiagrams, depSeq],
-      })),
-    })),
-  }
+    const systemWithDependencyOnlyComponent: ComponentNode = {
+        ...sampleSystem,
+        subComponents: [authWithoutInterfaces, orderWithIface],
+        useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
+            ...ucd,
+            useCases: ucd.useCases.map((uc) => ({
+                ...uc,
+                sequenceDiagrams: [...uc.sequenceDiagrams, depSeq],
+            })),
+        })),
+    }
 
-  return JSON.stringify({ state: { rootComponent: systemWithDependencyOnlyComponent }, version: 0 })
+    return JSON.stringify({
+        state: { rootComponent: systemWithDependencyOnlyComponent },
+        version: 0,
+    })
 }
 
 /**
@@ -347,27 +346,27 @@ export function makeLocalStorageValueWithDependencyOnlyComponent(): string {
  * Used to verify that \n in labels produces a <br/> visual line break in the diagram.
  */
 export function makeLocalStorageValueWithNewlineLabel(): string {
-  const seqWithNewlineLabel: SequenceDiagramNode = {
-    ...seqDiagram,
-    content: [
-      "actor User",
-      "component AuthService",
-      "User ->> AuthService: IAuth:login():Sign\\nIn",
-    ].join("\n"),
-  }
+    const seqWithNewlineLabel: SequenceDiagramNode = {
+        ...seqDiagram,
+        content: [
+            'actor User',
+            'component AuthService',
+            'User ->> AuthService: IAuth:login():Sign\\nIn',
+        ].join('\n'),
+    }
 
-  const systemWithNewlineLabel: ComponentNode = {
-    ...sampleSystem,
-    useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
-      ...ucd,
-      useCases: ucd.useCases.map((uc) => ({
-        ...uc,
-        sequenceDiagrams: [seqWithNewlineLabel],
-      })),
-    })),
-  }
+    const systemWithNewlineLabel: ComponentNode = {
+        ...sampleSystem,
+        useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
+            ...ucd,
+            useCases: ucd.useCases.map((uc) => ({
+                ...uc,
+                sequenceDiagrams: [seqWithNewlineLabel],
+            })),
+        })),
+    }
 
-  return JSON.stringify({ state: { rootComponent: systemWithNewlineLabel }, version: 0 })
+    return JSON.stringify({ state: { rootComponent: systemWithNewlineLabel }, version: 0 })
 }
 
 /**
@@ -376,60 +375,60 @@ export function makeLocalStorageValueWithNewlineLabel(): string {
  * Used to verify that numbered label suffixes are added for different receivers.
  */
 export function makeLocalStorageValueWithSameFunctionDifferentReceivers(): string {
-  const healthIfaceAuth = {
-    uuid: "health-iface-auth-uuid",
-    id: "IHealth",
-    name: "IHealth",
-    type: "other" as const,
-    functions: [{ uuid: "health-fn-auth-uuid", id: "ping", parameters: [] }],
-  }
-  const healthIfaceOrder = {
-    uuid: "health-iface-order-uuid",
-    id: "IHealth",
-    name: "IHealth",
-    type: "other" as const,
-    functions: [{ uuid: "health-fn-order-uuid", id: "ping", parameters: [] }],
-  }
+    const healthIfaceAuth = {
+        uuid: 'health-iface-auth-uuid',
+        id: 'IHealth',
+        name: 'IHealth',
+        type: 'other' as const,
+        functions: [{ uuid: 'health-fn-auth-uuid', id: 'ping', parameters: [] }],
+    }
+    const healthIfaceOrder = {
+        uuid: 'health-iface-order-uuid',
+        id: 'IHealth',
+        name: 'IHealth',
+        type: 'other' as const,
+        functions: [{ uuid: 'health-fn-order-uuid', id: 'ping', parameters: [] }],
+    }
 
-  const authWithHealth: ComponentNode = {
-    ...sampleSystem.subComponents[0],
-    interfaces: [...sampleSystem.subComponents[0].interfaces, healthIfaceAuth],
-  }
-  const orderWithHealth: ComponentNode = {
-    ...sampleSystem.subComponents[1],
-    interfaces: [healthIfaceOrder],
-  }
+    const authWithHealth: ComponentNode = {
+        ...sampleSystem.subComponents[0],
+        interfaces: [...sampleSystem.subComponents[0].interfaces, healthIfaceAuth],
+    }
+    const orderWithHealth: ComponentNode = {
+        ...sampleSystem.subComponents[1],
+        interfaces: [healthIfaceOrder],
+    }
 
-  const multiReceiverSeq: SequenceDiagramNode = {
-    uuid: "multi-receiver-seq-uuid",
-    id: "HealthCheck",
-    name: "Health Check",
-    type: "sequence-diagram",
-    ownerComponentUuid: UUIDS.root,
-    referencedNodeIds: [UUIDS.authComp, UUIDS.orderComp],
-    referencedFunctionUuids: ["health-fn-auth-uuid", "health-fn-order-uuid"],
-    content: [
-      "actor User",
-      "component AuthService",
-      "component OrderService",
-      "User ->> AuthService: IHealth:ping()",
-      "User ->> OrderService: IHealth:ping()",
-    ].join("\n"),
-  }
+    const multiReceiverSeq: SequenceDiagramNode = {
+        uuid: 'multi-receiver-seq-uuid',
+        id: 'HealthCheck',
+        name: 'Health Check',
+        type: 'sequence-diagram',
+        ownerComponentUuid: UUIDS.root,
+        referencedNodeIds: [UUIDS.authComp, UUIDS.orderComp],
+        referencedFunctionUuids: ['health-fn-auth-uuid', 'health-fn-order-uuid'],
+        content: [
+            'actor User',
+            'component AuthService',
+            'component OrderService',
+            'User ->> AuthService: IHealth:ping()',
+            'User ->> OrderService: IHealth:ping()',
+        ].join('\n'),
+    }
 
-  const systemWithMultiReceiver: ComponentNode = {
-    ...sampleSystem,
-    subComponents: [authWithHealth, orderWithHealth],
-    useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
-      ...ucd,
-      useCases: ucd.useCases.map((uc) => ({
-        ...uc,
-        sequenceDiagrams: [...uc.sequenceDiagrams, multiReceiverSeq],
-      })),
-    })),
-  }
+    const systemWithMultiReceiver: ComponentNode = {
+        ...sampleSystem,
+        subComponents: [authWithHealth, orderWithHealth],
+        useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
+            ...ucd,
+            useCases: ucd.useCases.map((uc) => ({
+                ...uc,
+                sequenceDiagrams: [...uc.sequenceDiagrams, multiReceiverSeq],
+            })),
+        })),
+    }
 
-  return JSON.stringify({ state: { rootComponent: systemWithMultiReceiver }, version: 0 })
+    return JSON.stringify({ state: { rootComponent: systemWithMultiReceiver }, version: 0 })
 }
 
 /**
@@ -437,33 +436,33 @@ export function makeLocalStorageValueWithSameFunctionDifferentReceivers(): strin
  * Used to test that renaming LoginFlow updates the referencing diagram content.
  */
 export function makeLocalStorageValueWithSeqRef(): string {
-  const refererSeq: SequenceDiagramNode = {
-    uuid: "seq-referer-uuid",
-    id: "MainFlow",
-    name: "Main Flow",
-    type: "sequence-diagram",
-    ownerComponentUuid: UUIDS.root,
-    referencedNodeIds: [UUIDS.seq],
-    referencedFunctionUuids: [],
-    content: [
-      "actor User",
-      "component AuthService",
-      "User ->> AuthService: Sequence:LoginFlow",
-    ].join("\n"),
-  }
+    const refererSeq: SequenceDiagramNode = {
+        uuid: 'seq-referer-uuid',
+        id: 'MainFlow',
+        name: 'Main Flow',
+        type: 'sequence-diagram',
+        ownerComponentUuid: UUIDS.root,
+        referencedNodeIds: [UUIDS.seq],
+        referencedFunctionUuids: [],
+        content: [
+            'actor User',
+            'component AuthService',
+            'User ->> AuthService: Sequence:LoginFlow',
+        ].join('\n'),
+    }
 
-  const systemWithSeqRef: ComponentNode = {
-    ...sampleSystem,
-    useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
-      ...ucd,
-      useCases: ucd.useCases.map((uc) => ({
-        ...uc,
-        sequenceDiagrams: [...uc.sequenceDiagrams, refererSeq],
-      })),
-    })),
-  }
+    const systemWithSeqRef: ComponentNode = {
+        ...sampleSystem,
+        useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
+            ...ucd,
+            useCases: ucd.useCases.map((uc) => ({
+                ...uc,
+                sequenceDiagrams: [...uc.sequenceDiagrams, refererSeq],
+            })),
+        })),
+    }
 
-  return JSON.stringify({ state: { rootComponent: systemWithSeqRef }, version: 0 })
+    return JSON.stringify({ state: { rootComponent: systemWithSeqRef }, version: 0 })
 }
 
 /**
@@ -489,45 +488,43 @@ export function makeLocalStorageValueWithSeqRef(): string {
  *                   and shows doThing function as read-only (no edit input, no delete button)
  */
 export function makeLocalStorageValueWithInheritance(): string {
-  const authWithInherited: ComponentNode = {
-    ...sampleSystem.subComponents[0], // AuthService
-    interfaces: [
-      ...sampleSystem.subComponents[0].interfaces,
-      {
-        uuid: "auth-derived-uuid",
-        id: "IAuthDerived",
-        name: "IAuthDerived",
-        type: "rest",
-        functions: [],
-        parentInterfaceUuid: "root-iface-uuid",
-      },
-    ],
-  }
-
-  const rootWithInterfaces: ComponentNode = {
-    ...sampleSystem,
-    subComponents: [authWithInherited, sampleSystem.subComponents[1]],
-    interfaces: [
-      {
-        uuid: "root-iface-uuid",
-        id: "IRootService",
-        name: "IRootService",
-        type: "rest",
-        functions: [
-          { uuid: "root-fn-uuid", id: "doThing", parameters: [] },
+    const authWithInherited: ComponentNode = {
+        ...sampleSystem.subComponents[0], // AuthService
+        interfaces: [
+            ...sampleSystem.subComponents[0].interfaces,
+            {
+                uuid: 'auth-derived-uuid',
+                id: 'IAuthDerived',
+                name: 'IAuthDerived',
+                type: 'rest',
+                functions: [],
+                parentInterfaceUuid: 'root-iface-uuid',
+            },
         ],
-      },
-      {
-        uuid: "unimpl-iface-uuid",
-        id: "IUnimplemented",
-        name: "IUnimplemented",
-        type: "rest",
-        functions: [],
-      },
-    ],
-  }
+    }
 
-  return JSON.stringify({ state: { rootComponent: rootWithInterfaces }, version: 0 })
+    const rootWithInterfaces: ComponentNode = {
+        ...sampleSystem,
+        subComponents: [authWithInherited, sampleSystem.subComponents[1]],
+        interfaces: [
+            {
+                uuid: 'root-iface-uuid',
+                id: 'IRootService',
+                name: 'IRootService',
+                type: 'rest',
+                functions: [{ uuid: 'root-fn-uuid', id: 'doThing', parameters: [] }],
+            },
+            {
+                uuid: 'unimpl-iface-uuid',
+                id: 'IUnimplemented',
+                name: 'IUnimplemented',
+                type: 'rest',
+                functions: [],
+            },
+        ],
+    }
+
+    return JSON.stringify({ state: { rootComponent: rootWithInterfaces }, version: 0 })
 }
 
 /**
@@ -536,19 +533,19 @@ export function makeLocalStorageValueWithInheritance(): string {
  * and should show a delete button on hover in the tree.
  */
 export function makeLocalStorageValueWithOrphanedActor(): string {
-  const ghostActor: ActorNode = {
-    uuid: "test-ghost-actor-uuid",
-    id: "GhostUser",
-    name: "GhostUser",
-    type: "actor",
-  }
+    const ghostActor: ActorNode = {
+        uuid: 'test-ghost-actor-uuid',
+        id: 'GhostUser',
+        name: 'GhostUser',
+        type: 'actor',
+    }
 
-  const systemWithGhost: ComponentNode = {
-    ...sampleSystem,
-    actors: [...sampleSystem.actors, ghostActor],
-  }
+    const systemWithGhost: ComponentNode = {
+        ...sampleSystem,
+        actors: [...sampleSystem.actors, ghostActor],
+    }
 
-  return JSON.stringify({ state: { rootComponent: systemWithGhost }, version: 0 })
+    return JSON.stringify({ state: { rootComponent: systemWithGhost }, version: 0 })
 }
 
 /**
@@ -557,15 +554,15 @@ export function makeLocalStorageValueWithOrphanedActor(): string {
  * explicitly activated by the navigation logic — it cannot be a lucky default.
  */
 export function makeLocalStorageValueWithIfaceAsSecond(): string {
-  const reorderedAuthComp = {
-    ...sampleSystem.subComponents[0],
-    interfaces: [...sampleSystem.subComponents[0].interfaces].reverse(),
-  }
-  const system = {
-    ...sampleSystem,
-    subComponents: [reorderedAuthComp, ...sampleSystem.subComponents.slice(1)],
-  }
-  return JSON.stringify({ state: { rootComponent: system }, version: 0 })
+    const reorderedAuthComp = {
+        ...sampleSystem.subComponents[0],
+        interfaces: [...sampleSystem.subComponents[0].interfaces].reverse(),
+    }
+    const system = {
+        ...sampleSystem,
+        subComponents: [reorderedAuthComp, ...sampleSystem.subComponents.slice(1)],
+    }
+    return JSON.stringify({ state: { rootComponent: system }, version: 0 })
 }
 
 /**
@@ -595,97 +592,97 @@ export function makeLocalStorageValueWithIfaceAsSecond(): string {
  * - Press Shift+Enter → FunctionUpdateDialog appears
  */
 export function makeLocalStorageValueForFunctionUpdate(): string {
-  const FU_ROOT_UUID = "fu-root-uuid"
-  const FU_AUTH_COMP_UUID = "fu-auth-comp-uuid"
-  const FU_IFACE_UUID = "fu-iface-uuid"
-  const FU_LOGIN_FN_UUID = "fu-login-fn-uuid"
-  const FU_UCD_UUID = "fu-ucd-uuid"
-  const FU_UC_UUID = "fu-uc-uuid"
-  const FU_AUTH_FLOW_UUID = "fu-auth-flow-uuid"
-  const FU_BACKUP_FLOW_UUID = "fu-backup-flow-uuid"
+    const FU_ROOT_UUID = 'fu-root-uuid'
+    const FU_AUTH_COMP_UUID = 'fu-auth-comp-uuid'
+    const FU_IFACE_UUID = 'fu-iface-uuid'
+    const FU_LOGIN_FN_UUID = 'fu-login-fn-uuid'
+    const FU_UCD_UUID = 'fu-ucd-uuid'
+    const FU_UC_UUID = 'fu-uc-uuid'
+    const FU_AUTH_FLOW_UUID = 'fu-auth-flow-uuid'
+    const FU_BACKUP_FLOW_UUID = 'fu-backup-flow-uuid'
 
-  // "Auth Flow" has no content → isEditing starts as true in DiagramEditor
-  const authFlow: SequenceDiagramNode = {
-    uuid: FU_AUTH_FLOW_UUID,
-    id: "AuthFlow",
-    name: "Auth Flow",
-    type: "sequence-diagram",
-    ownerComponentUuid: FU_ROOT_UUID,
-    referencedNodeIds: [],
-    referencedFunctionUuids: [],
-    content: "",
-  }
+    // "Auth Flow" has no content → isEditing starts as true in DiagramEditor
+    const authFlow: SequenceDiagramNode = {
+        uuid: FU_AUTH_FLOW_UUID,
+        id: 'AuthFlow',
+        name: 'Auth Flow',
+        type: 'sequence-diagram',
+        ownerComponentUuid: FU_ROOT_UUID,
+        referencedNodeIds: [],
+        referencedFunctionUuids: [],
+        content: '',
+    }
 
-  // "Backup Flow" references the same login function so it appears in "affected diagrams"
-  const backupFlow: SequenceDiagramNode = {
-    uuid: FU_BACKUP_FLOW_UUID,
-    id: "BackupFlow",
-    name: "Backup Flow",
-    type: "sequence-diagram",
-    ownerComponentUuid: FU_ROOT_UUID,
-    referencedNodeIds: [FU_AUTH_COMP_UUID],
-    referencedFunctionUuids: [FU_LOGIN_FN_UUID],
-    content: [
-      "actor User",
-      "component AuthAPI",
-      "User ->> AuthAPI: ILogin:login(userId: string)",
-    ].join("\n"),
-  }
+    // "Backup Flow" references the same login function so it appears in "affected diagrams"
+    const backupFlow: SequenceDiagramNode = {
+        uuid: FU_BACKUP_FLOW_UUID,
+        id: 'BackupFlow',
+        name: 'Backup Flow',
+        type: 'sequence-diagram',
+        ownerComponentUuid: FU_ROOT_UUID,
+        referencedNodeIds: [FU_AUTH_COMP_UUID],
+        referencedFunctionUuids: [FU_LOGIN_FN_UUID],
+        content: [
+            'actor User',
+            'component AuthAPI',
+            'User ->> AuthAPI: ILogin:login(userId: string)',
+        ].join('\n'),
+    }
 
-  const ucNode: UseCaseNode = {
-    uuid: FU_UC_UUID,
-    id: "AuthUseCase",
-    name: "Auth Use Case",
-    type: "use-case",
-    sequenceDiagrams: [authFlow, backupFlow],
-  }
+    const ucNode: UseCaseNode = {
+        uuid: FU_UC_UUID,
+        id: 'AuthUseCase',
+        name: 'Auth Use Case',
+        type: 'use-case',
+        sequenceDiagrams: [authFlow, backupFlow],
+    }
 
-  const ucDiagram: UseCaseDiagramNode = {
-    uuid: FU_UCD_UUID,
-    id: "AuthUCD",
-    name: "Auth UCD",
-    type: "use-case-diagram",
-    ownerComponentUuid: FU_ROOT_UUID,
-    referencedNodeIds: [FU_UC_UUID],
-    content: "use case AuthUseCase",
-    useCases: [ucNode],
-  }
+    const ucDiagram: UseCaseDiagramNode = {
+        uuid: FU_UCD_UUID,
+        id: 'AuthUCD',
+        name: 'Auth UCD',
+        type: 'use-case-diagram',
+        ownerComponentUuid: FU_ROOT_UUID,
+        referencedNodeIds: [FU_UC_UUID],
+        content: 'use case AuthUseCase',
+        useCases: [ucNode],
+    }
 
-  const loginIface: InterfaceSpecification = {
-    uuid: FU_IFACE_UUID,
-    id: "ILogin",
-    name: "ILogin",
-    type: "rest",
-    functions: [
-      {
-        uuid: FU_LOGIN_FN_UUID,
-        id: "login",
-        parameters: [{ name: "userId", type: "string", required: true }],
-      },
-    ],
-  }
+    const loginIface: InterfaceSpecification = {
+        uuid: FU_IFACE_UUID,
+        id: 'ILogin',
+        name: 'ILogin',
+        type: 'rest',
+        functions: [
+            {
+                uuid: FU_LOGIN_FN_UUID,
+                id: 'login',
+                parameters: [{ name: 'userId', type: 'string', required: true }],
+            },
+        ],
+    }
 
-  const authApiComp: ComponentNode = {
-    uuid: FU_AUTH_COMP_UUID,
-    id: "AuthAPI",
-    name: "AuthAPI",
-    type: "component",
-    subComponents: [],
-    actors: [],
-    useCaseDiagrams: [],
-    interfaces: [loginIface],
-  }
+    const authApiComp: ComponentNode = {
+        uuid: FU_AUTH_COMP_UUID,
+        id: 'AuthAPI',
+        name: 'AuthAPI',
+        type: 'component',
+        subComponents: [],
+        actors: [],
+        useCaseDiagrams: [],
+        interfaces: [loginIface],
+    }
 
-  const rootComp: ComponentNode = {
-    uuid: FU_ROOT_UUID,
-    id: "FuSystem",
-    name: "FuSystem",
-    type: "component",
-    subComponents: [authApiComp],
-    actors: [],
-    useCaseDiagrams: [ucDiagram],
-    interfaces: [],
-  }
+    const rootComp: ComponentNode = {
+        uuid: FU_ROOT_UUID,
+        id: 'FuSystem',
+        name: 'FuSystem',
+        type: 'component',
+        subComponents: [authApiComp],
+        actors: [],
+        useCaseDiagrams: [ucDiagram],
+        interfaces: [],
+    }
 
-  return JSON.stringify({ state: { rootComponent: rootComp }, version: 0 })
+    return JSON.stringify({ state: { rootComponent: rootComp }, version: 0 })
 }
