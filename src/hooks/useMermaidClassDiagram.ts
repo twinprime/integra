@@ -124,7 +124,6 @@ export function useMermaidClassDiagram<T>(
         bindFunctionsRef.current = bindFunctions
         setSvg(renderedSvg)
         setError("")
-        setMermaidSource("")
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err))
         setSvg("")

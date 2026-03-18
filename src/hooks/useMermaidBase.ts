@@ -66,7 +66,6 @@ export function useMermaidBase(diagramNode: DiagramNode | null, buildContent: Bu
         bindFunctionsRef.current = bindFunctions
         setSvg(renderedSvg)
         setError("")
-        setMermaidSource("")
       } catch (err) {
         setError("Invalid Diagram Syntax")
         setErrorDetails(err instanceof Error ? err.message : String(err))

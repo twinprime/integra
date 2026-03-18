@@ -166,4 +166,12 @@ describe("useMermaidBase", () => {
 
     expect(window.__integraIdMap).toEqual({ X: "uuid-x", Y: "uuid-y" })
   })
+
+  it("preserves mermaidSource after successful render so the copy button can use it", async () => {
+    const { result } = renderHook(() => useMermaidBase(mockDiagramNode, mockBuildContent))
+
+    await waitFor(() => expect(result.current.svg).toBe("<svg>test</svg>"))
+
+    expect(result.current.mermaidSource).toBe("graph TD\n  A --> B")
+  })
 })
