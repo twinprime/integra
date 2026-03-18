@@ -3,9 +3,8 @@ import {
     type ScopedRenameContext,
     updateDescriptionRefs,
     updateDescriptionRefsInContext,
-    updateSequenceDiagramRefsInContext,
 } from '../utils/renameNodeId'
-import { renameInSeqSpec } from '../utils/renameNodeId'
+import { updateSequenceDiagramRefsInContext, renameInSeqSpec } from '../utils/renameSeqRefs'
 import { paramsToString } from '../parser/sequenceDiagram/systemUpdater'
 
 export const applyIdRenameInSeqDiag = (

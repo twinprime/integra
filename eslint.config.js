@@ -77,5 +77,11 @@ export default defineConfig([
             '@typescript-eslint/no-unsafe-return': 'off',
         },
     },
+    {
+        files: ['**/*.test.{ts,tsx}'],
+        rules: {
+            'max-lines': ['warn', { max: 800, skipBlankLines: true, skipComments: true }],
+        },
+    },
     eslintPluginPrettierRecommended,
 ])

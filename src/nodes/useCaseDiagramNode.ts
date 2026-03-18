@@ -4,9 +4,8 @@ import {
     type ScopedRenameContext,
     updateDescriptionRefs,
     updateDescriptionRefsInContext,
-    updateUseCaseDiagramRefsInContext,
 } from '../utils/renameNodeId'
-import { renameInUcdSpec } from '../utils/renameNodeId'
+import { updateUseCaseDiagramRefsInContext, renameInUcdSpec } from '../utils/renameUcdRefs'
 import type { NodeHandler } from './nodeHandler'
 
 export type DiagramRef = { diagram: DiagramNode; ownerComponentUuid: string }
