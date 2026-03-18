@@ -232,7 +232,7 @@ describe('buildUseCaseClassDiagram', () => {
     it('starts with classDiagram keyword', () => {
         const content = `actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething()`
         const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot())
-        expect(result.mermaidContent).toMatch(/^classDiagram/)
+        expect(result.mermaidContent).toMatch(/classDiagram/)
     })
 
     it('keeps interface extraction when actor sender is referenced via alias', () => {

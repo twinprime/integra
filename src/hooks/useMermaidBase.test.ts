@@ -10,6 +10,7 @@ import type { RenderResult } from 'mermaid'
 vi.mock('mermaid', () => ({
     default: {
         initialize: vi.fn(),
+        registerLayoutLoaders: vi.fn(),
         render: vi.fn().mockResolvedValue({ svg: '<svg>test</svg>', bindFunctions: undefined }),
     },
 }))

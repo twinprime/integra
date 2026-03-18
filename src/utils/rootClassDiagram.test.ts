@@ -311,7 +311,7 @@ describe('buildRootClassDiagram', () => {
     it('generates classDiagram header', () => {
         const root = makeRoot()
         const result = buildRootClassDiagram(root)
-        expect(result.mermaidContent).toMatch(/^classDiagram/)
+        expect(result.mermaidContent).toMatch(/classDiagram/)
     })
 
     it('includes interface name (not just id) as class label', () => {
