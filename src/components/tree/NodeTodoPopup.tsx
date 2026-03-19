@@ -6,16 +6,29 @@ type NodeTodoPopupProps = {
     onSelect: (nodeUuid: string) => void
 }
 
+const VIEWPORT_PADDING = 12
+const MAX_HEIGHT_RATIO = 0.6
+
+function getPopupTop(positionY: number): number {
+    const maxPopupHeight = Math.floor(window.innerHeight * MAX_HEIGHT_RATIO)
+    const preferredTop = positionY + 12 - maxPopupHeight
+    const maxTop = Math.max(
+        VIEWPORT_PADDING,
+        window.innerHeight - maxPopupHeight - VIEWPORT_PADDING
+    )
+    return Math.min(Math.max(preferredTop, VIEWPORT_PADDING), maxTop)
+}
+
 export function NodeTodoPopup({ todos, position, onSelect }: NodeTodoPopupProps) {
     if (!position || todos.length === 0) return null
 
     return (
         <div
+            data-testid="node-todo-popup"
             className="fixed z-50 w-[320px] max-h-[60vh] overflow-y-auto rounded-lg border border-gray-700 bg-gray-900/95 shadow-xl backdrop-blur-sm"
             style={{
                 left: Math.min(position.x + 12, window.innerWidth - 340),
-                top: Math.min(position.y + 12, window.innerHeight - 24),
-                transform: 'translateY(-100%)',
+                top: getPopupTop(position.y),
             }}
         >
             <div className="border-b border-gray-700 px-4 py-3">
