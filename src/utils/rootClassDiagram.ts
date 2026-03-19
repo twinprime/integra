@@ -10,10 +10,12 @@ import { collectReferencedSequenceDiagrams } from './referencedSequenceDiagrams'
 import { getInterfaceDiagramNodeId } from './classDiagramNodeIds'
 import { emitInterfaceClass, emitParticipantClass } from './classDiagramRendering'
 import {
+    DEFAULT_CLASS_DIAGRAM_RENDER_OPTIONS,
     addSequenceDiagramSource,
     createDependencyRelationshipMetadata,
     createImplementationRelationshipMetadata,
     createSequenceDiagramSourceMap,
+    type ClassDiagramRenderOptions,
     type ClassDiagramBuildResult,
 } from './classDiagramMetadata'
 
@@ -64,7 +66,10 @@ function resolveRootVisibleParticipantUuid(
  * sequence diagram messages), and inter-component dependencies.
  */
 // eslint-disable-next-line complexity
-export function buildRootClassDiagram(rootComponent: ComponentNode): ClassDiagramBuildResult {
+export function buildRootClassDiagram(
+    rootComponent: ComponentNode,
+    options: ClassDiagramRenderOptions = DEFAULT_CLASS_DIAGRAM_RENDER_OPTIONS
+): ClassDiagramBuildResult {
     const children = rootComponent.subComponents ?? []
     if (children.length === 0) return { mermaidContent: '', idToUuid: {}, relationshipMetadata: [] }
 
@@ -77,11 +82,11 @@ export function buildRootClassDiagram(rootComponent: ComponentNode): ClassDiagra
     // records functions called on any child's interface (from any diagram)
     const calledFunctionsByInterface = new Map<string, Set<string>>()
 
-    // inter-child dependencies: senderUuid → interfaceId → Set<functionId>
+    // inter-child dependencies: senderUuid → receiverUuid → Set<interfaceNodeId>
     const dependencies = new Map<string, Map<string, Set<string>>>()
     const dependencySources = new Map<
         string,
-        Map<string, Map<string, { uuid: string; name: string }>>
+        Map<string, Map<string, Map<string, { uuid: string; name: string }>>>
     >()
 
     const reachableSequenceDiagrams = collectReferencedSequenceDiagrams(
@@ -171,13 +176,18 @@ export function buildRootClassDiagram(rootComponent: ComponentNode): ClassDiagra
                 const interfaceNodeId = getInterfaceDiagramNodeId(receiverIface)
                 if (!dependencies.has(visibleSenderUuid))
                     dependencies.set(visibleSenderUuid, new Map())
-                const ifaceMap = dependencies.get(visibleSenderUuid)!
-                if (!ifaceMap.has(interfaceNodeId)) ifaceMap.set(interfaceNodeId, new Set())
-                ifaceMap.get(interfaceNodeId)!.add(functionId)
+                const receiverMap = dependencies.get(visibleSenderUuid)!
+                if (!receiverMap.has(visibleReceiverUuid))
+                    receiverMap.set(visibleReceiverUuid, new Set())
+                receiverMap.get(visibleReceiverUuid)!.add(interfaceNodeId)
 
                 if (!dependencySources.has(visibleSenderUuid))
                     dependencySources.set(visibleSenderUuid, new Map())
-                const sourceIfaceMap = dependencySources.get(visibleSenderUuid)!
+                const sourceReceiverMap = dependencySources.get(visibleSenderUuid)!
+                if (!sourceReceiverMap.has(visibleReceiverUuid)) {
+                    sourceReceiverMap.set(visibleReceiverUuid, new Map())
+                }
+                const sourceIfaceMap = sourceReceiverMap.get(visibleReceiverUuid)!
                 if (!sourceIfaceMap.has(interfaceNodeId)) {
                     sourceIfaceMap.set(interfaceNodeId, createSequenceDiagramSourceMap())
                 }
@@ -207,21 +217,23 @@ export function buildRootClassDiagram(rootComponent: ComponentNode): ClassDiagra
         emitParticipantClass(participant, lines)
         idToUuid[child.id] = child.uuid
 
-        for (const iface of child.interfaces ?? []) {
-            const interfaceNodeId = getInterfaceDiagramNodeId(iface)
-            interfaceNamesByNodeId.set(interfaceNodeId, iface.name)
-            emitInterfaceClass(
-                iface,
-                child,
-                rootComponent,
-                lines,
-                interfaceNodeId,
-                calledFunctionsByInterface.get(interfaceNodeId)
-            )
-            addRelationship(
-                `    ${child.id} ..|> ${interfaceNodeId}`,
-                createImplementationRelationshipMetadata(child.name, iface.name)
-            )
+        if (options.showInterfaces) {
+            for (const iface of child.interfaces ?? []) {
+                const interfaceNodeId = getInterfaceDiagramNodeId(iface)
+                interfaceNamesByNodeId.set(interfaceNodeId, iface.name)
+                emitInterfaceClass(
+                    iface,
+                    child,
+                    rootComponent,
+                    lines,
+                    interfaceNodeId,
+                    calledFunctionsByInterface.get(interfaceNodeId)
+                )
+                addRelationship(
+                    `    ${child.id} ..|> ${interfaceNodeId}`,
+                    createImplementationRelationshipMetadata(child.name, iface.name)
+                )
+            }
         }
     }
 
@@ -234,19 +246,44 @@ export function buildRootClassDiagram(rootComponent: ComponentNode): ClassDiagra
     }
 
     // ── Emit root-level dependency arrows ─────────────────────────────────────
-    for (const [senderUuid, ifaceMap] of dependencies) {
+    for (const [senderUuid, receiverMap] of dependencies) {
         const sender = participantMap.get(senderUuid)
         if (!sender) continue
 
-        for (const [ifaceId] of ifaceMap) {
+        for (const [receiverUuid, interfaceNodeIds] of receiverMap) {
+            const receiver = participantMap.get(receiverUuid)
+            if (!receiver) continue
+
+            if (options.showInterfaces) {
+                for (const interfaceNodeId of interfaceNodeIds) {
+                    addRelationship(
+                        `    ${sender.nodeId} ..> ${interfaceNodeId}`,
+                        createDependencyRelationshipMetadata(
+                            sender.name,
+                            interfaceNamesByNodeId.get(interfaceNodeId) ?? interfaceNodeId,
+                            dependencySources
+                                .get(senderUuid)
+                                ?.get(receiverUuid)
+                                ?.get(interfaceNodeId) ?? createSequenceDiagramSourceMap()
+                        )
+                    )
+                }
+                continue
+            }
+
+            const receiverSources = createSequenceDiagramSourceMap()
+            for (const interfaceNodeId of interfaceNodeIds) {
+                for (const source of dependencySources
+                    .get(senderUuid)
+                    ?.get(receiverUuid)
+                    ?.get(interfaceNodeId)
+                    ?.values() ?? []) {
+                    receiverSources.set(source.uuid, source)
+                }
+            }
             addRelationship(
-                `    ${sender.nodeId} ..> ${ifaceId}`,
-                createDependencyRelationshipMetadata(
-                    sender.name,
-                    interfaceNamesByNodeId.get(ifaceId) ?? ifaceId,
-                    dependencySources.get(senderUuid)?.get(ifaceId) ??
-                        createSequenceDiagramSourceMap()
-                )
+                `    ${sender.nodeId} ..> ${receiver.nodeId}`,
+                createDependencyRelationshipMetadata(sender.name, receiver.name, receiverSources)
             )
         }
     }

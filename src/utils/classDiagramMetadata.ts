@@ -28,6 +28,14 @@ export type ClassDiagramBuildResult = {
     relationshipMetadata: Array<ClassDiagramRelationshipMetadata | null>
 }
 
+export type ClassDiagramRenderOptions = {
+    showInterfaces: boolean
+}
+
+export const DEFAULT_CLASS_DIAGRAM_RENDER_OPTIONS: ClassDiagramRenderOptions = {
+    showInterfaces: true,
+}
+
 type SequenceDiagramLike = {
     uuid: string
     name: string

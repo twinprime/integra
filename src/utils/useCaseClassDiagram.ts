@@ -9,10 +9,12 @@ import { collectReferencedSequenceDiagrams } from './referencedSequenceDiagrams'
 import { getInterfaceDiagramNodeId } from './classDiagramNodeIds'
 import { emitParticipantClass } from './classDiagramRendering'
 import {
+    DEFAULT_CLASS_DIAGRAM_RENDER_OPTIONS,
     addSequenceDiagramSource,
     createDependencyRelationshipMetadata,
     createImplementationRelationshipMetadata,
     createSequenceDiagramSourceMap,
+    type ClassDiagramRenderOptions,
     type ClassDiagramBuildResult,
 } from './classDiagramMetadata'
 
@@ -88,13 +90,15 @@ function registerParticipants(
     }
 }
 
+// eslint-disable-next-line complexity
 function processMessages(
     ast: SeqAst,
     aliasToUuid: Map<string, string>,
     participantsMap: Map<string, Participant>,
     rootComponent: ComponentNode,
     state: ClassDiagramState,
-    seqDiagram: { uuid: string; name: string }
+    seqDiagram: { uuid: string; name: string },
+    options: ClassDiagramRenderOptions
 ): void {
     const messages = flattenMessages(ast.statements)
 
@@ -107,7 +111,7 @@ function processMessages(
                 receiverNode?.type === 'component'
                     ? receiverNode.interfaces.find((iface) => iface.id === interfaceId)
                     : undefined
-            if (!receiverInterface) continue
+            if (!receiverInterface || receiverNode?.type !== 'component') continue
             const interfaceNodeId = getInterfaceDiagramNodeId(receiverInterface)
 
             if (!state.interfaceMethods.has(interfaceNodeId))
@@ -117,21 +121,28 @@ function processMessages(
             const senderUuid = aliasToUuid.get(msg.from)
             const sender = senderUuid ? participantsMap.get(senderUuid) : undefined
             if (sender) {
-                const key = `dep|${sender.nodeId}|${interfaceNodeId}`
+                const dependencyTargetNodeId = options.showInterfaces
+                    ? interfaceNodeId
+                    : receiverNode.id
+                const dependencyTargetName = options.showInterfaces
+                    ? receiverInterface.name
+                    : receiverNode.name
+                const key = `dep|${sender.nodeId}|${dependencyTargetNodeId}`
                 if (!state.depsSet.has(key)) {
                     state.depsSet.add(key)
                     state.deps.push({
                         fromNodeId: sender.nodeId,
                         fromName: sender.name,
-                        toNodeId: interfaceNodeId,
-                        toName: receiverInterface.name,
+                        toNodeId: dependencyTargetNodeId,
+                        toName: dependencyTargetName,
                         sequenceSources: createSequenceDiagramSourceMap(),
                     })
                 }
                 addSequenceDiagramSource(
                     state.deps.find(
                         (dep) =>
-                            dep.fromNodeId === sender.nodeId && dep.toNodeId === interfaceNodeId
+                            dep.fromNodeId === sender.nodeId &&
+                            dep.toNodeId === dependencyTargetNodeId
                     )!.sequenceSources,
                     seqDiagram
                 )
@@ -184,7 +195,8 @@ function processMessages(
 function buildMermaidLines(
     participantsMap: Map<string, Participant>,
     state: ClassDiagramState,
-    idToUuid: Record<string, string>
+    idToUuid: Record<string, string>,
+    options: ClassDiagramRenderOptions
 ): ClassDiagramBuildResult {
     const { interfaces, interfaceMethods, deps, directArrows } = state
     const lines: string[] = ['---', 'config:', '  layout: elk', '---', 'classDiagram']
@@ -205,20 +217,29 @@ function buildMermaidLines(
         }
     }
 
-    for (const { interfaceNodeId, interfaceName } of interfaces) {
-        lines.push(`    class ${interfaceNodeId}["${interfaceName}"] {`)
-        lines.push(`        <<interface>>`)
-        for (const method of interfaceMethods.get(interfaceNodeId) ?? []) {
-            lines.push(`        +${method}`)
+    if (options.showInterfaces) {
+        for (const { interfaceNodeId, interfaceName } of interfaces) {
+            lines.push(`    class ${interfaceNodeId}["${interfaceName}"] {`)
+            lines.push(`        <<interface>>`)
+            for (const method of interfaceMethods.get(interfaceNodeId) ?? []) {
+                lines.push(`        +${method}`)
+            }
+            lines.push(`    }`)
         }
-        lines.push(`    }`)
     }
 
-    for (const { componentNodeId, componentName, interfaceNodeId, interfaceName } of interfaces) {
-        addRelationship(
-            `    ${componentNodeId} ..|> ${interfaceNodeId}`,
-            createImplementationRelationshipMetadata(componentName, interfaceName)
-        )
+    if (options.showInterfaces) {
+        for (const {
+            componentNodeId,
+            componentName,
+            interfaceNodeId,
+            interfaceName,
+        } of interfaces) {
+            addRelationship(
+                `    ${componentNodeId} ..|> ${interfaceNodeId}`,
+                createImplementationRelationshipMetadata(componentName, interfaceName)
+            )
+        }
     }
     for (const { fromNodeId, fromName, toNodeId, toName, sequenceSources } of deps) {
         addRelationship(
@@ -241,7 +262,8 @@ function buildMermaidLines(
 
 export function buildClassDiagramFromSequenceDiagrams(
     startDiagrams: ReadonlyArray<SequenceDiagramNode>,
-    rootComponent: ComponentNode
+    rootComponent: ComponentNode,
+    options: ClassDiagramRenderOptions = DEFAULT_CLASS_DIAGRAM_RENDER_OPTIONS
 ): ClassDiagramBuildResult {
     const participantsMap = new Map<string, Participant>()
     const state: ClassDiagramState = {
@@ -260,7 +282,15 @@ export function buildClassDiagramFromSequenceDiagrams(
         const aliasToUuid = new Map<string, string>()
         const ast = parseAst(seqDiagram.content)
         registerParticipants(ast, ownerComp, rootComponent, participantsMap, aliasToUuid)
-        processMessages(ast, aliasToUuid, participantsMap, rootComponent, state, seqDiagram)
+        processMessages(
+            ast,
+            aliasToUuid,
+            participantsMap,
+            rootComponent,
+            state,
+            seqDiagram,
+            options
+        )
     }
 
     if (participantsMap.size === 0) {
@@ -272,12 +302,17 @@ export function buildClassDiagramFromSequenceDiagrams(
         idToUuid[p.nodeId] = p.uuid
     }
 
-    return buildMermaidLines(participantsMap, state, idToUuid)
+    return buildMermaidLines(participantsMap, state, idToUuid, options)
 }
 
 export function buildUseCaseClassDiagram(
     useCaseNode: UseCaseNode,
-    rootComponent: ComponentNode
+    rootComponent: ComponentNode,
+    options: ClassDiagramRenderOptions = DEFAULT_CLASS_DIAGRAM_RENDER_OPTIONS
 ): ClassDiagramBuildResult {
-    return buildClassDiagramFromSequenceDiagrams(useCaseNode.sequenceDiagrams, rootComponent)
+    return buildClassDiagramFromSequenceDiagrams(
+        useCaseNode.sequenceDiagrams,
+        rootComponent,
+        options
+    )
 }

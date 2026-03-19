@@ -12,10 +12,12 @@ import { collectReferencedSequenceDiagrams } from './referencedSequenceDiagrams'
 import { getInterfaceDiagramNodeId } from './classDiagramNodeIds'
 import { emitInterfaceClass, emitParticipantClass } from './classDiagramRendering'
 import {
+    DEFAULT_CLASS_DIAGRAM_RENDER_OPTIONS,
     addSequenceDiagramSource,
     createDependencyRelationshipMetadata,
     createImplementationRelationshipMetadata,
     createSequenceDiagramSourceMap,
+    type ClassDiagramRenderOptions,
     type ClassDiagramBuildResult,
 } from './classDiagramMetadata'
 type ParticipantKind = 'actor' | 'component'
@@ -224,10 +226,11 @@ function setNestedSource(
 // eslint-disable-next-line complexity
 export function buildComponentClassDiagram(
     component: ComponentNode,
-    rootComponent: ComponentNode
+    rootComponent: ComponentNode,
+    options: ClassDiagramRenderOptions = DEFAULT_CLASS_DIAGRAM_RENDER_OPTIONS
 ): ClassDiagramBuildResult {
     if (component.uuid === rootComponent.uuid) {
-        return buildRootClassDiagram(rootComponent)
+        return buildRootClassDiagram(rootComponent, options)
     }
 
     const { componentScopes, immediateSiblingUuids, actorUuids, directChildActorUuids } =
@@ -333,7 +336,13 @@ export function buildComponentClassDiagram(
 
                 dependentParticipants.set(sender.uuid, sender)
                 visibleParticipants.set(sender.uuid, sender)
-                const arrowKey = `${sender.nodeId}|${ownInterfaceNodeId}`
+                const dependencyTargetNodeId = options.showInterfaces
+                    ? ownInterfaceNodeId
+                    : component.id
+                const dependencyTargetName = options.showInterfaces
+                    ? ownInterface.name
+                    : component.name
+                const arrowKey = `${sender.nodeId}|${dependencyTargetNodeId}`
                 if (!depArrowsSet.has(arrowKey)) {
                     depArrowsSet.add(arrowKey)
                     const sequenceSources = createSequenceDiagramSourceMap()
@@ -341,8 +350,8 @@ export function buildComponentClassDiagram(
                     depArrows.push({
                         fromNodeId: sender.nodeId,
                         fromName: sender.name,
-                        toNodeId: ownInterfaceNodeId,
-                        toName: ownInterface.name,
+                        toNodeId: dependencyTargetNodeId,
+                        toName: dependencyTargetName,
                         isViolation,
                         sequenceSources,
                     })
@@ -439,24 +448,26 @@ export function buildComponentClassDiagram(
 
     lines.push(`    class ${component.id}["${component.name}"]`)
 
-    for (const iface of component.interfaces ?? []) {
-        const interfaceNodeId = getInterfaceDiagramNodeId(iface)
-        emitInterfaceClass(
-            iface,
-            component,
-            rootComponent,
-            lines,
-            interfaceNodeId,
-            calledOwnFunctions.get(interfaceNodeId)
-        )
-    }
-    for (const iface of component.interfaces ?? []) {
-        addRealizationRelationship(
-            component.id,
-            getInterfaceDiagramNodeId(iface),
-            component.name,
-            iface.name
-        )
+    if (options.showInterfaces) {
+        for (const iface of component.interfaces ?? []) {
+            const interfaceNodeId = getInterfaceDiagramNodeId(iface)
+            emitInterfaceClass(
+                iface,
+                component,
+                rootComponent,
+                lines,
+                interfaceNodeId,
+                calledOwnFunctions.get(interfaceNodeId)
+            )
+        }
+        for (const iface of component.interfaces ?? []) {
+            addRealizationRelationship(
+                component.id,
+                getInterfaceDiagramNodeId(iface),
+                component.name,
+                iface.name
+            )
+        }
     }
 
     for (const participant of visibleParticipants.values()) {
@@ -502,6 +513,28 @@ export function buildComponentClassDiagram(
                 [rootComponent],
                 receiverActualUuid
             ) as ComponentNode | null
+
+            if (!options.showInterfaces) {
+                const receiverSources = createSequenceDiagramSourceMap()
+                for (const ifaceId of ifaceMap.keys()) {
+                    for (const source of outgoingSourcesBySender
+                        .get(senderUuid)
+                        ?.get(receiverActualUuid)
+                        ?.get(ifaceId)
+                        ?.values() ?? []) {
+                        receiverSources.set(source.uuid, source)
+                    }
+                }
+                addRelationship(
+                    `    ${sender.nodeId} ..> ${receiver.nodeId}`,
+                    createDependencyRelationshipMetadata(
+                        sender.name,
+                        receiver.name,
+                        receiverSources
+                    )
+                )
+                continue
+            }
 
             let hasInterfaceArrow = false
             for (const [ifaceId, calledFunctionIds] of ifaceMap) {
@@ -573,10 +606,12 @@ export function buildComponentClassDiagram(
 
     // ── Subject styling (applied after all nodes so style targets exist) ───────
     lines.push(`    style ${component.id} fill:#1d4ed8,stroke:#1e3a5f,color:#ffffff`)
-    for (const iface of component.interfaces ?? []) {
-        lines.push(
-            `    style ${getInterfaceDiagramNodeId(iface)} fill:#bfdbfe,stroke:#2563eb,color:#1e3a5f`
-        )
+    if (options.showInterfaces) {
+        for (const iface of component.interfaces ?? []) {
+            lines.push(
+                `    style ${getInterfaceDiagramNodeId(iface)} fill:#bfdbfe,stroke:#2563eb,color:#1e3a5f`
+            )
+        }
     }
     for (const nodeId of violationParticipantIds) {
         lines.push(`    style ${nodeId} fill:#fee2e2,stroke:#dc2626,color:#7f1d1d`)

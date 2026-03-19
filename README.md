@@ -38,11 +38,12 @@ As you write sequence diagrams, Integra automatically derives:
 - **Interface specifications** (with typed functions and parameters) on the receiving component
 - **Use cases** listed under their use case diagram
 - **Visualization panel view switcher** — node types can expose multiple renderable diagram views in the bottom panel; the panel shows a switcher when more than one view is available and resets to that node type's default view when you change tree selection
-- **Use-case class diagram** — when a use-case node is selected, the bottom panel renders an auto-generated class diagram showing the actors, components, and interfaces used across its sequence diagrams, with realization (`..|>`) and dependency (`..>`) arrows. Dependency extraction follows referenced `Sequence:` diagrams and referenced `UseCase:` diagrams transitively, deduplicates repeated reachable diagrams, and stops safely on circular references.
-- **Use-case-diagram class diagram** — when a use-case-diagram node is selected, the bottom panel defaults to the authored use-case diagram and can switch to an auto-generated class diagram that aggregates the sequence diagrams of all child use cases. Dependency extraction follows referenced `Sequence:` diagrams and referenced `UseCase:` diagrams transitively with the same deduplication and cycle protection as the use-case class diagram.
+- **Use-case class diagram** — when a use-case node is selected, the bottom panel renders an auto-generated class diagram showing the actors, components, and interfaces used across its sequence diagrams, with realization (`..|>`) and dependency (`..>`) arrows. A toolbar toggle can hide interface nodes and collapse interface-level dependencies into direct component/actor-to-component links. Dependency extraction follows referenced `Sequence:` diagrams and referenced `UseCase:` diagrams transitively, deduplicates repeated reachable diagrams, and stops safely on circular references.
+- **Use-case-diagram class diagram** — when a use-case-diagram node is selected, the bottom panel defaults to the authored use-case diagram and can switch to an auto-generated class diagram that aggregates the sequence diagrams of all child use cases. The same toolbar toggle can hide interface nodes and collapse interface-level dependencies into direct component/actor-to-component links. Dependency extraction follows referenced `Sequence:` diagrams and referenced `UseCase:` diagrams transitively with the same deduplication and cycle protection as the use-case class diagram.
 - **Component class diagram** — selecting a component renders a class diagram showing its interfaces, callers, and dependencies:
   - **The component itself** appears as the central subject node
   - **Interfaces** provided by the component are shown with only the functions actually called in any sequence diagram (unused methods are omitted)
+  - A toolbar **Interfaces** toggle can hide all rendered interface nodes; in that mode, interface-derived dependencies collapse into direct `source ..> target` links with at most one edge per visible source/target pair, while opposite-direction links are preserved for mutual dependencies
   - **Callers** (inbound dependencies): sibling actors/components that invoke the component's interfaces are shown; nested descendants of the selected component are rolled up and appear as outgoing calls from the component itself rather than from the deeply nested child
   - **Called components** (outbound dependencies): sibling components that this component sends messages to, along with the interfaces and functions they provide
   - **Inherited interfaces** resolve their function signatures from the parent interface in real time
@@ -753,6 +754,7 @@ When a `use-case` node is selected, `buildUseCaseClassDiagram()` (`src/utils/use
 - `Component ..|> Interface` — realization (component owns/provides the interface)
 - `Sender ..> Interface` — dependency (sender calls via the interface)
 - `Sender ..> Receiver` — dependency for plain (non-interface, non-self) messages
+- A shared toolbar `Interfaces` toggle can suppress interface nodes; when hidden, interface-derived dependencies collapse to a single direct `Sender ..> Receiver` link per visible source/target pair with merged sequence-diagram provenance
 - Click handlers use `globalThis.__integraNavigate` to navigate to the clicked node
 
 #### Auto-generated Component Class Diagram
@@ -766,6 +768,7 @@ When a `component` node is selected, `buildComponentClassDiagram()` (`src/utils/
 - The **subject component** highlighted in dark blue (`style` directive: `fill:#1d4ed8`)
 - Each of its **own interfaces** (from `component.interfaces`) with `<<interface>>` and the methods that are actually called in any sequence diagram (unused methods are omitted), highlighted in light blue (`fill:#bfdbfe`)
 - `Component ..|> Interface` — realization arrow for each interface the component provides
+- A shared toolbar `Interfaces` toggle controls whether interface nodes are rendered; when hidden, any interface-derived dependency is collapsed into a direct visible `Caller ..> ReceiverComp` link, deduplicated to one edge per visible source/target pair while keeping opposite-direction links for mutual dependencies
 - **Dependents** (callers into the subject's interfaces): direct siblings of the subject (other direct children of the same parent, including actors) are shown when they call those interfaces. Direct children of the selected component are also shown when one of their nested descendants calls the selected ancestor's interface. Descendants of sibling or ancestor-sibling components remain excluded unless they are rolled up to an already-visible direct sibling ancestor.
   - `Caller ..> Interface` — dependency arrow for each visible caller that invokes the interface
 - **Dependencies** (outgoing calls to other components): direct sibling components that this component sends messages to are shown, and direct children of the selected component are surfaced when one of their nested descendants creates a dependency to a sibling child or ancestor sibling
@@ -1037,6 +1040,9 @@ sequenceDiagram
 - All generated class diagrams flow through `useMermaidClassDiagram()`, which
   centralizes Mermaid rendering, click navigation, and relationship popup
   wiring.
+- `DiagramPanel` owns the visualization-only `Interfaces` toggle state and
+  passes it into the generated class-diagram hooks so the stored component and
+  interface model stays unchanged.
 
 #### Tech Stack
 

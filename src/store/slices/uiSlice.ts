@@ -6,6 +6,7 @@ const NAV_HISTORY_LIMIT = 50
 export type UiSlice = {
     selectedNodeId: string | null
     activeVisualizationViewId: string | null
+    showGeneratedClassDiagramInterfaces: boolean
     selectedInterfaceUuid: string | null
     parseError: string | null
     savedSnapshot: string | null
@@ -15,6 +16,7 @@ export type UiSlice = {
     canNavForward: boolean
     selectNode: (nodeId: string | null) => void
     selectVisualizationView: (viewId: string | null) => void
+    setShowGeneratedClassDiagramInterfaces: (show: boolean) => void
     selectInterface: (interfaceUuid: string | null) => void
     goBack: () => void
     goForward: () => void
@@ -25,6 +27,7 @@ export type UiSlice = {
 export const createUiSlice: StateCreator<SystemState, [], [], UiSlice> = (set) => ({
     selectedNodeId: null,
     activeVisualizationViewId: null,
+    showGeneratedClassDiagramInterfaces: true,
     selectedInterfaceUuid: null,
     parseError: null,
     savedSnapshot: null,
@@ -85,6 +88,8 @@ export const createUiSlice: StateCreator<SystemState, [], [], UiSlice> = (set) =
             }
         }),
     selectVisualizationView: (viewId) => set({ activeVisualizationViewId: viewId }),
+    setShowGeneratedClassDiagramInterfaces: (show) =>
+        set({ showGeneratedClassDiagramInterfaces: show }),
     selectInterface: (interfaceUuid) => set({ selectedInterfaceUuid: interfaceUuid }),
     clearParseError: () => set({ parseError: null }),
     markSaved: (snapshot) => set({ savedSnapshot: snapshot }),

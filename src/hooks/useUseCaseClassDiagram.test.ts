@@ -62,6 +62,7 @@ describe('useUseCaseClassDiagram', () => {
             selector({
                 rootComponent: mockRootComponent,
                 selectNode: mockSelectNode,
+                showGeneratedClassDiagramInterfaces: true,
             } as unknown as SystemState)
         )
         vi.mocked(mermaid.render).mockResolvedValue({
@@ -97,7 +98,9 @@ describe('useUseCaseClassDiagram', () => {
 
         await waitFor(() => expect(result.current.svg).toBe('<svg>uc-class</svg>'))
 
-        expect(buildUseCaseClassDiagram).toHaveBeenCalledWith(mockUseCaseNode, mockRootComponent)
+        expect(buildUseCaseClassDiagram).toHaveBeenCalledWith(mockUseCaseNode, mockRootComponent, {
+            showInterfaces: true,
+        })
     })
 
     it('uses uc-class idPrefix in the mermaid render element id', async () => {

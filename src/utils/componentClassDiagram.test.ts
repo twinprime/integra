@@ -162,6 +162,30 @@ describe('buildComponentClassDiagram', () => {
         expect(result.mermaidContent).toContain('user ..> iface_ibar_uuid')
     })
 
+    it('collapses inbound interface dependencies to one direct link when interfaces are hidden', () => {
+        const sd = makeSeqDiagram(
+            [
+                'actor user',
+                'component compA',
+                'user ->> compA: IFoo:doSomething(id: string)',
+                'user ->> compA: IBar:getAll()',
+            ].join('\n')
+        )
+        const root = makeRoot([sd])
+        const result = buildComponentClassDiagram(getCompA(root), root, { showInterfaces: false })
+
+        expect(result.mermaidContent).toContain('user ..> compA')
+        expect(result.mermaidContent).not.toContain('iface_ifoo_uuid')
+        expect(result.mermaidContent).not.toContain('iface_ibar_uuid')
+        expect(result.mermaidContent.match(/user \.\.> compA/g) ?? []).toHaveLength(1)
+        expect(result.relationshipMetadata).toContainEqual({
+            kind: 'dependency',
+            sourceName: 'User',
+            targetName: 'Component A',
+            sequenceDiagrams: [{ uuid: 'seq-uuid', name: 'Seq' }],
+        })
+    })
+
     it('skips the target component itself as a caller (self-reference)', () => {
         const sd = makeSeqDiagram(
             'component compA\ncomponent compA\ncompA ->> compA: IFoo:doSomething(id: string)',
@@ -416,6 +440,24 @@ describe('buildComponentClassDiagram', () => {
         // IBaz interface class should appear exactly once
         const matches = (result.mermaidContent.match(/class iface_ibaz_uuid/g) ?? []).length
         expect(matches).toBe(1)
+    })
+
+    it('keeps opposite-direction dependency links when interfaces are hidden', () => {
+        const sd = makeSeqDiagram(
+            [
+                'component compA',
+                'component compB',
+                'compA ->> compB: IBaz:process(data: string)',
+                'compB ->> compA: IFoo:doSomething(id: string)',
+            ].join('\n')
+        )
+        const root = makeRootWithCompBInterfaces([sd])
+        const result = buildComponentClassDiagram(getCompA(root), root, { showInterfaces: false })
+
+        expect(result.mermaidContent).toContain('compA ..> compB')
+        expect(result.mermaidContent).toContain('compB ..> compA')
+        expect(result.mermaidContent).not.toContain('iface_ibaz_uuid')
+        expect(result.mermaidContent).not.toContain('iface_ifoo_uuid')
     })
 
     it('shows both dependents and dependencies together', () => {

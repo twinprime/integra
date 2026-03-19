@@ -127,4 +127,41 @@ describe('buildUseCaseDiagramClassDiagram', () => {
             sequenceDiagrams: [{ uuid: 'seq-2', name: 'Sequence seq-2' }],
         })
     })
+
+    it('collapses hidden interfaces across aggregated use cases', () => {
+        const result = buildUseCaseDiagramClassDiagram(
+            makeUseCaseDiagram(
+                makeUseCase(
+                    'uc-1',
+                    makeSeqDiagram(
+                        'seq-1',
+                        'actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething()'
+                    )
+                ),
+                makeUseCase(
+                    'uc-2',
+                    makeSeqDiagram(
+                        'seq-2',
+                        'actor user\ncomponent compA\nuser ->> compA: IBar:getAll()'
+                    )
+                )
+            ),
+            makeRoot(),
+            { showInterfaces: false }
+        )
+
+        expect(result.mermaidContent).toContain('user ..> compA')
+        expect(result.mermaidContent).not.toContain('iface_ifoo_uuid')
+        expect(result.mermaidContent).not.toContain('iface_ibar_uuid')
+        expect(result.mermaidContent.match(/user \.\.> compA/g) ?? []).toHaveLength(1)
+        expect(result.relationshipMetadata).toContainEqual({
+            kind: 'dependency',
+            sourceName: 'User',
+            targetName: 'Component A',
+            sequenceDiagrams: [
+                { uuid: 'seq-1', name: 'Sequence seq-1' },
+                { uuid: 'seq-2', name: 'Sequence seq-2' },
+            ],
+        })
+    })
 })

@@ -75,6 +75,7 @@ describe('useComponentClassDiagram', () => {
             selector({
                 rootComponent: mockRootComponent,
                 selectNode: mockSelectNode,
+                showGeneratedClassDiagramInterfaces: true,
             } as unknown as SystemState)
         )
         vi.mocked(mermaid.render).mockResolvedValue({
@@ -112,7 +113,8 @@ describe('useComponentClassDiagram', () => {
 
         expect(buildComponentClassDiagram).toHaveBeenCalledWith(
             mockComponentNode,
-            mockRootComponent
+            mockRootComponent,
+            { showInterfaces: true }
         )
     })
 

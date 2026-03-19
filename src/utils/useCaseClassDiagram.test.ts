@@ -233,6 +233,69 @@ describe('buildUseCaseClassDiagram', () => {
         expect(result.mermaidContent).not.toContain('user ..> compA')
     })
 
+    it('collapses hidden interfaces into one direct dependency per source-target pair', () => {
+        const content = [
+            'actor user',
+            'component compA',
+            'user ->> compA: IFoo:doSomething()',
+            'user ->> compA: IFoo:getAll()',
+        ].join('\n')
+        const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), makeRoot(), {
+            showInterfaces: false,
+        })
+
+        expect(result.mermaidContent).toContain('user ..> compA')
+        expect(result.mermaidContent).not.toContain('iface_ifoo_uuid')
+        expect(result.mermaidContent.match(/user \.\.> compA/g) ?? []).toHaveLength(1)
+        expect(result.relationshipMetadata).toContainEqual({
+            kind: 'dependency',
+            sourceName: 'User',
+            targetName: 'Component A',
+            sequenceDiagrams: [{ uuid: 'seq-uuid', name: 'Sequence Diagram' }],
+        })
+    })
+
+    it('preserves opposite-direction links when interfaces are hidden', () => {
+        const root: ComponentNode = {
+            ...makeRoot(),
+            subComponents: [
+                {
+                    ...makeRoot().subComponents[0],
+                    subComponents: [
+                        {
+                            ...makeRoot().subComponents[0].subComponents[0],
+                            interfaces: [
+                                {
+                                    uuid: 'ibaz-uuid',
+                                    id: 'IBaz',
+                                    name: 'IBaz',
+                                    type: 'rest',
+                                    functions: [
+                                        { uuid: 'ibaz-fn-uuid', id: 'process', parameters: [] },
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        }
+        const content = [
+            'component compA',
+            'component compB',
+            'compA ->> compB: IBaz:process()',
+            'compB ->> compA: IFoo:doSomething()',
+        ].join('\n')
+        const result = buildUseCaseClassDiagram(makeUseCase(makeSeqDiagram(content)), root, {
+            showInterfaces: false,
+        })
+
+        expect(result.mermaidContent).toContain('compA ..> compB')
+        expect(result.mermaidContent).toContain('compB ..> compA')
+        expect(result.mermaidContent).not.toContain('iface_ifoo_uuid')
+        expect(result.mermaidContent).not.toContain('iface_ibaz_uuid')
+    })
+
     it('deduplicates interface methods across multiple sequence diagrams', () => {
         const content1 = `actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething(id: string)`
         const content2 = `actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething(id: string)`

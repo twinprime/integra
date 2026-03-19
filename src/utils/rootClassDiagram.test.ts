@@ -341,6 +341,32 @@ describe('buildRootClassDiagram', () => {
         })
     })
 
+    it('collapses interface dependencies to direct component links when interfaces are hidden', () => {
+        const sd = makeSeqDiagram(
+            [
+                'actor user',
+                'component compA',
+                'component compB',
+                'user ->> compA: IFoo:doSomething(id: string)',
+                'user ->> compA: IFoo:getAll(page: number?)',
+                'compA ->> compB: IBaz:process(data: string)',
+            ].join('\n')
+        )
+        const root: ComponentNode = {
+            ...makeRoot([sd]),
+            actors: [
+                { uuid: 'user-uuid', id: 'user', name: 'User', type: 'actor', description: '' },
+            ],
+        }
+        const result = buildRootClassDiagram(root, { showInterfaces: false })
+
+        expect(result.mermaidContent).toContain('user ..> compA')
+        expect(result.mermaidContent).toContain('compA ..> compB')
+        expect(result.mermaidContent).not.toContain('iface_ifoo_uuid')
+        expect(result.mermaidContent).not.toContain('iface_ibaz_uuid')
+        expect(result.mermaidContent.match(/user \.\.> compA/g) ?? []).toHaveLength(1)
+    })
+
     it('does not show dependency arrow for self-calls', () => {
         const sd = makeSeqDiagram(
             'component compA\ncomponent compA\ncompA ->> compA: IFoo:doSomething(id: string)'

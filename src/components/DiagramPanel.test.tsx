@@ -32,17 +32,28 @@ vi.mock('./diagrams/SequenceDiagram', () => ({
 }))
 
 vi.mock('./diagrams/UseCaseClassDiagram', () => ({
-    UseCaseClassDiagram: () => <div>Use Case Class Diagram View</div>,
+    UseCaseClassDiagram: ({ toolbarContent }: { toolbarContent?: ReactNode }) => (
+        <div>
+            <div>Use Case Class Diagram View</div>
+            {toolbarContent}
+        </div>
+    ),
 }))
 
 vi.mock('./diagrams/ComponentClassDiagram', () => ({
-    ComponentClassDiagram: () => <div>Component Class Diagram View</div>,
+    ComponentClassDiagram: ({ toolbarContent }: { toolbarContent?: ReactNode }) => (
+        <div>
+            <div>Component Class Diagram View</div>
+            {toolbarContent}
+        </div>
+    ),
 }))
 
 import { useSystemStore } from '../store/useSystemStore'
 import { DiagramPanel } from './DiagramPanel'
 
 const selectVisualizationView = vi.fn()
+const setShowGeneratedClassDiagramInterfaces = vi.fn()
 
 const rootComponent = {
     uuid: 'root-uuid',
@@ -89,6 +100,8 @@ describe('DiagramPanel', () => {
                 selectedNodeId: 'ucd-uuid',
                 activeVisualizationViewId,
                 selectVisualizationView,
+                showGeneratedClassDiagramInterfaces: true,
+                setShowGeneratedClassDiagramInterfaces,
                 rootComponent,
             } as unknown as SystemState)
         )
@@ -116,8 +129,22 @@ describe('DiagramPanel', () => {
         render(<DiagramPanel />)
 
         expect(screen.getByText('Use Case Diagram Class View')).toBeInTheDocument()
+        expect(screen.getByTestId('class-diagram-interface-toggle')).toHaveAttribute(
+            'aria-pressed',
+            'true'
+        )
 
         await user.click(screen.getByRole('button', { name: 'Diagram' }))
         expect(selectVisualizationView).toHaveBeenCalledWith('diagram')
+    })
+
+    it('toggles interface visibility for generated class-diagram views', async () => {
+        const user = userEvent.setup()
+        mockStore('class-diagram')
+        render(<DiagramPanel />)
+
+        await user.click(screen.getByTestId('class-diagram-interface-toggle'))
+
+        expect(setShowGeneratedClassDiagramInterfaces).toHaveBeenCalledWith(false)
     })
 })
