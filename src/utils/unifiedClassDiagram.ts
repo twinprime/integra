@@ -197,9 +197,6 @@ function buildClassDiagramGraph({
     for (const componentUuid of alwaysIncludeComponentUuids) {
         ensureComponentNode(componentUuid)
     }
-    if (includeOwner) {
-        ensureComponentNode(ownerComponent.uuid)
-    }
 
     const reachableDiagrams = collectReferencedSequenceDiagrams(rootComponent, startDiagrams)
     for (const sequenceDiagram of reachableDiagrams) {

@@ -88,7 +88,7 @@ async function hoverEdgeUntilDialog(
 
 test.describe('component class diagram', () => {
     test.beforeEach(async ({ page }) => {
-        const lsValue = makeLocalStorageValue()
+        const lsValue = makeLocalStorageValueWithDependency()
         await page.addInitScript((value) => {
             localStorage.setItem('integra-system', value)
         }, lsValue)
@@ -98,6 +98,28 @@ test.describe('component class diagram', () => {
     runClassDiagramTests((page) =>
         page.getByRole('treeitem').filter({ hasText: 'AuthService' }).first().click()
     )
+
+    test('toggles generated interfaces on and off', async ({ page }) => {
+        await page.getByRole('treeitem').filter({ hasText: 'AuthService' }).first().click()
+
+        const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
+        await svgContainer.waitFor({ timeout: 5000 })
+        await expect(svgContainer).toContainText('IOrder')
+
+        const interfacesButton = page.getByRole('button', { name: 'Interfaces', exact: true })
+        await expect(interfacesButton).toHaveAttribute('aria-pressed', 'true')
+
+        await interfacesButton.click()
+
+        await expect(interfacesButton).toHaveAttribute('aria-pressed', 'false')
+        await expect(svgContainer).not.toContainText('IOrder')
+        await expect(svgContainer).toContainText('OrderService')
+
+        await interfacesButton.click()
+
+        await expect(interfacesButton).toHaveAttribute('aria-pressed', 'true')
+        await expect(svgContainer).toContainText('IOrder')
+    })
 })
 
 // ─── Use-case node ────────────────────────────────────────────────────────────

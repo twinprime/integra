@@ -257,6 +257,78 @@ describe('useMermaidClassDiagram', () => {
         )
     })
 
+    it('re-renders when the selected node changes', async () => {
+        const firstNode = { ...mockNode, uuid: 'node-a-uuid', id: 'nodeA', name: 'Node A' }
+        const secondNode = { ...mockNode, uuid: 'node-b-uuid', id: 'nodeB', name: 'Node B' }
+        const buildFn = vi
+            .fn()
+            .mockReturnValueOnce({
+                mermaidContent: 'classDiagram\n  class NodeA',
+                idToUuid: { NodeA: 'node-a-uuid' },
+                relationshipMetadata: [],
+            })
+            .mockReturnValueOnce({
+                mermaidContent: 'classDiagram\n  class NodeB',
+                idToUuid: { NodeB: 'node-b-uuid' },
+                relationshipMetadata: [],
+            })
+
+        const { rerender } = renderHook(
+            ({ node }) => useMermaidClassDiagram(buildFn, node, 'test'),
+            { initialProps: { node: firstNode } }
+        )
+
+        await waitFor(() =>
+            expect(vi.mocked(mermaid.render)).toHaveBeenLastCalledWith(
+                expect.any(String),
+                'classDiagram\n  class NodeA'
+            )
+        )
+
+        rerender({ node: secondNode })
+
+        await waitFor(() =>
+            expect(vi.mocked(mermaid.render)).toHaveBeenLastCalledWith(
+                expect.any(String),
+                'classDiagram\n  class NodeB'
+            )
+        )
+    })
+
+    it('re-renders when the build function changes', async () => {
+        const firstBuildFn = vi.fn().mockReturnValue({
+            mermaidContent: 'classDiagram\n  class WithInterfaces',
+            idToUuid: { WithInterfaces: 'with-interfaces-uuid' },
+            relationshipMetadata: [],
+        })
+        const secondBuildFn = vi.fn().mockReturnValue({
+            mermaidContent: 'classDiagram\n  class WithoutInterfaces',
+            idToUuid: { WithoutInterfaces: 'without-interfaces-uuid' },
+            relationshipMetadata: [],
+        })
+
+        const { rerender } = renderHook(
+            ({ buildFn }) => useMermaidClassDiagram(buildFn, mockNode, 'test'),
+            { initialProps: { buildFn: firstBuildFn } }
+        )
+
+        await waitFor(() =>
+            expect(vi.mocked(mermaid.render)).toHaveBeenLastCalledWith(
+                expect.any(String),
+                'classDiagram\n  class WithInterfaces'
+            )
+        )
+
+        rerender({ buildFn: secondBuildFn })
+
+        await waitFor(() =>
+            expect(vi.mocked(mermaid.render)).toHaveBeenLastCalledWith(
+                expect.any(String),
+                'classDiagram\n  class WithoutInterfaces'
+            )
+        )
+    })
+
     it('returns error when mermaid.render throws', async () => {
         vi.mocked(mermaid.render).mockRejectedValueOnce(new Error('Syntax error in diagram'))
 

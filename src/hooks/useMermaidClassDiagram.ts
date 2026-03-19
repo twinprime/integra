@@ -205,7 +205,7 @@ export function useMermaidClassDiagram<T>(
                 pendingNodeClickRef.current = null
             }
         }
-    }, [rootComponent, selectNode, idPrefix, focusedNodeId])
+    }, [node, rootComponent, buildFn, selectNode, idPrefix, focusedNodeId])
 
     useEffect(() => {
         if (!svg || !elementRef.current) return

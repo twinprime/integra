@@ -189,33 +189,69 @@ export function makeLocalStorageValueWithEmptySeq(): string {
  * Used to verify that block-nested messages are included in the component class diagram.
  */
 export function makeLocalStorageValueWithBlockOnlyCall(): string {
+    const orderWithIface: ComponentNode = {
+        ...sampleSystem.subComponents[1],
+        interfaces: [
+            {
+                uuid: UUIDS.orderIface,
+                id: 'IOrder',
+                name: 'IOrder',
+                type: 'rest',
+                functions: [
+                    {
+                        uuid: UUIDS.orderFn,
+                        id: 'process',
+                        parameters: [{ name: 'orderId', type: 'string', required: true }],
+                    },
+                ],
+            },
+        ],
+    }
+
     const blockOnlySeq: SequenceDiagramNode = {
         uuid: 'block-only-seq-uuid',
         id: 'BlockFlow',
         name: 'Block Flow',
         type: 'sequence-diagram',
-        ownerComponentUuid: UUIDS.root,
-        referencedNodeIds: [UUIDS.authComp],
-        referencedFunctionUuids: [UUIDS.fn],
+        ownerComponentUuid: UUIDS.authComp,
+        referencedNodeIds: [UUIDS.authComp, UUIDS.orderComp],
+        referencedFunctionUuids: [UUIDS.orderFn],
         content: [
-            'actor User',
             'component AuthService',
+            'component System/OrderService as OrderService',
             'opt if refresh needed',
-            '  User ->> AuthService: IAuth:login()',
+            '  AuthService ->> OrderService: IOrder:process(orderId: string)',
             'end',
         ].join('\n'),
     }
 
+    const authWithOwnedBlockDiagram: ComponentNode = {
+        ...sampleSystem.subComponents[0],
+        useCaseDiagrams: [
+            {
+                uuid: 'block-ucd-uuid',
+                id: 'BlockUCD',
+                name: 'Block UCD',
+                type: 'use-case-diagram',
+                ownerComponentUuid: UUIDS.authComp,
+                referencedNodeIds: [blockOnlySeq.uuid],
+                content: 'use case BlockFlowCase',
+                useCases: [
+                    {
+                        uuid: 'block-uc-uuid',
+                        id: 'BlockFlowCase',
+                        name: 'Block Flow Case',
+                        type: 'use-case',
+                        sequenceDiagrams: [blockOnlySeq],
+                    },
+                ],
+            },
+        ],
+    }
+
     const systemWithBlockOnly: ComponentNode = {
         ...sampleSystem,
-        // Replace the Login Flow with one that only calls IAuth inside a block
-        useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
-            ...ucd,
-            useCases: ucd.useCases.map((uc) => ({
-                ...uc,
-                sequenceDiagrams: [blockOnlySeq],
-            })),
-        })),
+        subComponents: [authWithOwnedBlockDiagram, orderWithIface],
     }
 
     return JSON.stringify({ state: { rootComponent: systemWithBlockOnly }, version: 0 })
@@ -537,9 +573,67 @@ export function makeLocalStorageValueWithInheritance(): string {
         ],
     }
 
+    const orderWithIface: ComponentNode = {
+        ...sampleSystem.subComponents[1],
+        interfaces: [
+            {
+                uuid: UUIDS.orderIface,
+                id: 'IOrder',
+                name: 'IOrder',
+                type: 'rest',
+                functions: [
+                    {
+                        uuid: UUIDS.orderFn,
+                        id: 'process',
+                        parameters: [{ name: 'orderId', type: 'string', required: true }],
+                    },
+                ],
+            },
+        ],
+    }
+
+    const dependencySeq: SequenceDiagramNode = {
+        uuid: 'inheritance-dep-seq-uuid',
+        id: 'InheritanceDependency',
+        name: 'Inheritance Dependency',
+        type: 'sequence-diagram',
+        ownerComponentUuid: UUIDS.authComp,
+        referencedNodeIds: [UUIDS.authComp, UUIDS.orderComp],
+        referencedFunctionUuids: [UUIDS.orderFn],
+        content: [
+            'component AuthService',
+            'component System/OrderService as OrderService',
+            'AuthService ->> OrderService: IOrder:process(orderId: string)',
+        ].join('\n'),
+    }
+
+    const authWithInheritedAndDependency: ComponentNode = {
+        ...authWithInherited,
+        useCaseDiagrams: [
+            {
+                uuid: 'inheritance-ucd-uuid',
+                id: 'InheritanceUCD',
+                name: 'Inheritance UCD',
+                type: 'use-case-diagram',
+                ownerComponentUuid: UUIDS.authComp,
+                referencedNodeIds: [dependencySeq.uuid],
+                content: 'use case InheritanceDependencyCase',
+                useCases: [
+                    {
+                        uuid: 'inheritance-uc-uuid',
+                        id: 'InheritanceDependencyCase',
+                        name: 'Inheritance Dependency Case',
+                        type: 'use-case',
+                        sequenceDiagrams: [dependencySeq],
+                    },
+                ],
+            },
+        ],
+    }
+
     const rootWithInterfaces: ComponentNode = {
         ...sampleSystem,
-        subComponents: [authWithInherited, sampleSystem.subComponents[1]],
+        subComponents: [authWithInheritedAndDependency, orderWithIface],
         interfaces: [
             {
                 uuid: 'root-iface-uuid',

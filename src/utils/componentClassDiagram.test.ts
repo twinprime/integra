@@ -159,14 +159,32 @@ function makeRoot(
 }
 
 describe('buildComponentClassDiagram', () => {
-    it('shows the selected component even when it has no interfaces or calls', () => {
+    it('does not show the selected component when no dependency links reference it', () => {
         const root = makeRoot()
         const subject = { ...root.subComponents[1], interfaces: [] }
 
         const result = buildComponentClassDiagram(subject, root)
 
-        expect(result.mermaidContent).toContain('class platform["Platform"]')
-        expect(result.idToUuid.platform).toBe('platform-uuid')
+        expect(result.mermaidContent).toBe('')
+        expect(result.idToUuid.platform).toBeUndefined()
+    })
+
+    it('shows the selected component when a dependency link involves it', () => {
+        const root = makeRoot([
+            makeSeqDiagram(
+                'subject-dependency',
+                [
+                    'component compA',
+                    'component root/platform as platform',
+                    'compA ->> platform: IPlatform:handle()',
+                ].join('\n')
+            ),
+        ])
+
+        const result = buildComponentClassDiagram(root.subComponents[0], root)
+
+        expect(result.mermaidContent).toContain('class compA["Component A"]')
+        expect(result.mermaidContent).toContain('compA ..> iface_platform_iface_uuid')
     })
 
     it('uses only sequence diagrams owned under the selected component subtree', () => {
@@ -235,7 +253,7 @@ describe('buildComponentClassDiagram', () => {
         expect(result.mermaidContent).toContain('class iface_platform_iface_uuid["IPlatform"] {')
         expect(result.mermaidContent).toContain('+handle()')
         expect(result.mermaidContent).not.toContain('+audit()')
-        expect(result.mermaidContent).toContain('compA ..|> iface_subject_iface_uuid')
+        expect(result.mermaidContent).not.toContain('compA ..|> iface_subject_iface_uuid')
     })
 
     it('collapses interface dependencies to component links when interfaces are hidden', () => {
