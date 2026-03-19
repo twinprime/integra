@@ -54,132 +54,6 @@ As you write sequence diagrams, Integra automatically derives:
 
 Navigate the tree to inspect generated nodes. Clicking a node or participant in the rendered diagram navigates to that node in the tree. Hovering a dependency link in a generated class diagram shows the dependency source and target names plus the sequence diagrams that derived that dependency; clicking a multi-source dependency keeps that popup available for selection, while clicking a single-source dependency navigates directly to that sequence diagram. Hovering an implementation link shows the component and interface names for that relationship, and clicking it pins the popup for inspection. Orphaned nodes (no longer referenced by any diagram) show a delete button on hover.
 
-#### Architecturally Significant Flows
-
-The following sequence diagrams highlight the main runtime loops that make
-Integra more than a static diagram editor. They focus on the paths where UI
-actions trigger parsing, store reconciliation, reference maintenance, and
-derived visualization generation.
-
-##### 1. Function parameter change → conflict detection → propagated updates
-
-This is the core "diagram text drives the model" flow for sequence diagrams.
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant DiagramEditor
-    participant Analyzer as analyzeSequenceDiagramChanges()
-    participant Dialog as FunctionUpdateDialog
-    participant Store as applyFunctionUpdates()
-    participant Reparse as tryReparseContent()
-    participant Parser as parseSequenceDiagram()
-
-    User->>DiagramEditor: Edit function call signature in sequence spec
-    DiagramEditor->>Analyzer: Analyze current content vs existing model
-    Analyzer->>Analyzer: Parse DSL, flatten messages, compare params
-    Analyzer-->>DiagramEditor: FunctionMatch[]
-
-    alt Conflicts found
-        DiagramEditor->>Dialog: Open conflict resolution dialog
-        User->>Dialog: Choose add-new / update-existing / update-all
-        Dialog->>Store: Submit FunctionDecision[]
-        Store->>Store: Update interface functions and affected diagrams
-        Store->>Reparse: Reparse saved sequence content
-        Reparse->>Parser: Rebuild derived references and functions
-        Parser-->>Store: Updated rootComponent + parseError=null
-        Store-->>DiagramEditor: Publish reconciled Zustand state
-    else No conflicts
-        DiagramEditor->>Reparse: Save content directly through update flow
-    end
-```
-
-- `DiagramEditor` calls `analyzeSequenceDiagramChanges()` before saving changed
-  sequence content.
-- If a signature change would affect referenced functions elsewhere, the editor
-  pauses and opens `FunctionUpdateDialog` instead of silently mutating the
-  model.
-- `applyFunctionUpdates()` updates both interface definitions and any affected
-  sequence-diagram text, then runs `tryReparseContent()` so the stored model and
-  derived references stay aligned.
-
-##### 2. Node rename / ID rename → scoped reference updates
-
-This flow explains how Integra preserves reference integrity when IDs change.
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant Editor as Node editor
-    participant Store as renameNodeId()
-    participant Rename as applyIdRename()
-    participant Scope as renameResolvedPathSegments()
-    participant Rebuild as rebuildSystemDiagrams()
-
-    User->>Editor: Rename actor / component / use case / diagram ID
-    Editor->>Store: renameNodeId(uuid, newId)
-    Store->>Store: Resolve oldId from current tree
-    Store->>Rename: Apply deep rename across model
-    Rename->>Scope: Rewrite only path segments that still resolve to target UUID
-    Scope-->>Rename: Scoped path + markdown reference updates
-    Rename-->>Store: Renamed component tree
-    Store->>Rebuild: Re-parse diagrams and refresh derived references
-    Rebuild-->>Store: Consistent rootComponent
-    Store-->>Editor: Publish updated state to tree/editor/diagrams
-```
-
-- `renameNodeId()` does not perform a raw text replacement; it delegates to
-  `applyIdRename()` and scoped path-resolution helpers so only references that
-  still resolve to the renamed target are rewritten.
-- Markdown node-path links and diagram-path references are updated together,
-  which keeps descriptions and specs synchronized.
-- `rebuildSystemDiagrams()` runs after the rename so `referencedNodeIds`,
-  `referencedFunctionUuids`, and other derived fields reflect the new IDs.
-
-##### 3. Generated class diagram flow for use-case, use-case-diagram, and component views
-
-This is the runtime path from authored diagrams to derived visualizations in the
-bottom panel.
-
-```mermaid
-sequenceDiagram
-    actor User
-    participant Tree as TreeView
-    participant Panel as DiagramPanel
-    participant Views as VisualizationViewControls
-    participant Hook as useMermaidClassDiagram()
-    participant Builder as Class diagram builders
-    participant Refs as collectReferencedSequenceDiagrams()
-    participant Mermaid as mermaid.render()
-    participant Canvas as ClassDiagramCanvas
-
-    User->>Tree: Select component / use case / use-case-diagram
-    Tree-->>Panel: selectedNodeId
-    alt use-case-diagram alternate view
-        User->>Views: Switch from Diagram to Class Diagram
-        Views-->>Panel: activeVisualizationViewId
-    end
-    Panel->>Hook: Render selected visualization view
-    Hook->>Builder: buildComponentClassDiagram() or buildUseCaseClassDiagram() or buildUseCaseDiagramClassDiagram()
-    Builder->>Refs: Collect direct + transitive sequence diagrams
-    Refs-->>Builder: Reachable sequence-diagram set
-    Builder-->>Hook: Mermaid classDiagram source + relationship metadata
-    Hook->>Mermaid: Render SVG
-    Mermaid-->>Canvas: SVG + click bindings
-    Canvas-->>User: Pan/zoom, navigate, inspect dependency sources
-```
-
-- `DiagramPanel` now uses a generic per-node-type view model, so a node can
-  expose more than one visualization without hard-coding new panel branches.
-- `buildUseCaseDiagramClassDiagram()` reuses the same aggregation path as the
-  use-case class diagram builder, but starts from all use cases under the
-  selected use-case diagram.
-- All generated class diagrams flow through `useMermaidClassDiagram()`, which
-  centralizes Mermaid rendering, click navigation, and relationship popup
-  wiring.
-
----
-
 ### Editor Features
 
 #### Autocomplete
@@ -657,6 +531,132 @@ Integra is a single-page web application that allows users to model software sys
 12. **Persistence** — system state is persisted to `localStorage` and restored on page load; a clear button resets to the initial state; Save / Load buttons use the File System Access API to read/write YAML files
 13. **Auto-generated use-case class diagram** — selecting a use-case node renders a class diagram in the bottom panel derived from all its sequence diagrams plus transitively referenced `Sequence:` and `UseCase:` targets, showing actors, components, interfaces (with methods), and realization / dependency relationships; repeated reachable diagrams are deduplicated and circular references are ignored after the first visit
 14. **Auto-generated component class diagram** — selecting a component node renders a class diagram showing: the component's own interfaces (with method signatures, filtered to only the methods actually called in diagrams); sibling actors/components that call those interfaces (dependents); sibling components that this component calls out to (dependencies); and dependency interfaces derived from nested calls without rendering the selected component's own sub-components as separate classes; with distinct colors for the subject component and its own interfaces; when the root component is selected, shows direct root children, participating root actors, and relationships between them, including dependencies rolled up from nested descendants. Dependency derivation follows transitively referenced `Sequence:` and `UseCase:` targets with deduplication and cycle protection
+
+---
+
+### Architecturally Significant Flows
+
+The following sequence diagrams highlight the main runtime loops that make
+Integra more than a static diagram editor. They focus on the paths where UI
+actions trigger parsing, store reconciliation, reference maintenance, and
+derived visualization generation.
+
+#### 1. Function parameter change → conflict detection → propagated updates
+
+This is the core "diagram text drives the model" flow for sequence diagrams.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant DiagramEditor
+    participant Analyzer as analyzeSequenceDiagramChanges()
+    participant Dialog as FunctionUpdateDialog
+    participant Store as applyFunctionUpdates()
+    participant Reparse as tryReparseContent()
+    participant Parser as parseSequenceDiagram()
+
+    User->>DiagramEditor: Edit function call signature in sequence spec
+    DiagramEditor->>Analyzer: Analyze current content vs existing model
+    Analyzer->>Analyzer: Parse DSL, flatten messages, compare params
+    Analyzer-->>DiagramEditor: FunctionMatch[]
+
+    alt Conflicts found
+        DiagramEditor->>Dialog: Open conflict resolution dialog
+        User->>Dialog: Choose add-new / update-existing / update-all
+        Dialog->>Store: Submit FunctionDecision[]
+        Store->>Store: Update interface functions and affected diagrams
+        Store->>Reparse: Reparse saved sequence content
+        Reparse->>Parser: Rebuild derived references and functions
+        Parser-->>Store: Updated rootComponent + parseError=null
+        Store-->>DiagramEditor: Publish reconciled Zustand state
+    else No conflicts
+        DiagramEditor->>Reparse: Save content directly through update flow
+    end
+```
+
+- `DiagramEditor` calls `analyzeSequenceDiagramChanges()` before saving changed
+  sequence content.
+- If a signature change would affect referenced functions elsewhere, the editor
+  pauses and opens `FunctionUpdateDialog` instead of silently mutating the
+  model.
+- `applyFunctionUpdates()` updates both interface definitions and any affected
+  sequence-diagram text, then runs `tryReparseContent()` so the stored model and
+  derived references stay aligned.
+
+#### 2. Node rename / ID rename → scoped reference updates
+
+This flow explains how Integra preserves reference integrity when IDs change.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Editor as Node editor
+    participant Store as renameNodeId()
+    participant Rename as applyIdRename()
+    participant Scope as renameResolvedPathSegments()
+    participant Rebuild as rebuildSystemDiagrams()
+
+    User->>Editor: Rename actor / component / use case / diagram ID
+    Editor->>Store: renameNodeId(uuid, newId)
+    Store->>Store: Resolve oldId from current tree
+    Store->>Rename: Apply deep rename across model
+    Rename->>Scope: Rewrite only path segments that still resolve to target UUID
+    Scope-->>Rename: Scoped path + markdown reference updates
+    Rename-->>Store: Renamed component tree
+    Store->>Rebuild: Re-parse diagrams and refresh derived references
+    Rebuild-->>Store: Consistent rootComponent
+    Store-->>Editor: Publish updated state to tree/editor/diagrams
+```
+
+- `renameNodeId()` does not perform a raw text replacement; it delegates to
+  `applyIdRename()` and scoped path-resolution helpers so only references that
+  still resolve to the renamed target are rewritten.
+- Markdown node-path links and diagram-path references are updated together,
+  which keeps descriptions and specs synchronized.
+- `rebuildSystemDiagrams()` runs after the rename so `referencedNodeIds`,
+  `referencedFunctionUuids`, and other derived fields reflect the new IDs.
+
+#### 3. Generated class diagram flow for use-case, use-case-diagram, and component views
+
+This is the runtime path from authored diagrams to derived visualizations in the
+bottom panel.
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Tree as TreeView
+    participant Panel as DiagramPanel
+    participant Views as VisualizationViewControls
+    participant Hook as useMermaidClassDiagram()
+    participant Builder as Class diagram builders
+    participant Refs as collectReferencedSequenceDiagrams()
+    participant Mermaid as mermaid.render()
+    participant Canvas as ClassDiagramCanvas
+
+    User->>Tree: Select component / use case / use-case-diagram
+    Tree-->>Panel: selectedNodeId
+    alt use-case-diagram alternate view
+        User->>Views: Switch from Diagram to Class Diagram
+        Views-->>Panel: activeVisualizationViewId
+    end
+    Panel->>Hook: Render selected visualization view
+    Hook->>Builder: buildComponentClassDiagram() or buildUseCaseClassDiagram() or buildUseCaseDiagramClassDiagram()
+    Builder->>Refs: Collect direct + transitive sequence diagrams
+    Refs-->>Builder: Reachable sequence-diagram set
+    Builder-->>Hook: Mermaid classDiagram source + relationship metadata
+    Hook->>Mermaid: Render SVG
+    Mermaid-->>Canvas: SVG + click bindings
+    Canvas-->>User: Pan/zoom, navigate, inspect dependency sources
+```
+
+- `DiagramPanel` now uses a generic per-node-type view model, so a node can
+  expose more than one visualization without hard-coding new panel branches.
+- `buildUseCaseDiagramClassDiagram()` reuses the same aggregation path as the
+  use-case class diagram builder, but starts from all use cases under the
+  selected use-case diagram.
+- All generated class diagrams flow through `useMermaidClassDiagram()`, which
+  centralizes Mermaid rendering, click navigation, and relationship popup
+  wiring.
 
 ---
 
