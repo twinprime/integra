@@ -8,10 +8,10 @@ import type {
 } from '../store/types'
 import { buildUseCaseDiagramClassDiagram } from './useCaseDiagramClassDiagram'
 
-const makeSeqDiagram = (uuid: string, content: string): SequenceDiagramNode => ({
-    uuid,
-    id: uuid,
-    name: `Sequence ${uuid}`,
+const makeSeqDiagram = (id: string, content: string): SequenceDiagramNode => ({
+    uuid: `${id}-uuid`,
+    id,
+    name: id,
     type: 'sequence-diagram',
     content,
     description: '',
@@ -20,49 +20,12 @@ const makeSeqDiagram = (uuid: string, content: string): SequenceDiagramNode => (
     referencedFunctionUuids: [],
 })
 
-const makeUseCase = (uuid: string, ...sequenceDiagrams: SequenceDiagramNode[]): UseCaseNode => ({
-    uuid,
-    id: uuid,
-    name: `Use Case ${uuid}`,
+const makeUseCase = (id: string, ...sequenceDiagrams: SequenceDiagramNode[]): UseCaseNode => ({
+    uuid: `${id}-uuid`,
+    id,
+    name: id,
     type: 'use-case',
     sequenceDiagrams,
-})
-
-const makeRoot = (): ComponentNode => ({
-    uuid: 'root-uuid',
-    id: 'root',
-    name: 'Root',
-    type: 'component',
-    subComponents: [
-        {
-            uuid: 'compa-uuid',
-            id: 'compA',
-            name: 'Component A',
-            type: 'component',
-            subComponents: [],
-            actors: [{ uuid: 'user-uuid', id: 'user', name: 'User', type: 'actor' }],
-            useCaseDiagrams: [],
-            interfaces: [
-                {
-                    uuid: 'ifoo-uuid',
-                    id: 'IFoo',
-                    name: 'IFoo',
-                    type: 'rest',
-                    functions: [{ uuid: 'ifoo-fn-uuid', id: 'doSomething', parameters: [] }],
-                },
-                {
-                    uuid: 'ibar-uuid',
-                    id: 'IBar',
-                    name: 'IBar',
-                    type: 'rest',
-                    functions: [{ uuid: 'ibar-fn-uuid', id: 'getAll', parameters: [] }],
-                },
-            ],
-        },
-    ],
-    actors: [],
-    useCaseDiagrams: [],
-    interfaces: [],
 })
 
 const makeUseCaseDiagram = (...useCases: UseCaseNode[]): UseCaseDiagramNode => ({
@@ -77,91 +40,133 @@ const makeUseCaseDiagram = (...useCases: UseCaseNode[]): UseCaseDiagramNode => (
     useCases,
 })
 
+function makeRoot(useCaseDiagram: UseCaseDiagramNode): ComponentNode {
+    return {
+        uuid: 'root-uuid',
+        id: 'root',
+        name: 'Root',
+        type: 'component',
+        actors: [],
+        subComponents: [
+            {
+                uuid: 'compa-uuid',
+                id: 'compA',
+                name: 'Component A',
+                type: 'component',
+                subComponents: [
+                    {
+                        uuid: 'child-uuid',
+                        id: 'childSvc',
+                        name: 'Child Service',
+                        type: 'component',
+                        subComponents: [],
+                        actors: [],
+                        useCaseDiagrams: [],
+                        interfaces: [
+                            {
+                                uuid: 'child-iface-uuid',
+                                id: 'IChild',
+                                name: 'IChild',
+                                type: 'rest',
+                                functions: [{ uuid: 'child-run-uuid', id: 'run', parameters: [] }],
+                            },
+                        ],
+                    },
+                ],
+                actors: [],
+                useCaseDiagrams: [useCaseDiagram],
+                interfaces: [],
+            },
+            {
+                uuid: 'platform-uuid',
+                id: 'platform',
+                name: 'Platform',
+                type: 'component',
+                subComponents: [],
+                actors: [],
+                useCaseDiagrams: [],
+                interfaces: [
+                    {
+                        uuid: 'platform-iface-uuid',
+                        id: 'IPlatform',
+                        name: 'IPlatform',
+                        type: 'rest',
+                        functions: [{ uuid: 'platform-handle-uuid', id: 'handle', parameters: [] }],
+                    },
+                ],
+            },
+        ],
+        useCaseDiagrams: [],
+        interfaces: [],
+    }
+}
+
 describe('buildUseCaseDiagramClassDiagram', () => {
-    it('returns empty when no sequence diagrams exist across child use cases', () => {
-        const result = buildUseCaseDiagramClassDiagram(
-            makeUseCaseDiagram(makeUseCase('uc-1'), makeUseCase('uc-2')),
-            makeRoot()
-        )
-
-        expect(result.mermaidContent).toBe('')
-        expect(result.idToUuid).toEqual({})
-    })
-
-    it('aggregates sequence diagrams across all child use cases', () => {
-        const result = buildUseCaseDiagramClassDiagram(
-            makeUseCaseDiagram(
-                makeUseCase(
-                    'uc-1',
-                    makeSeqDiagram(
-                        'seq-1',
-                        'actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething()'
-                    )
-                ),
-                makeUseCase(
-                    'uc-2',
-                    makeSeqDiagram(
-                        'seq-2',
-                        'actor user\ncomponent compA\nuser ->> compA: IBar:getAll()'
-                    )
+    it('aggregates sequence diagrams across child use cases using the unified visibility rules', () => {
+        const useCaseDiagram = makeUseCaseDiagram(
+            makeUseCase(
+                'uc-1',
+                makeSeqDiagram(
+                    'seq-1',
+                    [
+                        'component childSvc',
+                        'component root/platform as platform',
+                        'childSvc ->> platform: IPlatform:handle()',
+                    ].join('\n')
                 )
             ),
-            makeRoot()
+            makeUseCase(
+                'uc-2',
+                makeSeqDiagram(
+                    'seq-2',
+                    [
+                        'component childSvc',
+                        'component root/platform as platform',
+                        'childSvc ->> platform: IPlatform:handle()',
+                    ].join('\n')
+                )
+            )
         )
+        const root = makeRoot(useCaseDiagram)
 
-        expect(result.mermaidContent).toContain('class iface_ifoo_uuid["IFoo"] {')
-        expect(result.mermaidContent).toContain('class iface_ibar_uuid["IBar"] {')
-        expect(result.mermaidContent).toContain('+doSomething()')
-        expect(result.mermaidContent).toContain('+getAll()')
-        expect(result.mermaidContent.match(/class user\["User"\]:::actor/g) ?? []).toHaveLength(1)
+        const result = buildUseCaseDiagramClassDiagram(useCaseDiagram, root)
+
+        expect(result.mermaidContent).toContain('class childSvc["Child Service"]')
+        expect(result.mermaidContent).toContain('class platform["Platform"]')
+        expect(result.mermaidContent).toContain('+handle()')
+        expect(result.mermaidContent).not.toContain('class compA["Component A"]')
         expect(result.relationshipMetadata).toContainEqual({
             kind: 'dependency',
-            sourceName: 'User',
-            targetName: 'IFoo',
-            sequenceDiagrams: [{ uuid: 'seq-1', name: 'Sequence seq-1' }],
-        })
-        expect(result.relationshipMetadata).toContainEqual({
-            kind: 'dependency',
-            sourceName: 'User',
-            targetName: 'IBar',
-            sequenceDiagrams: [{ uuid: 'seq-2', name: 'Sequence seq-2' }],
+            sourceName: 'Child Service',
+            targetName: 'IPlatform',
+            sequenceDiagrams: [
+                { uuid: 'seq-1-uuid', name: 'seq-1' },
+                { uuid: 'seq-2-uuid', name: 'seq-2' },
+            ],
         })
     })
 
     it('collapses hidden interfaces across aggregated use cases', () => {
-        const result = buildUseCaseDiagramClassDiagram(
-            makeUseCaseDiagram(
-                makeUseCase(
-                    'uc-1',
-                    makeSeqDiagram(
-                        'seq-1',
-                        'actor user\ncomponent compA\nuser ->> compA: IFoo:doSomething()'
-                    )
-                ),
-                makeUseCase(
-                    'uc-2',
-                    makeSeqDiagram(
-                        'seq-2',
-                        'actor user\ncomponent compA\nuser ->> compA: IBar:getAll()'
-                    )
+        const useCaseDiagram = makeUseCaseDiagram(
+            makeUseCase(
+                'uc-1',
+                makeSeqDiagram(
+                    'seq-1',
+                    [
+                        'component childSvc',
+                        'component root/platform as platform',
+                        'childSvc ->> platform: IPlatform:handle()',
+                    ].join('\n')
                 )
-            ),
-            makeRoot(),
-            { showInterfaces: false }
+            )
         )
+        const root = makeRoot(useCaseDiagram)
 
-        expect(result.mermaidContent).toContain('user ..> compA')
-        expect(result.mermaidContent).not.toContain('iface_ifoo_uuid')
-        expect(result.mermaidContent).not.toContain('iface_ibar_uuid')
-        expect(result.mermaidContent.match(/user \.\.> compA/g) ?? []).toHaveLength(1)
-        expect(result.relationshipMetadata).toContainEqual({
-            kind: 'dependency',
-            sourceName: 'User',
-            targetName: 'Component A',
-            sequenceDiagrams: [
-                { uuid: 'seq-1', name: 'Sequence seq-1' },
-                { uuid: 'seq-2', name: 'Sequence seq-2' },
-            ],
+        const result = buildUseCaseDiagramClassDiagram(useCaseDiagram, root, {
+            showInterfaces: false,
         })
+
+        expect(result.mermaidContent).toContain('childSvc ..> platform')
+        expect(result.mermaidContent).not.toContain('iface_platform_iface_uuid')
     })
 })

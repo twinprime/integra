@@ -253,26 +253,43 @@ export function makeLocalStorageValueWithDependency(): string {
         id: 'AuthToOrder',
         name: 'Auth To Order',
         type: 'sequence-diagram',
-        ownerComponentUuid: UUIDS.root,
+        ownerComponentUuid: UUIDS.authComp,
         referencedNodeIds: [UUIDS.authComp, UUIDS.orderComp],
         referencedFunctionUuids: [UUIDS.orderFn],
         content: [
             'component AuthService',
-            'component OrderService',
+            'component System/OrderService as OrderService',
             'AuthService ->> OrderService: IOrder:process(orderId: string)',
         ].join('\n'),
     }
 
+    const authWithOwnedDependencyDiagram: ComponentNode = {
+        ...sampleSystem.subComponents[0],
+        useCaseDiagrams: [
+            {
+                uuid: 'dep-ucd-uuid',
+                id: 'DependencyUCD',
+                name: 'Dependency UCD',
+                type: 'use-case-diagram',
+                ownerComponentUuid: UUIDS.authComp,
+                referencedNodeIds: [depSeq.uuid],
+                content: 'use case AuthDependency',
+                useCases: [
+                    {
+                        uuid: 'dep-uc-uuid',
+                        id: 'AuthDependency',
+                        name: 'Auth Dependency',
+                        type: 'use-case',
+                        sequenceDiagrams: [depSeq],
+                    },
+                ],
+            },
+        ],
+    }
+
     const systemWithDep: ComponentNode = {
         ...sampleSystem,
-        subComponents: [sampleSystem.subComponents[0], orderWithIface],
-        useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
-            ...ucd,
-            useCases: ucd.useCases.map((uc) => ({
-                ...uc,
-                sequenceDiagrams: [...uc.sequenceDiagrams, depSeq],
-            })),
-        })),
+        subComponents: [authWithOwnedDependencyDiagram, orderWithIface],
     }
 
     return JSON.stringify({ state: { rootComponent: systemWithDep }, version: 0 })
@@ -313,26 +330,43 @@ export function makeLocalStorageValueWithDependencyOnlyComponent(): string {
         id: 'AuthToOrderWithoutOwnInterfaces',
         name: 'Auth To Order Without Own Interfaces',
         type: 'sequence-diagram',
-        ownerComponentUuid: UUIDS.root,
+        ownerComponentUuid: UUIDS.authComp,
         referencedNodeIds: [UUIDS.authComp, UUIDS.orderComp],
         referencedFunctionUuids: [UUIDS.orderFn],
         content: [
             'component AuthService',
-            'component OrderService',
+            'component System/OrderService as OrderService',
             'AuthService ->> OrderService: IOrder:process(orderId: string)',
         ].join('\n'),
     }
 
+    const authWithOwnedDependencyDiagram: ComponentNode = {
+        ...authWithoutInterfaces,
+        useCaseDiagrams: [
+            {
+                uuid: 'dep-only-ucd-uuid',
+                id: 'DependencyOnlyUCD',
+                name: 'Dependency Only UCD',
+                type: 'use-case-diagram',
+                ownerComponentUuid: UUIDS.authComp,
+                referencedNodeIds: [depSeq.uuid],
+                content: 'use case AuthDependencyOnly',
+                useCases: [
+                    {
+                        uuid: 'dep-only-uc-uuid',
+                        id: 'AuthDependencyOnly',
+                        name: 'Auth Dependency Only',
+                        type: 'use-case',
+                        sequenceDiagrams: [depSeq],
+                    },
+                ],
+            },
+        ],
+    }
+
     const systemWithDependencyOnlyComponent: ComponentNode = {
         ...sampleSystem,
-        subComponents: [authWithoutInterfaces, orderWithIface],
-        useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) => ({
-            ...ucd,
-            useCases: ucd.useCases.map((uc) => ({
-                ...uc,
-                sequenceDiagrams: [...uc.sequenceDiagrams, depSeq],
-            })),
-        })),
+        subComponents: [authWithOwnedDependencyDiagram, orderWithIface],
     }
 
     return JSON.stringify({

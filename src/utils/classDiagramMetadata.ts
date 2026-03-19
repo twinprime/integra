@@ -1,3 +1,5 @@
+import type { ComponentNode, InterfaceSpecification } from '../store/types'
+
 export type SequenceDiagramSource = {
     uuid: string
     name: string
@@ -26,6 +28,7 @@ export type ClassDiagramBuildResult = {
     mermaidContent: string
     idToUuid: Record<string, string>
     relationshipMetadata: Array<ClassDiagramRelationshipMetadata | null>
+    graph?: ClassDiagramGraph
 }
 
 export type ClassDiagramRenderOptions = {
@@ -34,6 +37,38 @@ export type ClassDiagramRenderOptions = {
 
 export const DEFAULT_CLASS_DIAGRAM_RENDER_OPTIONS: ClassDiagramRenderOptions = {
     showInterfaces: true,
+}
+
+export type ClassDiagramNodeDefinition =
+    | {
+          kind: 'component'
+          nodeId: string
+          uuid: string
+          name: string
+          baseStyle?: 'subject'
+      }
+    | {
+          kind: 'interface'
+          nodeId: string
+          name: string
+          iface: InterfaceSpecification
+          ownerComponent: ComponentNode
+          calledFunctionIds?: string[]
+          baseStyle?: 'subject-interface'
+      }
+
+export type ClassDiagramEdgeDefinition = {
+    kind: 'dependency' | 'implementation'
+    fromNodeId: string
+    toNodeId: string
+    metadata: ClassDiagramRelationshipMetadata | null
+}
+
+export type ClassDiagramGraph = {
+    nodes: ClassDiagramNodeDefinition[]
+    edges: ClassDiagramEdgeDefinition[]
+    idToUuid: Record<string, string>
+    focusableNodeIds: string[]
 }
 
 type SequenceDiagramLike = {

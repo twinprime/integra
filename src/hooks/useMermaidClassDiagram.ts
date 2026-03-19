@@ -8,6 +8,7 @@ import type {
     ClassDiagramRelationshipMetadata,
     SequenceDiagramSource,
 } from '../utils/classDiagramMetadata'
+import { renderClassDiagramGraph } from '../utils/unifiedClassDiagram'
 
 declare global {
     var __integraNavigate: ((id: string) => void) | undefined
@@ -38,14 +39,18 @@ export function useMermaidClassDiagram<T>(
     const selectNode = useSystemStore((s) => s.selectNode)
     const elementRef = useRef<HTMLDivElement>(null)
     const bindFunctionsRef = useRef<((el: Element) => void) | undefined>(undefined)
+    const buildResultRef = useRef<ClassDiagramBuildResult | null>(null)
     const idToUuidRef = useRef<Record<string, string>>({})
     const relationshipMetadataRef = useRef<ClassDiagramBuildResult['relationshipMetadata']>([])
+    const focusableNodeIdsRef = useRef<Set<string>>(new Set())
     const isPopupPinnedRef = useRef(false)
     const popupHoveredRef = useRef(false)
     const popupCloseTimeoutRef = useRef<number | null>(null)
+    const pendingNodeClickRef = useRef<{ nodeId: string; timeoutId: number } | null>(null)
     const [svg, setSvg] = useState('')
     const [error, setError] = useState('')
     const [mermaidSource, setMermaidSource] = useState('')
+    const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null)
     const [activeRelationship, setActiveRelationship] =
         useState<ClassDiagramRelationshipMetadata | null>(null)
     const [activeSequenceDiagrams, setActiveSequenceDiagrams] = useState<SequenceDiagramSource[]>(
@@ -97,8 +102,26 @@ export function useMermaidClassDiagram<T>(
     )
 
     useEffect(() => {
+        if (pendingNodeClickRef.current) {
+            window.clearTimeout(pendingNodeClickRef.current.timeoutId)
+            pendingNodeClickRef.current = null
+        }
+
+        if (!node) {
+            buildResultRef.current = null
+            focusableNodeIdsRef.current = new Set()
+            return
+        }
+
+        const buildResult = buildFn(node, rootComponent)
+        buildResultRef.current = buildResult
+        focusableNodeIdsRef.current = new Set(buildResult.graph?.focusableNodeIds ?? [])
+    }, [node, rootComponent, buildFn])
+
+    useEffect(() => {
         const render = async () => {
-            if (!node) {
+            const buildResult = buildResultRef.current
+            if (!buildResult) {
                 setSvg('')
                 setError('')
                 setMermaidSource('')
@@ -110,17 +133,20 @@ export function useMermaidClassDiagram<T>(
                 return
             }
 
-            const { mermaidContent, idToUuid, relationshipMetadata } = buildFn(node, rootComponent)
+            const effectiveFocusedNodeId =
+                focusedNodeId && focusableNodeIdsRef.current.has(focusedNodeId)
+                    ? focusedNodeId
+                    : null
+            const renderedResult = buildResult.graph
+                ? renderClassDiagramGraph(buildResult.graph, rootComponent, effectiveFocusedNodeId)
+                : buildResult
+            const { mermaidContent, idToUuid, relationshipMetadata } = renderedResult
 
             if (!mermaidContent) {
                 setSvg('')
                 setError('')
                 setMermaidSource('')
                 relationshipMetadataRef.current = []
-                setActiveRelationship(null)
-                setActiveSequenceDiagrams([])
-                setActivePopupPosition(null)
-                setIsPopupPinned(false)
                 return
             }
 
@@ -128,7 +154,32 @@ export function useMermaidClassDiagram<T>(
             relationshipMetadataRef.current = relationshipMetadata
             globalThis.__integraNavigate = (nodeId: string) => {
                 const uuid = idToUuidRef.current[nodeId]
-                if (uuid) selectNode(uuid)
+                if (!uuid) return
+
+                if (!focusableNodeIdsRef.current.has(nodeId)) {
+                    selectNode(uuid)
+                    return
+                }
+
+                const pendingClick = pendingNodeClickRef.current
+                if (pendingClick?.nodeId === nodeId) {
+                    window.clearTimeout(pendingClick.timeoutId)
+                    pendingNodeClickRef.current = null
+                    selectNode(uuid)
+                    return
+                }
+
+                if (pendingClick) {
+                    window.clearTimeout(pendingClick.timeoutId)
+                }
+
+                pendingNodeClickRef.current = {
+                    nodeId,
+                    timeoutId: window.setTimeout(() => {
+                        pendingNodeClickRef.current = null
+                        setFocusedNodeId((current) => (current === nodeId ? null : nodeId))
+                    }, 220),
+                }
             }
 
             setMermaidSource(mermaidContent)
@@ -147,7 +198,14 @@ export function useMermaidClassDiagram<T>(
         }
 
         void render()
-    }, [node, rootComponent, selectNode, buildFn, idPrefix])
+
+        return () => {
+            if (pendingNodeClickRef.current) {
+                window.clearTimeout(pendingNodeClickRef.current.timeoutId)
+                pendingNodeClickRef.current = null
+            }
+        }
+    }, [rootComponent, selectNode, idPrefix, focusedNodeId])
 
     useEffect(() => {
         if (!svg || !elementRef.current) return

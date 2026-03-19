@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { fireEvent, render, renderHook, waitFor, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { act, fireEvent, render, renderHook, waitFor, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { memo, useMemo, type MouseEventHandler, type RefObject } from 'react'
 import { useMermaidClassDiagram } from './useMermaidClassDiagram'
@@ -55,6 +55,67 @@ const defaultBuildResult: ClassDiagramBuildResult = {
     mermaidContent: 'classDiagram\n  class Foo',
     idToUuid: { Foo: 'uuid-foo' },
     relationshipMetadata: [],
+}
+
+function makeGraphBuildResult(): ClassDiagramBuildResult {
+    const compA: ComponentNode = {
+        ...mockNode,
+        id: 'A',
+        uuid: 'uuid-a',
+        name: 'A',
+        interfaces: [
+            {
+                uuid: 'iface-a-uuid',
+                id: 'IA',
+                name: 'IA',
+                type: 'rest',
+                functions: [{ uuid: 'fn-a-uuid', id: 'handle', parameters: [] }],
+            },
+        ],
+    }
+    return {
+        mermaidContent: '',
+        idToUuid: { A: 'uuid-a', B: 'uuid-b', C: 'uuid-c' },
+        relationshipMetadata: [],
+        graph: {
+            nodes: [
+                { kind: 'component', nodeId: 'A', uuid: 'uuid-a', name: 'A' },
+                { kind: 'component', nodeId: 'B', uuid: 'uuid-b', name: 'B' },
+                { kind: 'component', nodeId: 'C', uuid: 'uuid-c', name: 'C' },
+                {
+                    kind: 'interface',
+                    nodeId: 'iface_iface_a_uuid',
+                    name: 'IA',
+                    iface: compA.interfaces[0],
+                    ownerComponent: compA,
+                    calledFunctionIds: ['handle'],
+                },
+            ],
+            edges: [
+                {
+                    kind: 'implementation',
+                    fromNodeId: 'A',
+                    toNodeId: 'iface_iface_a_uuid',
+                    metadata: {
+                        kind: 'implementation',
+                        sourceName: 'A',
+                        targetName: 'IA',
+                        sequenceDiagrams: [],
+                    },
+                },
+                {
+                    kind: 'dependency',
+                    fromNodeId: 'B',
+                    toNodeId: 'iface_iface_a_uuid',
+                    metadata: makeDependencyRelationship([
+                        { uuid: 'seq-1', name: 'Checkout Flow' },
+                    ]),
+                },
+            ],
+            idToUuid: { A: 'uuid-a', B: 'uuid-b', C: 'uuid-c' },
+            focusableNodeIds: ['A', 'B', 'C'],
+        },
+    }
 }
 
 function makeDependencyRelationship(
@@ -166,6 +227,10 @@ describe('useMermaidClassDiagram', () => {
         mockBuildFn.mockReturnValue(defaultBuildResult)
     })
 
+    afterEach(() => {
+        vi.useRealTimers()
+    })
+
     it('returns SVG on successful render', async () => {
         const { result } = renderHook(() => useMermaidClassDiagram(mockBuildFn, mockNode, 'test'))
 
@@ -245,6 +310,41 @@ describe('useMermaidClassDiagram', () => {
         await waitFor(() => expect(result.current.svg).toBe('<svg>class</svg>'))
 
         globalThis.__integraNavigate?.('A')
+        expect(mockSelectNode).toHaveBeenCalledWith('uuid-a')
+    })
+
+    it('uses single click to focus and filter graph-backed diagrams', async () => {
+        const graphBuildResult = makeGraphBuildResult()
+        render(<HookHarness buildResult={graphBuildResult} />)
+
+        await waitFor(() => expect(screen.getByTestId('diagram')).toBeInTheDocument())
+        vi.useFakeTimers()
+
+        globalThis.__integraNavigate?.('A')
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(250)
+        })
+
+        expect(vi.mocked(mermaid.render)).toHaveBeenLastCalledWith(
+            expect.any(String),
+            expect.not.stringContaining('class C["C"]')
+        )
+        expect(mockSelectNode).not.toHaveBeenCalled()
+    })
+
+    it('uses double click to navigate graph-backed diagrams', async () => {
+        const graphBuildResult = makeGraphBuildResult()
+        render(<HookHarness buildResult={graphBuildResult} />)
+
+        await waitFor(() => expect(screen.getByTestId('diagram')).toBeInTheDocument())
+        vi.useFakeTimers()
+
+        globalThis.__integraNavigate?.('A')
+        globalThis.__integraNavigate?.('A')
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(250)
+        })
+
         expect(mockSelectNode).toHaveBeenCalledWith('uuid-a')
     })
 
