@@ -382,6 +382,12 @@ function getFocusedVisibleNodeIds(
         }
     }
 
+    for (const node of graph.nodes) {
+        if (node.kind === 'interface' && visibleNodeIds.has(node.nodeId)) {
+            visibleNodeIds.add(node.ownerComponent.id)
+        }
+    }
+
     return visibleNodeIds
 }
 

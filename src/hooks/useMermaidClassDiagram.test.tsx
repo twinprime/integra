@@ -392,7 +392,7 @@ describe('useMermaidClassDiagram', () => {
         await waitFor(() => expect(screen.getByTestId('diagram')).toBeInTheDocument())
         vi.useFakeTimers()
 
-        globalThis.__integraNavigate?.('A')
+        globalThis.__integraNavigate?.('B')
         await act(async () => {
             await vi.advanceTimersByTimeAsync(250)
         })
@@ -400,6 +400,18 @@ describe('useMermaidClassDiagram', () => {
         expect(vi.mocked(mermaid.render)).toHaveBeenLastCalledWith(
             expect.any(String),
             expect.not.stringContaining('class C["C"]')
+        )
+        expect(vi.mocked(mermaid.render)).toHaveBeenLastCalledWith(
+            expect.any(String),
+            expect.stringContaining('class A["A"]')
+        )
+        expect(vi.mocked(mermaid.render)).toHaveBeenLastCalledWith(
+            expect.any(String),
+            expect.stringContaining('class iface_iface_a_uuid["IA"]')
+        )
+        expect(vi.mocked(mermaid.render)).toHaveBeenLastCalledWith(
+            expect.any(String),
+            expect.stringContaining('class B["B"]')
         )
         expect(mockSelectNode).not.toHaveBeenCalled()
     })
