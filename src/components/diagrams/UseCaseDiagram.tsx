@@ -1,4 +1,5 @@
 import { useSystemStore } from '../../store/useSystemStore'
+import type { ReactNode } from 'react'
 import type { DiagramNode } from '../../store/types'
 import { useUseCaseDiagram } from '../../hooks/useUseCaseDiagram'
 import { DiagramErrorBanner } from './DiagramErrorBanner'
@@ -6,9 +7,10 @@ import { DiagramPanZoom } from './DiagramPanZoom'
 
 interface UseCaseDiagramProps {
     diagramNode: DiagramNode
+    toolbarContent?: ReactNode
 }
 
-export const UseCaseDiagram = ({ diagramNode }: UseCaseDiagramProps) => {
+export const UseCaseDiagram = ({ diagramNode, toolbarContent }: UseCaseDiagramProps) => {
     const parseError = useSystemStore((s) => s.parseError)
     const { svg, error, errorDetails, mermaidSource, elementRef } = useUseCaseDiagram(diagramNode)
 
@@ -16,7 +18,11 @@ export const UseCaseDiagram = ({ diagramNode }: UseCaseDiagramProps) => {
         <div className="w-full h-full flex flex-col">
             <DiagramErrorBanner error={parseError || error} details={parseError || errorDetails} />
             {svg ? (
-                <DiagramPanZoom contentKey={svg} mermaidSource={mermaidSource}>
+                <DiagramPanZoom
+                    contentKey={svg}
+                    mermaidSource={mermaidSource}
+                    toolbarContent={toolbarContent}
+                >
                     <div
                         ref={elementRef}
                         data-testid="diagram-svg-container"

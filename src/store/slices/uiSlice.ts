@@ -5,6 +5,7 @@ const NAV_HISTORY_LIMIT = 50
 
 export type UiSlice = {
     selectedNodeId: string | null
+    activeVisualizationViewId: string | null
     selectedInterfaceUuid: string | null
     parseError: string | null
     savedSnapshot: string | null
@@ -13,6 +14,7 @@ export type UiSlice = {
     canNavBack: boolean
     canNavForward: boolean
     selectNode: (nodeId: string | null) => void
+    selectVisualizationView: (viewId: string | null) => void
     selectInterface: (interfaceUuid: string | null) => void
     goBack: () => void
     goForward: () => void
@@ -22,6 +24,7 @@ export type UiSlice = {
 
 export const createUiSlice: StateCreator<SystemState, [], [], UiSlice> = (set) => ({
     selectedNodeId: null,
+    activeVisualizationViewId: null,
     selectedInterfaceUuid: null,
     parseError: null,
     savedSnapshot: null,
@@ -38,6 +41,7 @@ export const createUiSlice: StateCreator<SystemState, [], [], UiSlice> = (set) =
                     : state.navBack
             return {
                 selectedNodeId: nodeId,
+                activeVisualizationViewId: null,
                 navBack: newBack,
                 navForward: [],
                 canNavBack: newBack.length > 0,
@@ -55,6 +59,7 @@ export const createUiSlice: StateCreator<SystemState, [], [], UiSlice> = (set) =
                     : state.navForward
             return {
                 selectedNodeId: prev,
+                activeVisualizationViewId: null,
                 navBack: newBack,
                 navForward: newForward,
                 canNavBack: newBack.length > 0,
@@ -72,12 +77,14 @@ export const createUiSlice: StateCreator<SystemState, [], [], UiSlice> = (set) =
                     : state.navBack
             return {
                 selectedNodeId: next,
+                activeVisualizationViewId: null,
                 navBack: newBack,
                 navForward: newForward,
                 canNavBack: newBack.length > 0,
                 canNavForward: newForward.length > 0,
             }
         }),
+    selectVisualizationView: (viewId) => set({ activeVisualizationViewId: viewId }),
     selectInterface: (interfaceUuid) => set({ selectedInterfaceUuid: interfaceUuid }),
     clearParseError: () => set({ parseError: null }),
     markSaved: (snapshot) => set({ savedSnapshot: snapshot }),

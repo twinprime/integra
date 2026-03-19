@@ -37,7 +37,9 @@ As you write sequence diagrams, Integra automatically derives:
 - **Actors and components** added to the owning component
 - **Interface specifications** (with typed functions and parameters) on the receiving component
 - **Use cases** listed under their use case diagram
+- **Visualization panel view switcher** — node types can expose multiple renderable diagram views in the bottom panel; the panel shows a switcher when more than one view is available and resets to that node type's default view when you change tree selection
 - **Use-case class diagram** — when a use-case node is selected, the bottom panel renders an auto-generated class diagram showing the actors, components, and interfaces used across its sequence diagrams, with realization (`..|>`) and dependency (`..>`) arrows. Dependency extraction follows referenced `Sequence:` diagrams and referenced `UseCase:` diagrams transitively, deduplicates repeated reachable diagrams, and stops safely on circular references.
+- **Use-case-diagram class diagram** — when a use-case-diagram node is selected, the bottom panel defaults to the authored use-case diagram and can switch to an auto-generated class diagram that aggregates the sequence diagrams of all child use cases. Dependency extraction follows referenced `Sequence:` diagrams and referenced `UseCase:` diagrams transitively with the same deduplication and cycle protection as the use-case class diagram.
 - **Component class diagram** — when a component node is selected, the bottom panel renders an auto-generated class diagram showing the component's interfaces, immediate sibling actors/components that call those interfaces, sibling components of ancestor components that participate in inbound or outbound dependencies, and the dependency interfaces plus owner components that this component calls out to, even when the selected component has no interfaces of its own. Nested sub-components of the selected component do not appear as separate classes in that diagram; when their calls create dependencies, the selected component itself is shown as the dependency endpoint instead. When a nested component depends on an ancestor sibling, that ancestor sibling's own diagram rolls the inbound dependent up to the sibling ancestor component rather than the nested caller. Inbound dependencies from ancestor siblings are highlighted in red on the violating caller node as a visible constraint violation. Inherited interfaces resolve their function signatures from the parent interface, and for any interface shown in the diagram only the functions that are actually referenced by the relevant sequence diagrams are listed. Dependency extraction also follows referenced `Sequence:` diagrams and referenced `UseCase:` diagrams transitively, with deduplication and cycle protection. When the root component is selected, the generated diagram still stays at the root-child level, but nested descendant calls can roll up into dependencies between direct root children and participating root actors.
 
 Navigate the tree to inspect generated nodes. Clicking a node or participant in the rendered diagram navigates to that node in the tree. Hovering a dependency link in a generated class diagram shows the dependency source and target names plus the sequence diagrams that derived that dependency; clicking a multi-source dependency keeps that popup available for selection, while clicking a single-source dependency navigates directly to that sequence diagram. Hovering an implementation link shows the component and interface names for that relationship, and clicking it pins the popup for inspection. Orphaned nodes (no longer referenced by any diagram) show a delete button on hover.
@@ -638,7 +640,8 @@ graph TD
     DiagramEditor --> DiagramCodeMirrorEditor
     DiagramEditor --> FunctionUpdateDialog
 
-    DiagramPanel -->|use-case-diagram| UseCaseDiagram
+    DiagramPanel -->|use-case-diagram default| UseCaseDiagram
+    DiagramPanel -->|use-case-diagram alternate| UseCaseDiagramClassDiagram
     DiagramPanel -->|sequence-diagram| SequenceDiagram
     DiagramPanel -->|use-case| UseCaseClassDiagram
     DiagramPanel -->|component| ComponentClassDiagram
@@ -661,8 +664,9 @@ graph TD
 | `CommonEditor` | Minimal name + markdown description editor for actor, use-case, and sequence-diagram nodes |
 | `MarkdownEditor` | Markdown textarea with preview toggle; node-path links are clickable |
 | `FunctionUpdateDialog` | Modal dialog shown when a function signature change affects other diagrams |
-| `DiagramPanel` | Routes to the correct Mermaid renderer based on selected node type |
+| `DiagramPanel` | Routes to the correct visualization view based on the selected node type and active panel view |
 | `UseCaseDiagram` | Renders use-case-diagram spec via Mermaid; clickable entities |
+| `UseCaseDiagramClassDiagram` | Renders the generated class diagram for a use-case-diagram node by aggregating all child use cases |
 | `SequenceDiagram` | Renders sequence diagram spec via Mermaid; clickable participants and message labels |
 | `UseCaseClassDiagram` | Renders auto-generated class diagram for a use-case node; clickable classes |
 | `ComponentClassDiagram` | Renders auto-generated class diagram for a component node showing its interfaces and dependents (callers) and dependencies (outgoing calls to other components); clickable classes |
@@ -677,8 +681,9 @@ Rendering logic for Mermaid diagrams is extracted into custom hooks to keep comp
 | `useMermaidBase` | `useUseCaseDiagram`, `useSequenceDiagram` | Shared Mermaid render loop — builds the diagram string, calls `mermaid.render()`, binds click handlers, exposes `svg`/`error`/`elementRef` |
 | `useUseCaseDiagram` | `UseCaseDiagram` | Builds the use-case diagram transform and wires `__integraNavigate` |
 | `useSequenceDiagram` | `SequenceDiagram` | Builds the sequence diagram transform and wires `__integraNavigate` |
-| `useMermaidClassDiagram<T>` | `useUseCaseClassDiagram`, `useComponentClassDiagram` | Generic shared hook — accepts a `buildFn(node, rootComponent)` and an `idPrefix`; handles Mermaid render, click binding, error state, and the per-instance `idToUuidRef` (eliminates the `__integraIdMap` global) |
+| `useMermaidClassDiagram<T>` | `useUseCaseClassDiagram`, `useUseCaseDiagramClassDiagram`, `useComponentClassDiagram` | Generic shared hook — accepts a `buildFn(node, rootComponent)` and an `idPrefix`; handles Mermaid render, click binding, error state, and the per-instance `idToUuidRef` (eliminates the `__integraIdMap` global) |
 | `useUseCaseClassDiagram` | `UseCaseClassDiagram` | Thin wrapper: calls `useMermaidClassDiagram(buildUseCaseClassDiagram, node, "uc-class")` |
+| `useUseCaseDiagramClassDiagram` | `UseCaseDiagramClassDiagram` | Thin wrapper: calls `useMermaidClassDiagram(buildUseCaseDiagramClassDiagram, node, "uc-diagram-class")` |
 | `useComponentClassDiagram` | `ComponentClassDiagram` | Thin wrapper: calls `useMermaidClassDiagram(buildComponentClassDiagram, node, "comp-class")` |
 | `useAutoComplete` | `DiagramEditor` / `integraAutocomplete.ts` | Thin React hook — wires cursor position to suggestion results; pure logic (`detectContext`, `buildSuggestions`, etc.) lives in `autoCompleteLogic.ts` |
 

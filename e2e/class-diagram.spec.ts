@@ -88,6 +88,51 @@ test.describe('use case class diagram', () => {
     )
 })
 
+test.describe('use-case-diagram visualization views', () => {
+    test.beforeEach(async ({ page }) => {
+        const lsValue = makeLocalStorageValue()
+        await page.addInitScript((value) => {
+            localStorage.setItem('integra-system', value)
+        }, lsValue)
+        await page.goto('/')
+    })
+
+    test('switches between the authored use-case diagram and generated class diagram', async ({
+        page,
+    }) => {
+        await page.getByRole('treeitem').filter({ hasText: 'Main Use Cases' }).first().click()
+
+        const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
+        await svgContainer.waitFor({ timeout: 5000 })
+
+        const viewControls = page.getByTestId('visualization-view-controls')
+        const diagramButton = viewControls.getByRole('button', { name: 'Diagram', exact: true })
+        const classDiagramButton = viewControls.getByRole('button', {
+            name: 'Class Diagram',
+            exact: true,
+        })
+
+        await expect(diagramButton).toHaveAttribute('aria-pressed', 'true')
+        await expect(classDiagramButton).toHaveAttribute('aria-pressed', 'false')
+        await expect(svgContainer).toContainText('Login')
+        await expect(svgContainer).not.toContainText('IAuth')
+
+        await classDiagramButton.click()
+
+        await expect(diagramButton).toHaveAttribute('aria-pressed', 'false')
+        await expect(classDiagramButton).toHaveAttribute('aria-pressed', 'true')
+        await expect(svgContainer).toContainText('IAuth')
+        await expect(svgContainer).toContainText('AuthService')
+        await expect(svgContainer).not.toContainText('Login')
+
+        await diagramButton.click()
+
+        await expect(diagramButton).toHaveAttribute('aria-pressed', 'true')
+        await expect(classDiagramButton).toHaveAttribute('aria-pressed', 'false')
+        await expect(svgContainer).toContainText('Login')
+    })
+})
+
 test.describe('root class diagram', () => {
     test.beforeEach(async ({ page }) => {
         const lsValue = makeLocalStorageValue()

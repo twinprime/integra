@@ -87,6 +87,30 @@ describe('useSystemStore', () => {
 
             expect(result.current.selectedNodeId).toBeNull()
         })
+
+        it('should reset the active visualization view when selection changes', () => {
+            const { result } = renderHook(() => useSystemStore())
+
+            act(() => {
+                result.current.selectVisualizationView('class-diagram')
+                result.current.selectNode('test-node-uuid')
+            })
+
+            expect(result.current.selectedNodeId).toBe('test-node-uuid')
+            expect(result.current.activeVisualizationViewId).toBeNull()
+        })
+
+        it('should keep the active visualization view when selecting the same node again', () => {
+            const { result } = renderHook(() => useSystemStore())
+
+            act(() => {
+                result.current.selectNode('test-node-uuid')
+                result.current.selectVisualizationView('class-diagram')
+                result.current.selectNode('test-node-uuid')
+            })
+
+            expect(result.current.activeVisualizationViewId).toBe('class-diagram')
+        })
     })
 
     describe('addNode', () => {

@@ -116,9 +116,15 @@ const FitController = ({ fitRef, fitWidthRef, clearPendingFitRef, contentKey }: 
 
 interface ZoomControlsProps extends FitRefs {
     mermaidSource?: string
+    toolbarContent?: ReactNode
 }
 
-const ZoomControls = ({ fitRef, fitWidthRef, mermaidSource }: ZoomControlsProps) => {
+const ZoomControls = ({
+    fitRef,
+    fitWidthRef,
+    mermaidSource,
+    toolbarContent,
+}: ZoomControlsProps) => {
     const { zoomIn, zoomOut } = useControls()
     const [copied, setCopied] = useState(false)
 
@@ -131,6 +137,7 @@ const ZoomControls = ({ fitRef, fitWidthRef, mermaidSource }: ZoomControlsProps)
     }, [mermaidSource])
     return (
         <div className="absolute top-2 right-2 z-10 flex gap-1">
+            {toolbarContent}
             {mermaidSource && (
                 <button onClick={handleCopy} className={btnClass} title="Copy Mermaid source">
                     {copied ? <Check size={14} /> : <Clipboard size={14} />}
@@ -156,9 +163,15 @@ interface DiagramPanZoomProps {
     children: ReactNode
     contentKey?: string
     mermaidSource?: string
+    toolbarContent?: ReactNode
 }
 
-export const DiagramPanZoom = ({ children, contentKey, mermaidSource }: DiagramPanZoomProps) => {
+export const DiagramPanZoom = ({
+    children,
+    contentKey,
+    mermaidSource,
+    toolbarContent,
+}: DiagramPanZoomProps) => {
     const fitRef = useRef<() => void>(() => {})
     const fitWidthRef = useRef<() => void>(() => {})
     const clearPendingFitRef = useRef<() => void>(() => {})
@@ -189,6 +202,7 @@ export const DiagramPanZoom = ({ children, contentKey, mermaidSource }: DiagramP
                     fitRef={fitRef}
                     fitWidthRef={fitWidthRef}
                     mermaidSource={mermaidSource}
+                    toolbarContent={toolbarContent}
                 />
                 <TransformComponent
                     wrapperStyle={{ width: '100%', height: '100%' }}

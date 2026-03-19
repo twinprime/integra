@@ -1,4 +1,4 @@
-import { memo, type MouseEventHandler, type RefObject } from 'react'
+import { memo, type MouseEventHandler, type ReactNode, type RefObject } from 'react'
 import { DiagramPanZoom } from './DiagramPanZoom'
 
 type ClassDiagramCanvasProps = {
@@ -8,6 +8,7 @@ type ClassDiagramCanvasProps = {
     handleDiagramMouseMove: MouseEventHandler<HTMLDivElement>
     handleDiagramMouseLeave: () => void
     mermaidSource?: string
+    toolbarContent?: ReactNode
 }
 
 export const ClassDiagramCanvas = memo(function ClassDiagramCanvas({
@@ -17,9 +18,14 @@ export const ClassDiagramCanvas = memo(function ClassDiagramCanvas({
     handleDiagramMouseMove,
     handleDiagramMouseLeave,
     mermaidSource,
+    toolbarContent,
 }: ClassDiagramCanvasProps) {
     return (
-        <DiagramPanZoom contentKey={svg} mermaidSource={mermaidSource}>
+        <DiagramPanZoom
+            contentKey={svg}
+            mermaidSource={mermaidSource}
+            toolbarContent={toolbarContent}
+        >
             <div
                 ref={elementRef}
                 data-testid="diagram-svg-container"

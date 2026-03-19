@@ -1,16 +1,19 @@
 import type { ReactNode } from 'react'
-import type { UseCaseNode } from '../../store/types'
-import { useUseCaseClassDiagram } from '../../hooks/useUseCaseClassDiagram'
+import type { UseCaseDiagramNode } from '../../store/types'
+import { useUseCaseDiagramClassDiagram } from '../../hooks/useUseCaseDiagramClassDiagram'
 import { ClassDiagramCanvas } from './ClassDiagramCanvas'
-import { DiagramErrorBanner } from './DiagramErrorBanner'
 import { DependencySourceDialog } from './DependencySourceDialog'
+import { DiagramErrorBanner } from './DiagramErrorBanner'
 
-interface UseCaseClassDiagramProps {
-    useCaseNode: UseCaseNode
+interface UseCaseDiagramClassDiagramProps {
+    useCaseDiagramNode: UseCaseDiagramNode
     toolbarContent?: ReactNode
 }
 
-export const UseCaseClassDiagram = ({ useCaseNode, toolbarContent }: UseCaseClassDiagramProps) => {
+export const UseCaseDiagramClassDiagram = ({
+    useCaseDiagramNode,
+    toolbarContent,
+}: UseCaseDiagramClassDiagramProps) => {
     const {
         svg,
         error,
@@ -26,12 +29,12 @@ export const UseCaseClassDiagram = ({ useCaseNode, toolbarContent }: UseCaseClas
         selectSequenceDiagram,
         handlePopupMouseEnter,
         handlePopupMouseLeave,
-    } = useUseCaseClassDiagram(useCaseNode)
+    } = useUseCaseDiagramClassDiagram(useCaseDiagramNode)
 
-    if (!useCaseNode.sequenceDiagrams.length) {
+    if (!useCaseDiagramNode.useCases.some((useCase) => useCase.sequenceDiagrams.length > 0)) {
         return (
             <div className="h-full flex items-center justify-center text-gray-500">
-                No sequence diagrams defined for this use case
+                No sequence diagrams defined for this use case diagram
             </div>
         )
     }

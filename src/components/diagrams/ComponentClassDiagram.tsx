@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import type { ComponentNode } from '../../store/types'
 import { useComponentClassDiagram } from '../../hooks/useComponentClassDiagram'
 import { ClassDiagramCanvas } from './ClassDiagramCanvas'
@@ -6,9 +7,13 @@ import { DependencySourceDialog } from './DependencySourceDialog'
 
 interface ComponentClassDiagramProps {
     componentNode: ComponentNode
+    toolbarContent?: ReactNode
 }
 
-export const ComponentClassDiagram = ({ componentNode }: ComponentClassDiagramProps) => {
+export const ComponentClassDiagram = ({
+    componentNode,
+    toolbarContent,
+}: ComponentClassDiagramProps) => {
     const {
         svg,
         error,
@@ -45,6 +50,7 @@ export const ComponentClassDiagram = ({ componentNode }: ComponentClassDiagramPr
                     handleDiagramMouseMove={handleDiagramMouseMove}
                     handleDiagramMouseLeave={handleDiagramMouseLeave}
                     mermaidSource={mermaidSource}
+                    toolbarContent={toolbarContent}
                 />
             ) : error && mermaidSource ? (
                 <pre className="flex-1 overflow-auto p-4 text-xs text-gray-300 bg-gray-900 rounded-lg whitespace-pre-wrap font-mono">

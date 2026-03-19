@@ -198,4 +198,17 @@ describe('DiagramPanZoom', () => {
 
         expect(setTransform).not.toHaveBeenCalled()
     })
+
+    it('renders optional toolbar content', () => {
+        render(
+            <DiagramPanZoom
+                contentKey="diagram-a"
+                toolbarContent={<button type="button">Class Diagram</button>}
+            >
+                <div data-testid="diagram-child" />
+            </DiagramPanZoom>
+        )
+
+        expect(screen.getByRole('button', { name: 'Class Diagram' })).toBeInTheDocument()
+    })
 })

@@ -1,4 +1,4 @@
-import type { ComponentNode, UseCaseNode } from '../store/types'
+import type { ComponentNode, SequenceDiagramNode, UseCaseNode } from '../store/types'
 import { findNode } from '../nodes/nodeTree'
 import { findOwnerActorOrComponentUuidById } from './diagramResolvers'
 import { flattenMessages } from '../parser/sequenceDiagram/visitor'
@@ -239,8 +239,8 @@ function buildMermaidLines(
     return { mermaidContent: lines.join('\n'), idToUuid, relationshipMetadata }
 }
 
-export function buildUseCaseClassDiagram(
-    useCaseNode: UseCaseNode,
+export function buildClassDiagramFromSequenceDiagrams(
+    startDiagrams: ReadonlyArray<SequenceDiagramNode>,
     rootComponent: ComponentNode
 ): ClassDiagramBuildResult {
     const participantsMap = new Map<string, Participant>()
@@ -253,10 +253,7 @@ export function buildUseCaseClassDiagram(
         directArrows: [],
     }
 
-    for (const seqDiagram of collectReferencedSequenceDiagrams(
-        rootComponent,
-        useCaseNode.sequenceDiagrams
-    )) {
+    for (const seqDiagram of collectReferencedSequenceDiagrams(rootComponent, startDiagrams)) {
         if (!seqDiagram.content?.trim()) continue
         const ownerNode = findNode([rootComponent], seqDiagram.ownerComponentUuid)
         const ownerComp = ownerNode?.type === 'component' ? ownerNode : null
@@ -276,4 +273,11 @@ export function buildUseCaseClassDiagram(
     }
 
     return buildMermaidLines(participantsMap, state, idToUuid)
+}
+
+export function buildUseCaseClassDiagram(
+    useCaseNode: UseCaseNode,
+    rootComponent: ComponentNode
+): ClassDiagramBuildResult {
+    return buildClassDiagramFromSequenceDiagrams(useCaseNode.sequenceDiagrams, rootComponent)
 }

@@ -8,10 +8,12 @@ import { describe, it, expect, vi } from 'vitest'
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ComponentClassDiagram } from './ComponentClassDiagram'
+import { UseCaseDiagramClassDiagram } from './UseCaseDiagramClassDiagram'
 import { UseCaseClassDiagram } from './UseCaseClassDiagram'
 import type {
     ComponentNode,
     UseCaseNode,
+    UseCaseDiagramNode,
     InterfaceSpecification,
     SequenceDiagramNode,
 } from '../../store/types'
@@ -24,11 +26,16 @@ vi.mock('../../hooks/useComponentClassDiagram', () => ({
 vi.mock('../../hooks/useUseCaseClassDiagram', () => ({
     useUseCaseClassDiagram: vi.fn(),
 }))
+vi.mock('../../hooks/useUseCaseDiagramClassDiagram', () => ({
+    useUseCaseDiagramClassDiagram: vi.fn(),
+}))
 
 import { useComponentClassDiagram } from '../../hooks/useComponentClassDiagram'
 import { useUseCaseClassDiagram } from '../../hooks/useUseCaseClassDiagram'
+import { useUseCaseDiagramClassDiagram } from '../../hooks/useUseCaseDiagramClassDiagram'
 const mockUseCompClass = useComponentClassDiagram as ReturnType<typeof vi.fn>
 const mockUseUcClass = useUseCaseClassDiagram as ReturnType<typeof vi.fn>
+const mockUseUcDiagramClass = useUseCaseDiagramClassDiagram as ReturnType<typeof vi.fn>
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
 
@@ -100,6 +107,40 @@ const makeUseCaseNode = (withSeq = true): UseCaseNode => ({
               } as SequenceDiagramNode,
           ]
         : [],
+})
+
+const makeUseCaseDiagramNode = (withSeq = true): UseCaseDiagramNode => ({
+    uuid: 'ucd-uuid',
+    id: 'ucd',
+    name: 'My Use Case Diagram',
+    type: 'use-case-diagram',
+    content: '',
+    description: '',
+    ownerComponentUuid: 'comp-uuid',
+    referencedNodeIds: [],
+    useCases: [
+        {
+            uuid: 'uc-uuid',
+            id: 'uc',
+            name: 'My Use Case',
+            type: 'use-case',
+            sequenceDiagrams: withSeq
+                ? [
+                      {
+                          uuid: 'seq-uuid',
+                          id: 'seq',
+                          name: 'Seq',
+                          type: 'sequence-diagram',
+                          content: '',
+                          description: '',
+                          ownerComponentUuid: 'comp-uuid',
+                          referencedNodeIds: [],
+                          referencedFunctionUuids: [],
+                      } as SequenceDiagramNode,
+                  ]
+                : [],
+        },
+    ],
 })
 
 // ─── ComponentClassDiagram ────────────────────────────────────────────────────
@@ -291,6 +332,27 @@ describe('UseCaseClassDiagram — error display', () => {
 
     it("shows 'No sequence diagrams defined' when use case has no sequences", () => {
         render(<UseCaseClassDiagram useCaseNode={makeUseCaseNode(false)} />)
+        expect(screen.getByText(/No sequence diagrams defined/i)).toBeTruthy()
+        expect(document.querySelector('pre')).toBeNull()
+    })
+})
+
+describe('UseCaseDiagramClassDiagram — error display', () => {
+    it('shows mermaid source in <pre> when svg is empty and error is set', () => {
+        mockUseUcDiagramClass.mockReturnValue(
+            makeHookState({ error: 'Invalid Diagram Syntax', mermaidSource: MERMAID_SOURCE })
+        )
+        render(<UseCaseDiagramClassDiagram useCaseDiagramNode={makeUseCaseDiagramNode()} />)
+
+        const pre = document.querySelector('pre')
+        expect(pre).not.toBeNull()
+        expect(pre?.textContent).toContain(MERMAID_SOURCE)
+    })
+
+    it("shows 'No sequence diagrams defined' when the use-case diagram has no sequences", () => {
+        mockUseUcDiagramClass.mockReturnValue(makeHookState())
+        render(<UseCaseDiagramClassDiagram useCaseDiagramNode={makeUseCaseDiagramNode(false)} />)
+
         expect(screen.getByText(/No sequence diagrams defined/i)).toBeTruthy()
         expect(document.querySelector('pre')).toBeNull()
     })
