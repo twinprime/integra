@@ -25,7 +25,7 @@ Use the **Save** / **Load** buttons in the toolbar to persist your model as a **
 
 #### 3. Build your system model
 
-The left panel shows your **system tree**. Start by renaming the root component, then add sub-components, use case diagrams, and sequence diagrams using the **+** buttons on each node. When you select a node, the right panel lets you edit its title inline at the top of the panel and its ID directly underneath.
+The left panel shows your **system tree**. Start by renaming the root component, then add sub-components, use case diagrams, and sequence diagrams using the **+** buttons on each node. When you select a node, the right panel lets you edit its title inline at the top of the panel and shows its absolute path directly underneath; the final segment remains the editable node ID, while earlier segments are clickable breadcrumbs back into the tree.
 
 #### 4. Write diagram specifications
 

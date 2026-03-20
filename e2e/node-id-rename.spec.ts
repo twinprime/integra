@@ -3,6 +3,7 @@ import { makeLocalStorageValue } from './fixtures/sample-system'
 import { loadAppWithFixture } from './helpers/app'
 import {
     nodeIdInput,
+    nodePath,
     renameNodeId,
     renameSelectedNodeId,
     selectTreeItem,
@@ -20,12 +21,23 @@ test.describe('node ID rename', () => {
         const idInput = nodeIdInput(page)
         await expect(idInput).toBeVisible()
         await expect(idInput).toHaveValue('Login')
+        await expect(nodePath(page)).toHaveAttribute('title', 'System/MainUCD/Login')
 
         // Component node
         await selectTreeItem(page, 'AuthService')
         const componentIdInput = nodeIdInput(page)
         await expect(componentIdInput).toBeVisible()
         await expect(componentIdInput).toHaveValue('AuthService')
+        await expect(nodePath(page)).toHaveAttribute('title', 'System/AuthService')
+    })
+
+    test('clicking an ancestor path segment selects that node', async ({ page }) => {
+        await selectTreeItem(page, 'Login Flow')
+
+        await page.getByRole('button', { name: 'MainUCD' }).click()
+
+        await expect(nodeIdInput(page)).toHaveValue('MainUCD')
+        await expect(nodePath(page)).toHaveAttribute('title', 'System/MainUCD')
     })
 
     test('renaming a use-case ID updates the use-case diagram content', async ({ page }) => {

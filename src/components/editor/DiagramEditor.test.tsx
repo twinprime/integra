@@ -62,6 +62,8 @@ vi.mock('../FunctionUpdateDialog', () => ({
 
 vi.mock('../../utils/nodeUtils', () => ({
     findReferencingDiagrams: vi.fn(() => []),
+    getNodeAbsolutePath: vi.fn(() => ''),
+    getNodeAbsolutePathSegments: vi.fn(() => []),
 }))
 
 vi.mock('../../nodes/nodeTree', async () => {
@@ -74,6 +76,7 @@ vi.mock('../../nodes/nodeTree', async () => {
 })
 
 import { useSystemStore } from '../../store/useSystemStore'
+import { getNodeAbsolutePath, getNodeAbsolutePathSegments } from '../../utils/nodeUtils'
 
 const mockApplyFunctionUpdates = vi.fn()
 const mockClearParseError = vi.fn()
@@ -188,6 +191,26 @@ describe('DiagramEditor', () => {
 
         const editableContent = document.querySelector('.cm-content[contenteditable="true"]')
         expect(editableContent).not.toBeNull()
+    })
+
+    it('renders the full path for nested diagrams and lets ancestors select nodes', async () => {
+        const user = userEvent.setup()
+        vi.mocked(getNodeAbsolutePath).mockReturnValue('System/MainUCD/Login/LoginFlow')
+        vi.mocked(getNodeAbsolutePathSegments).mockReturnValue([
+            { uuid: 'root-component-uuid', id: 'System' },
+            { uuid: 'ucd-uuid', id: 'MainUCD' },
+            { uuid: 'use-case-uuid', id: 'Login' },
+            { uuid: 'sequence-diagram-uuid', id: 'LoginFlow' },
+        ])
+
+        render(<DiagramEditor node={makeSequenceDiagramNode()} onUpdate={vi.fn()} />)
+
+        expect(screen.getByTestId('node-path')).toHaveAttribute(
+            'title',
+            'System/MainUCD/Login/LoginFlow'
+        )
+        await user.click(screen.getByRole('button', { name: 'MainUCD' }))
+        expect(mockSelectNode).toHaveBeenCalledWith('ucd-uuid')
     })
 
     it('shows referencing diagrams for a sequence diagram node', () => {

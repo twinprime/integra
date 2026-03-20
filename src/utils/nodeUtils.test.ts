@@ -8,6 +8,8 @@ import {
     getAncestorComponentChain,
     isInScope,
     getComponentAbsolutePath,
+    getNodeAbsolutePath,
+    getNodeAbsolutePathSegments,
 } from './nodeUtils'
 import type { ComponentNode } from '../store/types'
 
@@ -714,6 +716,85 @@ describe('getComponentAbsolutePath', () => {
     it('returns full path for a great-grandchild', () => {
         const { root, greatGrandchild } = buildScopeTree()
         expect(getComponentAbsolutePath(root, greatGrandchild.uuid)).toBe('root/ch1/gc1/ggc')
+    })
+})
+
+describe('getNodeAbsolutePath', () => {
+    const buildNodePathTree = (): ComponentNode => ({
+        uuid: 'root-uuid',
+        id: 'System',
+        name: 'System',
+        type: 'component',
+        actors: [{ uuid: 'actor-uuid', id: 'User', name: 'User', type: 'actor' }],
+        interfaces: [],
+        subComponents: [
+            {
+                uuid: 'auth-uuid',
+                id: 'AuthService',
+                name: 'AuthService',
+                type: 'component',
+                actors: [],
+                interfaces: [],
+                subComponents: [],
+                useCaseDiagrams: [],
+            },
+        ],
+        useCaseDiagrams: [
+            {
+                uuid: 'ucd-uuid',
+                id: 'MainUCD',
+                name: 'Main Use Cases',
+                type: 'use-case-diagram',
+                description: '',
+                content: '',
+                ownerComponentUuid: 'root-uuid',
+                referencedNodeIds: [],
+                useCases: [
+                    {
+                        uuid: 'uc-uuid',
+                        id: 'Login',
+                        name: 'Login',
+                        type: 'use-case',
+                        description: '',
+                        sequenceDiagrams: [
+                            {
+                                uuid: 'seq-uuid',
+                                id: 'LoginFlow',
+                                name: 'Login Flow',
+                                type: 'sequence-diagram',
+                                description: '',
+                                content: '',
+                                ownerComponentUuid: 'root-uuid',
+                                referencedNodeIds: [],
+                                referencedFunctionUuids: [],
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+    })
+
+    it('returns the full tree path for a nested sequence diagram', () => {
+        const root = buildNodePathTree()
+        expect(getNodeAbsolutePath(root, 'seq-uuid')).toBe('System/MainUCD/Login/LoginFlow')
+    })
+
+    it('returns ordered path segments with matching UUIDs', () => {
+        const root = buildNodePathTree()
+        expect(getNodeAbsolutePathSegments(root, 'seq-uuid')).toEqual([
+            { uuid: 'root-uuid', id: 'System' },
+            { uuid: 'ucd-uuid', id: 'MainUCD' },
+            { uuid: 'uc-uuid', id: 'Login' },
+            { uuid: 'seq-uuid', id: 'LoginFlow' },
+        ])
+    })
+
+    it('returns the root segment for the root component', () => {
+        const root = buildNodePathTree()
+        expect(getNodeAbsolutePathSegments(root, 'root-uuid')).toEqual([
+            { uuid: 'root-uuid', id: 'System' },
+        ])
     })
 })
 

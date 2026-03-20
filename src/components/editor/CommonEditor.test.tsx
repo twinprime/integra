@@ -52,13 +52,17 @@ vi.mock('../../nodes/nodeTree', () => ({
 
 vi.mock('../../utils/nodeUtils', () => ({
     findReferencingDiagrams: vi.fn(() => []),
+    getNodeAbsolutePath: vi.fn(() => ''),
+    getNodeAbsolutePathSegments: vi.fn(() => []),
 }))
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 import { useSystemStore } from '../../store/useSystemStore'
+import { getNodeAbsolutePath, getNodeAbsolutePathSegments } from '../../utils/nodeUtils'
 
 const mockRenameNodeId = vi.fn()
+const mockSelectNode = vi.fn()
 
 const mockRootComponent = {
     uuid: 'root-uuid',
@@ -75,6 +79,7 @@ function setupStoreMock() {
     const state = {
         rootComponent: mockRootComponent,
         renameNodeId: mockRenameNodeId,
+        selectNode: mockSelectNode,
     }
     vi.mocked(useSystemStore).mockImplementation((selector: (s: SystemState) => unknown) =>
         selector(state as unknown as SystemState)
@@ -131,6 +136,21 @@ describe('CommonEditor', () => {
             const node = makeActorNode({ id: 'test_actor' })
             render(<CommonEditor node={node} onUpdate={vi.fn()} />)
             expect(screen.getByDisplayValue('test_actor')).toBeInTheDocument()
+        })
+
+        it('renders the absolute node path and allows ancestor selection', async () => {
+            const user = userEvent.setup()
+            vi.mocked(getNodeAbsolutePath).mockReturnValue('System/User')
+            vi.mocked(getNodeAbsolutePathSegments).mockReturnValue([
+                { uuid: 'root-uuid', id: 'System' },
+                { uuid: 'actor-uuid-1', id: 'User' },
+            ])
+
+            render(<CommonEditor node={makeActorNode({ id: 'User' })} onUpdate={vi.fn()} />)
+
+            expect(screen.getByTestId('node-path')).toHaveAttribute('title', 'System/User')
+            await user.click(screen.getByRole('button', { name: 'System' }))
+            expect(mockSelectNode).toHaveBeenCalledWith('root-uuid')
         })
 
         it('renders the description in preview mode initially', () => {

@@ -61,14 +61,18 @@ vi.mock('../../nodes/nodeTree', () => ({
 vi.mock('../../utils/nodeUtils', () => ({
     findReferencingDiagrams: vi.fn(() => []),
     collectReferencedFunctionUuids: vi.fn(() => new Set<string>()),
+    getNodeAbsolutePath: vi.fn(() => ''),
+    getNodeAbsolutePathSegments: vi.fn(() => []),
 }))
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 import { useSystemStore } from '../../store/useSystemStore'
+import { getNodeAbsolutePath, getNodeAbsolutePathSegments } from '../../utils/nodeUtils'
 import { findParentNode } from '../../nodes/nodeTree'
 
 const mockRenameNodeId = vi.fn()
+const mockSelectNode = vi.fn()
 const mockSelectInterface = vi.fn()
 const makeOnUpdate = () => vi.fn<(updates: Partial<ComponentNode>) => void>()
 
@@ -87,6 +91,7 @@ function setupStoreMock(selectedInterfaceUuid: string | null = null) {
     const state = {
         rootComponent: mockRootComponent,
         renameNodeId: mockRenameNodeId,
+        selectNode: mockSelectNode,
         selectedInterfaceUuid,
         selectInterface: mockSelectInterface,
     }
@@ -179,6 +184,26 @@ describe('ComponentEditor', () => {
             const node = makeComponentNode({ id: 'serviceA' })
             render(<ComponentEditor node={node} onUpdate={vi.fn()} />)
             expect(screen.getByDisplayValue('serviceA')).toBeInTheDocument()
+        })
+
+        it('renders ancestor path segments for components', async () => {
+            const user = userEvent.setup()
+            vi.mocked(getNodeAbsolutePath).mockReturnValue('System/AuthService')
+            vi.mocked(getNodeAbsolutePathSegments).mockReturnValue([
+                { uuid: 'root-uuid', id: 'System' },
+                { uuid: 'comp-uuid-1', id: 'AuthService' },
+            ])
+
+            render(
+                <ComponentEditor
+                    node={makeComponentNode({ id: 'AuthService' })}
+                    onUpdate={vi.fn()}
+                />
+            )
+
+            expect(screen.getByTestId('node-path')).toHaveAttribute('title', 'System/AuthService')
+            await user.click(screen.getByRole('button', { name: 'System' }))
+            expect(mockSelectNode).toHaveBeenCalledWith('root-uuid')
         })
 
         it('shows description in preview mode initially without a label', () => {

@@ -5,7 +5,14 @@ import {
     getNodeChildren,
     getNodeHandler,
     collectAllDiagrams,
+    findNode,
+    findParentNode,
 } from '../nodes/nodeTree'
+
+export type NodePathSegment = {
+    uuid: string
+    id: string
+}
 
 // Collect all referencedFunctionUuids from every sequence diagram in the entire component tree
 const collectFromUcDiag = (d: UseCaseDiagramNode, uuids: Set<string>): void => {
@@ -211,6 +218,31 @@ export const getComponentAbsolutePath = (root: ComponentNode, compUuid: string):
         .map((c) => c.id)
         .join('/')
 }
+
+export const getNodeAbsolutePathSegments = (
+    root: ComponentNode,
+    nodeUuid: string
+): NodePathSegment[] => {
+    const node = findNode([root], nodeUuid)
+    if (!node) return []
+
+    const segments: NodePathSegment[] = [{ uuid: node.uuid, id: node.id }]
+    let currentNode: Node = node
+
+    while (currentNode.uuid !== root.uuid) {
+        const parent = findParentNode(root, currentNode.uuid)
+        if (!parent) return []
+        segments.push({ uuid: parent.uuid, id: parent.id })
+        currentNode = parent
+    }
+
+    return segments.reverse()
+}
+
+export const getNodeAbsolutePath = (root: ComponentNode, nodeUuid: string): string =>
+    getNodeAbsolutePathSegments(root, nodeUuid)
+        .map((segment) => segment.id)
+        .join('/')
 
 /**
  * Returns true when candidateCompUuid is in scope for a diagram owned by ownerComp:

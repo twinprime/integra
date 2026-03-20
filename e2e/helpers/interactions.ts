@@ -21,6 +21,10 @@ export function nodeIdInput(page: Page): Locator {
     return page.getByLabel('Node ID')
 }
 
+export function nodePath(page: Page): Locator {
+    return page.getByTestId('node-path')
+}
+
 export function specificationEditor(page: Page): Locator {
     return page.getByLabel('Specification')
 }
