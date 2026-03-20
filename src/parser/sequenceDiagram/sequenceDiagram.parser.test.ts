@@ -29,6 +29,12 @@ describe('sequence diagram lexer', () => {
         ])
     })
 
+    it('tokenises an X-prefixed arrow line', () => {
+        const { errors, tokens } = SeqLexer.tokenize('a X->> b')
+        expect(errors).toHaveLength(0)
+        expect(tokens.map((t) => t.image)).toEqual(['a', 'X->>', 'b'])
+    })
+
     it('tokenises a function-ref label into FunctionRef token', () => {
         const { errors, tokens } = SeqLexer.tokenize('a ->> b: IFace:fn(x: string)')
         expect(errors).toHaveLength(0)
@@ -113,6 +119,17 @@ describe('sequence diagram parser — declarations', () => {
             alias: null,
             id: 'Output Topics',
         })
+    })
+})
+
+describe('sequence diagram parser — dependency-excluded arrows', () => {
+    it('normalizes an X-prefixed arrow and marks the message as dependency-excluded', () => {
+        const { ast } = parse('actor a\ncomponent b\na X->> b: hello')
+        const message = ast.messages[0]
+
+        expect(message.arrow).toBe('->>')
+        expect(message.excludeFromDependencies).toBe(true)
+        expect(message.content).toEqual({ kind: 'label', text: 'hello' })
     })
 })
 

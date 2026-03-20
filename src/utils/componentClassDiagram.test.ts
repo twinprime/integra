@@ -187,6 +187,24 @@ describe('buildComponentClassDiagram', () => {
         expect(result.mermaidContent).toContain('compA ..> iface_platform_iface_uuid')
     })
 
+    it('ignores X-prefixed arrows when computing dependency links', () => {
+        const root = makeRoot([
+            makeSeqDiagram(
+                'excluded-dependency',
+                [
+                    'component compA',
+                    'component root/platform as platform',
+                    'compA X->> platform: IPlatform:handle()',
+                ].join('\n')
+            ),
+        ])
+
+        const result = buildComponentClassDiagram(root.subComponents[0], root)
+
+        expect(result.mermaidContent).toBe('')
+        expect(result.relationshipMetadata).toEqual([])
+    })
+
     it('uses only sequence diagrams owned under the selected component subtree', () => {
         const root = makeRoot(
             [

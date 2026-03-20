@@ -58,6 +58,16 @@ describe('sequence diagram — undeclared receiver', () => {
         expect(mermaidContent).toContain('participant Output_Topics_2 as Output Topics 2')
     })
 
+    it('renders an X-prefixed arrow as the underlying Mermaid arrow', () => {
+        const owner = makeNamedComp('owner-uuid', 'owner', 'owner')
+        const root = makeNamedComp('root-uuid', 'root', 'root', [owner])
+        const ast = parseAst('actor sender\nsender X->> Output Topics 2: do work')
+        const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root)
+
+        expect(mermaidContent).toContain('sender->>Output_Topics_2: do work')
+        expect(mermaidContent).not.toContain('X->>')
+    })
+
     it('does not double-declare a receiver that is already declared', () => {
         const child = makeNamedComp('svc-uuid', 'svc', 'My Service')
         const owner = makeNamedComp('owner-uuid', 'owner', 'owner', [child])

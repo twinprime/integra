@@ -39,7 +39,8 @@ function serializeDeclaration(decl: SeqDeclaration): string {
 }
 
 function serializeMessage(msg: SeqMessage): string {
-    const base = `${msg.from} ${msg.arrow} ${msg.to}`
+    const serializedArrow = msg.excludeFromDependencies ? `X${msg.arrow}` : msg.arrow
+    const base = `${msg.from} ${serializedArrow} ${msg.to}`
     const c = msg.content
     switch (c.kind) {
         case 'functionRef': {

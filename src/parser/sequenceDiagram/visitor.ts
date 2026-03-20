@@ -22,8 +22,10 @@ export interface SeqDeclaration {
 export interface SeqMessage {
     from: string
     to: string
-    /** The arrow type as written in the DSL (e.g. `->>`, `-->>`, `->`, `-->`, `-x`, `--x`, `-)`, `--)`). Maps 1:1 to Mermaid sequence diagram arrow syntax. */
+    /** Mermaid arrow syntax without any dependency-exclusion prefix. */
     arrow: string
+    /** When true, this message should be ignored for class-diagram dependency extraction. */
+    excludeFromDependencies?: boolean
     /**
      * Discriminated union covering all possible message content kinds.
      * Adding a new kind here forces a compile error in every exhaustive switch consumer.
@@ -214,7 +216,9 @@ class SequenceDiagramVisitor extends BaseVisitor {
         const [fromRef, toRef] = ctx.participantRef as never[]
         const from = this.visit(fromRef) as string
         const to = this.visit(toRef) as string
-        const arrow = (ctx.SeqArrow as { image: string }[])[0].image
+        const rawArrow = (ctx.SeqArrow as { image: string }[])[0].image
+        const excludeFromDependencies = rawArrow.startsWith('X')
+        const arrow = excludeFromDependencies ? rawArrow.slice(1) : rawArrow
 
         if ((ctx.FunctionRef ?? []).length > 0) {
             const raw = (ctx.FunctionRef as { image: string }[])[0].image
@@ -224,6 +228,7 @@ class SequenceDiagramVisitor extends BaseVisitor {
                     from,
                     to,
                     arrow,
+                    excludeFromDependencies,
                     content: {
                         kind: 'functionRef',
                         interfaceId: match[1],
@@ -247,7 +252,13 @@ class SequenceDiagramVisitor extends BaseVisitor {
                     : ((withoutPrefix.slice(secondColonIdx + 1) || null)?.replace(/\\n/g, '\n') ??
                       null)
             const path = pathStr.split('/')
-            return { from, to, arrow, content: { kind: 'useCaseRef', path, label } }
+            return {
+                from,
+                to,
+                arrow,
+                excludeFromDependencies,
+                content: { kind: 'useCaseRef', path, label },
+            }
         }
 
         if ((ctx.SequenceRef ?? []).length > 0) {
@@ -262,12 +273,24 @@ class SequenceDiagramVisitor extends BaseVisitor {
                     : ((withoutPrefix.slice(secondColonIdx + 1) || null)?.replace(/\\n/g, '\n') ??
                       null)
             const path = pathStr.split('/')
-            return { from, to, arrow, content: { kind: 'seqDiagramRef', path, label } }
+            return {
+                from,
+                to,
+                arrow,
+                excludeFromDependencies,
+                content: { kind: 'seqDiagramRef', path, label },
+            }
         }
 
         const rawLabel = (ctx.LabelText as { image: string }[] | undefined)?.[0]?.image ?? null
         const text = rawLabel ? rawLabel.replace(/\\n/g, '\n') : null
-        return { from, to, arrow, content: text ? { kind: 'label', text } : { kind: 'none' } }
+        return {
+            from,
+            to,
+            arrow,
+            excludeFromDependencies,
+            content: text ? { kind: 'label', text } : { kind: 'none' },
+        }
     }
 
     seqBlock(ctx: Record<string, unknown[]>): SeqBlock {

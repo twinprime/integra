@@ -121,8 +121,9 @@ export const SeqColon = createToken({
 // ─── Block keywords (sequence-diagram-specific) ───────────────────────────────
 
 /**
- * Covers all 8 Mermaid sequence diagram arrow types. Longer patterns come
- * first to prevent prefix matches (e.g. -->> before -->).
+ * Covers all 8 Mermaid sequence diagram arrow types, with an optional `X`
+ * prefix used to exclude the message from class-diagram dependency extraction.
+ * Longer patterns come first to prevent prefix matches (e.g. -->> before -->).
  *
  * | Arrow | Mermaid meaning                        |
  * |-------|----------------------------------------|
@@ -137,7 +138,7 @@ export const SeqColon = createToken({
  */
 export const SeqArrow = createToken({
     name: 'SeqArrow',
-    pattern: /-->>|--x|--\)|-->|->>|-x|-\)|->/,
+    pattern: /X-->>|X--x|X--\)|X-->|X->>|X-x|X-\)|X->|-->>|--x|--\)|-->|->>|-x|-\)|->/,
 })
 
 /**

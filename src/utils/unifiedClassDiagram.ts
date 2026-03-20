@@ -214,6 +214,7 @@ function buildClassDiagramGraph({
         }
 
         for (const message of flattenMessages(ast.statements)) {
+            if (message.excludeFromDependencies) continue
             const senderUuid = aliasToUuid.get(message.from)
             const receiverUuid = aliasToUuid.get(message.to)
             const visibleSenderUuid = senderUuid

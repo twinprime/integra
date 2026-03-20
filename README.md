@@ -260,6 +260,10 @@ note over orderSvc, paymentSvc: payment handshake
 | `-)` | Solid line, open arrowhead — async notation |
 | `--)` | Dotted line, open arrowhead |
 
+Prefix any sequence-diagram arrow with `X` (for example, `X->>` or `X-->`) to
+exclude that message from **class-diagram dependency derivation** while still
+rendering the underlying Mermaid arrow normally in the sequence diagram.
+
 Example:
 ```
 client ->> server: REST:getUser(id: string)
@@ -526,8 +530,8 @@ Integra is a single-page web application that allows users to model software sys
 10. **Syntax highlighting** — the diagram specification editor (CodeMirror 6) highlights known tokens (keywords, participants, interfaces, functions, use case references) in real time using a Chevrotain-based decoration pass
 11. **Navigation** — highlighted tokens in the specification editor are clickable and navigate to the corresponding node in the tree; entities in the rendered Mermaid diagram are also clickable for the same purpose
 12. **Persistence** — system state is persisted to `localStorage` and restored on page load; a clear button resets to the initial state; Save / Load buttons use the File System Access API to read/write YAML files
-13. **Auto-generated use-case class diagram** — selecting a use-case node renders a class diagram in the bottom panel derived from all its sequence diagrams plus transitively referenced `Sequence:` and `UseCase:` targets, showing actors, components, interfaces (with methods), and realization / dependency relationships; repeated reachable diagrams are deduplicated and circular references are ignored after the first visit
-14. **Auto-generated component class diagram** — selecting a component node renders a class diagram showing: the component's own interfaces (with method signatures, filtered to only the methods actually called in diagrams); sibling actors/components that call those interfaces (dependents); sibling components that this component calls out to (dependencies); and dependency interfaces derived from nested calls without rendering the selected component's own sub-components as separate classes; with distinct colors for the subject component and its own interfaces; when the root component is selected, shows direct root children, participating root actors, and relationships between them, including dependencies rolled up from nested descendants. Dependency derivation follows transitively referenced `Sequence:` and `UseCase:` targets with deduplication and cycle protection
+13. **Auto-generated use-case class diagram** — selecting a use-case node renders a class diagram in the bottom panel derived from all its sequence diagrams plus transitively referenced `Sequence:` and `UseCase:` targets, showing actors, components, interfaces (with methods), and realization / dependency relationships; repeated reachable diagrams are deduplicated and circular references are ignored after the first visit. Messages whose arrows are prefixed with `X` are skipped when deriving dependencies
+14. **Auto-generated component class diagram** — selecting a component node renders a class diagram showing: the component's own interfaces (with method signatures, filtered to only the methods actually called in diagrams); sibling actors/components that call those interfaces (dependents); sibling components that this component calls out to (dependencies); and dependency interfaces derived from nested calls without rendering the selected component's own sub-components as separate classes; with distinct colors for the subject component and its own interfaces; when the root component is selected, shows direct root children, participating root actors, and relationships between them, including dependencies rolled up from nested descendants. Dependency derivation follows transitively referenced `Sequence:` and `UseCase:` targets with deduplication and cycle protection, and ignores messages whose arrows are prefixed with `X`
 
 ---
 

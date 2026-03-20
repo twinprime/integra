@@ -34,6 +34,10 @@ describe('seqAstToSpec — round-trip', () => {
         expect(roundTrip('a ->> b: some label')).toBe('a ->> b: some label')
     })
 
+    it('round-trips an X-prefixed message', () => {
+        expect(roundTrip('a X->> b: some label')).toBe('a X->> b: some label')
+    })
+
     it('round-trips a function-ref message', () => {
         expect(roundTrip('a ->> b: REST:getUser(id: string)')).toBe(
             'a ->> b: REST:getUser(id: string)'
