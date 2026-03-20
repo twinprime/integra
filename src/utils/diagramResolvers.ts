@@ -274,6 +274,12 @@ export function isComponentReferenceTargetInScope(
     ownerCompUuid: string,
     candidateCompUuid: string
 ): boolean {
+    if (ownerCompUuid === root.uuid) {
+        return (
+            candidateCompUuid === root.uuid ||
+            root.subComponents.some((c) => c.uuid === candidateCompUuid)
+        )
+    }
     return isInScope(root, ownerCompUuid, candidateCompUuid)
 }
 

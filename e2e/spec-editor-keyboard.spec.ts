@@ -36,15 +36,10 @@ test.describe('spec editor keyboard shortcuts', () => {
 
         await cmEditor.click()
 
-        // Type a spec that references a new sub-component so we can verify the save
-        // by checking the tree (the node gets auto-created on save)
+        // Type a spec that references a new direct child of root so we can verify
+        // the save by checking the tree (the node gets auto-created on save).
         await cmEditor.type(
-            [
-                'actor User',
-                'component AuthService',
-                'component AuthService/SavedModule',
-                'User --> AuthService: hello',
-            ].join('\n')
+            ['actor User', 'component SavedModule', 'User --> SavedModule: hello'].join('\n')
         )
 
         // Press Shift+Enter — should save content without exiting edit mode

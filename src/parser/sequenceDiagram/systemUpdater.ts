@@ -7,13 +7,14 @@
 import type { ComponentNode } from '../../store/types'
 import { upsertNodeInTree, mergeLists } from '../../nodes/nodeTree'
 import { findCompByUuid } from '../../nodes/nodeTree'
-import { findNodeByPath, isInScope } from '../../utils/nodeUtils'
+import { findNodeByPath } from '../../utils/nodeUtils'
 import {
     resolveUseCaseReferenceUuid,
     resolveSequenceReferenceUuid,
     ensureScopedNodePath,
     resolveFunctionReferenceTarget,
     assertMessageReferencePathInScope,
+    isComponentReferenceTargetInScope,
 } from '../../utils/diagramResolvers'
 import { parseSequenceDiagramCst } from './parser'
 import { buildSeqAst, flattenMessages } from './visitor'
@@ -176,7 +177,10 @@ export function parseSequenceDiagram(
                 decl.entityType === 'component'
                     ? uuid
                     : findNodeByPath(root, decl.path.slice(0, -1).join('/'), ownerComponentUuid)
-            if (!owningCompUuid || !isInScope(root, ownerComponentUuid, owningCompUuid)) {
+            if (
+                !owningCompUuid ||
+                !isComponentReferenceTargetInScope(root, ownerComponentUuid, owningCompUuid)
+            ) {
                 throw new Error(`Reference "${pathStr}" is out of scope for this diagram`)
             }
             if (!externalUuids.includes(uuid)) externalUuids.push(uuid)

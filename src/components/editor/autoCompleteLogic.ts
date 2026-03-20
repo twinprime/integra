@@ -18,6 +18,7 @@ import {
 import { SeqColon, SeqArrow } from '../../parser/sequenceDiagram/lexer'
 import { isInScope, getComponentAbsolutePath } from '../../utils/nodeUtils'
 import { resolveEffectiveInterfaceFunctions } from '../../utils/interfaceFunctions'
+import { isComponentReferenceTargetInScope } from '../../utils/diagramResolvers'
 
 export type Suggestion = {
     label: string
@@ -393,7 +394,9 @@ function buildEntityNameSuggestions(
     diagramType: DiagramType
 ): Suggestion[] {
     const allComps = collectAllComponents(rootComponent)
-    const scopedComps = allComps.filter((c) => isInScope(rootComponent, ownerComp.uuid, c.uuid))
+    const scopeFn =
+        diagramType === 'sequence-diagram' ? isComponentReferenceTargetInScope : isInScope
+    const scopedComps = allComps.filter((c) => scopeFn(rootComponent, ownerComp.uuid, c.uuid))
     if (ctx.keyword === 'actor')
         return buildActorSuggestions(ctx, scopedComps, ownerComp, rootComponent)
     if (ctx.keyword === 'component')

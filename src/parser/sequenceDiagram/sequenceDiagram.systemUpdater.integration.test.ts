@@ -161,13 +161,32 @@ describe('parseSequenceDiagram — out-of-scope reference', () => {
         ).not.toThrow()
     })
 
-    it('does NOT throw for a root-owned diagram declaring a nested descendant participant', () => {
+    it('does NOT throw for a root-owned diagram declaring a direct child participant', () => {
+        const service = makeComp('service-uuid', 'service')
+        const root = makeComp('root-uuid', 'root', [service])
+        expect(() =>
+            parseSequenceDiagram('component service as service', root, root.uuid, 'diag-uuid')
+        ).not.toThrow()
+    })
+
+    it('throws for a root-owned diagram declaring a nested descendant participant', () => {
         const nested = makeComp('nested-uuid', 'nested')
         const service = makeComp('service-uuid', 'service', [nested])
         const root = makeComp('root-uuid', 'root', [service])
         expect(() =>
             parseSequenceDiagram('component service/nested as nested', root, root.uuid, 'diag-uuid')
-        ).not.toThrow()
+        ).toThrow('out of scope')
+    })
+
+    it('throws for a root-owned diagram declaring a child of a sibling participant', () => {
+        const cousin = makeComp('cousin-uuid', 'cousin')
+        const sibling = makeComp('sibling-uuid', 'sibling', [cousin])
+        const service = makeComp('service-uuid', 'service')
+        const root = makeComp('root-uuid', 'root', [service, sibling])
+
+        expect(() =>
+            parseSequenceDiagram('component sibling/cousin as cousin', root, root.uuid, 'diag-uuid')
+        ).toThrow('out of scope')
     })
 })
 

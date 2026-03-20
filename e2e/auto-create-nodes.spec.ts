@@ -8,26 +8,21 @@ test.beforeEach(async ({ page }) => {
 })
 
 test.describe('auto-create missing path nodes', () => {
-    test('typing a component path reference auto-creates the missing component in the tree', async ({
+    test('typing a direct root component reference auto-creates the missing component in the tree', async ({
         page,
     }) => {
         const cmEditor = await openEditableTreeItem(page, 'New Flow')
 
-        // Type a spec referencing a new sub-component under AuthService that doesn't yet exist
+        // Type a spec referencing a new direct child of the root component.
         await cmEditor.click()
         await cmEditor.type(
-            [
-                'actor User',
-                'component AuthService',
-                'component AuthService/NewModule',
-                'User --> AuthService: hello',
-            ].join('\n')
+            ['actor User', 'component NewModule', 'User --> NewModule: hello'].join('\n')
         )
 
         // Save by clicking outside (blur)
         await saveEditorByBlurring(page)
 
-        // Assert "NewModule" appears as a tree item (auto-created under AuthService)
+        // Assert "NewModule" appears as a tree item.
         await expect(page.getByRole('treeitem').filter({ hasText: 'NewModule' })).toBeVisible()
     })
 

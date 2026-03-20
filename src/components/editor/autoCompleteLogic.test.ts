@@ -400,6 +400,21 @@ describe('buildSuggestions — Sequence: suggestions', () => {
             suggs.find((s) => s.insertText === 'Sequence:root/service/nested/nestedFlow')
         ).toBeDefined()
     })
+
+    it('for a root-owned sequence diagram, component suggestions exclude nested descendants', () => {
+        const nested = makeComp('nested-uuid', 'nested')
+        const service = makeComp('service-uuid', 'service', { subComponents: [nested] })
+        const root = makeComp('root-uuid', 'root', { subComponents: [service] })
+
+        const content = 'component '
+        const ctx = detectContext(content, content.length, 'sequence-diagram')
+        expect(ctx?.type).toBe('entity-name')
+        if (!ctx || ctx.type !== 'entity-name') throw new Error('Expected entity-name context')
+
+        const suggs = buildSuggestions(ctx, content, root, root, 'sequence-diagram')
+        expect(suggs.find((s) => s.insertText === 'service')).toBeDefined()
+        expect(suggs.find((s) => s.insertText === 'service/nested')).toBeUndefined()
+    })
 })
 
 // ─── buildSuggestions — Sequence: inherited interface functions ───────────────

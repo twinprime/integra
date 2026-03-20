@@ -5,6 +5,7 @@ import {
     findInterfaceUuidById,
     findPreferredInterfaceOwnerUuid,
     findPreferredInterfaceUuid,
+    isComponentReferenceTargetInScope,
     resolveFunctionReferenceTarget,
 } from './diagramResolvers'
 import type { ComponentNode } from '../store/types'
@@ -92,6 +93,18 @@ describe('ensureScopedNodePath', () => {
         expect(result).not.toBeNull()
         // Two components with same id would exist — callers are responsible for checking
         expect(result!.updatedRoot.subComponents).toHaveLength(2)
+    })
+})
+
+describe('isComponentReferenceTargetInScope', () => {
+    it('allows only root and direct root children when the owner is root', () => {
+        const nested = makeComp('nested-uuid', 'nested')
+        const service = makeComp('service-uuid', 'service', [nested])
+        const root = makeComp('root-uuid', 'root', [service])
+
+        expect(isComponentReferenceTargetInScope(root, root.uuid, root.uuid)).toBe(true)
+        expect(isComponentReferenceTargetInScope(root, root.uuid, service.uuid)).toBe(true)
+        expect(isComponentReferenceTargetInScope(root, root.uuid, nested.uuid)).toBe(false)
     })
 })
 
