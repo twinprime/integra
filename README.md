@@ -294,7 +294,7 @@ end
 
 - `else` sections apply only to `alt` blocks; `and` sections apply only to `par` blocks; `opt` has no sections.
 - `end`, `else`, `and`, and `opt` are reserved keywords and cannot be used as participant IDs.
-- `UseCase:` and `Sequence:` path targets follow the same component scope rules as `component path/to/node` declarations: the target component must be the owner, a descendant, an ancestor, or a direct child of an ancestor. A use case or sequence diagram under a cousin component is out of scope and causes a parse error.
+- `UseCase:` and `Sequence:` path targets are not scope-restricted today. Only component path references follow the component-scope rules.
 
 **Function call message format:** `sender ->> receiver: InterfaceId:functionId(param: type, param2: type?)`
 - Parameter types default to `any` if omitted
@@ -357,7 +357,9 @@ root
 
 Referencing an out-of-scope path causes a parse error and the diagram spec is not applied.
 
-For sequence-diagram message labels that use `UseCase:...` or `Sequence:...`, the same scope rule applies with one extra restriction: when the owning sequence diagram belongs to the **root** component, path-based references may target only the root component itself or components owned **directly under root**. Nested descendants under a root child are out of scope.
+For sequence diagrams, these scope rules apply to **component references** (for example, multi-segment participant declarations such as `component root/service/db`).
+
+Message labels that use `UseCase:...` or `Sequence:...` do **not** have scope restrictions today. Their scoping logic is intentionally encapsulated in code so rules can be added later without rewiring all call sites.
 
 ---
 

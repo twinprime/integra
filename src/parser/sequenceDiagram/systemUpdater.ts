@@ -13,7 +13,7 @@ import {
     resolveSequenceReferenceUuid,
     ensureScopedNodePath,
     resolveFunctionReferenceTarget,
-    assertReferencePathInScope,
+    assertMessageReferencePathInScope,
 } from '../../utils/diagramResolvers'
 import { parseSequenceDiagramCst } from './parser'
 import { buildSeqAst, flattenMessages } from './visitor'
@@ -333,7 +333,7 @@ export function parseSequenceDiagram(
     if (updatedOwnerComp) {
         for (const msg of astMessages) {
             if (msg.content.kind === 'useCaseRef') {
-                assertReferencePathInScope(msg.content.path, updatedRoot, ownerComponentUuid)
+                assertMessageReferencePathInScope(msg.content.path, updatedRoot, ownerComponentUuid)
                 const ucUuid = resolveUseCaseReferenceUuid(
                     msg.content.path,
                     updatedRoot,
@@ -342,7 +342,7 @@ export function parseSequenceDiagram(
                 )
                 if (ucUuid && !referencedNodeIds.includes(ucUuid)) referencedNodeIds.push(ucUuid)
             } else if (msg.content.kind === 'seqDiagramRef') {
-                assertReferencePathInScope(msg.content.path, updatedRoot, ownerComponentUuid)
+                assertMessageReferencePathInScope(msg.content.path, updatedRoot, ownerComponentUuid)
                 const seqUuid = resolveSequenceReferenceUuid(
                     msg.content.path,
                     updatedRoot,

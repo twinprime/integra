@@ -263,47 +263,78 @@ type ScopedReferenceComponentResolution =
     | { kind: 'not-found' }
     | { kind: 'out-of-scope'; path: string }
 
-export function isReferenceTargetComponentInScope(
+type ReferenceTargetScopeFn = (
+    root: ComponentNode,
+    ownerCompUuid: string,
+    candidateCompUuid: string
+) => boolean
+
+export function isComponentReferenceTargetInScope(
     root: ComponentNode,
     ownerCompUuid: string,
     candidateCompUuid: string
 ): boolean {
-    if (ownerCompUuid === root.uuid) {
-        return (
-            candidateCompUuid === root.uuid ||
-            root.subComponents.some((component) => component.uuid === candidateCompUuid)
-        )
-    }
     return isInScope(root, ownerCompUuid, candidateCompUuid)
 }
 
-function resolveScopedReferenceComponentByPath(
+function isMessageReferenceTargetComponentInScope(
+    _root: ComponentNode,
+    _ownerCompUuid: string,
+    _candidateCompUuid: string
+): boolean {
+    return true
+}
+
+function resolveReferenceComponentByPath(
     compPath: string[],
     root: ComponentNode,
-    ownerCompUuid: string
+    ownerCompUuid: string,
+    isTargetComponentInScope: ReferenceTargetScopeFn
 ): ScopedReferenceComponentResolution {
     const pathStr = compPath.join('/')
     const compUuid = findNodeByPath(root, pathStr, ownerCompUuid)
     if (!compUuid) return { kind: 'not-found' }
     const comp = findCompByUuid(root, compUuid)
     if (!comp) return { kind: 'not-found' }
-    if (!isReferenceTargetComponentInScope(root, ownerCompUuid, comp.uuid)) {
+    if (!isTargetComponentInScope(root, ownerCompUuid, comp.uuid)) {
         return { kind: 'out-of-scope', path: pathStr }
     }
     return { kind: 'resolved', component: comp }
 }
 
-export function assertReferencePathInScope(
+function assertReferencePathInScope(
+    path: string[],
+    root: ComponentNode,
+    ownerCompUuid: string,
+    isTargetComponentInScope: ReferenceTargetScopeFn
+): void {
+    const compPath = path.slice(0, -1)
+    if (compPath.length === 0) return
+    const resolution = resolveReferenceComponentByPath(
+        compPath,
+        root,
+        ownerCompUuid,
+        isTargetComponentInScope
+    )
+    if (resolution.kind === 'out-of-scope') {
+        throw new Error(`Reference "${path.join('/')}" is out of scope for this diagram`)
+    }
+}
+
+export function assertComponentReferencePathInScope(
     path: string[],
     root: ComponentNode,
     ownerCompUuid: string
 ): void {
-    const compPath = path.slice(0, -1)
-    if (compPath.length === 0) return
-    const resolution = resolveScopedReferenceComponentByPath(compPath, root, ownerCompUuid)
-    if (resolution.kind === 'out-of-scope') {
-        throw new Error(`Reference "${path.join('/')}" is out of scope for this diagram`)
-    }
+    assertReferencePathInScope(path, root, ownerCompUuid, isComponentReferenceTargetInScope)
+}
+
+export function assertMessageReferencePathInScope(
+    path: string[],
+    root: ComponentNode,
+    ownerCompUuid: string
+): void {
+    assertReferencePathInScope(path, root, ownerCompUuid, isMessageReferenceTargetComponentInScope)
 }
 
 function resolveOwnerScopedReferenceUuid(
@@ -311,7 +342,8 @@ function resolveOwnerScopedReferenceUuid(
     root: ComponentNode,
     ownerComp: ComponentNode,
     ownerCompUuid: string,
-    findInOwner: (component: ComponentNode, id: string) => string | undefined
+    findInOwner: (component: ComponentNode, id: string) => string | undefined,
+    isTargetComponentInScope: ReferenceTargetScopeFn
 ): string | undefined {
     const targetId = path[path.length - 1]
     const compPath = path.slice(0, -1)
@@ -320,7 +352,12 @@ function resolveOwnerScopedReferenceUuid(
         return findInOwner(ownerComp, targetId)
     }
 
-    const resolution = resolveScopedReferenceComponentByPath(compPath, root, ownerCompUuid)
+    const resolution = resolveReferenceComponentByPath(
+        compPath,
+        root,
+        ownerCompUuid,
+        isTargetComponentInScope
+    )
     if (resolution.kind !== 'resolved') return undefined
     return findInOwner(resolution.component, targetId)
 }
@@ -339,7 +376,8 @@ export function resolveUseCaseReferenceUuid(
         root,
         ownerComp,
         ownerCompUuid,
-        findOwnerUseCaseUuidById
+        findOwnerUseCaseUuidById,
+        isMessageReferenceTargetComponentInScope
     )
 }
 
@@ -370,6 +408,7 @@ export function resolveSequenceReferenceUuid(
         root,
         ownerComp,
         ownerCompUuid,
-        findOwnerSequenceDiagramUuidById
+        findOwnerSequenceDiagramUuidById,
+        isMessageReferenceTargetComponentInScope
     )
 }

@@ -17,7 +17,6 @@ import {
 } from '../../parser/tokens'
 import { SeqColon, SeqArrow } from '../../parser/sequenceDiagram/lexer'
 import { isInScope, getComponentAbsolutePath } from '../../utils/nodeUtils'
-import { isReferenceTargetComponentInScope } from '../../utils/diagramResolvers'
 import { resolveEffectiveInterfaceFunctions } from '../../utils/interfaceFunctions'
 
 export type Suggestion = {
@@ -439,14 +438,11 @@ function buildFunctionRefSuggestions(
         }
     }
 
-    // UseCase/Sequence refs are navigation links — scan the entire component tree so
-    // suggestions appear regardless of which component receives the message arrow,
-    // but only for components that are in scope for the owning diagram.
-    const scopedComps = collectAllComponents(rootComponent).filter((comp) =>
-        isReferenceTargetComponentInScope(rootComponent, ownerComp.uuid, comp.uuid)
-    )
+    // UseCase/Sequence refs are unrestricted navigation links — scan the entire
+    // component tree so suggestions appear regardless of receiver or owner scope.
+    const referencedComps = collectAllComponents(rootComponent)
 
-    for (const comp of scopedComps) {
+    for (const comp of referencedComps) {
         const isLocal = comp.uuid === ownerComp.uuid
         const absPath = isLocal ? null : getComponentAbsolutePath(rootComponent, comp.uuid)
         for (const ucDiag of comp.useCaseDiagrams) {

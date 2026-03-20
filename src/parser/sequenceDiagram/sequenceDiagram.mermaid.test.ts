@@ -132,7 +132,7 @@ describe('generateSequenceMermaidFromAst — UseCaseRef messages', () => {
         expect(mermaidContent).toContain('customer->>customer: unknownUc')
     })
 
-    it('throws when a UseCaseRef points at an out-of-scope cousin component', () => {
+    it('resolves a UseCaseRef that points at a cousin component', () => {
         const cousin = makeCompWithUcs3('cousin-uuid', 'cousin', [
             { id: 'placeOrder', name: 'Place Order' },
         ])
@@ -143,12 +143,12 @@ describe('generateSequenceMermaidFromAst — UseCaseRef messages', () => {
             'actor customer\ncustomer ->> customer: UseCase:sibling/cousin/placeOrder'
         )
 
-        expect(() => generateSequenceMermaidFromAst(ast, owner, root, 'owner-uuid')).toThrow(
-            'Reference "sibling/cousin/placeOrder" is out of scope'
-        )
+        const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root, 'owner-uuid')
+
+        expect(mermaidContent).toContain('customer->>customer: Place Order')
     })
 
-    it('throws when a root-owned UseCaseRef points at a nested descendant component', () => {
+    it('resolves a root-owned UseCaseRef that points at a nested descendant component', () => {
         const nested = makeCompWithUcs3('nested-uuid', 'nested', [
             { id: 'placeOrder', name: 'Place Order' },
         ])
@@ -158,9 +158,9 @@ describe('generateSequenceMermaidFromAst — UseCaseRef messages', () => {
             'actor customer\ncustomer ->> customer: UseCase:service/nested/placeOrder'
         )
 
-        expect(() => generateSequenceMermaidFromAst(ast, root, root, 'root-uuid')).toThrow(
-            'Reference "service/nested/placeOrder" is out of scope'
-        )
+        const { mermaidContent } = generateSequenceMermaidFromAst(ast, root, root, 'root-uuid')
+
+        expect(mermaidContent).toContain('customer->>customer: Place Order')
     })
 
     it('populates messageLabelToUuid for UseCaseRef using the rendered display label as key', () => {
@@ -752,7 +752,7 @@ describe('generateSequenceMermaidFromAst — SequenceRef messages', () => {
         expect(mermaidContent).toContain('customer->>customer: unknownSeq')
     })
 
-    it('throws when a SequenceRef points at an out-of-scope cousin component', () => {
+    it('resolves a SequenceRef that points at a cousin component', () => {
         const cousin = makeCompWithSeqs2('cousin-uuid', 'cousin', [
             { id: 'loginFlow', name: 'Login Flow' },
         ])
@@ -763,12 +763,12 @@ describe('generateSequenceMermaidFromAst — SequenceRef messages', () => {
             'actor customer\ncustomer ->> customer: Sequence:sibling/cousin/loginFlow'
         )
 
-        expect(() => generateSequenceMermaidFromAst(ast, owner, root, 'owner-uuid')).toThrow(
-            'Reference "sibling/cousin/loginFlow" is out of scope'
-        )
+        const { mermaidContent } = generateSequenceMermaidFromAst(ast, owner, root, 'owner-uuid')
+
+        expect(mermaidContent).toContain('customer->>customer: Login Flow')
     })
 
-    it('throws when a root-owned SequenceRef points at a nested descendant component', () => {
+    it('resolves a root-owned SequenceRef that points at a nested descendant component', () => {
         const nested = makeCompWithSeqs2('nested-uuid', 'nested', [
             { id: 'loginFlow', name: 'Login Flow' },
         ])
@@ -778,9 +778,9 @@ describe('generateSequenceMermaidFromAst — SequenceRef messages', () => {
             'actor customer\ncustomer ->> customer: Sequence:service/nested/loginFlow'
         )
 
-        expect(() => generateSequenceMermaidFromAst(ast, root, root, 'root-uuid')).toThrow(
-            'Reference "service/nested/loginFlow" is out of scope'
-        )
+        const { mermaidContent } = generateSequenceMermaidFromAst(ast, root, root, 'root-uuid')
+
+        expect(mermaidContent).toContain('customer->>customer: Login Flow')
     })
 
     it('populates messageLabelToUuid for SequenceRef using the rendered display label as key', () => {

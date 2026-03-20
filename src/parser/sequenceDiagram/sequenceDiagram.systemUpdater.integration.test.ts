@@ -80,7 +80,7 @@ describe('parseSequenceDiagram — out-of-scope reference', () => {
         ).toThrow('out of scope')
     })
 
-    it('throws when UseCase ref points at a cousin-owned use case', () => {
+    it('does NOT throw when UseCase ref points at a cousin-owned use case', () => {
         const cousin = makeUseCaseComp('cousin-uuid', 'cousin', 'placeOrder')
         const sibling = makeComp('sibling-uuid', 'sibling', [cousin])
         const ownerComp = makeUseCaseComp('owner-uuid', 'owner', 'ownUseCase')
@@ -93,10 +93,10 @@ describe('parseSequenceDiagram — out-of-scope reference', () => {
                 ownerComp.uuid,
                 'diag-uuid'
             )
-        ).toThrow('Reference "sibling/cousin/placeOrder" is out of scope')
+        ).not.toThrow()
     })
 
-    it('throws when Sequence ref points at a cousin-owned sequence diagram', () => {
+    it('does NOT throw when Sequence ref points at a cousin-owned sequence diagram', () => {
         const cousin = makeUseCaseComp('cousin-uuid', 'cousin', 'placeOrder', ['placeOrderFlow'])
         const sibling = makeComp('sibling-uuid', 'sibling', [cousin])
         const ownerComp = makeUseCaseComp('owner-uuid', 'owner', 'ownUseCase', ['ownFlow'])
@@ -109,10 +109,10 @@ describe('parseSequenceDiagram — out-of-scope reference', () => {
                 ownerComp.uuid,
                 'diag-uuid'
             )
-        ).toThrow('Reference "sibling/cousin/placeOrderFlow" is out of scope')
+        ).not.toThrow()
     })
 
-    it('throws when a root-owned diagram references a nested descendant use case', () => {
+    it('does NOT throw when a root-owned diagram references a nested descendant use case', () => {
         const nested = makeUseCaseComp('nested-uuid', 'nested', 'placeOrder')
         const service = makeComp('service-uuid', 'service', [nested])
         const root = makeUseCaseComp('root-uuid', 'root', 'rootUseCase', ['rootFlow'], [service])
@@ -124,10 +124,10 @@ describe('parseSequenceDiagram — out-of-scope reference', () => {
                 root.uuid,
                 'root-rootFlow-uuid'
             )
-        ).toThrow('Reference "service/nested/placeOrder" is out of scope')
+        ).not.toThrow()
     })
 
-    it('throws when a root-owned diagram references a nested descendant sequence diagram', () => {
+    it('does NOT throw when a root-owned diagram references a nested descendant sequence diagram', () => {
         const nested = makeUseCaseComp('nested-uuid', 'nested', 'placeOrder', ['placeOrderFlow'])
         const service = makeComp('service-uuid', 'service', [nested])
         const root = makeUseCaseComp('root-uuid', 'root', 'rootUseCase', ['rootFlow'], [service])
@@ -139,7 +139,7 @@ describe('parseSequenceDiagram — out-of-scope reference', () => {
                 root.uuid,
                 'root-rootFlow-uuid'
             )
-        ).toThrow('Reference "service/nested/placeOrderFlow" is out of scope')
+        ).not.toThrow()
     })
 
     it('does NOT throw for a relative child reference', () => {

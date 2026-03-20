@@ -163,7 +163,7 @@ describe('resolveUseCaseReferenceUuid', () => {
         expect(result).toBe('uncle-uuid-placeOrder-uuid')
     })
 
-    it('returns undefined for a use case owned by a cousin component', () => {
+    it('resolves a use case owned by a cousin component', () => {
         const cousin = makeCompWithUcs('cousin-uuid', 'cousin', ['placeOrder'])
         const sibling = makeNamedComp('sibling-uuid', 'sibling', 'sibling', [cousin])
         const owner = makeNamedComp('owner-uuid', 'owner', 'owner')
@@ -174,7 +174,7 @@ describe('resolveUseCaseReferenceUuid', () => {
             owner,
             'owner-uuid'
         )
-        expect(result).toBeUndefined()
+        expect(result).toBe('cousin-uuid-placeOrder-uuid')
     })
 
     it('returns undefined for unknown use case id', () => {
@@ -220,7 +220,7 @@ describe('resolveUseCaseReferenceUuid', () => {
         expect(result).toBe('service-uuid-placeOrder-uuid')
     })
 
-    it('returns undefined for a use case nested below a direct child when owner is root', () => {
+    it('resolves a use case nested below a direct child when owner is root', () => {
         const nested = makeCompWithUcs('nested-uuid', 'nested', ['placeOrder'])
         const service = makeNamedComp('service-uuid', 'service', 'service', [nested])
         const root = makeNamedComp('root-uuid', 'root', 'root', [service])
@@ -230,7 +230,7 @@ describe('resolveUseCaseReferenceUuid', () => {
             root,
             'root-uuid'
         )
-        expect(result).toBeUndefined()
+        expect(result).toBe('nested-uuid-placeOrder-uuid')
     })
 })
 
@@ -531,7 +531,7 @@ describe('resolveSequenceReferenceUuid', () => {
         expect(result).toBe('uncle-uuid-uc-loginFlow-uuid')
     })
 
-    it('returns undefined for a sequence diagram owned by a cousin component', () => {
+    it('resolves a sequence diagram owned by a cousin component', () => {
         const cousin = makeCompWithSeqs('cousin-uuid', 'cousin', [{ id: 'loginFlow' }])
         const sibling = makeNamedComp('sibling-uuid', 'sibling', 'sibling', [cousin])
         const owner = makeNamedComp('owner-uuid', 'owner', 'owner')
@@ -542,7 +542,7 @@ describe('resolveSequenceReferenceUuid', () => {
             owner,
             'owner-uuid'
         )
-        expect(result).toBeUndefined()
+        expect(result).toBe('cousin-uuid-uc-loginFlow-uuid')
     })
 
     it('returns undefined for unknown sequence diagram id', () => {
@@ -588,7 +588,7 @@ describe('resolveSequenceReferenceUuid', () => {
         expect(result).toBe('service-uuid-uc-loginFlow-uuid')
     })
 
-    it('returns undefined for a sequence diagram nested below a direct child when owner is root', () => {
+    it('resolves a sequence diagram nested below a direct child when owner is root', () => {
         const nested = makeCompWithSeqs('nested-uuid', 'nested', [{ id: 'loginFlow' }])
         const service = makeNamedComp('service-uuid', 'service', 'service', [nested])
         const root = makeNamedComp('root-uuid', 'root', 'root', [service])
@@ -598,6 +598,6 @@ describe('resolveSequenceReferenceUuid', () => {
             root,
             'root-uuid'
         )
-        expect(result).toBeUndefined()
+        expect(result).toBe('nested-uuid-uc-loginFlow-uuid')
     })
 })

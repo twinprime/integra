@@ -275,7 +275,7 @@ describe('buildSuggestions — Sequence: suggestions', () => {
         expect(seqSugg).toBeDefined()
     })
 
-    it('does not suggest UseCase: or Sequence: targets from out-of-scope cousin components', () => {
+    it('suggests UseCase: and Sequence: targets from cousin components', () => {
         const cousinSeq = makeSeq('cousin-seq-uuid', 'cousinFlow', 'Cousin Flow')
         const cousinUc = makeUc('cousin-uc-uuid', 'cousinUseCase', [cousinSeq])
         const cousin = makeComp('cousin-uuid', 'cousin', {
@@ -297,8 +297,8 @@ describe('buildSuggestions — Sequence: suggestions', () => {
         const suggs = buildSuggestions(ctx!, content, owner, root, 'sequence-diagram')
         expect(suggs.find((s) => s.insertText.includes('siblingUseCase'))).toBeDefined()
         expect(suggs.find((s) => s.insertText.includes('siblingFlow'))).toBeDefined()
-        expect(suggs.find((s) => s.insertText.includes('cousinUseCase'))).toBeUndefined()
-        expect(suggs.find((s) => s.insertText.includes('cousinFlow'))).toBeUndefined()
+        expect(suggs.find((s) => s.insertText.includes('cousinUseCase'))).toBeDefined()
+        expect(suggs.find((s) => s.insertText.includes('cousinFlow'))).toBeDefined()
     })
 
     it('suggests UseCase: and Sequence: even when receiver has no use cases (tree-wide search)', () => {
@@ -368,7 +368,7 @@ describe('buildSuggestions — Sequence: suggestions', () => {
         expect(suggs.find((s) => s.insertText === 'Sequence:logoutFlow')).toBeUndefined()
     })
 
-    it('for a root-owned sequence diagram, suggests direct root-child refs but not deeper descendants', () => {
+    it('for a root-owned sequence diagram, suggests both direct root-child and nested refs', () => {
         const nestedSeq = makeSeq('nested-seq-uuid', 'nestedFlow', 'Nested Flow')
         const nestedUc = makeUc('nested-uc-uuid', 'nestedUseCase', [nestedSeq])
         const nested = makeComp('nested-uuid', 'nested', {
@@ -393,8 +393,12 @@ describe('buildSuggestions — Sequence: suggestions', () => {
         expect(
             suggs.find((s) => s.insertText === 'Sequence:root/service/serviceFlow')
         ).toBeDefined()
-        expect(suggs.find((s) => s.insertText.includes('nestedUseCase'))).toBeUndefined()
-        expect(suggs.find((s) => s.insertText.includes('nestedFlow'))).toBeUndefined()
+        expect(
+            suggs.find((s) => s.insertText === 'UseCase:root/service/nested/nestedUseCase')
+        ).toBeDefined()
+        expect(
+            suggs.find((s) => s.insertText === 'Sequence:root/service/nested/nestedFlow')
+        ).toBeDefined()
     })
 })
 

@@ -5,6 +5,7 @@ import { DiagramEditor } from './DiagramEditor'
 import type { SequenceDiagramNode } from '../../store/types'
 import type { FunctionMatch } from '../../parser/sequenceDiagram/systemUpdater'
 import type { SystemState } from '../../store/useSystemStore'
+import { findReferencingDiagrams } from '../../utils/nodeUtils'
 
 vi.mock('../../store/useSystemStore', () => ({
     useSystemStore: vi.fn(),
@@ -50,7 +51,9 @@ vi.mock('./MarkdownEditor', () => ({
 }))
 
 vi.mock('./NodeReferencesButton', () => ({
-    NodeReferencesButton: () => null,
+    NodeReferencesButton: ({ refs }: { refs: Array<{ uuid: string; name: string }> }) => (
+        <div data-testid="node-references-button">{refs.map((ref) => ref.name).join(', ')}</div>
+    ),
 }))
 
 vi.mock('../FunctionUpdateDialog', () => ({
@@ -185,5 +188,19 @@ describe('DiagramEditor', () => {
 
         const editableContent = document.querySelector('.cm-content[contenteditable="true"]')
         expect(editableContent).not.toBeNull()
+    })
+
+    it('shows referencing diagrams for a sequence diagram node', () => {
+        vi.mocked(findReferencingDiagrams).mockReturnValue([
+            { uuid: 'ref-seq-uuid', name: 'Caller Flow' },
+        ])
+
+        render(<DiagramEditor node={makeSequenceDiagramNode()} onUpdate={vi.fn()} />)
+
+        expect(findReferencingDiagrams).toHaveBeenCalledWith(
+            mockRootComponent,
+            'sequence-diagram-uuid'
+        )
+        expect(screen.getByTestId('node-references-button')).toHaveTextContent('Caller Flow')
     })
 })

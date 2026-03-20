@@ -12,7 +12,7 @@ import {
     resolveFunctionReferenceTarget,
     resolveUseCaseReferenceUuid,
     resolveSequenceReferenceUuid,
-    assertReferencePathInScope,
+    assertMessageReferencePathInScope,
 } from '../../utils/diagramResolvers'
 import { findNodeByUuid } from '../../nodes/nodeTree'
 import { parseSequenceDiagramCst } from './parser'
@@ -255,7 +255,9 @@ function emitStatements(
                     break
                 }
                 case 'useCaseRef': {
-                    if (ownerCompUuid) assertReferencePathInScope(c.path, root, ownerCompUuid)
+                    if (ownerCompUuid) {
+                        assertMessageReferencePathInScope(c.path, root, ownerCompUuid)
+                    }
                     const ucId = c.path[c.path.length - 1]
                     const ucUuid =
                         ownerComp && ownerCompUuid
@@ -277,7 +279,9 @@ function emitStatements(
                     break
                 }
                 case 'seqDiagramRef': {
-                    if (ownerCompUuid) assertReferencePathInScope(c.path, root, ownerCompUuid)
+                    if (ownerCompUuid) {
+                        assertMessageReferencePathInScope(c.path, root, ownerCompUuid)
+                    }
                     const seqId = c.path[c.path.length - 1]
                     const seqUuid =
                         ownerComp && ownerCompUuid
