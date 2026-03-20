@@ -333,6 +333,64 @@ describe('parseSequenceDiagram — inherited interface functions', () => {
 
         expect(storedFunctions.some((fn) => fn.id === 'nonExistent')).toBe(true)
     })
+
+    it('treats ancestor and parent-added functions as inherited through an inherited parent interface', () => {
+        const rootIface = {
+            uuid: 'iface-root-uuid',
+            id: 'DataServing',
+            name: 'DataServing',
+            type: 'rest' as const,
+            functions: [{ uuid: 'fn-record-uuid', id: 'record', parameters: [] }],
+        }
+        const parentInheritedIface = {
+            uuid: 'iface-parent-inherited-uuid',
+            id: 'DataServing',
+            name: 'DataServing',
+            type: 'rest' as const,
+            functions: [{ uuid: 'fn-extra-uuid', id: 'extra', parameters: [] }],
+            parentInterfaceUuid: 'iface-root-uuid',
+        }
+        const grandchildInheritedIface = {
+            uuid: 'iface-grandchild-inherited-uuid',
+            id: 'DataServing',
+            name: 'DataServing',
+            type: 'rest' as const,
+            functions: [],
+            parentInterfaceUuid: 'iface-parent-inherited-uuid',
+        }
+
+        const checkout = makeCompWithIfaces('checkout-uuid', 'CheckoutService', [
+            grandchildInheritedIface,
+        ])
+        const ownerComp = makeCompWithIfaces(
+            'owner-uuid',
+            'DataService',
+            [parentInheritedIface],
+            [checkout]
+        )
+        const root = makeCompWithIfaces('root-uuid', 'root', [rootIface], [ownerComp])
+
+        const content = [
+            'actor user',
+            'component CheckoutService',
+            'user ->> CheckoutService: DataServing:record()',
+            'user ->> CheckoutService: DataServing:extra()',
+        ].join('\n')
+
+        expect(() => parseSequenceDiagram(content, root, ownerComp.uuid, 'diag-uuid')).not.toThrow()
+
+        const updated = parseSequenceDiagram(content, root, ownerComp.uuid, 'diag-uuid')
+        const updatedOwner = updated.subComponents.find(
+            (component) => component.uuid === ownerComp.uuid
+        )!
+        const updatedCheckout = updatedOwner.subComponents.find(
+            (component) => component.id === 'CheckoutService'
+        )!
+        const storedFunctions =
+            updatedCheckout.interfaces.find((iface) => iface.id === 'DataServing')?.functions ?? []
+
+        expect(storedFunctions).toEqual([])
+    })
 })
 
 const makeCompWithIface = (

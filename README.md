@@ -111,7 +111,7 @@ The split-panel layout can be adjusted by dragging the resize handles. Use the *
 
 ### Interface Inheritance
 
-A sub-component can declare that one of its interfaces **inherits** a parent component's interface. This means the sub-component's interface shares the same contract (functions and types) as the parent interface, sourced live from the parent rather than duplicated.
+A sub-component can declare that one of its interfaces **inherits** a parent component's interface. This means the sub-component's interface shares the same contract (functions and types) as the parent interface, sourced live from the parent rather than duplicated. Inheritance is **transitive**: if the parent interface is itself inherited, the child sees the parent's full effective inherited contract as read-only inherited functions.
 
 #### Setting up inheritance
 
@@ -124,7 +124,7 @@ A sub-component can declare that one of its interfaces **inherits** a parent com
 - The inherited interface tab is a **mixed view**:
   - parent-inherited functions stay read-only
   - child-added functions on the inherited interface are editable and removable
-- Component and root class diagrams use the inherited interface's **effective contract**, which combines parent functions with any child-local additions.
+- Component and root class diagrams use the inherited interface's **effective contract**, which combines the full inherited-chain parent contract with any child-local additions.
 - A badge shows which parent interface is being inherited (e.g. `inherited from IPaymentGateway`).
 - To remove the inheritance, click the **delete** button on the inherited interface tab.
 - Sequence diagrams **can add new child-local functions** to an inherited interface. If a message references a function that is not already defined on the parent interface, the function is stored locally on the child inherited interface instead of raising a parse error.
@@ -549,7 +549,7 @@ shared helpers below instead of reaching into nested fields directly.
 
 | Invariant | What it means | Use these helpers |
 |---|---|---|
-| Inherited interfaces resolve their contract from parent + child-local additions | An inherited `InterfaceSpecification` stores child-local added functions in `functions`, while read paths resolve the effective contract by merging those stored functions with the parent interface's functions | `isInheritedInterface()`, `isLocalInterface()`, `getStoredInterfaceFunctions()`, `resolveEffectiveInterfaceFunctions()`, `resolveInterface()` in `src/utils/interfaceFunctions.ts` |
+| Inherited interfaces resolve their contract from the full inherited chain + child-local additions | An inherited `InterfaceSpecification` stores child-local added functions in `functions`, while read paths resolve the effective contract by recursively following inherited parent interfaces and merging that result with the local additions | `isInheritedInterface()`, `isLocalInterface()`, `getStoredInterfaceFunctions()`, `resolveEffectiveInterfaceFunctions()`, `resolveInterface()` in `src/utils/interfaceFunctions.ts` |
 | Components are updated immutably and kept in canonical order | Updates should return new objects, not mutate nested arrays, and interface/function ordering should stay normalized | `normalizeComponent()`, `normalizeComponentDeep()`, `addFunctionToInterface()`, `updateFunctionParams()`, `removeFunctionsFromInterfaces()` in `src/nodes/interfaceOps.ts` |
 | Parent functions remain authoritative while child-local inherited functions are additive | Child-added functions may exist on inherited interfaces, but exact duplicates with the parent must be removed explicitly through the conflict-resolution flow | `findInheritedParentFunction()`, `findConflictingInheritedChildFunctions()`, the parser/update flow in `src/parser/sequenceDiagram/systemUpdater.ts`, and `applyFunctionUpdates()` |
 | Reparsing sequence diagrams must preserve user-authored metadata | Rebuilding functions from diagram text should keep descriptions and parameter metadata where possible | `tryReparseContent()` in `src/store/systemOps.ts` |
@@ -584,7 +584,7 @@ shared helpers below instead of reaching into nested fields directly.
 // Bad: inherited interfaces may store only child-local additions
 const functions = iface.functions
 
-// Good: resolve the readable contract from the parent plus child-local additions
+// Good: resolve the readable contract from the inherited chain plus child-local additions
 const functions = resolveEffectiveInterfaceFunctions(iface, ownerComp, rootComponent)
 ```
 

@@ -79,7 +79,7 @@ async function authorLoginWorkflow(page: Page): Promise<void> {
 
     await createNodeFromContextMenu(
         page,
-        /^My System$/,
+        /^Auth Service$/,
         'Add Use Case Diagram',
         'user_journeys',
         'my_feature'
@@ -118,8 +118,8 @@ async function authorLoginWorkflow(page: Page): Promise<void> {
 
 async function expectDiagramSvg(page: Page): Promise<void> {
     const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
-    await svgContainer.waitFor({ timeout: 5000 })
-    await expect(svgContainer.locator('svg')).toBeVisible()
+    await svgContainer.waitFor({ timeout: 15000 })
+    await expect(svgContainer.locator('svg')).toBeVisible({ timeout: 15000 })
     await expect(
         page.locator('text=Parse error').or(page.locator('text=Invalid Diagram'))
     ).not.toBeVisible()

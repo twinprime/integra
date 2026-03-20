@@ -19,7 +19,7 @@ export type ResolvedInterface =
           readonly effectiveFunctions: ReadonlyArray<InterfaceFunction>
           readonly localFunctions: ReadonlyArray<InterfaceFunction>
           readonly inheritedFunctions: ReadonlyArray<InterfaceFunction>
-          readonly inheritedFrom: LocalInterfaceSpecification | null
+          readonly inheritedFrom: InterfaceSpecification | null
           readonly isDangling: boolean
       })
 
@@ -94,17 +94,95 @@ function mergeInheritedAndLocalFunctions(
     return merged
 }
 
-export function getParentInterface(
+type ParentInterfaceResolution = {
+    readonly parentComponent: ComponentNode
+    readonly parentInterface: InterfaceSpecification
+}
+
+function getParentInterfaceResolution(
     iface: InheritedInterfaceSpecification,
     ownerComp: ComponentNode,
     rootComponent: ComponentNode
-): LocalInterfaceSpecification | null {
+): ParentInterfaceResolution | null {
     const parentNode = findParentNode(rootComponent, ownerComp.uuid)
     if (parentNode?.type !== 'component') return null
     const parentIface = parentNode.interfaces.find(
         (candidate) => candidate.uuid === iface.parentInterfaceUuid
     )
-    return parentIface && isLocalInterface(parentIface) ? parentIface : null
+    return parentIface ? { parentComponent: parentNode, parentInterface: parentIface } : null
+}
+
+export function getParentInterface(
+    iface: InheritedInterfaceSpecification,
+    ownerComp: ComponentNode,
+    rootComponent: ComponentNode
+): InterfaceSpecification | null {
+    return getParentInterfaceResolution(iface, ownerComp, rootComponent)?.parentInterface ?? null
+}
+
+function resolveEffectiveInterfaceFunctionsInternal(
+    iface: InterfaceSpecification,
+    ownerComp: ComponentNode,
+    rootComponent: ComponentNode,
+    visited: ReadonlySet<string>
+): ReadonlyArray<InterfaceFunction> {
+    if (isLocalInterface(iface)) return iface.functions
+    if (visited.has(iface.uuid)) return iface.functions
+
+    const parentResolution = getParentInterfaceResolution(iface, ownerComp, rootComponent)
+    if (!parentResolution) return iface.functions
+
+    const nextVisited = new Set(visited)
+    nextVisited.add(iface.uuid)
+
+    const inheritedFunctions = resolveEffectiveInterfaceFunctionsInternal(
+        parentResolution.parentInterface,
+        parentResolution.parentComponent,
+        rootComponent,
+        nextVisited
+    )
+    return mergeInheritedAndLocalFunctions(inheritedFunctions, iface.functions)
+}
+
+function resolveInheritedParentFunctions(
+    iface: InheritedInterfaceSpecification,
+    ownerComp: ComponentNode,
+    rootComponent: ComponentNode
+): ReadonlyArray<InterfaceFunction> {
+    const parentResolution = getParentInterfaceResolution(iface, ownerComp, rootComponent)
+    if (!parentResolution) return []
+
+    return resolveEffectiveInterfaceFunctionsInternal(
+        parentResolution.parentInterface,
+        parentResolution.parentComponent,
+        rootComponent,
+        new Set([iface.uuid])
+    )
+}
+
+function inheritsFromInterface(
+    iface: InheritedInterfaceSpecification,
+    ownerComp: ComponentNode,
+    rootComponent: ComponentNode,
+    ancestorInterfaceUuid: string,
+    visited: ReadonlySet<string>
+): boolean {
+    if (visited.has(iface.uuid)) return false
+
+    const parentResolution = getParentInterfaceResolution(iface, ownerComp, rootComponent)
+    if (!parentResolution) return false
+    if (parentResolution.parentInterface.uuid === ancestorInterfaceUuid) return true
+    if (isLocalInterface(parentResolution.parentInterface)) return false
+
+    const nextVisited = new Set(visited)
+    nextVisited.add(iface.uuid)
+    return inheritsFromInterface(
+        parentResolution.parentInterface,
+        parentResolution.parentComponent,
+        rootComponent,
+        ancestorInterfaceUuid,
+        nextVisited
+    )
 }
 
 /**
@@ -119,9 +197,7 @@ export function resolveEffectiveInterfaceFunctions(
     ownerComp: ComponentNode,
     rootComponent: ComponentNode
 ): ReadonlyArray<InterfaceFunction> {
-    if (isLocalInterface(iface)) return iface.functions
-    const inheritedFunctions = getParentInterface(iface, ownerComp, rootComponent)?.functions ?? []
-    return mergeInheritedAndLocalFunctions(inheritedFunctions, iface.functions)
+    return resolveEffectiveInterfaceFunctionsInternal(iface, ownerComp, rootComponent, new Set())
 }
 
 export function findInheritedParentFunction(
@@ -131,10 +207,9 @@ export function findInheritedParentFunction(
     functionId: string,
     parameters: ReadonlyArray<InterfaceFunction['parameters'][number]>
 ): InterfaceFunction | null {
-    const parentIface = getParentInterface(iface, ownerComp, rootComponent)
-    if (!parentIface) return null
+    const parentFunctions = resolveInheritedParentFunctions(iface, ownerComp, rootComponent)
     return (
-        parentIface.functions.find(
+        parentFunctions.find(
             (candidate) =>
                 candidate.id === functionId && paramsMatch(candidate.parameters, parameters)
         ) ?? null
@@ -151,7 +226,16 @@ export function findConflictingInheritedChildFunctions(
 
     const walk = (component: ComponentNode): void => {
         for (const iface of component.interfaces) {
-            if (!isInheritedInterface(iface) || iface.parentInterfaceUuid !== parentInterfaceUuid)
+            if (
+                !isInheritedInterface(iface) ||
+                !inheritsFromInterface(
+                    iface,
+                    component,
+                    rootComponent,
+                    parentInterfaceUuid,
+                    new Set()
+                )
+            )
                 continue
             for (const fn of iface.functions) {
                 if (fn.id === functionId && paramsMatch(fn.parameters, parameters)) {
@@ -190,7 +274,7 @@ export function resolveInterface(
     }
 
     const inheritedFrom = getParentInterface(iface, ownerComp, rootComponent)
-    const inheritedFunctions = inheritedFrom?.functions ?? []
+    const inheritedFunctions = resolveInheritedParentFunctions(iface, ownerComp, rootComponent)
     const localFunctions = iface.functions
     return {
         ...iface,
