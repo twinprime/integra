@@ -10,14 +10,27 @@ import { findParentNode } from '../nodes/nodeTree'
 export type ResolvedInterface =
     | (LocalInterfaceSpecification & {
           readonly effectiveFunctions: ReadonlyArray<InterfaceFunction>
+          readonly localFunctions: ReadonlyArray<InterfaceFunction>
+          readonly inheritedFunctions: ReadonlyArray<InterfaceFunction>
           readonly inheritedFrom: null
           readonly isDangling: false
       })
     | (InheritedInterfaceSpecification & {
           readonly effectiveFunctions: ReadonlyArray<InterfaceFunction>
+          readonly localFunctions: ReadonlyArray<InterfaceFunction>
+          readonly inheritedFunctions: ReadonlyArray<InterfaceFunction>
           readonly inheritedFrom: LocalInterfaceSpecification | null
           readonly isDangling: boolean
       })
+
+export type InheritedChildFunctionConflict = {
+    readonly componentUuid: string
+    readonly componentName: string
+    readonly interfaceUuid: string
+    readonly interfaceId: string
+    readonly functionUuid: string
+    readonly functionId: string
+}
 
 export function isInheritedInterface(
     iface: InterfaceSpecification
@@ -34,7 +47,51 @@ export function isLocalInterface(
 export function getStoredInterfaceFunctions(
     iface: InterfaceSpecification
 ): ReadonlyArray<InterfaceFunction> {
-    return isLocalInterface(iface) ? iface.functions : []
+    return iface.functions
+}
+
+export function paramsMatch(
+    a: ReadonlyArray<InterfaceFunction['parameters'][number]>,
+    b: ReadonlyArray<InterfaceFunction['parameters'][number]>
+): boolean {
+    if (a.length !== b.length) return false
+    return a.every(
+        (p, i) => p.name === b[i].name && p.type === b[i].type && p.required === b[i].required
+    )
+}
+
+export function functionSignatureKey(
+    functionId: string,
+    parameters: ReadonlyArray<InterfaceFunction['parameters'][number]>
+): string {
+    return [
+        functionId,
+        ...parameters.map((p) => `${p.name}:${p.type}:${p.required ? 'required' : 'optional'}`),
+    ].join('|')
+}
+
+function mergeInheritedAndLocalFunctions(
+    inheritedFunctions: ReadonlyArray<InterfaceFunction>,
+    localFunctions: ReadonlyArray<InterfaceFunction>
+): ReadonlyArray<InterfaceFunction> {
+    const seen = new Set<string>()
+    const merged: InterfaceFunction[] = []
+
+    for (const fn of localFunctions) {
+        const key = functionSignatureKey(fn.id, fn.parameters)
+        if (seen.has(key)) continue
+        seen.add(key)
+        merged.push(fn)
+    }
+
+    for (const fn of inheritedFunctions) {
+        const key = functionSignatureKey(fn.id, fn.parameters)
+        if (seen.has(key)) continue
+        seen.add(key)
+        merged.push(fn)
+    }
+
+    return merged
 }
 
 export function getParentInterface(
@@ -63,7 +120,57 @@ export function resolveEffectiveInterfaceFunctions(
     rootComponent: ComponentNode
 ): ReadonlyArray<InterfaceFunction> {
     if (isLocalInterface(iface)) return iface.functions
-    return getParentInterface(iface, ownerComp, rootComponent)?.functions ?? []
+    const inheritedFunctions = getParentInterface(iface, ownerComp, rootComponent)?.functions ?? []
+    return mergeInheritedAndLocalFunctions(inheritedFunctions, iface.functions)
+}
+
+export function findInheritedParentFunction(
+    iface: InheritedInterfaceSpecification,
+    ownerComp: ComponentNode,
+    rootComponent: ComponentNode,
+    functionId: string,
+    parameters: ReadonlyArray<InterfaceFunction['parameters'][number]>
+): InterfaceFunction | null {
+    const parentIface = getParentInterface(iface, ownerComp, rootComponent)
+    if (!parentIface) return null
+    return (
+        parentIface.functions.find(
+            (candidate) =>
+                candidate.id === functionId && paramsMatch(candidate.parameters, parameters)
+        ) ?? null
+    )
+}
+
+export function findConflictingInheritedChildFunctions(
+    rootComponent: ComponentNode,
+    parentInterfaceUuid: string,
+    functionId: string,
+    parameters: ReadonlyArray<InterfaceFunction['parameters'][number]>
+): ReadonlyArray<InheritedChildFunctionConflict> {
+    const conflicts: InheritedChildFunctionConflict[] = []
+
+    const walk = (component: ComponentNode): void => {
+        for (const iface of component.interfaces) {
+            if (!isInheritedInterface(iface) || iface.parentInterfaceUuid !== parentInterfaceUuid)
+                continue
+            for (const fn of iface.functions) {
+                if (fn.id === functionId && paramsMatch(fn.parameters, parameters)) {
+                    conflicts.push({
+                        componentUuid: component.uuid,
+                        componentName: component.name,
+                        interfaceUuid: iface.uuid,
+                        interfaceId: iface.id,
+                        functionUuid: fn.uuid,
+                        functionId: fn.id,
+                    })
+                }
+            }
+        }
+        for (const child of component.subComponents) walk(child)
+    }
+
+    walk(rootComponent)
+    return conflicts
 }
 
 export function resolveInterface(
@@ -75,15 +182,21 @@ export function resolveInterface(
         return {
             ...iface,
             effectiveFunctions: iface.functions,
+            localFunctions: iface.functions,
+            inheritedFunctions: [],
             inheritedFrom: null,
             isDangling: false,
         }
     }
 
     const inheritedFrom = getParentInterface(iface, ownerComp, rootComponent)
+    const inheritedFunctions = inheritedFrom?.functions ?? []
+    const localFunctions = iface.functions
     return {
         ...iface,
-        effectiveFunctions: inheritedFrom?.functions ?? [],
+        effectiveFunctions: mergeInheritedAndLocalFunctions(inheritedFunctions, localFunctions),
+        localFunctions,
+        inheritedFunctions,
         inheritedFrom,
         isDangling: inheritedFrom == null,
     }

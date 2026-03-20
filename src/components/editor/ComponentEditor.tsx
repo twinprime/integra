@@ -3,18 +3,36 @@ import type { ComponentNode, InterfaceSpecification, InterfaceFunction } from '.
 import { useSystemStore } from '../../store/useSystemStore'
 import { collectReferencedFunctionUuids, findReferencingDiagrams } from '../../utils/nodeUtils'
 import { getNodeSiblingIds } from '../../nodes/nodeTree'
+import { FunctionRenameConflictDialog } from '../FunctionRenameConflictDialog'
 import { DescriptionField } from './DescriptionField'
 import { InterfaceEditor } from './InterfaceEditor'
 import { NodeReferencesButton } from './NodeReferencesButton'
 import { PanelTitleInput } from './PanelTitleInput'
 import { useInterfaceTabManager } from './useInterfaceTabManager'
-import { isLocalInterface, type ResolvedInterface } from '../../utils/interfaceFunctions'
+import {
+    findConflictingInheritedChildFunctions,
+    findInheritedParentFunction,
+    isInheritedInterface,
+    isLocalInterface,
+    type InheritedChildFunctionConflict,
+    type ResolvedInterface,
+} from '../../utils/interfaceFunctions'
 
 type EditableInterfaceUpdates = Partial<
     Pick<InterfaceSpecification, 'id' | 'name' | 'description' | 'type'>
 >
 
 const ID_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_]*$/
+
+type PendingFunctionRenameConflict = {
+    functionUuid: string
+    newId: string
+    removeFunctionUuids: string[]
+    title: string
+    description: string
+    confirmLabel: string
+    conflictingChildren?: ReadonlyArray<InheritedChildFunctionConflict>
+}
 
 export const ComponentEditor = ({
     node,
@@ -29,9 +47,14 @@ export const ComponentEditor = ({
     const [description, setDescription] = useState(node.description || '')
     const [localId, setLocalId] = useState(node.id)
     const [idError, setIdError] = useState<string | null>(null)
+    const [pendingFunctionRenameConflict, setPendingFunctionRenameConflict] =
+        useState<PendingFunctionRenameConflict | null>(null)
 
     const rootComponent = useSystemStore((state) => state.rootComponent)
     const renameNodeId = useSystemStore((s) => s.renameNodeId)
+    const renameNodeIdAndResolveFunctionConflicts = useSystemStore(
+        (s) => s.renameNodeIdAndResolveFunctionConflicts
+    )
     const referencedFunctionUuids = collectReferencedFunctionUuids(rootComponent)
     const referencingDiagrams = findReferencingDiagrams(rootComponent, node.uuid)
 
@@ -106,7 +129,6 @@ export const ComponentEditor = ({
     ) => {
         const newInterfaces = node.interfaces.map((iface, i) => {
             if (i !== ifaceIdx) return iface
-            if (!isLocalInterface(iface)) return iface
             return {
                 ...iface,
                 functions: iface.functions.map((fn, j) =>
@@ -120,13 +142,64 @@ export const ComponentEditor = ({
     const handleDeleteFunction = (ifaceIdx: number, fnIdx: number) => {
         const newInterfaces = node.interfaces.map((iface, i) => {
             if (i !== ifaceIdx) return iface
-            if (!isLocalInterface(iface)) return iface
             return {
                 ...iface,
                 functions: iface.functions.filter((_, j) => j !== fnIdx),
             }
         })
         onUpdate({ interfaces: newInterfaces })
+    }
+
+    const handleFunctionRenameAttempt = (
+        iface: InterfaceSpecification,
+        fn: InterfaceFunction,
+        newId: string
+    ) => {
+        if (isInheritedInterface(iface)) {
+            const inheritedParentFn = findInheritedParentFunction(
+                iface,
+                node,
+                rootComponent,
+                newId,
+                fn.parameters
+            )
+            if (inheritedParentFn) {
+                setPendingFunctionRenameConflict({
+                    functionUuid: fn.uuid,
+                    newId,
+                    removeFunctionUuids: [fn.uuid],
+                    title: 'Redundant child function',
+                    description:
+                        'This child-added function would become identical to the inherited parent function. Confirm to remove the redundant child-local function and keep using the inherited one.',
+                    confirmLabel: 'Remove child function',
+                })
+                return
+            }
+        } else {
+            const conflictingChildren = findConflictingInheritedChildFunctions(
+                rootComponent,
+                iface.uuid,
+                newId,
+                fn.parameters
+            )
+            if (conflictingChildren.length > 0) {
+                setPendingFunctionRenameConflict({
+                    functionUuid: fn.uuid,
+                    newId,
+                    removeFunctionUuids: conflictingChildren.map(
+                        (conflict) => conflict.functionUuid
+                    ),
+                    title: 'Conflicting child-added functions',
+                    description:
+                        'This parent function rename would make child-added inherited-interface functions redundant. Confirm to remove those child-local functions or cancel to reject the rename.',
+                    confirmLabel: 'Rename and remove conflicts',
+                    conflictingChildren,
+                })
+                return
+            }
+        }
+
+        renameNodeId(fn.uuid, newId)
     }
 
     const handleDeleteInterface = (ifaceIdx: number) => {
@@ -146,7 +219,6 @@ export const ComponentEditor = ({
     ) => {
         const newInterfaces = node.interfaces.map((iface, i) => {
             if (i !== ifaceIdx) return iface
-            if (!isLocalInterface(iface)) return iface
             return {
                 ...iface,
                 functions: iface.functions.map((fn, j) => {
@@ -165,6 +237,23 @@ export const ComponentEditor = ({
 
     return (
         <div className="p-4 h-full flex flex-col overflow-y-auto">
+            {pendingFunctionRenameConflict && (
+                <FunctionRenameConflictDialog
+                    title={pendingFunctionRenameConflict.title}
+                    description={pendingFunctionRenameConflict.description}
+                    confirmLabel={pendingFunctionRenameConflict.confirmLabel}
+                    conflictingChildren={pendingFunctionRenameConflict.conflictingChildren}
+                    onCancel={() => setPendingFunctionRenameConflict(null)}
+                    onConfirm={() => {
+                        renameNodeIdAndResolveFunctionConflicts(
+                            pendingFunctionRenameConflict.functionUuid,
+                            pendingFunctionRenameConflict.newId,
+                            pendingFunctionRenameConflict.removeFunctionUuids
+                        )
+                        setPendingFunctionRenameConflict(null)
+                    }}
+                />
+            )}
             <div className="mb-6 border-b border-gray-800 pb-4">
                 <PanelTitleInput
                     value={name}
@@ -302,6 +391,13 @@ export const ComponentEditor = ({
                                     }
                                     onDeleteFunction={(fnIdx) =>
                                         handleDeleteFunction(ifaceIdx, fnIdx)
+                                    }
+                                    onFunctionRenameAttempt={(fnIdx, newId) =>
+                                        handleFunctionRenameAttempt(
+                                            node.interfaces[ifaceIdx],
+                                            node.interfaces[ifaceIdx].functions[fnIdx],
+                                            newId
+                                        )
                                     }
                                     onDeleteInterface={() => handleDeleteInterface(ifaceIdx)}
                                     onParamDescriptionUpdate={(fnIdx, paramIdx, desc) =>

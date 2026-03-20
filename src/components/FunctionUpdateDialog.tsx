@@ -26,6 +26,23 @@ function DiagramList({ uuids, seqDiagrams }: { uuids: string[]; seqDiagrams: Seq
     )
 }
 
+function ChildConflictList({
+    matches,
+}: {
+    matches: ReadonlyArray<NonNullable<FunctionMatch['conflictingChildFunctions']>[number]>
+}) {
+    if (matches.length === 0) return null
+    return (
+        <ul className="mt-1 ml-3 list-disc list-inside text-xs text-gray-400">
+            {matches.map((match) => (
+                <li key={match.functionUuid}>
+                    {match.componentName} · {match.interfaceId}:{match.functionId}
+                </li>
+            ))}
+        </ul>
+    )
+}
+
 function SignatureChange({
     interfaceId,
     functionId,
@@ -56,6 +73,7 @@ export function FunctionUpdateDialog({ matches, seqDiagrams, onResolve, onCancel
 
     const compatibleMatches = matches.filter((m) => m.kind === 'compatible')
     const incompatibleMatches = matches.filter((m) => m.kind === 'incompatible')
+    const redundantMatches = matches.filter((m) => m.kind === 'redundant')
 
     const handleApply = (): void => {
         const decisions: FunctionDecision[] = []
@@ -68,6 +86,10 @@ export function FunctionUpdateDialog({ matches, seqDiagrams, onResolve, onCancel
 
         for (const m of incompatibleMatches) {
             decisions.push({ ...m, action: 'update-all' })
+        }
+
+        for (const m of redundantMatches) {
+            decisions.push({ ...m, action: 'remove-redundant' })
         }
 
         onResolve(decisions)
@@ -89,6 +111,7 @@ export function FunctionUpdateDialog({ matches, seqDiagrams, onResolve, onCancel
                     {compatibleMatches.map((m) => {
                         const key = `${m.interfaceId}:${m.functionId}`
                         const action = compatibleActions[key] ?? 'add-new'
+                        const conflictingChildFunctions = m.conflictingChildFunctions ?? []
                         return (
                             <div key={key} className="space-y-2">
                                 <p className="text-sm text-gray-200">
@@ -136,13 +159,27 @@ export function FunctionUpdateDialog({ matches, seqDiagrams, onResolve, onCancel
                                     </label>
                                 </div>
                                 {action === 'update-existing' &&
-                                    m.affectedDiagramUuids.length > 0 && (
-                                        <div className="text-xs text-gray-400">
-                                            Affected diagrams:
-                                            <DiagramList
-                                                uuids={m.affectedDiagramUuids}
-                                                seqDiagrams={seqDiagrams}
-                                            />
+                                    (m.affectedDiagramUuids.length > 0 ||
+                                        conflictingChildFunctions.length > 0) && (
+                                        <div className="text-xs text-gray-400 space-y-2">
+                                            {m.affectedDiagramUuids.length > 0 && (
+                                                <div>
+                                                    Affected diagrams:
+                                                    <DiagramList
+                                                        uuids={m.affectedDiagramUuids}
+                                                        seqDiagrams={seqDiagrams}
+                                                    />
+                                                </div>
+                                            )}
+                                            {conflictingChildFunctions.length > 0 && (
+                                                <div>
+                                                    Child-added inherited-interface functions that
+                                                    will be removed:
+                                                    <ChildConflictList
+                                                        matches={conflictingChildFunctions}
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                             </div>
@@ -151,6 +188,7 @@ export function FunctionUpdateDialog({ matches, seqDiagrams, onResolve, onCancel
 
                     {incompatibleMatches.map((m) => {
                         const key = `${m.interfaceId}:${m.functionId}`
+                        const conflictingChildFunctions = m.conflictingChildFunctions ?? []
                         return (
                             <div key={key} className="space-y-2">
                                 <p className="text-sm text-gray-200">
@@ -166,9 +204,54 @@ export function FunctionUpdateDialog({ matches, seqDiagrams, onResolve, onCancel
                                     oldParams={m.oldParams}
                                     newParams={m.newParams}
                                 />
+                                {(m.affectedDiagramUuids.length > 0 ||
+                                    conflictingChildFunctions.length > 0) && (
+                                    <div className="text-xs text-gray-400 space-y-2">
+                                        {m.affectedDiagramUuids.length > 0 && (
+                                            <div>
+                                                Affected diagrams:
+                                                <DiagramList
+                                                    uuids={m.affectedDiagramUuids}
+                                                    seqDiagrams={seqDiagrams}
+                                                />
+                                            </div>
+                                        )}
+                                        {conflictingChildFunctions.length > 0 && (
+                                            <div>
+                                                Child-added inherited-interface functions that will
+                                                be removed:
+                                                <ChildConflictList
+                                                    matches={conflictingChildFunctions}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )
+                    })}
+
+                    {redundantMatches.map((m) => {
+                        const key = `${m.interfaceId}:${m.functionId}:${m.functionUuid}`
+                        return (
+                            <div key={key} className="space-y-2">
+                                <p className="text-sm text-gray-200">
+                                    <span className="font-semibold text-indigo-300">
+                                        {m.interfaceId}:{m.functionId}
+                                    </span>{' '}
+                                    now matches an inherited parent function. Applying this change
+                                    will remove the redundant child-local function.
+                                </p>
+                                <SignatureChange
+                                    interfaceId={m.interfaceId}
+                                    functionId={m.functionId}
+                                    oldParams={m.oldParams}
+                                    newParams={m.newParams}
+                                />
                                 {m.affectedDiagramUuids.length > 0 && (
                                     <div className="text-xs text-gray-400">
-                                        Affected diagrams:
+                                        Other diagrams that will be updated to the inherited
+                                        signature:
                                         <DiagramList
                                             uuids={m.affectedDiagramUuids}
                                             seqDiagrams={seqDiagrams}

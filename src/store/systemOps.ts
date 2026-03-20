@@ -3,7 +3,10 @@ import { parseUseCaseDiagram } from '../parser/useCaseDiagram/systemUpdater'
 import { parseSequenceDiagram } from '../parser/sequenceDiagram/systemUpdater'
 import { collectAllDiagrams, upsertNodeInTree, findNode } from '../nodes/nodeTree'
 import { removeFunctionsFromInterfaces } from '../nodes/componentNode'
-import { isLocalInterface, resolveEffectiveInterfaceFunctions } from '../utils/interfaceFunctions'
+import {
+    functionSignatureKey,
+    resolveEffectiveInterfaceFunctions,
+} from '../utils/interfaceFunctions'
 
 export type ReparseResult = { rootComponent?: ComponentNode; parseError?: string | null }
 
@@ -92,9 +95,10 @@ type FunctionSnapshot = Map<string, InterfaceFunction>
 function makeFunctionSnapshotKey(
     componentUuid: string,
     interfaceId: string,
-    functionId: string
+    functionId: string,
+    parameters: ReadonlyArray<InterfaceFunction['parameters'][number]>
 ): string {
-    return `${componentUuid}:${interfaceId}:${functionId}`
+    return `${componentUuid}:${interfaceId}:${functionSignatureKey(functionId, parameters)}`
 }
 
 /**
@@ -108,7 +112,7 @@ function buildFunctionSnapshot(root: ComponentNode): FunctionSnapshot {
     const walk = (comp: ComponentNode) => {
         for (const iface of comp.interfaces ?? []) {
             for (const fn of resolveEffectiveInterfaceFunctions(iface, comp, root)) {
-                map.set(makeFunctionSnapshotKey(comp.uuid, iface.id, fn.id), fn)
+                map.set(makeFunctionSnapshotKey(comp.uuid, iface.id, fn.id, fn.parameters), fn)
             }
         }
         for (const sub of comp.subComponents) walk(sub)
@@ -131,26 +135,20 @@ function mergeFunctionAttributes(root: ComponentNode, snapshot: FunctionSnapshot
     const mergeComp = (comp: ComponentNode): ComponentNode => {
         const interfaces = comp.interfaces.map((iface) => ({
             ...iface,
-            ...(isLocalInterface(iface)
-                ? {
-                      functions: iface.functions.map((fn): InterfaceFunction => {
-                          const original = snapshot.get(
-                              makeFunctionSnapshotKey(comp.uuid, iface.id, fn.id)
-                          )
-                          if (!original) return fn
-                          return {
-                              ...original,
-                              ...fn,
-                              parameters: fn.parameters.map((p) => {
-                                  const origParam = original.parameters.find(
-                                      (op) => op.name === p.name
-                                  )
-                                  return origParam ? { ...origParam, ...p } : p
-                              }),
-                          }
-                      }),
-                  }
-                : {}),
+            functions: iface.functions.map((fn): InterfaceFunction => {
+                const original = snapshot.get(
+                    makeFunctionSnapshotKey(comp.uuid, iface.id, fn.id, fn.parameters)
+                )
+                if (!original) return fn
+                return {
+                    ...original,
+                    ...fn,
+                    parameters: fn.parameters.map((p) => {
+                        const origParam = original.parameters.find((op) => op.name === p.name)
+                        return origParam ? { ...origParam, ...p } : p
+                    }),
+                }
+            }),
         }))
         return { ...comp, interfaces, subComponents: comp.subComponents.map(mergeComp) }
     }

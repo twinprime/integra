@@ -1,15 +1,20 @@
 import type {
     ComponentNode,
     InterfaceFunction,
-    InterfaceSpecification,
     LocalInterfaceSpecification,
+    InterfaceSpecification,
     Parameter,
 } from '../../store/types'
 import { newFunctionUuid, newInterfaceUuid } from '../../store/types'
 import { upsertNodeInTree } from '../../nodes/nodeTree'
 import { findCompByUuid } from '../../nodes/nodeTree'
 import { normalizeComponent } from '../../nodes/interfaceOps'
-import { isInheritedInterface, isLocalInterface } from '../../utils/interfaceFunctions'
+import {
+    type InheritedChildFunctionConflict,
+    findConflictingInheritedChildFunctions,
+    findInheritedParentFunction,
+    isInheritedInterface,
+} from '../../utils/interfaceFunctions'
 
 export function parseParameters(rawParams: string): Parameter[] {
     if (!rawParams.trim()) return []
@@ -37,13 +42,14 @@ export function paramsMatch(a: ReadonlyArray<Parameter>, b: ReadonlyArray<Parame
 }
 
 export type FunctionMatch = {
-    kind: 'compatible' | 'incompatible'
+    kind: 'compatible' | 'incompatible' | 'redundant'
     interfaceId: string
     functionId: string
     functionUuid: string
     oldParams: ReadonlyArray<Parameter>
     newParams: ReadonlyArray<Parameter>
     affectedDiagramUuids: string[]
+    conflictingChildFunctions?: ReadonlyArray<InheritedChildFunctionConflict>
 }
 
 function findInterfaceByUuid(
@@ -67,11 +73,75 @@ function functionExistsOnParentInterface(
     newParams: Parameter[]
 ): boolean {
     if (!isInheritedInterface(iface)) return false
-    const parentIface = findInterfaceByUuid(root, iface.parentInterfaceUuid)
-    if (!parentIface || !isLocalInterface(parentIface)) return false
-    return parentIface.functions.some(
+    return (
+        findInheritedParentFunction(
+            iface,
+            findOwningComponent(root, iface.uuid),
+            root,
+            functionId,
+            newParams
+        ) != null
+    )
+}
+
+function findOwningComponent(root: ComponentNode, interfaceUuid: string): ComponentNode {
+    if (root.interfaces.some((iface) => iface.uuid === interfaceUuid)) return root
+    for (const child of root.subComponents) {
+        const found = child.interfaces.some((iface) => iface.uuid === interfaceUuid)
+            ? child
+            : findOwningComponentMaybe(child, interfaceUuid)
+        if (found) return found
+    }
+    throw new Error(`Owning component not found for interface ${interfaceUuid}`)
+}
+
+function findOwningComponentMaybe(
+    root: ComponentNode,
+    interfaceUuid: string
+): ComponentNode | null {
+    if (root.interfaces.some((iface) => iface.uuid === interfaceUuid)) return root
+    for (const child of root.subComponents) {
+        const found = findOwningComponentMaybe(child, interfaceUuid)
+        if (found) return found
+    }
+    return null
+}
+
+function withFunctionOnInterface(
+    currentInterface: InterfaceSpecification,
+    functionId: string,
+    newParams: Parameter[]
+): InterfaceSpecification {
+    const exactMatch = currentInterface.functions.findIndex(
         (f) => f.id === functionId && paramsMatch(f.parameters, newParams)
     )
+    if (exactMatch !== -1) return currentInterface
+
+    const sameIdSameCount = currentInterface.functions.find(
+        (f) => f.id === functionId && f.parameters.length === newParams.length
+    )
+    if (sameIdSameCount) {
+        throw new Error(
+            `Parameter mismatch for function "${functionId}" in interface "${currentInterface.id}": ` +
+                `existing (${paramsToString(sameIdSameCount.parameters)}) vs new (${paramsToString(newParams)})`
+        )
+    }
+
+    return {
+        ...currentInterface,
+        functions: [...currentInterface.functions, createInterfaceFunction(functionId, newParams)],
+    }
+}
+
+export function findParentInterfaceChildConflicts(
+    root: ComponentNode,
+    interfaceUuid: string,
+    functionId: string,
+    newParams: ReadonlyArray<Parameter>
+): ReadonlyArray<InheritedChildFunctionConflict> {
+    const iface = findInterfaceByUuid(root, interfaceUuid)
+    if (!iface || isInheritedInterface(iface)) return []
+    return findConflictingInheritedChildFunctions(root, iface.uuid, functionId, newParams)
 }
 
 function createLocalInterface(interfaceId: string): LocalInterfaceSpecification {
@@ -116,41 +186,14 @@ export function applyFunctionToComponentByUuid(
             ifaceIdx = interfaces.length - 1
         }
         const currentInterface = interfaces[ifaceIdx]
+        const newParams = parseParameters(rawParams)
         if (isInheritedInterface(currentInterface)) {
-            const newParams = parseParameters(rawParams)
             if (functionExistsOnParentInterface(root, currentInterface, functionId, newParams)) {
                 return comp
             }
-            throw new Error(
-                `Cannot add function "${functionId}" to interface "${interfaceId}": ` +
-                    `this interface inherits from a parent and its functions are locked.`
-            )
         }
 
-        let iface: LocalInterfaceSpecification = {
-            ...currentInterface,
-            functions: [...currentInterface.functions],
-        }
-        const newParams = parseParameters(rawParams)
-        const exactMatch = iface.functions.findIndex(
-            (f) => f.id === functionId && paramsMatch(f.parameters, newParams)
-        )
-        if (exactMatch === -1) {
-            const sameIdSameCount = iface.functions.find(
-                (f) => f.id === functionId && f.parameters.length === newParams.length
-            )
-            if (sameIdSameCount) {
-                throw new Error(
-                    `Parameter mismatch for function "${functionId}" in interface "${interfaceId}": ` +
-                        `existing (${paramsToString(sameIdSameCount.parameters)}) vs new (${paramsToString(newParams)})`
-                )
-            }
-            iface = {
-                ...iface,
-                functions: [...iface.functions, createInterfaceFunction(functionId, newParams)],
-            }
-        }
-        interfaces[ifaceIdx] = iface
+        interfaces[ifaceIdx] = withFunctionOnInterface(currentInterface, functionId, newParams)
         return normalizeComponent({ ...comp, interfaces })
     })
 }
@@ -229,37 +272,9 @@ export function applyMessageToComponents(
         if (functionExistsOnParentInterface(root, currentInterface, functionId, newParams)) {
             return result
         }
-        throw new Error(
-            `Cannot add function "${functionId}" to interface "${interfaceId}": ` +
-                `this interface inherits from a parent and its functions are locked.`
-        )
     }
 
-    let iface: LocalInterfaceSpecification = {
-        ...currentInterface,
-        functions: [...currentInterface.functions],
-    }
-    const exactMatchIdx = iface.functions.findIndex(
-        (f) => f.id === functionId && paramsMatch(f.parameters, newParams)
-    )
-
-    if (exactMatchIdx === -1) {
-        const sameIdSameCount = iface.functions.find(
-            (f) => f.id === functionId && f.parameters.length === newParams.length
-        )
-        if (sameIdSameCount) {
-            throw new Error(
-                `Parameter mismatch for function "${functionId}" in interface "${interfaceId}": ` +
-                    `existing (${paramsToString(sameIdSameCount.parameters)}) vs new (${paramsToString(newParams)})`
-            )
-        }
-        iface = {
-            ...iface,
-            functions: [...iface.functions, createInterfaceFunction(functionId, newParams)],
-        }
-    }
-
-    interfaces[ifaceIdx] = iface
+    interfaces[ifaceIdx] = withFunctionOnInterface(currentInterface, functionId, newParams)
     result[ownerIdx] = normalizeComponent({ ...targetComp, interfaces })
     return result
 }

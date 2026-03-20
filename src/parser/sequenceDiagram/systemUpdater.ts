@@ -19,8 +19,10 @@ import {
 import { parseSequenceDiagramCst } from './parser'
 import { buildSeqAst, flattenMessages } from './visitor'
 import { deriveNameFromId } from '../../utils/nameUtils'
+import { findInheritedParentFunction, isInheritedInterface } from '../../utils/interfaceFunctions'
 import {
     type FunctionMatch,
+    findParentInterfaceChildConflicts,
     parseParameters,
     paramsToString,
     paramsMatch,
@@ -69,6 +71,51 @@ export function analyzeSequenceDiagramChanges(
         )
         if (!existing || paramsMatch(existing.parameters, newParams)) continue
 
+        const ownerComponent = findCompByUuid(rootComponent, existing.componentUuid)
+        const existingInterface =
+            ownerComponent?.interfaces.find((iface) => iface.uuid === existing.interfaceUuid) ??
+            null
+        if (!ownerComponent || !existingInterface) continue
+
+        if (isInheritedInterface(existingInterface)) {
+            const isChildLocalFunction = existingInterface.functions.some(
+                (candidate) => candidate.uuid === existing.functionUuid
+            )
+            if (!isChildLocalFunction) {
+                continue
+            }
+
+            const inheritedParentFn = findInheritedParentFunction(
+                existingInterface,
+                ownerComponent,
+                rootComponent,
+                functionId,
+                newParams
+            )
+
+            if (inheritedParentFn) {
+                const affectedDiagramUuids = allSeqDiagrams
+                    .filter(
+                        (d) =>
+                            d.uuid !== diagramUuid &&
+                            d.referencedFunctionUuids.includes(existing.functionUuid)
+                    )
+                    .map((d) => d.uuid)
+
+                matches.push({
+                    kind: 'redundant',
+                    interfaceId,
+                    functionId,
+                    functionUuid: existing.functionUuid,
+                    oldParams: existing.parameters,
+                    newParams,
+                    affectedDiagramUuids,
+                    conflictingChildFunctions: [],
+                })
+                continue
+            }
+        }
+
         const kind = existing.parameters.length === newParams.length ? 'incompatible' : 'compatible'
         const affectedDiagramUuids = allSeqDiagrams
             .filter(
@@ -77,8 +124,20 @@ export function analyzeSequenceDiagramChanges(
                     d.referencedFunctionUuids.includes(existing.functionUuid)
             )
             .map((d) => d.uuid)
+        const conflictingChildFunctions = findParentInterfaceChildConflicts(
+            rootComponent,
+            existing.interfaceUuid,
+            functionId,
+            newParams
+        )
 
-        if (kind === 'incompatible' && !otherRefs.has(existing.functionUuid)) continue
+        if (
+            kind === 'incompatible' &&
+            !otherRefs.has(existing.functionUuid) &&
+            conflictingChildFunctions.length === 0
+        ) {
+            continue
+        }
 
         matches.push({
             kind,
@@ -88,6 +147,7 @@ export function analyzeSequenceDiagramChanges(
             oldParams: existing.parameters,
             newParams,
             affectedDiagramUuids,
+            conflictingChildFunctions,
         })
     }
 

@@ -297,7 +297,7 @@ describe('parseSequenceDiagram — inherited interface functions', () => {
         expect(() => parseSequenceDiagram(content, root, ownerComp.uuid, 'diag-uuid')).not.toThrow()
     })
 
-    it('still throws when referencing a function that does not exist on the parent interface', () => {
+    it('adds a child-local function when referencing a function that does not exist on the parent interface', () => {
         const parentIface = {
             uuid: 'iface-parent-uuid',
             id: 'DataServing',
@@ -317,12 +317,21 @@ describe('parseSequenceDiagram — inherited interface functions', () => {
         const ownerComp = makeCompWithIfaces('owner-uuid', 'DataService', [parentIface], [checkout])
         const root = makeCompWithIfaces('root-uuid', 'root', [], [ownerComp])
 
-        // "nonExistent" is not on the parent interface — should still be locked
+        // "nonExistent" is not on the parent interface — it should now become a
+        // child-local function on the inherited interface.
         const content =
             'actor user\ncomponent CheckoutService\nuser ->> CheckoutService: DataServing:nonExistent()'
-        expect(() => parseSequenceDiagram(content, root, ownerComp.uuid, 'diag-uuid')).toThrow(
-            'locked'
-        )
+        const updated = parseSequenceDiagram(content, root, ownerComp.uuid, 'diag-uuid')
+        const updatedOwner = updated.subComponents.find(
+            (component) => component.uuid === ownerComp.uuid
+        )!
+        const updatedCheckout = updatedOwner.subComponents.find(
+            (component) => component.id === 'CheckoutService'
+        )!
+        const storedFunctions =
+            updatedCheckout.interfaces.find((iface) => iface.id === 'DataServing')?.functions ?? []
+
+        expect(storedFunctions.some((fn) => fn.id === 'nonExistent')).toBe(true)
     })
 })
 

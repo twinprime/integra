@@ -552,6 +552,8 @@ describe('useSystemStore', () => {
         const FN_UUID = 'shared-fn-uuid'
         const CURRENT_DIAG = 'current-diag-uuid'
         const OTHER_DIAG = 'other-diag-uuid'
+        const PARENT_FN_UUID = 'parent-fn-uuid'
+        const CHILD_FN_UUID = 'child-fn-uuid'
 
         const buildSharedFunctionSystem = (): ComponentNode => ({
             uuid: 'root-component-uuid',
@@ -629,6 +631,91 @@ describe('useSystemStore', () => {
             actors: [],
             useCaseDiagrams: [],
             interfaces: [],
+        })
+
+        const buildInheritedFunctionSystem = (): ComponentNode => ({
+            uuid: 'root-component-uuid',
+            id: 'root',
+            name: 'My System',
+            type: 'component',
+            description: 'Root',
+            subComponents: [
+                {
+                    uuid: 'child-comp-uuid',
+                    id: 'child',
+                    name: 'Child',
+                    type: 'component',
+                    subComponents: [],
+                    actors: [],
+                    interfaces: [
+                        {
+                            uuid: 'child-api-iface-uuid',
+                            id: 'API',
+                            name: 'API',
+                            type: 'rest',
+                            kind: 'inherited',
+                            parentInterfaceUuid: 'parent-api-iface-uuid',
+                            functions: [
+                                {
+                                    uuid: CHILD_FN_UUID,
+                                    id: 'fn',
+                                    parameters: [{ name: 'id', type: 'number', required: true }],
+                                },
+                            ],
+                        },
+                    ],
+                    useCaseDiagrams: [
+                        {
+                            uuid: 'child-uc-diag-uuid',
+                            id: 'childUcd',
+                            name: 'Child UC',
+                            type: 'use-case-diagram',
+                            content: '',
+                            ownerComponentUuid: 'child-comp-uuid',
+                            referencedNodeIds: [],
+                            useCases: [
+                                {
+                                    uuid: 'child-uc-uuid',
+                                    id: 'childUseCase',
+                                    name: 'Child Use Case',
+                                    type: 'use-case',
+                                    sequenceDiagrams: [
+                                        {
+                                            uuid: CURRENT_DIAG,
+                                            id: 'seq1',
+                                            name: 'Current Diagram',
+                                            type: 'sequence-diagram',
+                                            content:
+                                                'component child\nchild ->> child: API:fn(id: number)',
+                                            ownerComponentUuid: 'child-comp-uuid',
+                                            referencedNodeIds: [],
+                                            referencedFunctionUuids: [CHILD_FN_UUID],
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+            actors: [],
+            useCaseDiagrams: [],
+            interfaces: [
+                {
+                    uuid: 'parent-api-iface-uuid',
+                    id: 'API',
+                    name: 'API',
+                    type: 'rest',
+                    kind: 'local',
+                    functions: [
+                        {
+                            uuid: PARENT_FN_UUID,
+                            id: 'fn',
+                            parameters: [{ name: 'id', type: 'string', required: true }],
+                        },
+                    ],
+                },
+            ],
         })
 
         it('update-all updates function params and text-substitutes in affected diagrams', () => {
@@ -909,6 +996,89 @@ describe('useSystemStore', () => {
             const fn = comp.interfaces[0].functions.find((f) => f.id === 'fn')
             expect(fn?.description).toBe('The main function')
             expect(fn?.parameters[0].description).toBe('The numeric ID')
+            expect(result.current.parseError).toBeNull()
+        })
+
+        it('remove-redundant removes a child-local inherited function and reparses to the parent function', () => {
+            const { result } = renderHook(() => useSystemStore())
+
+            act(() => {
+                useSystemStore.setState({ rootComponent: buildInheritedFunctionSystem() })
+            })
+
+            const decision: FunctionDecision = {
+                kind: 'redundant',
+                action: 'remove-redundant',
+                interfaceId: 'API',
+                functionId: 'fn',
+                functionUuid: CHILD_FN_UUID,
+                oldParams: [{ name: 'id', type: 'number', required: true }],
+                newParams: [{ name: 'id', type: 'string', required: true }],
+                affectedDiagramUuids: [],
+            }
+
+            act(() => {
+                result.current.applyFunctionUpdates(
+                    [decision],
+                    CURRENT_DIAG,
+                    'component child\nchild ->> child: API:fn(id: string)'
+                )
+            })
+
+            const child = result.current.rootComponent.subComponents[0]
+            const inheritedIface = child.interfaces[0]
+            expect(inheritedIface.functions).toEqual([])
+
+            const currentDiag = child.useCaseDiagrams[0].useCases[0].sequenceDiagrams[0]
+            expect(currentDiag.content).toContain('API:fn(id: string)')
+            expect(currentDiag.referencedFunctionUuids).toEqual([PARENT_FN_UUID])
+            expect(result.current.parseError).toBeNull()
+        })
+
+        it('update-all removes conflicting child-local inherited functions when confirmed', () => {
+            const { result } = renderHook(() => useSystemStore())
+
+            act(() => {
+                useSystemStore.setState({ rootComponent: buildInheritedFunctionSystem() })
+            })
+
+            const decision: FunctionDecision = {
+                kind: 'incompatible',
+                action: 'update-all',
+                interfaceId: 'API',
+                functionId: 'fn',
+                functionUuid: PARENT_FN_UUID,
+                oldParams: [{ name: 'id', type: 'string', required: true }],
+                newParams: [{ name: 'id', type: 'number', required: true }],
+                affectedDiagramUuids: [],
+                conflictingChildFunctions: [
+                    {
+                        componentUuid: 'child-comp-uuid',
+                        componentName: 'Child',
+                        interfaceUuid: 'child-api-iface-uuid',
+                        interfaceId: 'API',
+                        functionUuid: CHILD_FN_UUID,
+                        functionId: 'fn',
+                    },
+                ],
+            }
+
+            act(() => {
+                result.current.applyFunctionUpdates(
+                    [decision],
+                    CURRENT_DIAG,
+                    'component child\nchild ->> child: API:fn(id: number)'
+                )
+            })
+
+            const parentFn = result.current.rootComponent.interfaces[0].functions[0]
+            expect(parentFn.parameters[0].type).toBe('number')
+
+            const child = result.current.rootComponent.subComponents[0]
+            expect(child.interfaces[0].functions).toEqual([])
+            expect(
+                child.useCaseDiagrams[0].useCases[0].sequenceDiagrams[0].referencedFunctionUuids
+            ).toEqual([PARENT_FN_UUID])
             expect(result.current.parseError).toBeNull()
         })
     })
