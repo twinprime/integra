@@ -13,12 +13,18 @@ import {
 import { tryReparseContent, rebuildSystemDiagrams } from '../systemOps'
 import { applyIdRename } from '../../utils/renameNodeId'
 import { normalizeComponent } from '../../nodes/interfaceOps'
+import { removeFunctionsFromInterfaces } from '../../nodes/componentNode'
 
 export type NodeOpsSlice = {
     addNode: (parentId: string, node: Node) => void
     updateNode: (nodeId: string, updates: Record<string, unknown>) => void
     deleteNode: (nodeId: string) => void
     renameNodeId: (uuid: string, newId: string) => void
+    renameNodeIdAndResolveFunctionConflicts: (
+        uuid: string,
+        newId: string,
+        functionUuidsToRemove: ReadonlyArray<string>
+    ) => void
     reorderNode: (parentUuid: string, activeUuid: string, overUuid: string) => void
 }
 
@@ -64,6 +70,22 @@ export const createNodeOpsSlice: StateCreator<SystemState, [], [], NodeOpsSlice>
             if (!oldId || oldId === newId) return state
             const renamed = applyIdRename(state.rootComponent, uuid, oldId, newId)
             const rebuilt = rebuildSystemDiagrams(renamed)
+            return {
+                past: pushPast(state.past, state.rootComponent),
+                future: [],
+                rootComponent: rebuilt,
+            }
+        }),
+    renameNodeIdAndResolveFunctionConflicts: (uuid, newId, functionUuidsToRemove) =>
+        set((state) => {
+            const oldId = findIdByUuid(state.rootComponent, uuid)
+            if (!oldId || oldId === newId) return state
+            const renamed = applyIdRename(state.rootComponent, uuid, oldId, newId)
+            const cleaned =
+                functionUuidsToRemove.length > 0
+                    ? removeFunctionsFromInterfaces(renamed, new Set(functionUuidsToRemove))
+                    : renamed
+            const rebuilt = rebuildSystemDiagrams(cleaned)
             return {
                 past: pushPast(state.past, state.rootComponent),
                 future: [],

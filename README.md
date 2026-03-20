@@ -111,7 +111,7 @@ The split-panel layout can be adjusted by dragging the resize handles. Use the *
 
 ### Interface Inheritance
 
-A sub-component can declare that one of its interfaces **inherits** a parent component's interface. This means the sub-component's interface shares the same contract (functions and types) as the parent interface, sourced live from the parent rather than duplicated.
+A sub-component can declare that one of its interfaces **inherits** a parent component's interface. This means the sub-component's interface shares the same contract (functions and types) as the parent interface, sourced live from the parent rather than duplicated. Inheritance is **transitive**: if the parent interface is itself inherited, the child sees the parent's full effective inherited contract as read-only inherited functions.
 
 #### Setting up inheritance
 
@@ -121,11 +121,15 @@ A sub-component can declare that one of its interfaces **inherits** a parent com
 
 #### Inherited interface behaviour
 
-- The inherited interface tab is **fully read-only** — name, type, ID, description, and functions are all locked and reflect the parent interface's values.
-- Component and root class diagrams also use those inherited parent functions when rendering the inherited interface.
+- The inherited interface tab is a **mixed view**:
+  - parent-inherited functions stay read-only
+  - child-added functions on the inherited interface are editable and removable
+- Component and root class diagrams use the inherited interface's **effective contract**, which combines the full inherited-chain parent contract with any child-local additions.
 - A badge shows which parent interface is being inherited (e.g. `inherited from IPaymentGateway`).
 - To remove the inheritance, click the **delete** button on the inherited interface tab.
-- Sequence diagrams **cannot add new functions** to an inherited interface. Parsing a `receiver: InheritedIface:newFn()` call that isn't already defined on the parent interface raises a parse error.
+- Sequence diagrams **can add new child-local functions** to an inherited interface. If a message references a function that is not already defined on the parent interface, the function is stored locally on the child inherited interface instead of raising a parse error.
+- If a child-added function is edited so it becomes identical to an inherited parent function, the user is prompted to confirm removing the redundant child-local function. If they cancel, the change is rejected.
+- If a parent interface function change would become identical to child-added functions on inherited child interfaces, the user is prompted to confirm removing those child-local child functions. If they cancel, the parent change is rejected.
 
 #### Warning icon
 
@@ -545,9 +549,9 @@ shared helpers below instead of reaching into nested fields directly.
 
 | Invariant | What it means | Use these helpers |
 |---|---|---|
-| Inherited interfaces resolve their contract from the parent | An inherited `InterfaceSpecification` may be stored with an empty local `functions` array; read paths must resolve the effective contract from the parent interface | `isInheritedInterface()`, `isLocalInterface()`, `getStoredInterfaceFunctions()`, `resolveEffectiveInterfaceFunctions()`, `resolveInterface()` in `src/utils/interfaceFunctions.ts` |
+| Inherited interfaces resolve their contract from the full inherited chain + child-local additions | An inherited `InterfaceSpecification` stores child-local added functions in `functions`, while read paths resolve the effective contract by recursively following inherited parent interfaces and merging that result with the local additions | `isInheritedInterface()`, `isLocalInterface()`, `getStoredInterfaceFunctions()`, `resolveEffectiveInterfaceFunctions()`, `resolveInterface()` in `src/utils/interfaceFunctions.ts` |
 | Components are updated immutably and kept in canonical order | Updates should return new objects, not mutate nested arrays, and interface/function ordering should stay normalized | `normalizeComponent()`, `normalizeComponentDeep()`, `addFunctionToInterface()`, `updateFunctionParams()`, `removeFunctionsFromInterfaces()` in `src/nodes/interfaceOps.ts` |
-| Inherited interfaces are readable but not locally writable | Functions cannot be added directly to an inherited interface; callers should branch on interface kind before attempting edits | `isInheritedInterface()` plus the parser/update flow in `src/parser/sequenceDiagram/systemUpdater.ts` |
+| Parent functions remain authoritative while child-local inherited functions are additive | Child-added functions may exist on inherited interfaces, but exact duplicates with the parent must be removed explicitly through the conflict-resolution flow | `findInheritedParentFunction()`, `findConflictingInheritedChildFunctions()`, the parser/update flow in `src/parser/sequenceDiagram/systemUpdater.ts`, and `applyFunctionUpdates()` |
 | Reparsing sequence diagrams must preserve user-authored metadata | Rebuilding functions from diagram text should keep descriptions and parameter metadata where possible | `tryReparseContent()` in `src/store/systemOps.ts` |
 | Runtime boundaries validate and normalize model data before it enters the app state | Persisted YAML / `localStorage` data should be parsed through the schema layer, not trusted as-is | `parseComponentNode()`, `safeParseComponentNode()`, `safeParsePersistedSystemState()` in `src/store/modelSchema.ts` |
 | Cross-component references must stay within the supported scope rules | Diagram references are only valid for the owning component, its descendants, its ancestors, and direct children of those ancestors | `isInScope()` in `src/utils/nodeUtils.ts` |
@@ -558,8 +562,8 @@ shared helpers below instead of reaching into nested fields directly.
   `resolveEffectiveInterfaceFunctions()` or `resolveInterface()`. Do **not**
   assume `iface.functions` is the readable contract for inherited interfaces.
 - **Reading only locally stored functions during an edit operation:** use
-  `getStoredInterfaceFunctions()`. This keeps inherited interfaces effectively
-  read-only in local update flows.
+  `getStoredInterfaceFunctions()`. For inherited interfaces, this returns the
+  child-local additions rather than the full effective contract.
 - **Adding/removing/updating functions on a component:** use the helpers in
   `src/nodes/interfaceOps.ts`, then normalize with `normalizeComponent()`
   where appropriate instead of mutating `component.interfaces` in place.
@@ -577,21 +581,27 @@ shared helpers below instead of reaching into nested fields directly.
 **Read the effective contract for inherited interfaces**
 
 ```ts
-// Bad: inherited interfaces may store an empty local functions array
+// Bad: inherited interfaces may store only child-local additions
 const functions = iface.functions
 
-// Good: resolve the readable contract from the parent when needed
+// Good: resolve the readable contract from the inherited chain plus child-local additions
 const functions = resolveEffectiveInterfaceFunctions(iface, ownerComp, rootComponent)
 ```
 
-**Guard edits on inherited interfaces**
+**Detect redundant inherited child-local functions**
 
 ```ts
-if (isInheritedInterface(currentInterface)) {
-  throw new Error(
-    `Cannot add function "${functionId}" to interface "${interfaceId}": ` +
-      "this interface inherits from a parent and its functions are locked.",
-  )
+const inheritedParentFn = findInheritedParentFunction(
+  currentInterface,
+  ownerComponent,
+  rootComponent,
+  functionId,
+  newParams,
+)
+
+if (inheritedParentFn) {
+  // Prompt the user to remove the redundant child-local function,
+  // or reject the change if they cancel.
 }
 ```
 
@@ -873,11 +883,12 @@ Each `sender ->> receiver: InterfaceId:functionId(...)` message:
 1. Finds or creates an `InterfaceSpecification` with `id = InterfaceId` on the receiver (or sender for `kafka`)
 2. Finds or creates a function with `id = functionId` and the parsed parameter list
 3. If a function with the same id already exists with a **different** parameter count or types, the user is prompted via a dialog to update all affected diagrams or add as overload
-4. If the interface has `parentInterfaceUuid` set (**inherited interface**), adding a function that doesn't match the parent interface's exact signature raises a parse error — the inherited interface's contract is locked
+4. If the interface has `parentInterfaceUuid` set (**inherited interface**), exact parent matches continue using the inherited parent function, while new signatures are stored as child-local additions on the inherited interface
+5. If a child-local inherited function becomes identical to the parent, or a parent change would become identical to child-local inherited functions, the user is prompted to confirm removing the redundant child-local functions; otherwise the change is rejected
 
 #### Interface Inheritance (view-layer class)
 
-Inheritance is stored as a single `parentInterfaceUuid?: string` field on `InterfaceSpecification`. Functions on an inherited interface are always `[]` in the store; the parent's functions are the source of truth.
+Inheritance is stored as a single `parentInterfaceUuid?: string` field on `InterfaceSpecification`. Functions on an inherited interface store only the child-local additions; the effective readable contract is resolved by combining those stored functions with the parent's functions.
 
 The `InheritedInterface` class (`src/components/editor/InheritedInterface.ts`) is a view-layer wrapper constructed at React render time only — never stored in Zustand or serialized:
 

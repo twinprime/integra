@@ -25,6 +25,7 @@ export const InterfaceEditor = ({
     onInterfaceUpdate,
     onFunctionUpdate,
     onDeleteFunction,
+    onFunctionRenameAttempt,
     onDeleteInterface,
     onParamDescriptionUpdate,
     contextComponentUuid,
@@ -36,6 +37,7 @@ export const InterfaceEditor = ({
     onInterfaceUpdate: (updates: EditableInterfaceUpdates) => void
     onFunctionUpdate: (fnIdx: number, updates: Partial<InterfaceFunction>) => void
     onDeleteFunction: (fnIdx: number) => void
+    onFunctionRenameAttempt: (fnIdx: number, newId: string) => void
     onDeleteInterface?: () => void
     onParamDescriptionUpdate: (fnIdx: number, paramIdx: number, desc: string) => void
     contextComponentUuid?: string
@@ -78,7 +80,6 @@ export const InterfaceEditor = ({
 
     if (isInherited || isDangling) {
         const parentName = isInherited ? iface.inheritedFrom?.name || iface.inheritedFrom?.id : null
-        const fns = iface.effectiveFunctions
         return (
             <div className="border border-indigo-800/50 rounded-md bg-gray-900/50 p-3">
                 <div className="flex items-center gap-2 mb-2">
@@ -120,23 +121,24 @@ export const InterfaceEditor = ({
                     </p>
                 )}
 
-                {isInherited && fns.length > 0 && (
+                {isInherited && iface.inheritedFunctions.length > 0 && (
                     <div className="space-y-2 mt-3">
                         <p className="text-xs font-medium text-gray-400">
-                            Functions ({fns.length})
+                            Inherited functions ({iface.inheritedFunctions.length})
                         </p>
-                        {fns.map((fn, fnIdx) => (
+                        {iface.inheritedFunctions.map((fn, fnIdx) => (
                             <FunctionEditor
                                 key={fn.uuid || fn.id}
                                 fn={fn}
                                 fnIdx={fnIdx}
                                 isUnreferenced={false}
-                                siblingFunctionIds={fns
+                                siblingFunctionIds={iface.inheritedFunctions
                                     .filter((_, j) => j !== fnIdx)
                                     .map((f) => f.id)}
                                 onUpdate={() => {}}
                                 onDelete={() => {}}
                                 onParamDescriptionUpdate={() => {}}
+                                onRenameAttempt={() => {}}
                                 contextComponentUuid={contextComponentUuid}
                                 readOnly={true}
                             />
@@ -144,10 +146,42 @@ export const InterfaceEditor = ({
                     </div>
                 )}
 
-                {isInherited && fns.length === 0 && (
+                {isInherited && iface.inheritedFunctions.length === 0 && (
                     <p className="text-xs text-gray-500 mt-2 italic">
                         No functions defined on parent interface.
                     </p>
+                )}
+
+                {isInherited && iface.localFunctions.length > 0 && (
+                    <div className="space-y-2 mt-4">
+                        <p className="text-xs font-medium text-gray-400">
+                            Child-added functions ({iface.localFunctions.length})
+                        </p>
+                        {iface.localFunctions.map((fn, fnIdx) => {
+                            const isUnreferenced = !referencedFunctionUuids.has(fn.uuid)
+                            const siblingFunctionIds = iface.localFunctions
+                                .filter((_, j) => j !== fnIdx)
+                                .map((candidate) => candidate.id)
+                            return (
+                                <FunctionEditor
+                                    key={fn.uuid || fn.id}
+                                    fn={fn}
+                                    fnIdx={fnIdx}
+                                    isUnreferenced={isUnreferenced}
+                                    siblingFunctionIds={siblingFunctionIds}
+                                    onUpdate={(updates) => onFunctionUpdate(fnIdx, updates)}
+                                    onDelete={() => onDeleteFunction(fnIdx)}
+                                    onRenameAttempt={(newId) =>
+                                        onFunctionRenameAttempt(fnIdx, newId)
+                                    }
+                                    onParamDescriptionUpdate={(paramIdx, desc) =>
+                                        onParamDescriptionUpdate(fnIdx, paramIdx, desc)
+                                    }
+                                    contextComponentUuid={contextComponentUuid}
+                                />
+                            )
+                        })}
+                    </div>
                 )}
             </div>
         )
@@ -243,6 +277,7 @@ export const InterfaceEditor = ({
                                 siblingFunctionIds={siblingFunctionIds}
                                 onUpdate={(updates) => onFunctionUpdate(fnIdx, updates)}
                                 onDelete={() => onDeleteFunction(fnIdx)}
+                                onRenameAttempt={(newId) => onFunctionRenameAttempt(fnIdx, newId)}
                                 onParamDescriptionUpdate={(paramIdx, desc) =>
                                     onParamDescriptionUpdate(fnIdx, paramIdx, desc)
                                 }

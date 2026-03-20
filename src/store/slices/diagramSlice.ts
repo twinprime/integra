@@ -4,7 +4,11 @@ import type { SystemState } from '../useSystemStore'
 import type { FunctionDecision } from '../useSystemStore'
 import { pushPast } from './historySlice'
 import { upsertNodeInTree } from '../../nodes/nodeTree'
-import { addFunctionToInterface, updateFunctionParams } from '../../nodes/componentNode'
+import {
+    addFunctionToInterface,
+    removeFunctionsFromInterfaces,
+    updateFunctionParams,
+} from '../../nodes/componentNode'
 import { replaceSignatureInContent } from '../../nodes/sequenceDiagramNode'
 import { rebuildSystemDiagrams, tryReparseContent } from '../systemOps'
 import { normalizeComponentDeep } from '../../nodes/interfaceOps'
@@ -50,6 +54,7 @@ export const createDiagramSlice: StateCreator<SystemState, [], [], DiagramSlice>
         set((state) => {
             let system = state.rootComponent
             let updatedCurrentContent = currentDiagramContent
+            const functionUuidsToRemove = new Set<string>()
 
             for (const d of decisions) {
                 if (d.action === 'add-new') {
@@ -59,8 +64,34 @@ export const createDiagramSlice: StateCreator<SystemState, [], [], DiagramSlice>
                         d.functionId,
                         d.newParams
                     )
+                } else if (d.action === 'remove-redundant') {
+                    functionUuidsToRemove.add(d.functionUuid)
+                    for (const diagUuid of d.affectedDiagramUuids) {
+                        system = upsertNodeInTree(system, diagUuid, (node) => {
+                            const diagramNode = node as SequenceDiagramNode
+                            if (!diagramNode.content) return diagramNode
+                            return {
+                                ...diagramNode,
+                                content: replaceSignatureInContent(
+                                    diagramNode.content,
+                                    d.interfaceId,
+                                    d.functionId,
+                                    d.newParams
+                                ),
+                            }
+                        })
+                    }
+                    updatedCurrentContent = replaceSignatureInContent(
+                        updatedCurrentContent,
+                        d.interfaceId,
+                        d.functionId,
+                        d.newParams
+                    )
                 } else {
                     system = updateFunctionParams(system, d.functionUuid, d.newParams)
+                    ;(d.conflictingChildFunctions ?? []).forEach((conflict) =>
+                        functionUuidsToRemove.add(conflict.functionUuid)
+                    )
                     // Update all other diagrams that reference this function
                     for (const diagUuid of d.affectedDiagramUuids) {
                         system = upsertNodeInTree(system, diagUuid, (node) => {
@@ -87,6 +118,10 @@ export const createDiagramSlice: StateCreator<SystemState, [], [], DiagramSlice>
                         d.newParams
                     )
                 }
+            }
+
+            if (functionUuidsToRemove.size > 0) {
+                system = removeFunctionsFromInterfaces(system, functionUuidsToRemove)
             }
 
             const updatedWithContent = upsertNodeInTree(system, currentDiagramUuid, (node) => ({

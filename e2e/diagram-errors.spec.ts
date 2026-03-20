@@ -29,12 +29,6 @@ const scopeErrorBanner = (page: Page): Locator =>
         .filter({ hasText: /out of scope/i })
         .first()
 
-const inheritedFunctionErrorBanner = (page: Page): Locator =>
-    page
-        .locator('button.text-red-500')
-        .filter({ hasText: /functions are locked/i })
-        .first()
-
 async function openDiagramEditor(page: Page, treeItemText: string | RegExp): Promise<Locator> {
     await selectTreeItem(page, treeItemText)
     const emptyState = page.getByRole('button', { name: 'Click to edit specification' })
@@ -147,7 +141,7 @@ test.describe('diagram validation errors', () => {
         await expect(page.getByRole('treeitem').filter({ hasText: 'NewModule' })).toHaveCount(0)
     })
 
-    test('inherited interfaces reject new functions that are not present on the parent interface', async ({
+    test('inherited interfaces store child-local functions that are not present on the parent interface', async ({
         page,
     }) => {
         await loadAppWithFixture(page, makeLocalStorageValueWithInheritance())
@@ -168,14 +162,19 @@ test.describe('diagram validation errors', () => {
         )
         await saveEditorByBlurring(page)
 
-        await expect(inheritedFunctionErrorBanner(page)).toBeVisible()
         await expect(diagramSvg(page)).toBeVisible()
-        await expect(page.locator('[data-testid="diagram-svg-container"]')).toContainText('done')
+        await expect(page.locator('button.text-red-500')).toHaveCount(0)
+        await expect(page.locator('[data-testid="diagram-svg-container"]')).toContainText(
+            'newDerivedFn'
+        )
 
         await selectTreeItem(page, 'AuthService')
         await page.getByTestId('interface-tab-IAuthDerived').click()
         await expect(page.getByTestId('interface-tab-panel')).toContainText('doThing')
-        await expect(page.getByTestId('interface-tab-panel')).not.toContainText('newDerivedFn')
+        await expect(page.getByTestId('interface-tab-panel')).toContainText(
+            'Child-added functions (1)'
+        )
+        await expect(page.getByLabel('Function ID')).toHaveValue('newDerivedFn')
     })
 })
 

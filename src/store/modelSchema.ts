@@ -61,7 +61,7 @@ export const interfaceSpecificationSchema: z.ZodType<InterfaceSpecification> = z
                 description: raw.description,
                 type: raw.type,
                 parentInterfaceUuid: raw.parentInterfaceUuid,
-                functions: [],
+                functions: raw.functions ?? [],
             }
             return inherited
         }

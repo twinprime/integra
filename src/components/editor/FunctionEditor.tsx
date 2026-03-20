@@ -14,6 +14,7 @@ export const FunctionEditor = ({
     onUpdate,
     onDelete,
     onParamDescriptionUpdate,
+    onRenameAttempt,
     contextComponentUuid,
     readOnly = false,
 }: {
@@ -24,6 +25,7 @@ export const FunctionEditor = ({
     onUpdate: (updates: Partial<InterfaceFunction>) => void
     onDelete: () => void
     onParamDescriptionUpdate: (paramIdx: number, desc: string) => void
+    onRenameAttempt?: (newId: string) => void
     contextComponentUuid?: string
     readOnly?: boolean
 }) => {
@@ -56,6 +58,10 @@ export const FunctionEditor = ({
         }
         if (siblingFunctionIds.includes(trimmed)) {
             setIdError(`ID "${trimmed}" is already used by another function`)
+            return
+        }
+        if (onRenameAttempt) {
+            onRenameAttempt(trimmed)
             return
         }
         renameNodeId(fn.uuid, trimmed)
@@ -141,6 +147,7 @@ export const FunctionEditor = ({
                                     className="mt-0.5 w-full text-[0.7rem] text-gray-500 bg-transparent border-b border-transparent hover:border-gray-700 focus:border-gray-600 focus:outline-none placeholder-gray-700"
                                     placeholder="Parameter description..."
                                     defaultValue={param.description || ''}
+                                    readOnly={readOnly}
                                     onBlur={(e) => {
                                         if (e.target.value !== (param.description || '')) {
                                             onParamDescriptionUpdate(idx, e.target.value)
