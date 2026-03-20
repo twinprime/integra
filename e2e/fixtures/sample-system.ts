@@ -411,6 +411,34 @@ export function makeLocalStorageValueWithDependencyOnlyComponent(): string {
     })
 }
 
+export function makeLocalStorageValueWithUseCaseDiagramRef(): string {
+    const seqWithUseCaseDiagramRef: SequenceDiagramNode = {
+        ...seqDiagram,
+        content: [
+            'actor User',
+            'component AuthService',
+            'component OrderService',
+            'User ->> AuthService: IAuth:login()',
+            'User ->> OrderService: UseCaseDiagram:OrderService/OrderUCD',
+        ].join('\n'),
+        referencedNodeIds: [UUIDS.authComp, UUIDS.orderComp, UUIDS.orderUcd],
+    }
+
+    const loginUseCaseWithUseCaseDiagramRef: UseCaseNode = {
+        ...ucNode,
+        sequenceDiagrams: [seqWithUseCaseDiagramRef],
+    }
+
+    const systemWithUseCaseDiagramRef: ComponentNode = {
+        ...sampleSystem,
+        useCaseDiagrams: sampleSystem.useCaseDiagrams.map((ucd) =>
+            ucd.uuid === UUIDS.ucd ? { ...ucd, useCases: [loginUseCaseWithUseCaseDiagramRef] } : ucd
+        ),
+    }
+
+    return JSON.stringify({ state: { rootComponent: systemWithUseCaseDiagramRef }, version: 0 })
+}
+
 /**
  * Variant fixture where the seq diagram has a function ref message with a \n display label.
  * Used to verify that \n in labels produces a <br/> visual line break in the diagram.

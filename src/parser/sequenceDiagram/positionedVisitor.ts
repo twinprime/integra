@@ -12,6 +12,7 @@ import type { ComponentNode } from '../../store/types'
 import {
     resolveDiagramDeclarationUuid,
     resolveFunctionReferenceTarget,
+    resolveUseCaseDiagramReferenceUuid,
     resolveUseCaseReferenceUuid,
     resolveSequenceReferenceUuid,
 } from '../../utils/diagramResolvers'
@@ -220,6 +221,24 @@ class SeqPositionedVisitorImpl extends BaseVisitor {
                 this._ownerCompUuid
             )
             if (uuid) this._entries.push({ from: ucRef.startOffset, to: tokenEnd(ucRef), uuid })
+        }
+        // UseCaseDiagramRef → navigate to use case diagram node
+        const ucdRef = toks(ctx, 'UseCaseDiagramRef')[0]
+        if (ucdRef && this._ownerComp) {
+            const withoutPrefix = ucdRef.image.slice('UseCaseDiagram:'.length)
+            const secondColonIdx = withoutPrefix.indexOf(':')
+            const pathStr =
+                secondColonIdx === -1 ? withoutPrefix : withoutPrefix.slice(0, secondColonIdx)
+            const path = pathStr.split('/')
+            const uuid = resolveUseCaseDiagramReferenceUuid(
+                path,
+                this._root,
+                this._ownerComp,
+                this._ownerCompUuid
+            )
+            if (uuid) {
+                this._entries.push({ from: ucdRef.startOffset, to: tokenEnd(ucdRef), uuid })
+            }
         }
         // SequenceRef → navigate to sequence diagram node
         const seqRef = toks(ctx, 'SequenceRef')[0]

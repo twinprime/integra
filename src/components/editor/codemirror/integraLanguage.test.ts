@@ -94,6 +94,20 @@ describe('buildAnnotations — sequence diagram', () => {
         expect(fnEntry).toBeDefined()
     })
 
+    it('highlights UseCaseDiagram:path with function class', () => {
+        const anns = buildAnnotations(
+            'sender ->> receiver: UseCaseDiagram:orders/checkoutFlows',
+            makeCtx('sequence-diagram', makeRoot())
+        )
+        const ucdEntry = anns.find(
+            (a) =>
+                a.cls === CLS.function &&
+                'sender ->> receiver: UseCaseDiagram:orders/checkoutFlows'.slice(a.from, a.to) ===
+                    'UseCaseDiagram:orders/checkoutFlows'
+        )
+        expect(ucdEntry).toBeDefined()
+    })
+
     it('highlights plain message label with label class', () => {
         const anns = buildAnnotations(
             'sender->>receiver: plain text label',
@@ -173,6 +187,37 @@ describe('buildAnnotations — navigation map (uuid)', () => {
         const navEntries = anns.filter((a) => !!a.uuid)
         expect(navEntries.length).toBeGreaterThan(0)
         navEntries.forEach((n) => expect(n.uuid).toBeTruthy())
+    })
+
+    it('records uuid for UseCaseDiagram reference when the target exists', () => {
+        const referencedUcd = {
+            uuid: 'orders-ucd-uuid',
+            id: 'orderFlows',
+            name: 'Order Flows',
+            type: 'use-case-diagram' as const,
+            ownerComponentUuid: 'orders-uuid',
+            referencedNodeIds: [],
+            content: '',
+            useCases: [],
+        }
+        const orders = makeRoot({
+            uuid: 'orders-uuid',
+            id: 'orders',
+            name: 'Orders',
+            useCaseDiagrams: [referencedUcd],
+        })
+        const owner = makeRoot({ uuid: 'owner-uuid', id: 'owner', name: 'Owner' })
+        const root = makeRoot({ subComponents: [owner, orders] })
+        const doc = 'sender ->> receiver: UseCaseDiagram:orders/orderFlows'
+
+        const anns = buildAnnotations(doc, makeCtx('sequence-diagram', root, owner))
+        const navEntry = anns.find(
+            (a) =>
+                a.uuid === 'orders-ucd-uuid' &&
+                doc.slice(a.from, a.to) === 'UseCaseDiagram:orders/orderFlows'
+        )
+
+        expect(navEntry).toBeDefined()
     })
 })
 
