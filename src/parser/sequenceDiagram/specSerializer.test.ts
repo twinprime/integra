@@ -68,6 +68,18 @@ describe('seqAstToSpec — round-trip', () => {
         )
     })
 
+    it('round-trips a UseCaseDiagram-ref message', () => {
+        expect(roundTrip('a ->> b: UseCaseDiagram:root/orders/checkoutFlows')).toBe(
+            'a ->> b: UseCaseDiagram:root/orders/checkoutFlows'
+        )
+    })
+
+    it('round-trips a UseCaseDiagram-ref message with custom label', () => {
+        expect(roundTrip('a ->> b: UseCaseDiagram:checkoutFlows:Checkout Flows')).toBe(
+            'a ->> b: UseCaseDiagram:checkoutFlows:Checkout Flows'
+        )
+    })
+
     it('round-trips a Sequence-ref message', () => {
         expect(roundTrip('a ->> b: Sequence:auth/loginFlow')).toBe(
             'a ->> b: Sequence:auth/loginFlow'
@@ -216,6 +228,24 @@ describe('renameInSeqSpec — Sequence: references', () => {
         expect(
             renameInSeqSpec('a ->> b: Sequence:loginFlow:loginFlow', 'loginFlow', 'authFlow')
         ).toBe('a ->> b: Sequence:authFlow:loginFlow')
+    })
+})
+
+describe('renameInSeqSpec — UseCaseDiagram: references', () => {
+    it('renames a UseCaseDiagram: reference ID', () => {
+        expect(
+            renameInSeqSpec('a ->> b: UseCaseDiagram:checkoutFlows', 'checkoutFlows', 'orderFlows')
+        ).toBe('a ->> b: UseCaseDiagram:orderFlows')
+    })
+
+    it('renames a UseCaseDiagram: reference path segment without touching the label', () => {
+        expect(
+            renameInSeqSpec(
+                'a ->> b: UseCaseDiagram:root/orders/checkoutFlows:Checkout Flows',
+                'orders',
+                'commerce'
+            )
+        ).toBe('a ->> b: UseCaseDiagram:root/commerce/checkoutFlows:Checkout Flows')
     })
 })
 

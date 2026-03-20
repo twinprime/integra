@@ -2,6 +2,7 @@ import type { ComponentNode } from '../store/types'
 import { findCompByUuid } from '../nodes/componentTraversal'
 import {
     findOwnerActorOrComponentUuidById,
+    findOwnerUseCaseDiagramUuidById,
     findOwnerUseCaseUuidById,
     resolveDiagramDeclarationUuid,
     resolveFunctionReferenceTarget,
@@ -63,6 +64,20 @@ const resolveScopedSequenceReferenceUuid = (
     return undefined
 }
 
+const resolveScopedUseCaseDiagramReferenceUuid = (
+    root: ComponentNode,
+    ownerComponentUuid: string,
+    path: string[]
+): string | undefined => {
+    const targetId = path[path.length - 1]
+    const component =
+        path.length === 1
+            ? findCompByUuid(root, ownerComponentUuid)
+            : resolveScopedComponentPath(root, ownerComponentUuid, path.slice(0, -1))
+    if (!component) return undefined
+    return findOwnerUseCaseDiagramUuidById(component, targetId)
+}
+
 function assertNever(x: never): never {
     throw new Error(`Unhandled sequence statement: ${JSON.stringify(x)}`)
 }
@@ -95,6 +110,8 @@ const renameSeqMessageContent = (
                 functionId: content.functionId === oldId ? newId : content.functionId,
             }
         case 'useCaseRef':
+            return { ...content, path: renamePathSegments(content.path, oldId, newId) }
+        case 'useCaseDiagramRef':
             return { ...content, path: renamePathSegments(content.path, oldId, newId) }
         case 'seqDiagramRef':
             return { ...content, path: renamePathSegments(content.path, oldId, newId) }
@@ -266,6 +283,21 @@ const renameScopedMessageContent = (
                     context,
                     (root, candidateSegments) => {
                         return resolveScopedUseCaseReferenceUuid(
+                            root,
+                            ownerComponentUuid,
+                            candidateSegments
+                        )
+                    }
+                ),
+            }
+        case 'useCaseDiagramRef':
+            return {
+                ...content,
+                path: renameResolvedPathSegments(
+                    content.path,
+                    context,
+                    (root, candidateSegments) => {
+                        return resolveScopedUseCaseDiagramReferenceUuid(
                             root,
                             ownerComponentUuid,
                             candidateSegments

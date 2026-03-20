@@ -10,6 +10,7 @@ import { findCompByUuid } from '../../nodes/nodeTree'
 import { findNodeByPath } from '../../utils/nodeUtils'
 import {
     resolveUseCaseReferenceUuid,
+    resolveUseCaseDiagramReferenceUuid,
     resolveSequenceReferenceUuid,
     ensureScopedNodePath,
     resolveFunctionReferenceTarget,
@@ -405,6 +406,15 @@ export function parseSequenceDiagram(
                     ownerComponentUuid
                 )
                 if (ucUuid && !referencedNodeIds.includes(ucUuid)) referencedNodeIds.push(ucUuid)
+            } else if (msg.content.kind === 'useCaseDiagramRef') {
+                assertMessageReferencePathInScope(msg.content.path, updatedRoot, ownerComponentUuid)
+                const ucdUuid = resolveUseCaseDiagramReferenceUuid(
+                    msg.content.path,
+                    updatedRoot,
+                    updatedOwnerComp,
+                    ownerComponentUuid
+                )
+                if (ucdUuid && !referencedNodeIds.includes(ucdUuid)) referencedNodeIds.push(ucdUuid)
             } else if (msg.content.kind === 'seqDiagramRef') {
                 assertMessageReferencePathInScope(msg.content.path, updatedRoot, ownerComponentUuid)
                 const seqUuid = resolveSequenceReferenceUuid(

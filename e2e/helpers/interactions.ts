@@ -6,8 +6,31 @@ export function treeItem(page: Page, hasText: TreeItemText): Locator {
     return page.getByRole('treeitem').filter({ hasText }).first()
 }
 
-export async function selectTreeItem(page: Page, hasText: TreeItemText): Promise<Locator> {
+export async function revealTreeItem(page: Page, hasText: TreeItemText): Promise<Locator> {
     const item = treeItem(page, hasText)
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+        if (await item.isVisible().catch(() => false)) return item
+        const expandedCount = await page.locator('[aria-label="Expand"]').evaluateAll((buttons) => {
+            const visibleButtons = buttons.filter(
+                (button) =>
+                    button instanceof HTMLElement &&
+                    button.getAttribute('aria-label') === 'Expand' &&
+                    button.offsetParent !== null
+            )
+            for (const button of visibleButtons) {
+                ;(button as HTMLButtonElement).click()
+            }
+            return visibleButtons.length
+        })
+        if (expandedCount === 0) break
+        await page.waitForTimeout(25)
+    }
+    await expect(item).toBeVisible()
+    return item
+}
+
+export async function selectTreeItem(page: Page, hasText: TreeItemText): Promise<Locator> {
+    const item = await revealTreeItem(page, hasText)
     await item.click()
     return item
 }

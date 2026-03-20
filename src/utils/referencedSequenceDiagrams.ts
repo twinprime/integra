@@ -2,7 +2,60 @@ import type { ComponentNode, SequenceDiagramNode } from '../store/types'
 import { findNode } from '../nodes/nodeTree'
 import { flattenMessages } from '../parser/sequenceDiagram/visitor'
 import { getCachedSeqAst } from './seqAstCache'
-import { resolveSequenceReferenceUuid, resolveUseCaseReferenceUuid } from './diagramResolvers'
+import {
+    resolveSequenceReferenceUuid,
+    resolveUseCaseDiagramReferenceUuid,
+    resolveUseCaseReferenceUuid,
+} from './diagramResolvers'
+
+function visitSequenceDiagramList(
+    rootComponent: ComponentNode,
+    sequenceDiagrams: ReadonlyArray<SequenceDiagramNode>,
+    visited: Set<string>,
+    result: SequenceDiagramNode[]
+): void {
+    for (const referencedSeqDiagram of sequenceDiagrams) {
+        visitReferencedSequenceDiagram(rootComponent, referencedSeqDiagram, visited, result)
+    }
+}
+
+function visitResolvedSequenceReference(
+    rootComponent: ComponentNode,
+    referencedUuid: string | undefined,
+    visited: Set<string>,
+    result: SequenceDiagramNode[]
+): void {
+    if (!referencedUuid) return
+    const referencedNode = findNode([rootComponent], referencedUuid)
+    if (referencedNode?.type !== 'sequence-diagram') return
+    visitReferencedSequenceDiagram(rootComponent, referencedNode, visited, result)
+}
+
+function visitResolvedUseCaseReference(
+    rootComponent: ComponentNode,
+    referencedUuid: string | undefined,
+    visited: Set<string>,
+    result: SequenceDiagramNode[]
+): void {
+    if (!referencedUuid) return
+    const referencedNode = findNode([rootComponent], referencedUuid)
+    if (referencedNode?.type !== 'use-case') return
+    visitSequenceDiagramList(rootComponent, referencedNode.sequenceDiagrams, visited, result)
+}
+
+function visitResolvedUseCaseDiagramReference(
+    rootComponent: ComponentNode,
+    referencedUuid: string | undefined,
+    visited: Set<string>,
+    result: SequenceDiagramNode[]
+): void {
+    if (!referencedUuid) return
+    const referencedNode = findNode([rootComponent], referencedUuid)
+    if (referencedNode?.type !== 'use-case-diagram') return
+    for (const useCase of referencedNode.useCases) {
+        visitSequenceDiagramList(rootComponent, useCase.sequenceDiagrams, visited, result)
+    }
+}
 
 function visitReferencedSequenceDiagram(
     rootComponent: ComponentNode,
@@ -23,33 +76,48 @@ function visitReferencedSequenceDiagram(
     const ast = getCachedSeqAst(seqDiagram.content)
     for (const msg of flattenMessages(ast.statements)) {
         if (msg.content.kind === 'seqDiagramRef') {
-            const referencedUuid = resolveSequenceReferenceUuid(
-                msg.content.path,
+            visitResolvedSequenceReference(
                 rootComponent,
-                ownerComp,
-                seqDiagram.ownerComponentUuid
+                resolveSequenceReferenceUuid(
+                    msg.content.path,
+                    rootComponent,
+                    ownerComp,
+                    seqDiagram.ownerComponentUuid
+                ),
+                visited,
+                result
             )
-            if (!referencedUuid) continue
-            const referencedNode = findNode([rootComponent], referencedUuid)
-            if (referencedNode?.type !== 'sequence-diagram') continue
-            visitReferencedSequenceDiagram(rootComponent, referencedNode, visited, result)
+            continue
+        }
+
+        if (msg.content.kind === 'useCaseDiagramRef') {
+            visitResolvedUseCaseDiagramReference(
+                rootComponent,
+                resolveUseCaseDiagramReferenceUuid(
+                    msg.content.path,
+                    rootComponent,
+                    ownerComp,
+                    seqDiagram.ownerComponentUuid
+                ),
+                visited,
+                result
+            )
             continue
         }
 
         if (msg.content.kind !== 'useCaseRef') continue
 
-        const referencedUuid = resolveUseCaseReferenceUuid(
-            msg.content.path,
+        visitResolvedUseCaseReference(
             rootComponent,
-            ownerComp,
-            seqDiagram.ownerComponentUuid
+            resolveUseCaseReferenceUuid(
+                msg.content.path,
+                rootComponent,
+                ownerComp,
+                seqDiagram.ownerComponentUuid
+            ),
+            visited,
+            result
         )
-        if (!referencedUuid) continue
-        const referencedNode = findNode([rootComponent], referencedUuid)
-        if (referencedNode?.type !== 'use-case') continue
-        for (const referencedSeqDiagram of referencedNode.sequenceDiagrams) {
-            visitReferencedSequenceDiagram(rootComponent, referencedSeqDiagram, visited, result)
-        }
     }
 }
 

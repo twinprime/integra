@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { makeLocalStorageValue, UUIDS } from './fixtures/sample-system'
+import { selectTreeItem } from './helpers/interactions'
 
 const diagram = () => '[data-testid="diagram-svg-container"]'
 
@@ -13,8 +14,7 @@ test.beforeEach(async ({ page }) => {
 test.describe('UseCase path reference in sequence diagram', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/')
-        // Navigate to Login Flow sequence diagram (nested under Login > Main Use Cases)
-        await page.getByRole('treeitem').filter({ hasText: 'Login Flow' }).click()
+        await selectTreeItem(page, 'Login Flow')
         await page.locator(`${diagram()} svg`).waitFor()
     })
 

@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { selectTreeItem } from './helpers/interactions'
 import { makeLocalStorageValue } from './fixtures/sample-system'
 
 // ─── In-memory mock for window.showDirectoryPicker (save) ─────────────────────
@@ -126,7 +127,7 @@ test.describe('unsaved changes indicator', () => {
         await expect(page.getByTitle('Unsaved changes')).not.toBeVisible()
 
         // Rename the "Login" use-case node to dirty the state
-        await page.getByRole('treeitem').filter({ hasText: 'Login' }).first().click()
+        await selectTreeItem(page, 'Login')
         const idInput = page.getByLabel('Node ID')
         await idInput.clear()
         await idInput.fill('SignIn')
@@ -148,7 +149,7 @@ test.describe('save flow with mocked directory picker', () => {
         await page.goto('/')
 
         // Make a change so the system is dirty and the save path is meaningful
-        await page.getByRole('treeitem').filter({ hasText: 'Login' }).first().click()
+        await selectTreeItem(page, 'Login')
         const idInput = page.getByLabel('Node ID')
         await idInput.clear()
         await idInput.fill('SignIn')
@@ -181,7 +182,7 @@ test.describe('save flow with mocked directory picker', () => {
         await page.goto('/')
 
         // Dirty the state
-        await page.getByRole('treeitem').filter({ hasText: 'Login' }).first().click()
+        await selectTreeItem(page, 'Login')
         const idInput = page.getByLabel('Node ID')
         await idInput.clear()
         await idInput.fill('SignIn')

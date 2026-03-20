@@ -5,6 +5,7 @@ import type {
     UseCaseNode,
     UseCaseDiagramNode,
 } from '../src/store/types'
+import { selectTreeItem } from './helpers/interactions'
 
 // A sequence diagram with enough lines to overflow a bounded editor container
 const LONG_CONTENT = Array.from({ length: 40 }, (_, i) =>
@@ -63,7 +64,7 @@ test.describe('diagram spec editor — preview mode scrollbar', () => {
             localStorage.setItem('integra-system', value)
         }, lsValue)
         await page.goto('/')
-        await page.getByRole('treeitem').filter({ hasText: 'Long Flow' }).click()
+        await selectTreeItem(page, 'Long Flow')
         await page.getByRole('button', { name: /diagram specification/i }).waitFor()
     })
 

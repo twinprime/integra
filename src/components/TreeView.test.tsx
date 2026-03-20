@@ -357,6 +357,13 @@ describe('TreeView node visibility', () => {
         await waitFor(() => expect(screen.getByText('Child')).toBeInTheDocument())
         expect(scrollIntoView).toHaveBeenCalled()
     })
+
+    it('shows only the root expanded on initial load', () => {
+        render(<TreeView />)
+
+        expect(screen.getByText('Parent')).toBeInTheDocument()
+        expect(screen.queryByText('Child')).not.toBeInTheDocument()
+    })
 })
 
 // ─── Undo / Redo keyboard scope ───────────────────────────────────────────────

@@ -76,6 +76,16 @@ export const UseCaseRef = createToken({
 })
 
 /**
+ * Matches `UseCaseDiagram:<path>` or `UseCaseDiagram:<path>:<label>` where
+ * <path> is one or more slash-separated identifiers.
+ * Must be tried before UseCaseRef because the keyword shares the same prefix.
+ */
+export const UseCaseDiagramRef = createToken({
+    name: 'UseCaseDiagramRef',
+    pattern: /UseCaseDiagram:[A-Za-z_][A-Za-z0-9_]*(?:\/[A-Za-z_][A-Za-z0-9_]*)*(?::[^\r\n]*)?/,
+})
+
+/**
  * Matches `Sequence:<path>` or `Sequence:<path>:<label>` where <path> is one or
  * more slash-separated identifiers (e.g. `Sequence:loginFlow` or
  * `Sequence:auth/loginFlow:my label`).
@@ -231,7 +241,15 @@ const defaultModeTokens = [
 export const seqLexerDefinition = {
     modes: {
         default_mode: defaultModeTokens,
-        text_mode: [NewlineExit, WhiteSpace, FunctionRef, UseCaseRef, SequenceRef, LabelText],
+        text_mode: [
+            NewlineExit,
+            WhiteSpace,
+            FunctionRef,
+            UseCaseDiagramRef,
+            UseCaseRef,
+            SequenceRef,
+            LabelText,
+        ],
         block_header_mode: [BlockNewlineExit, WhiteSpace, BlockConditionText],
     },
     defaultMode: 'default_mode',
@@ -244,6 +262,7 @@ export const allSeqTokens = [
     ...defaultModeTokens,
     NewlineExit,
     FunctionRef,
+    UseCaseDiagramRef,
     UseCaseRef,
     SequenceRef,
     LabelText,

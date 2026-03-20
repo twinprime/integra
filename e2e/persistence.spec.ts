@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { selectTreeItem } from './helpers/interactions'
 import { makeLocalStorageValue, sampleSystem } from './fixtures/sample-system'
 
 // ─── 1. State survives reload ─────────────────────────────────────────────────
@@ -35,7 +36,7 @@ test('auto-save persists a rename across reload', async ({ page }) => {
     await page.reload()
 
     // Rename the "Login" use-case to "SignIn"
-    await page.getByRole('treeitem').filter({ hasText: 'Login' }).first().click()
+    await selectTreeItem(page, 'Login')
     const nameInput = page.getByLabel('Node name')
     await nameInput.clear()
     await nameInput.fill('SignIn')
@@ -47,8 +48,12 @@ test('auto-save persists a rename across reload', async ({ page }) => {
     // Reload — no localStorage seeding here; app must restore from auto-save
     await page.reload()
 
-    // The renamed node should still appear under the tree
-    await expect(page.getByRole('treeitem').filter({ hasText: 'SignIn' })).toBeVisible()
+    // The renamed node should still be reachable after reload, even though nested nodes start collapsed.
+    await selectTreeItem(page, 'SignIn')
+    await expect(page.getByRole('treeitem').filter({ hasText: 'SignIn' })).toHaveAttribute(
+        'aria-selected',
+        'true'
+    )
     await expect(page.getByRole('treeitem').filter({ hasText: /^Login$/ })).not.toBeVisible()
 })
 
@@ -64,7 +69,7 @@ test('unsaved changes indicator survives a page reload while the model is still 
 
     await expect(page.getByTitle('Unsaved changes')).not.toBeVisible()
 
-    await page.getByRole('treeitem').filter({ hasText: 'Login' }).first().click()
+    await selectTreeItem(page, 'Login')
     const idInput = page.getByLabel('Node ID')
     await idInput.clear()
     await idInput.fill('SignIn')

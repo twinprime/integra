@@ -49,6 +49,12 @@ export type SeqMessageContent =
           label: string | null
       }
     | {
+          /** UseCaseDiagram:<path>(:label)? — path segments to a use case diagram node */
+          kind: 'useCaseDiagramRef'
+          path: string[]
+          label: string | null
+      }
+    | {
           /** UseCase:<path>(:label)? — path segments to a use case node */
           kind: 'useCaseRef'
           path: string[]
@@ -237,6 +243,27 @@ class SequenceDiagramVisitor extends BaseVisitor {
                         label: match[4] ? match[4].replace(/\\n/g, '\n') : null,
                     },
                 }
+            }
+        }
+
+        if ((ctx.UseCaseDiagramRef ?? []).length > 0) {
+            const raw = (ctx.UseCaseDiagramRef as { image: string }[])[0].image
+            const withoutPrefix = raw.slice('UseCaseDiagram:'.length)
+            const secondColonIdx = withoutPrefix.indexOf(':')
+            const pathStr =
+                secondColonIdx === -1 ? withoutPrefix : withoutPrefix.slice(0, secondColonIdx)
+            const label =
+                secondColonIdx === -1
+                    ? null
+                    : ((withoutPrefix.slice(secondColonIdx + 1) || null)?.replace(/\\n/g, '\n') ??
+                      null)
+            const path = pathStr.split('/')
+            return {
+                from,
+                to,
+                arrow,
+                excludeFromDependencies,
+                content: { kind: 'useCaseDiagramRef', path, label },
             }
         }
 

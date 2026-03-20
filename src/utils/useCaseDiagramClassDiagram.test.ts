@@ -169,4 +169,67 @@ describe('buildUseCaseDiagramClassDiagram', () => {
         expect(result.mermaidContent).toContain('childSvc ..> platform')
         expect(result.mermaidContent).not.toContain('iface_platform_iface_uuid')
     })
+
+    it('includes sequence diagrams referenced through UseCaseDiagram messages', () => {
+        const referencedUseCaseDiagram: UseCaseDiagramNode = {
+            uuid: 'shared-ucd-uuid',
+            id: 'sharedFlows',
+            name: 'Shared Flows',
+            type: 'use-case-diagram',
+            content: '',
+            description: '',
+            ownerComponentUuid: 'library-uuid',
+            referencedNodeIds: [],
+            useCases: [
+                makeUseCase('shared-uc', {
+                    ...makeSeqDiagram(
+                        'shared-seq',
+                        [
+                            'component root/platform as platform',
+                            'component root/compA/childSvc as childSvc',
+                            'childSvc ->> platform: IPlatform:handle()',
+                        ].join('\n')
+                    ),
+                    ownerComponentUuid: 'library-uuid',
+                }),
+            ],
+        }
+        const sourceUseCaseDiagram = makeUseCaseDiagram(
+            makeUseCase(
+                'uc-1',
+                makeSeqDiagram(
+                    'seq-1',
+                    [
+                        'component childSvc',
+                        'childSvc ->> childSvc: UseCaseDiagram:root/library/sharedFlows',
+                    ].join('\n')
+                )
+            )
+        )
+        const root = {
+            ...makeRoot(sourceUseCaseDiagram),
+            subComponents: [
+                ...makeRoot(sourceUseCaseDiagram).subComponents,
+                {
+                    uuid: 'library-uuid',
+                    id: 'library',
+                    name: 'Library',
+                    type: 'component' as const,
+                    subComponents: [],
+                    actors: [],
+                    useCaseDiagrams: [referencedUseCaseDiagram],
+                    interfaces: [],
+                },
+            ],
+        }
+
+        const result = buildUseCaseDiagramClassDiagram(sourceUseCaseDiagram, root)
+
+        expect(result.relationshipMetadata).toContainEqual({
+            kind: 'dependency',
+            sourceName: 'Child Service',
+            targetName: 'IPlatform',
+            sequenceDiagrams: [{ uuid: 'shared-seq-uuid', name: 'shared-seq' }],
+        })
+    })
 })

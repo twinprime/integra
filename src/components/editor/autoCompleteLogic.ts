@@ -441,7 +441,7 @@ function buildFunctionRefSuggestions(
         }
     }
 
-    // UseCase/Sequence refs are unrestricted navigation links — scan the entire
+    // UseCase/UseCaseDiagram/Sequence refs are unrestricted navigation links — scan the entire
     // component tree so suggestions appear regardless of receiver or owner scope.
     const referencedComps = collectAllComponents(rootComponent)
 
@@ -449,6 +449,15 @@ function buildFunctionRefSuggestions(
         const isLocal = comp.uuid === ownerComp.uuid
         const absPath = isLocal ? null : getComponentAbsolutePath(rootComponent, comp.uuid)
         for (const ucDiag of comp.useCaseDiagrams) {
+            const ucdPath = isLocal ? ucDiag.id : absPath ? `${absPath}/${ucDiag.id}` : ucDiag.id
+            const ucdInsertText = `UseCaseDiagram:${ucdPath}`
+            if (matchLower(ucdInsertText, ctx.partial)) {
+                suggs.push({
+                    label: `${ucdInsertText} (${ucDiag.name})`,
+                    insertText: ucdInsertText,
+                    replaceFrom: ctx.replaceFrom,
+                })
+            }
             for (const uc of ucDiag.useCases) {
                 const ucPath = isLocal ? uc.id : absPath ? `${absPath}/${uc.id}` : uc.id
                 const insertText = `UseCase:${ucPath}`

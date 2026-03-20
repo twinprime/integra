@@ -10,6 +10,7 @@ import { findNodeByPath } from '../../utils/nodeUtils'
 import {
     findOwnerActorOrComponentUuidById,
     resolveFunctionReferenceTarget,
+    resolveUseCaseDiagramReferenceUuid,
     resolveUseCaseReferenceUuid,
     resolveSequenceReferenceUuid,
     assertMessageReferencePathInScope,
@@ -63,7 +64,7 @@ function sectionKeyword(kind: 'loop' | 'alt' | 'par' | 'opt'): string {
 }
 
 export type SequenceMessageLink = {
-    kind: 'label' | 'functionRef' | 'useCaseRef' | 'seqDiagramRef'
+    kind: 'label' | 'functionRef' | 'useCaseRef' | 'useCaseDiagramRef' | 'seqDiagramRef'
     renderedLabel: string
     targetUuid?: string
     interfaceUuid?: string
@@ -274,6 +275,36 @@ function emitStatements(
                         renderedLabel: mermaidLabel,
                         targetUuid: ucUuid,
                         clickable: ucUuid != null,
+                    })
+                    out += `${indent}${fromId}${msg.arrow}${toId}: ${renderedLabel}\n`
+                    break
+                }
+                case 'useCaseDiagramRef': {
+                    if (ownerCompUuid) {
+                        assertMessageReferencePathInScope(c.path, root, ownerCompUuid)
+                    }
+                    const ucdId = c.path[c.path.length - 1]
+                    const ucdUuid =
+                        ownerComp && ownerCompUuid
+                            ? resolveUseCaseDiagramReferenceUuid(
+                                  c.path,
+                                  root,
+                                  ownerComp,
+                                  ownerCompUuid
+                              )
+                            : undefined
+                    const ucdNode = ucdUuid ? findNodeByUuid([root], ucdUuid) : null
+                    const baseLabel = c.label ?? ucdNode?.name ?? ucdId
+                    const mermaidLabel = resolveLabel(baseLabel, ucdUuid, labelMap)
+                    const renderedLabel = escapeLabel(mermaidLabel)
+                    if (ucdUuid && !messageLabelToUuid[mermaidLabel]) {
+                        messageLabelToUuid[mermaidLabel] = ucdUuid
+                    }
+                    messageLinks.push({
+                        kind: 'useCaseDiagramRef',
+                        renderedLabel: mermaidLabel,
+                        targetUuid: ucdUuid,
+                        clickable: ucdUuid != null,
                     })
                     out += `${indent}${fromId}${msg.arrow}${toId}: ${renderedLabel}\n`
                     break

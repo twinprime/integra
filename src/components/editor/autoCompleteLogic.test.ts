@@ -256,6 +256,30 @@ describe('buildSuggestions — Sequence: suggestions', () => {
         expect(seqSugg?.label).toBe('Sequence:loginFlow (Login Flow)')
     })
 
+    it('suggests UseCaseDiagram: for local use case diagrams', () => {
+        const seq = makeSeq('seq-uuid', 'loginFlow', 'Login Flow')
+        const uc = makeUc('uc-uuid', 'login', [seq])
+        const owner = makeComp('owner-uuid', 'owner', {
+            useCaseDiagrams: [
+                {
+                    ...makeUcd('checkout-ucd-uuid', [uc]),
+                    id: 'checkoutFlows',
+                    name: 'Checkout Flows',
+                },
+            ],
+        })
+        const root = makeComp('root-uuid', 'root', { subComponents: [owner] })
+
+        const content = 'actor a\ncomponent owner\na ->> owner: UseCaseDiagram:'
+        const ctx = detectContext(content, content.length, 'sequence-diagram')
+        expect(ctx?.type).toBe('function-ref')
+
+        const suggs = buildSuggestions(ctx!, content, owner, root, 'sequence-diagram')
+        const ucdSugg = suggs.find((s) => s.insertText === 'UseCaseDiagram:checkoutFlows')
+        expect(ucdSugg).toBeDefined()
+        expect(ucdSugg?.label).toBe('UseCaseDiagram:checkoutFlows (Checkout Flows)')
+    })
+
     it("suggests Sequence: with absolute path for remote component's sequence diagrams", () => {
         const seq = makeSeq('seq-uuid', 'loginFlow', 'Login Flow')
         const uc = makeUc('uc-uuid', 'login', [seq])
@@ -297,6 +321,9 @@ describe('buildSuggestions — Sequence: suggestions', () => {
         const suggs = buildSuggestions(ctx!, content, owner, root, 'sequence-diagram')
         expect(suggs.find((s) => s.insertText.includes('siblingUseCase'))).toBeDefined()
         expect(suggs.find((s) => s.insertText.includes('siblingFlow'))).toBeDefined()
+        expect(
+            suggs.find((s) => s.insertText.includes('UseCaseDiagram:root/sibling/cousin'))
+        ).toBeDefined()
         expect(suggs.find((s) => s.insertText.includes('cousinUseCase'))).toBeDefined()
         expect(suggs.find((s) => s.insertText.includes('cousinFlow'))).toBeDefined()
     })

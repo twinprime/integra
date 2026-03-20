@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { loadAppWithFixture } from './helpers/app'
 import { makeLocalStorageValueWithEmptySeq } from './fixtures/sample-system'
-import { openEditableTreeItem, saveEditorByBlurring } from './helpers/interactions'
+import { openEditableTreeItem, revealTreeItem, saveEditorByBlurring } from './helpers/interactions'
 
 test.beforeEach(async ({ page }) => {
     await loadAppWithFixture(page, makeLocalStorageValueWithEmptySeq())
@@ -23,7 +23,7 @@ test.describe('auto-create missing path nodes', () => {
         await saveEditorByBlurring(page)
 
         // Assert "NewModule" appears as a tree item.
-        await expect(page.getByRole('treeitem').filter({ hasText: 'NewModule' })).toBeVisible()
+        await expect(await revealTreeItem(page, 'NewModule')).toBeVisible()
     })
 
     test('typing an actor path reference auto-creates the actor under the target component', async ({
@@ -44,6 +44,6 @@ test.describe('auto-create missing path nodes', () => {
         await saveEditorByBlurring(page)
 
         // "AdminUser" actor should appear in the tree under AuthService
-        await expect(page.getByRole('treeitem').filter({ hasText: 'AdminUser' })).toBeVisible()
+        await expect(await revealTreeItem(page, 'AdminUser')).toBeVisible()
     })
 })

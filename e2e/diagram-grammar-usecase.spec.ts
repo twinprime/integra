@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
+import { selectTreeItem } from './helpers/interactions'
 import { makeLocalStorageValue } from './fixtures/sample-system'
 
 const diagramSelector = '[data-testid="diagram-svg-container"]'
@@ -30,7 +31,7 @@ async function loadFixture(page: Page, value: string): Promise<void> {
 }
 
 async function openUseCaseEditor(page: Page): Promise<Locator> {
-    await page.getByRole('treeitem').filter({ hasText: 'Main Use Cases' }).first().click()
+    await selectTreeItem(page, 'Main Use Cases')
     await page.getByLabel('Diagram specification — click to edit').click()
     const editor = page.locator('.cm-content[contenteditable="true"]')
     await expect(editor).toBeVisible()
@@ -83,7 +84,7 @@ test.describe('use-case diagram grammar coverage', () => {
             'AuthService'
         )
 
-        await page.getByRole('treeitem').filter({ hasText: 'Main Use Cases' }).first().click()
+        await selectTreeItem(page, 'Main Use Cases')
         await page.locator(`${diagramSelector} svg`).waitFor()
 
         await page.locator(diagramSelector).getByText('OrderService').click()

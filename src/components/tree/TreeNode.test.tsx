@@ -156,4 +156,11 @@ describe('TreeNode', () => {
 
         expect(screen.queryByLabelText('Show TODOs for Root Component')).not.toBeInTheDocument()
     })
+
+    it('starts descendant nodes collapsed by default', () => {
+        render(<TreeNode node={makeComponentNode()} onContextMenu={vi.fn()} depth={1} />)
+
+        expect(screen.getByText('Root Component')).toBeInTheDocument()
+        expect(screen.queryByText('Child Component')).not.toBeInTheDocument()
+    })
 })

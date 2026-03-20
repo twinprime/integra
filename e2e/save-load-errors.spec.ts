@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { selectTreeItem } from './helpers/interactions'
 import { makeLocalStorageValue } from './fixtures/sample-system'
 
 const SAVE_FAILURE_MOCK_SCRIPT = `
@@ -54,7 +55,7 @@ test.beforeEach(async ({ page }) => {
 test('save failure shows an alert and keeps the model marked as unsaved', async ({ page }) => {
     await page.goto('/')
 
-    await page.getByRole('treeitem').filter({ hasText: 'Login' }).first().click()
+    await selectTreeItem(page, 'Login')
     const idInput = page.getByLabel('Node ID')
     await idInput.clear()
     await idInput.fill('SignIn')

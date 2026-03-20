@@ -5,6 +5,7 @@
  */
 import { test, expect } from '@playwright/test'
 import { makeLocalStorageValue, makeLocalStorageValueWithSeqRef } from './fixtures/sample-system'
+import { selectTreeItem } from './helpers/interactions'
 
 test.describe('renaming a node updates UseCase: and Sequence: refs in diagram content', () => {
     test('renaming a use-case node updates UseCase: path in referencing sequence diagram', async ({
@@ -17,11 +18,7 @@ test.describe('renaming a node updates UseCase: and Sequence: refs in diagram co
 
         // The LoginFlow seq diagram has: User ->> OrderService: UseCase:OrderService/PlaceOrder:Place an order
         // Rename PlaceOrder -> CheckOut
-        await page
-            .getByRole('treeitem')
-            .filter({ hasText: /^Place Order$/ })
-            .first()
-            .click()
+        await selectTreeItem(page, /^Place Order$/)
         const idInput = page.getByLabel('Node ID')
         await expect(idInput).toHaveValue('PlaceOrder')
         await idInput.clear()
@@ -29,7 +26,7 @@ test.describe('renaming a node updates UseCase: and Sequence: refs in diagram co
         await idInput.press('Enter')
 
         // Navigate to Login Flow sequence diagram
-        await page.getByRole('treeitem').filter({ hasText: 'Login Flow' }).click()
+        await selectTreeItem(page, 'Login Flow')
         const specEditor = page.getByLabel('Specification')
         // The UseCase: path should be updated
         await expect(specEditor).toContainText('UseCase:OrderService/CheckOut')
@@ -48,7 +45,7 @@ test.describe('renaming a node updates UseCase: and Sequence: refs in diagram co
 
         // Main Flow diagram has: User ->> AuthService: Sequence:LoginFlow
         // Rename LoginFlow -> AuthFlow
-        await page.getByRole('treeitem').filter({ hasText: 'Login Flow' }).first().click()
+        await selectTreeItem(page, 'Login Flow')
         const idInput = page.getByLabel('Node ID')
         await expect(idInput).toHaveValue('LoginFlow')
         await idInput.clear()
@@ -56,7 +53,7 @@ test.describe('renaming a node updates UseCase: and Sequence: refs in diagram co
         await idInput.press('Enter')
 
         // Navigate to Main Flow (the diagram that references LoginFlow)
-        await page.getByRole('treeitem').filter({ hasText: 'Main Flow' }).first().click()
+        await selectTreeItem(page, 'Main Flow')
         const specEditor = page.getByLabel('Specification')
         // The Sequence: path should be updated
         await expect(specEditor).toContainText('Sequence:AuthFlow')

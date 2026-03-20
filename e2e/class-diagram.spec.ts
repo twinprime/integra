@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { selectTreeItem } from './helpers/interactions'
 import {
     makeLocalStorageValue,
     makeLocalStorageValueWithBlockOnlyCall,
@@ -95,12 +96,10 @@ test.describe('component class diagram', () => {
         await page.goto('/')
     })
 
-    runClassDiagramTests((page) =>
-        page.getByRole('treeitem').filter({ hasText: 'AuthService' }).first().click()
-    )
+    runClassDiagramTests((page) => selectTreeItem(page, 'AuthService'))
 
     test('toggles generated interfaces on and off', async ({ page }) => {
-        await page.getByRole('treeitem').filter({ hasText: 'AuthService' }).first().click()
+        await selectTreeItem(page, 'AuthService')
 
         const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
         await svgContainer.waitFor({ timeout: 5000 })
@@ -133,9 +132,7 @@ test.describe('use case class diagram', () => {
         await page.goto('/')
     })
 
-    runClassDiagramTests((page) =>
-        page.getByRole('treeitem').filter({ hasText: 'Login' }).first().click()
-    )
+    runClassDiagramTests((page) => selectTreeItem(page, 'Login'))
 })
 
 test.describe('use-case-diagram visualization views', () => {
@@ -150,7 +147,7 @@ test.describe('use-case-diagram visualization views', () => {
     test('switches between the authored use-case diagram and generated class diagram', async ({
         page,
     }) => {
-        await page.getByRole('treeitem').filter({ hasText: 'Main Use Cases' }).first().click()
+        await selectTreeItem(page, 'Main Use Cases')
 
         const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
         await svgContainer.waitFor({ timeout: 5000 })
@@ -192,20 +189,10 @@ test.describe('root class diagram', () => {
         await page.goto('/')
     })
 
-    runClassDiagramTests((page) =>
-        page
-            .getByRole('treeitem')
-            .filter({ hasText: /^System$/ })
-            .first()
-            .click()
-    )
+    runClassDiagramTests((page) => selectTreeItem(page, /^System$/))
 
     test('shows direct child components and referenced interface content', async ({ page }) => {
-        await page
-            .getByRole('treeitem')
-            .filter({ hasText: /^System$/ })
-            .first()
-            .click()
+        await selectTreeItem(page, /^System$/)
 
         const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
         await svgContainer.waitFor({ timeout: 5000 })
@@ -227,7 +214,7 @@ test.describe('component class diagram — block message support', () => {
         }, lsValue)
         await page.goto('/')
 
-        await page.getByRole('treeitem').filter({ hasText: 'AuthService' }).first().click()
+        await selectTreeItem(page, 'AuthService')
 
         const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
         await svgContainer.waitFor({ timeout: 5000 })
@@ -250,7 +237,7 @@ test.describe('component class diagram — dependency arrows', () => {
         }, lsValue)
         await page.goto('/')
 
-        await page.getByRole('treeitem').filter({ hasText: 'AuthService' }).first().click()
+        await selectTreeItem(page, 'AuthService')
 
         const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
         await svgContainer.waitFor({ timeout: 5000 })
@@ -264,7 +251,7 @@ test.describe('component class diagram — dependency arrows', () => {
         page,
     }) => {
         await loadAppWithFixture(page, makeLocalStorageValueWithDependency())
-        await page.getByRole('treeitem').filter({ hasText: 'AuthService' }).first().click()
+        await selectTreeItem(page, 'AuthService')
 
         const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
         await svgContainer.waitFor({ timeout: 5000 })
@@ -284,7 +271,7 @@ test.describe('component class diagram — dependency arrows', () => {
         }, lsValue)
         await page.goto('/')
 
-        await page.getByRole('treeitem').filter({ hasText: 'AuthService' }).first().click()
+        await selectTreeItem(page, 'AuthService')
 
         await expect(page.getByText('No interfaces defined for this component')).not.toBeVisible()
 
@@ -298,7 +285,7 @@ test.describe('component class diagram — dependency arrows', () => {
 
     test('preserves manual zoom when hovering a dependency link', async ({ page }) => {
         await loadAppWithFixture(page, makeLocalStorageValueWithDependency())
-        await page.getByRole('treeitem').filter({ hasText: 'AuthService' }).first().click()
+        await selectTreeItem(page, 'AuthService')
 
         const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
         await svgContainer.waitFor({ timeout: 5000 })
@@ -328,7 +315,7 @@ test.describe('component class diagram — dependency arrows', () => {
         page,
     }) => {
         await loadAppWithFixture(page, makeLocalStorageValueWithDependency())
-        await page.getByRole('treeitem').filter({ hasText: 'AuthService' }).first().click()
+        await selectTreeItem(page, 'AuthService')
 
         const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
         await svgContainer.waitFor({ timeout: 5000 })
@@ -343,7 +330,7 @@ test.describe('component class diagram — dependency arrows', () => {
 test.describe('component class diagram — inherited interface rendering', () => {
     test('renders inherited interfaces with parent functions', async ({ page }) => {
         await loadAppWithFixture(page, makeLocalStorageValueWithInheritance())
-        await page.getByRole('treeitem').filter({ hasText: 'AuthService' }).first().click()
+        await selectTreeItem(page, 'AuthService')
 
         const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
         await svgContainer.waitFor({ timeout: 5000 })
@@ -494,11 +481,7 @@ test.describe('component class diagram — scoped sibling visibility', () => {
         page,
     }) => {
         await loadAppWithFixture(page, makeScopedClassDiagramFixture())
-        await page
-            .getByRole('treeitem')
-            .filter({ hasText: /^compA$/ })
-            .first()
-            .click()
+        await selectTreeItem(page, /^compA$/)
 
         const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
         await svgContainer.waitFor({ timeout: 5000 })

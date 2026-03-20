@@ -39,7 +39,7 @@ As you write sequence diagrams, Integra automatically derives:
 - **Use cases** listed under their use case diagram
 - **Visualization panel view switcher** — node types can expose multiple renderable diagram views in the bottom panel; the panel shows a switcher when more than one view is available and resets to that node type's default view when you change tree selection
 - **Generated class diagrams** — root, component, use-case-diagram, and use-case views now follow the same generation rules:
-  - Input comes from all sequence diagrams owned under the selected node's owner boundary plus all transitively referenced `Sequence:` and `UseCase:` targets
+  - Input comes from all sequence diagrams owned under the selected node's owner boundary plus all transitively referenced `Sequence:`, `UseCase:`, and `UseCaseDiagram:` targets
   - Visible classes are limited to components that are direct children of the owner component, components that are in README **Reference Scope** for that owner component, and the selected component itself when the selected node is a component
   - Interfaces are shown only for the visible components; if a visible component interface is used, only the called methods are listed, otherwise the full interface is shown
   - Dependencies to or from out-of-scope descendants are folded up to the closest ancestor component that is still visible in scope
@@ -47,7 +47,7 @@ As you write sequence diagrams, Integra automatically derives:
   - In component class diagrams, the selected component and its interfaces are styled as the default subject
   - Single-click a class node to focus/filter the diagram to that component, its interfaces, and directly linked classes; single-click it again to clear the filter; double-click to navigate to the node in the tree
 
-Navigate the tree to inspect generated nodes. In generated class diagrams, single-clicking a class focuses the diagram around that component; double-clicking navigates to that node in the tree. Hovering a dependency link shows the dependency source and target names plus the sequence diagrams that derived that dependency; clicking a multi-source dependency keeps that popup available for selection, while clicking a single-source dependency navigates directly to that sequence diagram. Hovering an implementation link shows the component and interface names for that relationship, and clicking it pins the popup for inspection. Orphaned nodes (no longer referenced by any diagram) show a delete button on hover.
+Navigate the tree to inspect generated nodes. On initial load, only the root node starts expanded; descendants stay collapsed until you expand them or selection/navigation auto-reveals them. In generated class diagrams, single-clicking a class focuses the diagram around that component; double-clicking navigates to that node in the tree. Hovering a dependency link shows the dependency source and target names plus the sequence diagrams that derived that dependency; clicking a multi-source dependency keeps that popup available for selection, while clicking a single-source dependency navigates directly to that sequence diagram. Hovering an implementation link shows the component and interface names for that relationship, and clicking it pins the popup for inspection. Orphaned nodes (no longer referenced by any diagram) show a delete button on hover.
 
 ### Editor Features
 
@@ -57,6 +57,7 @@ The diagram spec editor provides context-aware suggestions as you type:
 - **Participants**: suggest known actors and components when typing after `actor`, `component`, or `from`; descendants of the owning component are suggested with a **relative path** (e.g. `grandchild` or `child/grandchild`), while cross-tree references use an **absolute path** with an alias (e.g. `root/services/auth as auth`)
 - **Message receivers**: suggest participants when typing the receiver in a message line
 - **UseCase targets**: suggest use case IDs after `UseCase:` in a message label; for use cases in other components the suggestion includes the full path (e.g. `UseCase:orders/placeOrder`)
+- **UseCaseDiagram targets**: suggest use case diagram IDs after `UseCaseDiagram:` in a message label; for diagrams in other components the suggestion includes the full path
 
 Suggestions appear automatically as you type. They reflect nodes already defined in the current component (local-first ordering). Accept with `Enter`, dismiss with `Escape`.
 
@@ -216,6 +217,8 @@ orderSvc ->> paymentSvc: PaymentsAPI:charge(orderId: string, amount: number, cur
 orderSvc ->> customer: UseCase:orderConfirmed
 orderSvc ->> customer: UseCase:orderService/orderConfirmed
 orderSvc ->> customer: UseCase:root/orders/orderConfirmed:Order confirmed
+orderSvc ->> customer: UseCaseDiagram:orderingFlows
+orderSvc ->> customer: UseCaseDiagram:root/orders/orderingFlows:Ordering flows
 orderSvc ->> customer: Sequence:orderConfirmedFlow
 orderSvc ->> customer: Sequence:auth/loginFlow:Log In
 
@@ -239,6 +242,9 @@ note over orderSvc, paymentSvc: payment handshake
 | `sender ->> receiver: UseCase:comp/useCaseId` | Use case reference by path (relative or absolute) |
 | `sender ->> receiver: UseCase:useCaseId:label` | Use case reference with a custom display label |
 | `sender ->> receiver: UseCase:comp/useCaseId:label` | Use case path reference with a custom label |
+| `sender ->> receiver: UseCaseDiagram:diagramId` | Use case diagram reference (expands to all sequence diagrams under its use cases) |
+| `sender ->> receiver: UseCaseDiagram:comp/diagramId` | Use case diagram reference by path |
+| `sender ->> receiver: UseCaseDiagram:diagramId:label` | Use case diagram reference with a custom display label |
 | `sender ->> receiver: Sequence:seqDiagramId` | Sequence diagram reference (local — receiver's component) |
 | `sender ->> receiver: Sequence:comp/seqDiagramId` | Sequence diagram reference by path |
 | `sender ->> receiver: Sequence:seqDiagramId:label` | Sequence diagram reference with a custom display label |
@@ -302,7 +308,7 @@ end
 
 - `else` sections apply only to `alt` blocks; `and` sections apply only to `par` blocks; `opt` has no sections.
 - `end`, `else`, `and`, and `opt` are reserved keywords and cannot be used as participant IDs.
-- `UseCase:` and `Sequence:` path targets are not scope-restricted today. Only component path references follow the component-scope rules.
+- `UseCase:`, `UseCaseDiagram:`, and `Sequence:` path targets are not scope-restricted today. Only component path references follow the component-scope rules.
 
 **Function call message format:** `sender ->> receiver: InterfaceId:functionId(param: type, param2: type?)`
 - Parameter types default to `any` if omitted
@@ -367,7 +373,7 @@ Referencing an out-of-scope path causes a parse error and the diagram spec is no
 
 For sequence diagrams, these scope rules apply to **component references** (for example, multi-segment participant declarations such as `component root/service/db`).
 
-Message labels that use `UseCase:...` or `Sequence:...` do **not** have scope restrictions today. Their scoping logic is intentionally encapsulated in code so rules can be added later without rewiring all call sites.
+Message labels that use `UseCase:...`, `UseCaseDiagram:...`, or `Sequence:...` do **not** have scope restrictions today. Their scoping logic is intentionally encapsulated in code so rules can be added later without rewiring all call sites.
 
 ---
 

@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
+import { selectTreeItem } from './helpers/interactions'
 import { makeLocalStorageValueWithEmptySeq } from './fixtures/sample-system'
 
 const diagramSelector = '[data-testid="diagram-svg-container"]'
@@ -48,7 +49,7 @@ async function loadFixture(page: Page, value: string): Promise<void> {
 }
 
 async function openEmptySequenceEditor(page: Page): Promise<Locator> {
-    await page.getByRole('treeitem').filter({ hasText: 'New Flow' }).first().click()
+    await selectTreeItem(page, 'New Flow')
     const editor = page.locator('.cm-content[contenteditable="true"]')
     await expect(editor).toBeVisible()
     return editor

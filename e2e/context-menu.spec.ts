@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { makeLocalStorageValue } from './fixtures/sample-system'
+import { revealTreeItem, selectTreeItem } from './helpers/interactions'
 
 test.beforeEach(async ({ page }) => {
     const lsValue = makeLocalStorageValue()
@@ -86,11 +87,7 @@ test.describe('context menu', () => {
         await page.keyboard.press('Escape')
 
         // Use-case node: only "Add Sequence Diagram"
-        await page
-            .getByRole('treeitem')
-            .filter({ hasText: /^Login$/ })
-            .first()
-            .click({ button: 'right' })
+        await (await revealTreeItem(page, /^Login$/)).click({ button: 'right' })
 
         await expect(page.getByRole('button', { name: 'Add Sequence Diagram' })).toBeVisible()
         await expect(page.getByRole('button', { name: 'Add Sub-component' })).not.toBeVisible()
@@ -99,11 +96,8 @@ test.describe('context menu', () => {
         await page.keyboard.press('Escape')
 
         // Actor node: right-click produces no context menu (computeMenuItems returns [])
-        await page
-            .getByRole('treeitem')
-            .filter({ hasText: /^User$/ })
-            .first()
-            .click({ button: 'right' })
+        await selectTreeItem(page, /^System$/)
+        await (await revealTreeItem(page, /^User$/)).click({ button: 'right' })
 
         await expect(page.getByRole('button', { name: 'Add Sub-component' })).not.toBeVisible()
         await expect(page.getByRole('button', { name: 'Add Sequence Diagram' })).not.toBeVisible()

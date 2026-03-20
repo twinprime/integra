@@ -22,11 +22,13 @@ interface TreeNodeProps {
     node: Node
     onContextMenu: (e: React.MouseEvent, node: Node) => void
     parent?: ComponentNode
+    depth?: number
 }
 
 interface SortableChildrenProps {
     items: ReadonlyArray<Node>
     onContextMenu: (e: React.MouseEvent, node: Node) => void
+    depth: number
 }
 
 function getTreeNodeChildren(node: Node): ReadonlyArray<Node> {
@@ -49,16 +51,16 @@ function subtreeContainsNode(node: Node, targetUuid: string | null): boolean {
 }
 
 /** Renders a SortableContext group of TreeNodes. Must be placed inside a DndContext. */
-const SortableChildren = ({ items, onContextMenu }: SortableChildrenProps) => (
+const SortableChildren = ({ items, onContextMenu, depth }: SortableChildrenProps) => (
     <SortableContext items={items.map((n) => n.uuid)} strategy={verticalListSortingStrategy}>
         {items.map((child) => (
-            <TreeNode key={child.uuid} node={child} onContextMenu={onContextMenu} />
+            <TreeNode key={child.uuid} node={child} onContextMenu={onContextMenu} depth={depth} />
         ))}
     </SortableContext>
 )
 
-export const TreeNode = memo(({ node, onContextMenu }: TreeNodeProps) => {
-    const [expanded, setExpanded] = useState(true)
+export const TreeNode = memo(({ node, onContextMenu, depth = 0 }: TreeNodeProps) => {
+    const [expanded, setExpanded] = useState(depth === 0)
     const [hovered, setHovered] = useState(false)
     const [todoPopupPosition, setTodoPopupPosition] = useState<{ x: number; y: number } | null>(
         null
@@ -172,15 +174,21 @@ export const TreeNode = memo(({ node, onContextMenu }: TreeNodeProps) => {
                         <SortableChildren
                             items={node.subComponents}
                             onContextMenu={onContextMenu}
+                            depth={depth + 1}
                         />
                     )}
                     {node.actors.length > 0 && (
-                        <SortableChildren items={node.actors} onContextMenu={onContextMenu} />
+                        <SortableChildren
+                            items={node.actors}
+                            onContextMenu={onContextMenu}
+                            depth={depth + 1}
+                        />
                     )}
                     {node.useCaseDiagrams.length > 0 && (
                         <SortableChildren
                             items={node.useCaseDiagrams}
                             onContextMenu={onContextMenu}
+                            depth={depth + 1}
                         />
                     )}
                 </DndContext>
@@ -193,7 +201,11 @@ export const TreeNode = memo(({ node, onContextMenu }: TreeNodeProps) => {
                     collisionDetection={closestCenter}
                     onDragEnd={handleDragEnd}
                 >
-                    <SortableChildren items={node.useCases} onContextMenu={onContextMenu} />
+                    <SortableChildren
+                        items={node.useCases}
+                        onContextMenu={onContextMenu}
+                        depth={depth + 1}
+                    />
                 </DndContext>
             )
         }
@@ -204,7 +216,11 @@ export const TreeNode = memo(({ node, onContextMenu }: TreeNodeProps) => {
                     collisionDetection={closestCenter}
                     onDragEnd={handleDragEnd}
                 >
-                    <SortableChildren items={node.sequenceDiagrams} onContextMenu={onContextMenu} />
+                    <SortableChildren
+                        items={node.sequenceDiagrams}
+                        onContextMenu={onContextMenu}
+                        depth={depth + 1}
+                    />
                 </DndContext>
             )
         }

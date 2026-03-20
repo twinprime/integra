@@ -2,9 +2,10 @@
  * Reference and resolver tests for sequence diagrams.
  */
 import { describe, it, expect } from 'vitest'
-import { SeqLexer, UseCaseRef, SequenceRef } from './lexer'
+import { SeqLexer, UseCaseDiagramRef, UseCaseRef, SequenceRef } from './lexer'
 import { parseSequenceDiagram } from './systemUpdater'
 import {
+    resolveUseCaseDiagramReferenceUuid,
     resolveUseCaseReferenceUuid,
     resolveSequenceReferenceUuid,
 } from '../../utils/diagramResolvers'
@@ -89,6 +90,68 @@ describe('UseCaseRef — visitor (SeqMessage.useCaseRef)', () => {
         const { ast } = parse('actor a\ncomponent b\na ->> b: hello world')
         expect(ast.messages[0].content.kind).not.toBe('useCaseRef')
         expect((ast.messages[0].content as { text: string }).text).toBe('hello world')
+    })
+})
+
+describe('UseCaseDiagramRef — lexer', () => {
+    it('tokenises local UseCaseDiagram reference (no slash)', () => {
+        const result = SeqLexer.tokenize(
+            'actor sender\nsender ->> receiver: UseCaseDiagram:checkoutFlows'
+        )
+        const ucdToks = result.tokens.filter((t) => t.tokenType === UseCaseDiagramRef)
+        expect(ucdToks).toHaveLength(1)
+        expect(ucdToks[0].image).toBe('UseCaseDiagram:checkoutFlows')
+    })
+
+    it('tokenises path UseCaseDiagram reference (with slashes)', () => {
+        const result = SeqLexer.tokenize(
+            'actor sender\nsender ->> receiver: UseCaseDiagram:root/orders/checkoutFlows'
+        )
+        const ucdToks = result.tokens.filter((t) => t.tokenType === UseCaseDiagramRef)
+        expect(ucdToks).toHaveLength(1)
+        expect(ucdToks[0].image).toBe('UseCaseDiagram:root/orders/checkoutFlows')
+    })
+
+    it('tokenises UseCaseDiagram reference with custom label', () => {
+        const result = SeqLexer.tokenize(
+            'actor sender\nsender ->> receiver: UseCaseDiagram:checkoutFlows:Checkout flows'
+        )
+        const ucdToks = result.tokens.filter((t) => t.tokenType === UseCaseDiagramRef)
+        expect(ucdToks).toHaveLength(1)
+        expect(ucdToks[0].image).toBe('UseCaseDiagram:checkoutFlows:Checkout flows')
+    })
+})
+
+describe('UseCaseDiagramRef — visitor (SeqMessage.useCaseDiagramRef)', () => {
+    it('populates useCaseDiagramRef for local reference', () => {
+        const { ast } = parse('actor a\ncomponent b\na ->> b: UseCaseDiagram:checkoutFlows')
+        expect(ast.messages[0].content).toEqual({
+            kind: 'useCaseDiagramRef',
+            path: ['checkoutFlows'],
+            label: null,
+        })
+    })
+
+    it('populates useCaseDiagramRef for path reference', () => {
+        const { ast } = parse(
+            'actor a\ncomponent b\na ->> b: UseCaseDiagram:root/orders/checkoutFlows'
+        )
+        expect(ast.messages[0].content).toEqual({
+            kind: 'useCaseDiagramRef',
+            path: ['root', 'orders', 'checkoutFlows'],
+            label: null,
+        })
+    })
+
+    it('populates useCaseDiagramRef with custom label', () => {
+        const { ast } = parse(
+            'actor a\ncomponent b\na ->> b: UseCaseDiagram:checkoutFlows:Checkout flows'
+        )
+        expect(ast.messages[0].content).toEqual({
+            kind: 'useCaseDiagramRef',
+            path: ['checkoutFlows'],
+            label: 'Checkout flows',
+        })
     })
 })
 
@@ -234,6 +297,56 @@ describe('resolveUseCaseReferenceUuid', () => {
     })
 })
 
+describe('resolveUseCaseDiagramReferenceUuid', () => {
+    const makeUcd = (uuid: string, id: string) => ({
+        uuid,
+        id,
+        name: id,
+        type: 'use-case-diagram' as const,
+        ownerComponentUuid: '',
+        referencedNodeIds: [],
+        content: '',
+        useCases: [],
+    })
+    const makeCompWithUcds = (uuid: string, id: string, diagramIds: string[]): ComponentNode => ({
+        uuid,
+        id,
+        name: id,
+        type: 'component',
+        actors: [],
+        subComponents: [],
+        interfaces: [],
+        useCaseDiagrams: diagramIds.map((diagramId) =>
+            makeUcd(`${uuid}-${diagramId}-uuid`, diagramId)
+        ),
+    })
+
+    it('resolves local use case diagram', () => {
+        const owner = makeCompWithUcds('owner-uuid', 'owner', ['checkoutFlows'])
+        const root = makeNamedComp('root-uuid', 'root', 'root', [owner])
+        const result = resolveUseCaseDiagramReferenceUuid(
+            ['checkoutFlows'],
+            root,
+            owner,
+            'owner-uuid'
+        )
+        expect(result).toBe('owner-uuid-checkoutFlows-uuid')
+    })
+
+    it('resolves use case diagram in another component by path', () => {
+        const orders = makeCompWithUcds('orders-uuid', 'orders', ['checkoutFlows'])
+        const owner = makeNamedComp('owner-uuid', 'owner', 'owner')
+        const root = makeNamedComp('root-uuid', 'root', 'root', [owner, orders])
+        const result = resolveUseCaseDiagramReferenceUuid(
+            ['orders', 'checkoutFlows'],
+            root,
+            owner,
+            'owner-uuid'
+        )
+        expect(result).toBe('orders-uuid-checkoutFlows-uuid')
+    })
+})
+
 describe('parseSequenceDiagram — UseCase referencedNodeIds', () => {
     it('adds local use case UUID to referencedNodeIds via direct AST inspection', () => {
         // We test via the visitor directly: parse AST and verify useCaseRef is populated,
@@ -286,6 +399,74 @@ describe('parseSequenceDiagram — UseCase referencedNodeIds', () => {
         }
         const uuid = resolveUseCaseReferenceUuid(['placeOrder'], root, owner, 'owner-uuid')
         expect(uuid).toBe('uc-uuid')
+    })
+})
+
+describe('parseSequenceDiagram — UseCaseDiagram referencedNodeIds', () => {
+    it('adds target use case diagram UUID to referencedNodeIds when UseCaseDiagram ref is used', () => {
+        const refDiag = {
+            uuid: 'ref-diag-uuid',
+            id: 'refDiag',
+            name: 'Ref Diag',
+            type: 'sequence-diagram' as const,
+            ownerComponentUuid: 'owner-uuid',
+            referencedNodeIds: [],
+            referencedFunctionUuids: [],
+            content: '',
+        }
+        const owner: ComponentNode = {
+            uuid: 'owner-uuid',
+            id: 'owner',
+            name: 'owner',
+            type: 'component',
+            actors: [],
+            subComponents: [],
+            interfaces: [],
+            useCaseDiagrams: [
+                {
+                    uuid: 'checkout-flows-uuid',
+                    id: 'checkoutFlows',
+                    name: 'Checkout Flows',
+                    type: 'use-case-diagram',
+                    ownerComponentUuid: 'owner-uuid',
+                    referencedNodeIds: [],
+                    content: '',
+                    useCases: [
+                        {
+                            uuid: 'uc-uuid',
+                            id: 'login',
+                            name: 'login',
+                            type: 'use-case',
+                            sequenceDiagrams: [refDiag],
+                        },
+                    ],
+                },
+            ],
+        }
+        const root: ComponentNode = {
+            uuid: 'root-uuid',
+            id: 'root',
+            name: 'root',
+            type: 'component',
+            actors: [],
+            subComponents: [owner],
+            interfaces: [],
+            useCaseDiagrams: [],
+        }
+
+        const updatedRoot = parseSequenceDiagram(
+            'actor a\na ->> a: UseCaseDiagram:checkoutFlows',
+            root,
+            'owner-uuid',
+            'ref-diag-uuid'
+        )
+
+        const updatedDiag =
+            updatedRoot.subComponents[0].useCaseDiagrams[0].useCases[0].sequenceDiagrams.find(
+                (s) => s.uuid === 'ref-diag-uuid'
+            )
+        expect(updatedDiag).toBeDefined()
+        expect(updatedDiag!.referencedNodeIds).toContain('checkout-flows-uuid')
     })
 })
 

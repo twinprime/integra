@@ -24,6 +24,14 @@ export function findOwnerUseCaseUuidById(ownerComp: ComponentNode, id: string): 
     return undefined
 }
 
+export function findOwnerUseCaseDiagramUuidById(
+    ownerComp: ComponentNode,
+    id: string
+): string | undefined {
+    const diagram = ownerComp.useCaseDiagrams?.find((candidate) => candidate.id === id)
+    return diagram?.uuid
+}
+
 export function resolveDiagramDeclarationUuid(
     keyword: string,
     id: string,
@@ -383,6 +391,25 @@ export function resolveUseCaseReferenceUuid(
         ownerComp,
         ownerCompUuid,
         findOwnerUseCaseUuidById,
+        isMessageReferenceTargetComponentInScope
+    )
+}
+
+/**
+ * Resolves a `UseCaseDiagram:<path>` reference to a use case diagram UUID.
+ */
+export function resolveUseCaseDiagramReferenceUuid(
+    path: string[],
+    root: ComponentNode,
+    ownerComp: ComponentNode,
+    ownerCompUuid: string
+): string | undefined {
+    return resolveOwnerScopedReferenceUuid(
+        path,
+        root,
+        ownerComp,
+        ownerCompUuid,
+        findOwnerUseCaseDiagramUuidById,
         isMessageReferenceTargetComponentInScope
     )
 }

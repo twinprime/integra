@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { selectTreeItem } from './helpers/interactions'
 import { makeLocalStorageValue } from './fixtures/sample-system'
 
 test.describe('spec editor cursor behaviour', () => {
@@ -8,7 +9,7 @@ test.describe('spec editor cursor behaviour', () => {
         }, makeLocalStorageValue())
         await page.goto('/')
         // Open a sequence diagram — editor starts in preview (readonly) mode
-        await page.getByRole('treeitem').filter({ hasText: 'Login Flow' }).first().click()
+        await selectTreeItem(page, 'Login Flow')
         await page.locator('[data-testid="cm-editor-container"]').waitFor()
     })
 

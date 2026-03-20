@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { selectTreeItem } from './helpers/interactions'
 import { makeLocalStorageValue } from './fixtures/sample-system'
 
 test.beforeEach(async ({ page }) => {
@@ -14,20 +15,16 @@ const forwardBtn = (page: import('@playwright/test').Page) => page.getByTitle('G
 
 test.describe('navigation history', () => {
     test('initial state: Back button is disabled when only one node visited', async ({ page }) => {
-        await page.getByRole('treeitem').filter({ hasText: 'AuthService' }).first().click()
+        await selectTreeItem(page, 'AuthService')
         await expect(backBtn(page)).toBeDisabled()
         await expect(forwardBtn(page)).toBeDisabled()
     })
 
     test('Back button: navigates to previous node', async ({ page }) => {
         // Navigate: System → AuthService → OrderService
-        await page
-            .getByRole('treeitem')
-            .filter({ hasText: /^System$/ })
-            .first()
-            .click()
-        await page.getByRole('treeitem').filter({ hasText: 'AuthService' }).first().click()
-        await page.getByRole('treeitem').filter({ hasText: 'OrderService' }).first().click()
+        await selectTreeItem(page, /^System$/)
+        await selectTreeItem(page, 'AuthService')
+        await selectTreeItem(page, 'OrderService')
 
         // Verify Back is now enabled
         await expect(backBtn(page)).toBeEnabled()
@@ -41,8 +38,8 @@ test.describe('navigation history', () => {
 
     test('Forward button: navigates forward after going back', async ({ page }) => {
         // Navigate: AuthService → OrderService → Back → Forward
-        await page.getByRole('treeitem').filter({ hasText: 'AuthService' }).first().click()
-        await page.getByRole('treeitem').filter({ hasText: 'OrderService' }).first().click()
+        await selectTreeItem(page, 'AuthService')
+        await selectTreeItem(page, 'OrderService')
 
         await backBtn(page).click()
         await expect(
@@ -58,8 +55,8 @@ test.describe('navigation history', () => {
 
     test('Alt+← shortcut: navigates back', async ({ page }) => {
         // Click two nodes; clicking in the tree marks it active for keyboard shortcuts
-        await page.getByRole('treeitem').filter({ hasText: 'AuthService' }).first().click()
-        await page.getByRole('treeitem').filter({ hasText: 'OrderService' }).first().click()
+        await selectTreeItem(page, 'AuthService')
+        await selectTreeItem(page, 'OrderService')
 
         // Press Alt+← to go back
         await page.keyboard.press('Alt+ArrowLeft')
@@ -69,8 +66,8 @@ test.describe('navigation history', () => {
     })
 
     test('Alt+→ shortcut: navigates forward after going back', async ({ page }) => {
-        await page.getByRole('treeitem').filter({ hasText: 'AuthService' }).first().click()
-        await page.getByRole('treeitem').filter({ hasText: 'OrderService' }).first().click()
+        await selectTreeItem(page, 'AuthService')
+        await selectTreeItem(page, 'OrderService')
 
         await page.keyboard.press('Alt+ArrowLeft')
         await expect(
@@ -85,8 +82,8 @@ test.describe('navigation history', () => {
 
     test('Forward stack resets after navigating to a new node', async ({ page }) => {
         // Navigate: AuthService → OrderService → Back (now at AuthService) → User
-        await page.getByRole('treeitem').filter({ hasText: 'AuthService' }).first().click()
-        await page.getByRole('treeitem').filter({ hasText: 'OrderService' }).first().click()
+        await selectTreeItem(page, 'AuthService')
+        await selectTreeItem(page, 'OrderService')
 
         await backBtn(page).click()
         await expect(
@@ -94,11 +91,7 @@ test.describe('navigation history', () => {
         ).toHaveAttribute('aria-selected', 'true')
 
         // Navigate to a new node — forward stack should reset
-        await page
-            .getByRole('treeitem')
-            .filter({ hasText: /^User$/ })
-            .first()
-            .click()
+        await selectTreeItem(page, /^User$/)
         await expect(forwardBtn(page)).toBeDisabled()
     })
 })

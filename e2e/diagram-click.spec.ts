@@ -5,6 +5,7 @@ import {
     makeLocalStorageValueWithSameFunctionDifferentReceivers,
     makeLocalStorageValueWithIfaceAsSecond,
 } from './fixtures/sample-system'
+import { selectTreeItem } from './helpers/interactions'
 
 const diagram = () => '[data-testid="diagram-svg-container"]'
 
@@ -20,8 +21,7 @@ test.beforeEach(async ({ page }) => {
 test.describe('use-case diagram entity clicks', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/')
-        // Select the use-case diagram node in the tree (all nodes start expanded)
-        await page.getByRole('treeitem').filter({ hasText: 'Main Use Cases' }).click()
+        await selectTreeItem(page, 'Main Use Cases')
         // Wait for Mermaid SVG to finish rendering
         await page.locator(`${diagram()} svg`).waitFor()
     })
@@ -46,8 +46,7 @@ test.describe('use-case diagram entity clicks', () => {
 test.describe('sequence diagram entity clicks', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/')
-        // "Login Flow" is nested under Login > Main Use Cases; all nodes start expanded
-        await page.getByRole('treeitem').filter({ hasText: 'Login Flow' }).click()
+        await selectTreeItem(page, 'Login Flow')
         // Wait for Mermaid SVG to finish rendering
         await page.locator(`${diagram()} svg`).waitFor()
     })
@@ -94,7 +93,7 @@ test.describe('sequence diagram entity clicks', () => {
 
 test('clicking diagram entity does not navigate when uuid is unresolvable', async ({ page }) => {
     await page.goto('/')
-    await page.getByRole('treeitem').filter({ hasText: 'Login Flow' }).click()
+    await selectTreeItem(page, 'Login Flow')
     await page.locator(`${diagram()} svg`).waitFor()
 
     // Click a non-navigable area (the SVG background)
@@ -110,7 +109,7 @@ test.describe('spec editor function link navigation', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/')
         // Select the Login Flow sequence diagram to show its spec in the editor
-        await page.getByRole('treeitem').filter({ hasText: 'Login Flow' }).click()
+        await selectTreeItem(page, 'Login Flow')
     })
 
     test('clicking a function link in the spec editor navigates to the interface owner', async ({
@@ -141,7 +140,7 @@ test.describe('spec editor function link navigation', () => {
 test.describe('delete empty interface', () => {
     test.beforeEach(async ({ page }) => {
         await page.goto('/')
-        await page.getByRole('treeitem').filter({ hasText: 'AuthService' }).first().click()
+        await selectTreeItem(page, 'AuthService')
         await page.getByTestId('interface-tab-IEmpty').click()
     })
 
@@ -169,7 +168,7 @@ test.describe('function ref label with \\n line break', () => {
             localStorage.setItem('integra-system', value)
         }, lsValue)
         await page.goto('/')
-        await page.getByRole('treeitem').filter({ hasText: 'Login Flow' }).first().click()
+        await selectTreeItem(page, 'Login Flow')
         await page.locator('[data-testid="diagram-svg-container"] svg').waitFor()
     })
 
@@ -206,7 +205,7 @@ test.describe('numbered suffix for same function on different receivers', () => 
         }, lsValue)
         await page.goto('/')
         // Select the Health Check sequence diagram
-        await page.getByRole('treeitem').filter({ hasText: 'Health Check' }).first().click()
+        await selectTreeItem(page, 'Health Check')
         await page.locator('[data-testid="diagram-svg-container"] svg').waitFor()
     })
 
@@ -250,7 +249,7 @@ test.describe('interface tab activation when target is not the first tab', () =>
             localStorage.setItem('integra-system', value)
         }, lsValue)
         await page.goto('/')
-        await page.getByRole('treeitem').filter({ hasText: 'Login Flow' }).click()
+        await selectTreeItem(page, 'Login Flow')
         await page.locator('[data-testid="diagram-svg-container"] svg').waitFor()
     })
 

@@ -47,6 +47,10 @@ function serializeMessage(msg: SeqMessage): string {
             const labelSuffix = c.label != null ? `:${escapeText(c.label)}` : ''
             return `${base}: ${c.interfaceId}:${c.functionId}(${c.rawParams})${labelSuffix}`
         }
+        case 'useCaseDiagramRef': {
+            const labelStr = c.label != null ? `:${escapeText(c.label)}` : ''
+            return `${base}: UseCaseDiagram:${c.path.join('/')}${labelStr}`
+        }
         case 'useCaseRef': {
             const labelStr = c.label != null ? `:${escapeText(c.label)}` : ''
             return `${base}: UseCase:${c.path.join('/')}${labelStr}`
@@ -147,6 +151,8 @@ function renameMessageContent(
                 functionId: c.functionId === oldId ? newId : c.functionId,
             }
         case 'useCaseRef':
+            return { ...c, path: renamePathSegments(c.path, oldId, newId) }
+        case 'useCaseDiagramRef':
             return { ...c, path: renamePathSegments(c.path, oldId, newId) }
         case 'seqDiagramRef':
             return { ...c, path: renamePathSegments(c.path, oldId, newId) }

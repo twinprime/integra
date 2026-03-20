@@ -39,6 +39,7 @@ import {
 } from '../tokens'
 import {
     FunctionRef,
+    UseCaseDiagramRef,
     UseCaseRef,
     SequenceRef,
     LabelText,
@@ -186,9 +187,10 @@ export class SequenceDiagramParser extends CstParser {
         this.SUBRULE2(this.participantRef)
         this.OPTION(() => {
             this.CONSUME(SeqColon)
-            // After SeqColon the lexer switches to text_mode — FunctionRef, UseCaseRef, or LabelText
+            // After SeqColon the lexer switches to text_mode — FunctionRef, diagram refs, or LabelText
             this.OR([
                 { ALT: () => this.CONSUME(FunctionRef) },
+                { ALT: () => this.CONSUME(UseCaseDiagramRef) },
                 { ALT: () => this.CONSUME(UseCaseRef) },
                 { ALT: () => this.CONSUME(SequenceRef) },
                 { ALT: () => this.CONSUME(LabelText) },
@@ -276,6 +278,7 @@ export {
 } from '../tokens'
 export {
     FunctionRef,
+    UseCaseDiagramRef,
     UseCaseRef,
     LabelText,
     SeqColon,

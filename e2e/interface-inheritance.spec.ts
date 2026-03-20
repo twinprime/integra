@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import { makeLocalStorageValueWithInheritance } from './fixtures/sample-system'
+import { selectTreeItem } from './helpers/interactions'
 
 test.beforeEach(async ({ page }) => {
     await page.addInitScript((value) => {
@@ -10,7 +11,7 @@ test.beforeEach(async ({ page }) => {
 
 test.describe('interface inheritance — warning icons on parent component', () => {
     test.beforeEach(async ({ page }) => {
-        await page.getByRole('treeitem').filter({ hasText: 'System' }).first().click()
+        await selectTreeItem(page, 'System')
         await expect(page.getByTestId('interface-tab-IRootService')).toBeVisible()
     })
 
@@ -30,7 +31,7 @@ test.describe('interface inheritance — warning icons on parent component', () 
 
 test.describe('interface inheritance — inherited interface display on sub-component', () => {
     test.beforeEach(async ({ page }) => {
-        await page.getByRole('treeitem').filter({ hasText: 'AuthService' }).click()
+        await selectTreeItem(page, 'AuthService')
         await expect(page.getByTestId('interface-tab-IAuthDerived')).toBeVisible()
         await page.getByTestId('interface-tab-IAuthDerived').click()
     })
@@ -62,7 +63,7 @@ test.describe('interface inheritance — component-level inherit selector', () =
     test('AuthService shows inherit-parent-select with only un-inherited parent interfaces', async ({
         page,
     }) => {
-        await page.getByRole('treeitem').filter({ hasText: 'AuthService' }).click()
+        await selectTreeItem(page, 'AuthService')
         const select = page.getByTestId('inherit-parent-select')
         await expect(select).toBeVisible()
         // IRootService is already inherited; only IUnimplemented should be listed
@@ -74,7 +75,7 @@ test.describe('interface inheritance — component-level inherit selector', () =
     test('selecting a parent interface from inherit-parent-select creates a new tab', async ({
         page,
     }) => {
-        await page.getByRole('treeitem').filter({ hasText: 'AuthService' }).click()
+        await selectTreeItem(page, 'AuthService')
         const select = page.getByTestId('inherit-parent-select')
         await select.selectOption({ label: 'IUnimplemented' })
         // A new tab for IUnimplemented should appear
@@ -82,7 +83,7 @@ test.describe('interface inheritance — component-level inherit selector', () =
     })
 
     test('root component has no inherit-parent-select (no parent component)', async ({ page }) => {
-        await page.getByRole('treeitem').filter({ hasText: 'System' }).first().click()
+        await selectTreeItem(page, 'System')
         await expect(page.getByTestId('inherit-parent-select')).not.toBeVisible()
     })
 })

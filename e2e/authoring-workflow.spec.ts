@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 import {
     codeMirrorEditor,
     getVisibleCodeMirrorEditor,
+    revealTreeItem,
     saveEditorByBlurring,
     selectTreeItem,
     treeItem,
@@ -90,8 +91,8 @@ async function authorLoginWorkflow(page: Page): Promise<void> {
     await useCaseEditor.type(['actor user', 'use case login', 'user ->> login'].join('\n'))
     await saveEditorByBlurring(page)
 
-    await expect(treeItem(page, /^User$/)).toBeVisible()
-    await expect(treeItem(page, /^Login$/)).toBeVisible()
+    await expect(await revealTreeItem(page, /^User$/)).toBeVisible()
+    await expect(await revealTreeItem(page, /^Login$/)).toBeVisible()
 
     await createNodeFromContextMenu(
         page,
@@ -162,11 +163,11 @@ test.describe('authoring workflows from a clean system', () => {
         await page.waitForTimeout(300)
         await page.reload()
 
-        await expect(treeItem(page, /^Auth Service$/)).toBeVisible()
-        await expect(treeItem(page, /^Session Store$/)).toBeVisible()
-        await expect(treeItem(page, /^User Journeys$/)).toBeVisible()
-        await expect(treeItem(page, /^Login$/)).toBeVisible()
-        await expect(treeItem(page, /^Login Flow$/)).toBeVisible()
+        await expect(await revealTreeItem(page, /^Auth Service$/)).toBeVisible()
+        await expect(await revealTreeItem(page, /^Session Store$/)).toBeVisible()
+        await expect(await revealTreeItem(page, /^User Journeys$/)).toBeVisible()
+        await expect(await revealTreeItem(page, /^Login$/)).toBeVisible()
+        await expect(await revealTreeItem(page, /^Login Flow$/)).toBeVisible()
 
         await selectTreeItem(page, /^Login Flow$/)
         await expect(
