@@ -205,6 +205,22 @@ describe('buildComponentClassDiagram', () => {
         expect(result.relationshipMetadata).toEqual([])
     })
 
+    it('ignores self-messages when computing dependency links', () => {
+        const root = makeRoot([
+            makeSeqDiagram(
+                'self-message',
+                ['component compA', 'compA ->> compA: ISubject:ping()'].join('\n')
+            ),
+        ])
+
+        const result = buildComponentClassDiagram(root.subComponents[0], root)
+
+        expect(result.mermaidContent).toContain('class compA["Component A"]')
+        expect(result.mermaidContent).not.toContain('..>')
+        expect(result.mermaidContent).not.toContain('iface_subject_iface_uuid')
+        expect(result.relationshipMetadata).toEqual([])
+    })
+
     it('uses only sequence diagrams owned under the selected component subtree', () => {
         const root = makeRoot(
             [

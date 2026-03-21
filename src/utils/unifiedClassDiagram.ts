@@ -294,6 +294,14 @@ function buildClassDiagramGraph({
         }
     }
 
+    const interfaceNodeIdsWithDependencies = new Set<string>()
+    for (const edge of edgeMap.values()) {
+        if (edge.kind !== 'dependency') continue
+        if (interfaceNodeMap.has(edge.fromNodeId))
+            interfaceNodeIdsWithDependencies.add(edge.fromNodeId)
+        if (interfaceNodeMap.has(edge.toNodeId)) interfaceNodeIdsWithDependencies.add(edge.toNodeId)
+    }
+
     if (options.showInterfaces) {
         for (const componentNode of componentNodeMap.values()) {
             if (componentNode.kind !== 'component') continue
@@ -301,7 +309,10 @@ function buildClassDiagramGraph({
             if (visibleComponent?.type !== 'component') continue
 
             for (const iface of visibleComponent.interfaces) {
-                const interfaceNode = ensureInterfaceNode(visibleComponent.uuid, iface.id)
+                const interfaceNodeId = getInterfaceDiagramNodeId(iface)
+                if (!interfaceNodeIdsWithDependencies.has(interfaceNodeId)) continue
+
+                const interfaceNode = interfaceNodeMap.get(interfaceNodeId)
                 if (!interfaceNode || interfaceNode.kind !== 'interface') continue
                 const key = `implementation|${componentNode.nodeId}|${interfaceNode.nodeId}`
                 edgeMap.set(key, {
@@ -318,12 +329,14 @@ function buildClassDiagramGraph({
 
     const nodes: ClassDiagramNodeDefinition[] = [
         ...componentNodeMap.values(),
-        ...Array.from(interfaceNodeMap.values(), (node) => ({
-            ...node,
-            calledFunctionIds: interfaceMethodIds.has(node.nodeId)
-                ? Array.from(interfaceMethodIds.get(node.nodeId)!)
-                : undefined,
-        })),
+        ...Array.from(interfaceNodeMap.values())
+            .filter((node) => interfaceNodeIdsWithDependencies.has(node.nodeId))
+            .map((node) => ({
+                ...node,
+                calledFunctionIds: interfaceMethodIds.has(node.nodeId)
+                    ? Array.from(interfaceMethodIds.get(node.nodeId)!)
+                    : undefined,
+            })),
     ]
     const edges = Array.from(edgeMap.values(), (edge) => ({
         kind: edge.kind,

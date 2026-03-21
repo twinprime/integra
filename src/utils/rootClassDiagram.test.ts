@@ -101,6 +101,7 @@ describe('buildRootClassDiagram', () => {
 
         expect(result.mermaidContent).toContain('class sales["Sales"]')
         expect(result.mermaidContent).toContain('class platform["Platform"]')
+        expect(result.mermaidContent).not.toContain('iface_platform_iface_uuid')
         expect(result.idToUuid.sales).toBe('sales-uuid')
         expect(result.idToUuid.platform).toBe('platform-uuid')
     })

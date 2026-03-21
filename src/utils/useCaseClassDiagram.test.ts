@@ -159,6 +159,7 @@ describe('buildUseCaseClassDiagram', () => {
         expect(result.mermaidContent).toContain('class platform["Platform"]')
         expect(result.mermaidContent).not.toContain('class compA["Component A"]')
         expect(result.mermaidContent).not.toContain('class user["User"]')
+        expect(result.mermaidContent).not.toContain('iface_child_iface_uuid')
         expect(result.idToUuid).toEqual({
             childSvc: 'child-uuid',
             platform: 'platform-uuid',

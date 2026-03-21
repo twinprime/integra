@@ -135,6 +135,7 @@ describe('buildUseCaseDiagramClassDiagram', () => {
         expect(result.mermaidContent).toContain('class platform["Platform"]')
         expect(result.mermaidContent).toContain('+handle()')
         expect(result.mermaidContent).not.toContain('class compA["Component A"]')
+        expect(result.mermaidContent).not.toContain('iface_child_iface_uuid')
         expect(result.relationshipMetadata).toContainEqual({
             kind: 'dependency',
             sourceName: 'Child Service',
