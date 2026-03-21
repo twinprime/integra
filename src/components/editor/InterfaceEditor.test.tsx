@@ -106,6 +106,23 @@ function buildInheritedInterface(): ResolvedInterface {
     }
 }
 
+function buildLocalInterface(): ResolvedInterface {
+    return {
+        uuid: 'local-api-iface-uuid',
+        id: 'LocalAPI',
+        name: 'Local API',
+        type: 'rest',
+        kind: 'local',
+        description: '',
+        functions: [],
+        localFunctions: [],
+        inheritedFunctions: [],
+        effectiveFunctions: [],
+        inheritedFrom: null,
+        isDangling: false,
+    }
+}
+
 describe('InterfaceEditor', () => {
     beforeEach(() => {
         vi.clearAllMocks()
@@ -133,5 +150,68 @@ describe('InterfaceEditor', () => {
         const editableInputs = screen.getAllByLabelText('Function ID')
         expect(editableInputs).toHaveLength(1)
         expect(editableInputs[0]).toHaveValue('childOnly')
+    })
+
+    it('shows a simple inherited badge and marks deletable inherited interfaces with strikethrough', () => {
+        render(
+            <InterfaceEditor
+                iface={buildInheritedInterface()}
+                ifaceIdx={0}
+                referencedFunctionUuids={new Set()}
+                siblingInterfaceIds={[]}
+                onInterfaceUpdate={noop}
+                onFunctionUpdate={noop}
+                onDeleteFunction={noop}
+                onFunctionRenameAttempt={noop}
+                onDeleteInterface={noop}
+                onParamDescriptionUpdate={noop}
+            />
+        )
+
+        expect(screen.getByTestId('inherited-badge')).toHaveTextContent('inherited')
+        expect(screen.getByTestId('inherited-badge')).not.toHaveTextContent('inherited from')
+        expect(screen.getByTestId('interface-name')).toHaveClass('line-through')
+        expect(screen.getByTestId('delete-interface-btn')).toBeInTheDocument()
+    })
+
+    it('prevents deleting inherited interfaces with referenced functions', () => {
+        render(
+            <InterfaceEditor
+                iface={buildInheritedInterface()}
+                ifaceIdx={0}
+                referencedFunctionUuids={new Set(['parent-fn-uuid'])}
+                siblingInterfaceIds={[]}
+                onInterfaceUpdate={noop}
+                onFunctionUpdate={noop}
+                onDeleteFunction={noop}
+                onFunctionRenameAttempt={noop}
+                onDeleteInterface={noop}
+                onParamDescriptionUpdate={noop}
+            />
+        )
+
+        expect(screen.getByTestId('inherited-badge')).toHaveTextContent('inherited')
+        expect(screen.getByTestId('interface-name')).not.toHaveClass('line-through')
+        expect(screen.queryByTestId('delete-interface-btn')).not.toBeInTheDocument()
+    })
+
+    it('marks deletable local interfaces with strikethrough', () => {
+        render(
+            <InterfaceEditor
+                iface={buildLocalInterface()}
+                ifaceIdx={0}
+                referencedFunctionUuids={new Set()}
+                siblingInterfaceIds={[]}
+                onInterfaceUpdate={noop}
+                onFunctionUpdate={noop}
+                onDeleteFunction={noop}
+                onFunctionRenameAttempt={noop}
+                onDeleteInterface={noop}
+                onParamDescriptionUpdate={noop}
+            />
+        )
+
+        expect(screen.getByDisplayValue('Local API')).toHaveClass('line-through')
+        expect(screen.getByTestId('delete-interface-btn')).toBeInTheDocument()
     })
 })

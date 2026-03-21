@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest'
 import {
     findConflictingInheritedChildFunctions,
     findInheritedParentFunction,
+    isResolvedInterfaceDeletable,
     resolveEffectiveInterfaceFunctions,
     resolveInterface,
 } from './interfaceFunctions'
@@ -166,6 +167,66 @@ describe('resolveInterface', () => {
         expect(resolved.localFunctions).toEqual([childExtraFn])
         expect(resolved.effectiveFunctions).toEqual([childExtraFn, parentExtraFn, rootFn])
         expect(resolved.inheritedFrom?.uuid).toBe('parent-inherited-iface-uuid')
+    })
+})
+
+describe('isResolvedInterfaceDeletable', () => {
+    it('returns true for local interfaces only when they have no effective functions', () => {
+        const resolved = {
+            uuid: 'local-iface-uuid',
+            id: 'IFace',
+            name: 'IFace',
+            type: 'rest' as const,
+            kind: 'local' as const,
+            functions: [],
+            effectiveFunctions: [],
+            localFunctions: [],
+            inheritedFunctions: [],
+            inheritedFrom: null,
+            isDangling: false,
+        }
+
+        expect(isResolvedInterfaceDeletable(resolved, new Set())).toBe(true)
+        expect(
+            isResolvedInterfaceDeletable(
+                {
+                    ...resolved,
+                    functions: [{ uuid: 'fn-uuid', id: 'call', parameters: [] }],
+                    effectiveFunctions: [{ uuid: 'fn-uuid', id: 'call', parameters: [] }],
+                    localFunctions: [{ uuid: 'fn-uuid', id: 'call', parameters: [] }],
+                },
+                new Set()
+            )
+        ).toBe(false)
+    })
+
+    it('returns false for inherited interfaces when any resolved function is referenced', () => {
+        const resolved = {
+            uuid: 'child-iface-uuid',
+            id: 'IFace',
+            name: 'IFace',
+            type: 'rest' as const,
+            kind: 'inherited' as const,
+            parentInterfaceUuid: 'parent-iface-uuid',
+            functions: [{ uuid: 'child-fn-uuid', id: 'childOnly', parameters: [] }],
+            effectiveFunctions: [
+                { uuid: 'child-fn-uuid', id: 'childOnly', parameters: [] },
+                { uuid: 'parent-fn-uuid', id: 'parentCall', parameters: [] },
+            ],
+            localFunctions: [{ uuid: 'child-fn-uuid', id: 'childOnly', parameters: [] }],
+            inheritedFunctions: [{ uuid: 'parent-fn-uuid', id: 'parentCall', parameters: [] }],
+            inheritedFrom: {
+                uuid: 'parent-iface-uuid',
+                id: 'IFace',
+                name: 'IFace',
+                type: 'rest' as const,
+                functions: [{ uuid: 'parent-fn-uuid', id: 'parentCall', parameters: [] }],
+            },
+            isDangling: false,
+        }
+
+        expect(isResolvedInterfaceDeletable(resolved, new Set())).toBe(true)
+        expect(isResolvedInterfaceDeletable(resolved, new Set(['parent-fn-uuid']))).toBe(false)
     })
 })
 

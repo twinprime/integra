@@ -7,6 +7,7 @@ import { FunctionEditor } from './FunctionEditor'
 import {
     isInheritedInterface,
     isLocalInterface,
+    isResolvedInterfaceDeletable,
     type ResolvedInterface,
 } from '../../utils/interfaceFunctions'
 
@@ -52,6 +53,7 @@ export const InterfaceEditor = ({
 
     const isInherited = isInheritedInterface(iface)
     const isDangling = iface.isDangling
+    const isInterfaceDeletable = isResolvedInterfaceDeletable(iface, referencedFunctionUuids)
 
     const handleIdChange = (value: string) => {
         setLocalId(value)
@@ -79,11 +81,15 @@ export const InterfaceEditor = ({
     }
 
     if (isInherited || isDangling) {
-        const parentName = isInherited ? iface.inheritedFrom?.name || iface.inheritedFrom?.id : null
         return (
             <div className="border border-indigo-800/50 rounded-md bg-gray-900/50 p-3">
                 <div className="flex items-center gap-2 mb-2">
-                    <span className="flex-1 text-sm font-medium text-gray-200">
+                    <span
+                        className={`flex-1 text-sm font-medium text-gray-200 ${
+                            isInterfaceDeletable ? 'line-through' : ''
+                        }`}
+                        data-testid="interface-name"
+                    >
                         {iface.name || iface.id}
                     </span>
                     <span className="text-xs text-gray-500 bg-gray-800 border border-gray-700 rounded px-2 py-0.5">
@@ -93,9 +99,9 @@ export const InterfaceEditor = ({
                         className="text-xs text-indigo-400 bg-indigo-900/30 px-1.5 py-0.5 rounded"
                         data-testid="inherited-badge"
                     >
-                        {isInherited ? `inherited from ${parentName}` : 'inherited (unresolved)'}
+                        inherited
                     </span>
-                    {onDeleteInterface && (
+                    {onDeleteInterface && isInterfaceDeletable && (
                         <button
                             className="p-1 text-gray-500 hover:text-red-400 transition-colors"
                             title="Remove inherited interface"
@@ -191,7 +197,9 @@ export const InterfaceEditor = ({
         <div className="border border-gray-700 rounded-md bg-gray-900/50 p-3">
             <div className="flex items-center gap-2 mb-2">
                 <input
-                    className="flex-1 p-1 text-sm font-medium text-gray-200 bg-transparent border border-transparent rounded hover:border-gray-600 focus:border-blue-400 focus:outline-none"
+                    className={`flex-1 p-1 text-sm font-medium text-gray-200 bg-transparent border border-transparent rounded hover:border-gray-600 focus:border-blue-400 focus:outline-none ${
+                        isInterfaceDeletable ? 'line-through' : ''
+                    }`}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     onBlur={() => {
@@ -214,7 +222,7 @@ export const InterfaceEditor = ({
                         </option>
                     ))}
                 </select>
-                {onDeleteInterface && iface.effectiveFunctions.length === 0 && (
+                {onDeleteInterface && isInterfaceDeletable && (
                     <button
                         className="p-1 text-gray-500 hover:text-red-400 transition-colors"
                         title="Delete interface"

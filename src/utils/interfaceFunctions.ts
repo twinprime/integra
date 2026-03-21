@@ -292,3 +292,12 @@ export function resolveComponentInterfaces(
 ): ReadonlyArray<ResolvedInterface> {
     return ownerComp.interfaces.map((iface) => resolveInterface(iface, ownerComp, rootComponent))
 }
+
+export function isResolvedInterfaceDeletable(
+    iface: ResolvedInterface,
+    referencedFunctionUuids: ReadonlySet<string>
+): boolean {
+    if (isLocalInterface(iface)) return iface.effectiveFunctions.length === 0
+
+    return iface.effectiveFunctions.every((fn) => !referencedFunctionUuids.has(fn.uuid))
+}

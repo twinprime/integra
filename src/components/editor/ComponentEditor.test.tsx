@@ -68,7 +68,11 @@ vi.mock('../../utils/nodeUtils', () => ({
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 import { useSystemStore } from '../../store/useSystemStore'
-import { getNodeAbsolutePath, getNodeAbsolutePathSegments } from '../../utils/nodeUtils'
+import {
+    collectReferencedFunctionUuids,
+    getNodeAbsolutePath,
+    getNodeAbsolutePathSegments,
+} from '../../utils/nodeUtils'
 import { findParentNode } from '../../nodes/nodeTree'
 
 const mockRenameNodeId = vi.fn()
@@ -256,6 +260,17 @@ describe('ComponentEditor', () => {
             })
             render(<ComponentEditor node={node} onUpdate={vi.fn()} />)
             expect(screen.getByText('2')).toBeInTheDocument()
+        })
+
+        it('shows strikethrough in the tab label for deletable interfaces', () => {
+            vi.mocked(collectReferencedFunctionUuids).mockReturnValue(new Set<string>())
+            const node = makeComponentNode({
+                interfaces: [makeInterface('api', 'API', { functions: [] })],
+            })
+
+            render(<ComponentEditor node={node} onUpdate={vi.fn()} />)
+
+            expect(screen.getByTestId('interface-tab-label-api')).toHaveClass('line-through')
         })
 
         it('renders nothing when interfaces list is empty', () => {

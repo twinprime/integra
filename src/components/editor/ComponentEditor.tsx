@@ -15,6 +15,7 @@ import {
     findInheritedParentFunction,
     isInheritedInterface,
     isLocalInterface,
+    isResolvedInterfaceDeletable,
     type InheritedChildFunctionConflict,
     type ResolvedInterface,
 } from '../../utils/interfaceFunctions'
@@ -341,7 +342,19 @@ export const ComponentEditor = ({
                                             : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'
                                     }`}
                                 >
-                                    {iface.name || iface.id}
+                                    <span
+                                        className={
+                                            isResolvedInterfaceDeletable(
+                                                iface,
+                                                referencedFunctionUuids
+                                            )
+                                                ? 'line-through'
+                                                : undefined
+                                        }
+                                        data-testid={`interface-tab-label-${iface.id}`}
+                                    >
+                                        {iface.name || iface.id}
+                                    </span>
                                     {showWarning && (
                                         <span
                                             className="ml-1 text-amber-400"
