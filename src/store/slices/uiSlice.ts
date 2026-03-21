@@ -3,7 +3,10 @@ import type { SystemState } from '../useSystemStore'
 
 const NAV_HISTORY_LIMIT = 50
 
+export type UiMode = 'browse' | 'edit'
+
 export type UiSlice = {
+    uiMode: UiMode
     selectedNodeId: string | null
     activeVisualizationViewId: string | null
     showGeneratedClassDiagramInterfaces: boolean
@@ -14,6 +17,8 @@ export type UiSlice = {
     navForward: string[]
     canNavBack: boolean
     canNavForward: boolean
+    setUiMode: (mode: UiMode) => void
+    toggleUiMode: () => void
     selectNode: (nodeId: string | null) => void
     selectVisualizationView: (viewId: string | null) => void
     setShowGeneratedClassDiagramInterfaces: (show: boolean) => void
@@ -25,6 +30,7 @@ export type UiSlice = {
 }
 
 export const createUiSlice: StateCreator<SystemState, [], [], UiSlice> = (set) => ({
+    uiMode: 'browse',
     selectedNodeId: null,
     activeVisualizationViewId: null,
     showGeneratedClassDiagramInterfaces: true,
@@ -35,6 +41,8 @@ export const createUiSlice: StateCreator<SystemState, [], [], UiSlice> = (set) =
     navForward: [],
     canNavBack: false,
     canNavForward: false,
+    setUiMode: (uiMode) => set({ uiMode }),
+    toggleUiMode: () => set((state) => ({ uiMode: state.uiMode === 'browse' ? 'edit' : 'browse' })),
     selectNode: (nodeId) =>
         set((state) => {
             if (nodeId === state.selectedNodeId) return {}

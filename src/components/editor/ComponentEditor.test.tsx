@@ -336,6 +336,23 @@ describe('ComponentEditor', () => {
             expect(screen.getByText('Parent API')).toBeInTheDocument()
         })
 
+        it('hides the inherit selector in read-only mode', () => {
+            const parentIface = makeInterface('parentApi', 'Parent API')
+            const parentNode = makeComponentNode({
+                uuid: 'parent-uuid',
+                id: 'parent',
+                name: 'Parent',
+                interfaces: [parentIface],
+            })
+            vi.mocked(findParentNode).mockReturnValue(parentNode)
+
+            render(
+                <ComponentEditor node={makeComponentNode()} onUpdate={vi.fn()} readOnly={true} />
+            )
+
+            expect(screen.queryByTestId('inherit-parent-select')).not.toBeInTheDocument()
+        })
+
         it('does not render the inherit selector when all parent interfaces are already inherited', () => {
             const parentIface = makeInterface('parentApi', 'Parent API')
             const parentNode = makeComponentNode({

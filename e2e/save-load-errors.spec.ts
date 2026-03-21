@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { selectTreeItem } from './helpers/interactions'
 import { makeLocalStorageValue } from './fixtures/sample-system'
+import { gotoHome } from './helpers/app'
 
 const SAVE_FAILURE_MOCK_SCRIPT = `
   window.showDirectoryPicker = async function() {
@@ -53,7 +54,7 @@ test.beforeEach(async ({ page }) => {
 })
 
 test('save failure shows an alert and keeps the model marked as unsaved', async ({ page }) => {
-    await page.goto('/')
+    await gotoHome(page)
 
     await selectTreeItem(page, 'Login')
     const idInput = page.getByLabel('Node ID')

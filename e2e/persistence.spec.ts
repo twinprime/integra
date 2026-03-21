@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { selectTreeItem } from './helpers/interactions'
 import { makeLocalStorageValue, sampleSystem } from './fixtures/sample-system'
+import { gotoHome } from './helpers/app'
 
 // ─── 1. State survives reload ─────────────────────────────────────────────────
 
@@ -11,7 +12,7 @@ test('state survives a page reload', async ({ page }) => {
         localStorage.setItem('integra-system', value)
     }, lsValue)
 
-    await page.goto('/')
+    await gotoHome(page)
 
     // Fixture root component and a sub-component should be visible in the tree
     await expect(page.getByRole('treeitem').filter({ hasText: sampleSystem.name })).toBeVisible()
@@ -29,7 +30,7 @@ test('state survives a page reload', async ({ page }) => {
 test('auto-save persists a rename across reload', async ({ page }) => {
     const lsValue = makeLocalStorageValue()
     // Seed via evaluate (not addInitScript) so it only runs once — not on subsequent reloads
-    await page.goto('/')
+    await gotoHome(page)
     await page.evaluate((value) => {
         localStorage.setItem('integra-system', value)
     }, lsValue)
@@ -61,7 +62,7 @@ test('unsaved changes indicator survives a page reload while the model is still 
     page,
 }) => {
     const lsValue = makeLocalStorageValue()
-    await page.goto('/')
+    await gotoHome(page)
     await page.evaluate((value) => {
         localStorage.setItem('integra-system', value)
     }, lsValue)
@@ -88,7 +89,7 @@ test('unsaved changes indicator survives a page reload while the model is still 
 test('clear system resets to default state and clears localStorage', async ({ page }) => {
     const lsValue = makeLocalStorageValue()
     // Seed via evaluate (not addInitScript) so it only runs once — not on subsequent reloads
-    await page.goto('/')
+    await gotoHome(page)
     await page.evaluate((value) => {
         localStorage.setItem('integra-system', value)
     }, lsValue)
@@ -115,7 +116,7 @@ test('clear system resets to default state and clears localStorage', async ({ pa
 
 test('fresh page with no localStorage shows default state without errors', async ({ page }) => {
     // Navigate without setting any localStorage — browser starts clean
-    await page.goto('/')
+    await gotoHome(page)
 
     // Default initial root component should be visible
     await expect(page.getByRole('treeitem').filter({ hasText: 'My System' })).toBeVisible()

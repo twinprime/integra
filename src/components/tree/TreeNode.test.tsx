@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import type { ComponentNode } from '../../store/types'
 import { TreeNode } from './TreeNode'
 import type { SystemState } from '../../store/useSystemStore'
+import { isNodeOrphaned } from '../../utils/nodeUtils'
 
 vi.mock('../../store/useSystemStore', () => ({
     useSystemStore: vi.fn(),
@@ -162,5 +163,23 @@ describe('TreeNode', () => {
 
         expect(screen.getByText('Root Component')).toBeInTheDocument()
         expect(screen.queryByText('Child Component')).not.toBeInTheDocument()
+    })
+
+    it('suppresses mutation affordances in read-only mode', async () => {
+        const user = userEvent.setup()
+        const onContextMenu = vi.fn()
+        vi.mocked(isNodeOrphaned).mockReturnValue(true)
+
+        render(
+            <TreeNode node={makeComponentNode()} onContextMenu={onContextMenu} readOnly={true} />
+        )
+
+        const row = screen.getByText('Root Component').closest('[role="treeitem"]')
+        expect(row).not.toBeNull()
+        await user.pointer([{ target: row as HTMLElement, keys: '[MouseRight]' }])
+
+        expect(onContextMenu).not.toHaveBeenCalled()
+        expect(screen.queryByTitle('Drag to reorder')).not.toBeInTheDocument()
+        expect(screen.queryByTitle('Delete "Root Component"')).not.toBeInTheDocument()
     })
 })

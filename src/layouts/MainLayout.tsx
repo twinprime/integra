@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
     Panel,
     PanelGroup,
@@ -10,10 +10,94 @@ import { useSystemStore } from '../store/useSystemStore'
 import { findNode } from '../nodes/nodeTree'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 
+type HLayout = 'default' | 'left-collapsed'
+type VLayout = 'default' | 'top-collapsed' | 'bottom-collapsed'
+
 interface MainLayoutProps {
     leftPanel: ReactNode
     rightPanel: ReactNode
     bottomPanel: ReactNode
+}
+
+function hasVisualizationPanel(node: ReturnType<typeof findNode>): boolean {
+    return (
+        node?.type === 'use-case-diagram' ||
+        node?.type === 'sequence-diagram' ||
+        node?.type === 'use-case' ||
+        node?.type === 'component'
+    )
+}
+
+function getPreferredTopPanelSize(
+    hasDiagram: boolean,
+    readOnly: boolean,
+    hasVisibleDescription: boolean
+) {
+    if (!hasDiagram) return 100
+    if (!readOnly) return 60
+    return hasVisibleDescription ? 30 : 18
+}
+
+type HorizontalResizeHandleProps = {
+    hLayout: HLayout
+    onToggle: () => void
+}
+
+function HorizontalResizeHandle({ hLayout, onToggle }: HorizontalResizeHandleProps) {
+    return (
+        <PanelResizeHandle className="relative w-2 bg-transparent hover:bg-blue-600 transition-colors flex flex-col items-center justify-center gap-1">
+            <button
+                onClick={onToggle}
+                className="z-10 flex items-center justify-center w-4 h-4 rounded bg-gray-700 hover:bg-blue-600 text-gray-300 hover:text-white transition-colors"
+                title={hLayout === 'left-collapsed' ? 'Restore panels' : 'Expand right panel'}
+            >
+                {hLayout === 'left-collapsed' ? (
+                    <ChevronRight size={10} />
+                ) : (
+                    <ChevronLeft size={10} />
+                )}
+            </button>
+        </PanelResizeHandle>
+    )
+}
+
+type VerticalResizeHandleProps = {
+    vLayout: VLayout
+    onExpandBottom: () => void
+    onExpandTop: () => void
+}
+
+function VerticalResizeHandle({ vLayout, onExpandBottom, onExpandTop }: VerticalResizeHandleProps) {
+    return (
+        <PanelResizeHandle className="relative h-2 bg-gray-800 hover:bg-blue-600 transition-colors flex flex-row items-center justify-center gap-1">
+            {vLayout !== 'bottom-collapsed' && (
+                <button
+                    onClick={onExpandBottom}
+                    className="z-10 flex items-center justify-center w-4 h-4 rounded bg-gray-700 hover:bg-blue-600 text-gray-300 hover:text-white transition-colors"
+                    title={vLayout === 'top-collapsed' ? 'Restore panels' : 'Expand bottom panel'}
+                >
+                    {vLayout === 'top-collapsed' ? (
+                        <ChevronDown size={10} />
+                    ) : (
+                        <ChevronUp size={10} />
+                    )}
+                </button>
+            )}
+            {vLayout !== 'top-collapsed' && (
+                <button
+                    onClick={onExpandTop}
+                    className="z-10 flex items-center justify-center w-4 h-4 rounded bg-gray-700 hover:bg-blue-600 text-gray-300 hover:text-white transition-colors"
+                    title={vLayout === 'bottom-collapsed' ? 'Restore panels' : 'Expand top panel'}
+                >
+                    {vLayout === 'bottom-collapsed' ? (
+                        <ChevronUp size={10} />
+                    ) : (
+                        <ChevronDown size={10} />
+                    )}
+                </button>
+            )}
+        </PanelResizeHandle>
+    )
 }
 
 export function MainLayout({ leftPanel, rightPanel, bottomPanel }: MainLayoutProps) {
@@ -22,8 +106,6 @@ export function MainLayout({ leftPanel, rightPanel, bottomPanel }: MainLayoutPro
     const topPanelRef = useRef<ImperativePanelHandle>(null)
     const bottomPanelRef = useRef<ImperativePanelHandle>(null)
 
-    type HLayout = 'default' | 'left-collapsed'
-    type VLayout = 'default' | 'top-collapsed' | 'bottom-collapsed'
     const [hLayout, setHLayout] = useState<HLayout>('default')
     const [vLayout, setVLayout] = useState<VLayout>('default')
 
@@ -59,13 +141,21 @@ export function MainLayout({ leftPanel, rightPanel, bottomPanel }: MainLayoutPro
 
     const selectedNodeId = useSystemStore((state) => state.selectedNodeId)
     const rootComponent = useSystemStore((state) => state.rootComponent)
+    const readOnly = useSystemStore((state) => state.uiMode === 'browse')
 
     const selectedNode = selectedNodeId ? findNode([rootComponent], selectedNodeId) : null
-    const hasDiagram =
-        selectedNode?.type === 'use-case-diagram' ||
-        selectedNode?.type === 'sequence-diagram' ||
-        selectedNode?.type === 'use-case' ||
-        selectedNode?.type === 'component'
+    const hasDiagram = hasVisualizationPanel(selectedNode)
+    const hasVisibleDescription = !!selectedNode?.description?.trim() || !readOnly
+    const preferredTopPanelSize = getPreferredTopPanelSize(
+        hasDiagram,
+        readOnly,
+        hasVisibleDescription
+    )
+
+    useEffect(() => {
+        if (!hasDiagram) return
+        topPanelRef.current?.resize(preferredTopPanelSize)
+    }, [hasDiagram, preferredTopPanelSize, selectedNodeId, readOnly])
 
     return (
         <div className="h-screen w-screen bg-gray-950 text-gray-100 font-sans overflow-hidden">
@@ -82,28 +172,14 @@ export function MainLayout({ leftPanel, rightPanel, bottomPanel }: MainLayoutPro
                     </div>
                 </Panel>
 
-                <PanelResizeHandle className="relative w-2 bg-transparent hover:bg-blue-600 transition-colors flex flex-col items-center justify-center gap-1">
-                    <button
-                        onClick={handleExpandRight}
-                        className="z-10 flex items-center justify-center w-4 h-4 rounded bg-gray-700 hover:bg-blue-600 text-gray-300 hover:text-white transition-colors"
-                        title={
-                            hLayout === 'left-collapsed' ? 'Restore panels' : 'Expand right panel'
-                        }
-                    >
-                        {hLayout === 'left-collapsed' ? (
-                            <ChevronRight size={10} />
-                        ) : (
-                            <ChevronLeft size={10} />
-                        )}
-                    </button>
-                </PanelResizeHandle>
+                <HorizontalResizeHandle hLayout={hLayout} onToggle={handleExpandRight} />
 
                 <Panel ref={rightPanelRef} defaultSize={80} minSize={30}>
                     <PanelGroup direction="vertical">
                         <Panel
                             ref={topPanelRef}
-                            defaultSize={hasDiagram ? 60 : 100}
-                            minSize={20}
+                            defaultSize={preferredTopPanelSize}
+                            minSize={readOnly && hasDiagram ? 12 : 20}
                             collapsible
                             className="bg-gray-900"
                         >
@@ -114,42 +190,11 @@ export function MainLayout({ leftPanel, rightPanel, bottomPanel }: MainLayoutPro
 
                         {hasDiagram && (
                             <>
-                                <PanelResizeHandle className="relative h-2 bg-gray-800 hover:bg-blue-600 transition-colors flex flex-row items-center justify-center gap-1">
-                                    {vLayout !== 'bottom-collapsed' && (
-                                        <button
-                                            onClick={handleExpandBottom}
-                                            className="z-10 flex items-center justify-center w-4 h-4 rounded bg-gray-700 hover:bg-blue-600 text-gray-300 hover:text-white transition-colors"
-                                            title={
-                                                vLayout === 'top-collapsed'
-                                                    ? 'Restore panels'
-                                                    : 'Expand bottom panel'
-                                            }
-                                        >
-                                            {vLayout === 'top-collapsed' ? (
-                                                <ChevronDown size={10} />
-                                            ) : (
-                                                <ChevronUp size={10} />
-                                            )}
-                                        </button>
-                                    )}
-                                    {vLayout !== 'top-collapsed' && (
-                                        <button
-                                            onClick={handleExpandTop}
-                                            className="z-10 flex items-center justify-center w-4 h-4 rounded bg-gray-700 hover:bg-blue-600 text-gray-300 hover:text-white transition-colors"
-                                            title={
-                                                vLayout === 'bottom-collapsed'
-                                                    ? 'Restore panels'
-                                                    : 'Expand top panel'
-                                            }
-                                        >
-                                            {vLayout === 'bottom-collapsed' ? (
-                                                <ChevronUp size={10} />
-                                            ) : (
-                                                <ChevronDown size={10} />
-                                            )}
-                                        </button>
-                                    )}
-                                </PanelResizeHandle>
+                                <VerticalResizeHandle
+                                    vLayout={vLayout}
+                                    onExpandBottom={handleExpandBottom}
+                                    onExpandTop={handleExpandTop}
+                                />
 
                                 <Panel
                                     ref={bottomPanelRef}

@@ -23,9 +23,11 @@ const ID_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_]*$/
 export const DiagramEditor = ({
     node,
     onUpdate,
+    readOnly = false,
 }: {
     node: DiagramNode
     onUpdate: (updates: Partial<DiagramNode>) => void
+    readOnly?: boolean
 }) => {
     const [name, setName] = useState(node.name || '')
     const [description, setDescription] = useState(node.description || '')
@@ -181,6 +183,7 @@ export const DiagramEditor = ({
                     nodeType={node.type}
                     onChange={setName}
                     onBlur={handleNameBlur}
+                    readOnly={readOnly}
                 />
                 <NodePathEditorRow
                     nodeUuid={node.uuid}
@@ -189,6 +192,7 @@ export const DiagramEditor = ({
                     onIdChange={handleIdChange}
                     onIdBlur={handleIdBlur}
                     trailingContent={<NodeReferencesButton refs={referencingDiagrams} />}
+                    readOnly={readOnly}
                 />
             </div>
 
@@ -200,77 +204,78 @@ export const DiagramEditor = ({
                     height="120px"
                     placeholder="Add a description..."
                     contextComponentUuid={node.ownerComponentUuid}
+                    readOnly={readOnly}
+                    hideWhenEmpty={readOnly}
                 />
             </div>
 
-            <div className="mb-4 flex-1 flex flex-col min-h-0">
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Specification
-                </label>
+            {!readOnly && (
+                <div className="mb-4 flex-1 flex flex-col min-h-0">
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                        Specification
+                    </label>
 
-                {isEditing ? (
-                    /* ── Edit mode: CodeMirror editable editor ── */
-                    <div className="flex-1 min-h-0 bg-gray-950 border border-blue-400 rounded-md overflow-hidden">
-                        <DiagramCodeMirrorEditor
-                            content={content}
-                            diagramType={node.type as 'sequence-diagram' | 'use-case-diagram'}
-                            ownerComponentUuid={node.ownerComponentUuid}
-                            rootComponent={rootComponent}
-                            readonly={false}
-                            onChange={handleContentChange}
-                            onBlur={() => saveContent(true)}
-                            onShiftEnter={() => saveContent(false)}
-                            className="h-full"
-                        />
-                    </div>
-                ) : content ? (
-                    /* ── Preview mode: CodeMirror readonly with navigation ── */
-                    <div
-                        role="button"
-                        tabIndex={0}
-                        aria-label="Diagram specification — click to edit"
-                        className="w-full border border-gray-700 rounded-md bg-gray-950 cursor-text min-h-0 flex-1 overflow-auto focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
-                        onMouseDown={() => setIsEditing(true)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault()
-                                setIsEditing(true)
-                            }
-                        }}
-                    >
-                        <DiagramCodeMirrorEditor
-                            content={content}
-                            diagramType={node.type as 'sequence-diagram' | 'use-case-diagram'}
-                            ownerComponentUuid={node.ownerComponentUuid}
-                            rootComponent={rootComponent}
-                            readonly={true}
-                            onNavigate={(uuid, ifaceUuid) => {
-                                selectNode(uuid)
-                                if (ifaceUuid) selectInterface(ifaceUuid)
+                    {isEditing ? (
+                        <div className="flex-1 min-h-0 bg-gray-950 border border-blue-400 rounded-md overflow-hidden">
+                            <DiagramCodeMirrorEditor
+                                content={content}
+                                diagramType={node.type as 'sequence-diagram' | 'use-case-diagram'}
+                                ownerComponentUuid={node.ownerComponentUuid}
+                                rootComponent={rootComponent}
+                                readonly={false}
+                                onChange={handleContentChange}
+                                onBlur={() => saveContent(true)}
+                                onShiftEnter={() => saveContent(false)}
+                                className="h-full"
+                            />
+                        </div>
+                    ) : content ? (
+                        <div
+                            role="button"
+                            tabIndex={0}
+                            aria-label="Diagram specification — click to edit"
+                            className="w-full border border-gray-700 rounded-md bg-gray-950 cursor-text min-h-0 flex-1 overflow-auto focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                            onMouseDown={() => setIsEditing(true)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault()
+                                    setIsEditing(true)
+                                }
                             }}
-                            onEditRequest={() => setIsEditing(true)}
-                            className="h-full"
-                        />
-                    </div>
-                ) : (
-                    /* ── Empty state: click to start editing ── */
-                    <div
-                        role="button"
-                        tabIndex={0}
-                        className="w-full p-2 border border-dashed border-gray-700 rounded-md text-sm text-gray-400 cursor-text min-h-0 flex-1 flex items-center justify-center italic hover:border-gray-600"
-                        onClick={() => setIsEditing(true)}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault()
-                                setIsEditing(true)
-                            }
-                        }}
-                        aria-label="Click to edit specification"
-                    >
-                        Click to edit specification…
-                    </div>
-                )}
-            </div>
+                        >
+                            <DiagramCodeMirrorEditor
+                                content={content}
+                                diagramType={node.type as 'sequence-diagram' | 'use-case-diagram'}
+                                ownerComponentUuid={node.ownerComponentUuid}
+                                rootComponent={rootComponent}
+                                readonly={true}
+                                onNavigate={(uuid, ifaceUuid) => {
+                                    selectNode(uuid)
+                                    if (ifaceUuid) selectInterface(ifaceUuid)
+                                }}
+                                onEditRequest={() => setIsEditing(true)}
+                                className="h-full"
+                            />
+                        </div>
+                    ) : (
+                        <div
+                            role="button"
+                            tabIndex={0}
+                            className="w-full p-2 border border-dashed border-gray-700 rounded-md text-sm text-gray-400 cursor-text min-h-0 flex-1 flex items-center justify-center italic hover:border-gray-600"
+                            onClick={() => setIsEditing(true)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.preventDefault()
+                                    setIsEditing(true)
+                                }
+                            }}
+                            aria-label="Click to edit specification"
+                        >
+                            Click to edit specification…
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     )
 }

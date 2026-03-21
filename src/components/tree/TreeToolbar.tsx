@@ -38,6 +38,8 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
         markSaved,
         canNavBack,
         canNavForward,
+        uiMode,
+        toggleUiMode,
     } = useSystemStore(
         useShallow((s) => ({
             rootComponent: s.rootComponent,
@@ -51,12 +53,15 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
             markSaved: s.markSaved,
             canNavBack: s.canNavBack,
             canNavForward: s.canNavForward,
+            uiMode: s.uiMode,
+            toggleUiMode: s.toggleUiMode,
         }))
     )
     const canUndo = useSystemStore((s) => s.past.length > 0)
     const canRedo = useSystemStore((s) => s.future.length > 0)
 
     const [dirHandle, setDirHandle] = useState<FileSystemDirectoryHandle | null>(null)
+    const readOnly = uiMode === 'browse'
 
     const hasUnsavedChanges =
         savedSnapshot !== null && serializeYaml(rootComponent) !== savedSnapshot
@@ -78,11 +83,11 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
             )
                 return
             const mod = e.metaKey || e.ctrlKey
-            if (mod && !e.shiftKey && e.key === 'z') {
+            if (!readOnly && mod && !e.shiftKey && e.key === 'z') {
                 e.preventDefault()
                 undo()
             }
-            if (mod && e.shiftKey && e.key === 'z') {
+            if (!readOnly && mod && e.shiftKey && e.key === 'z') {
                 e.preventDefault()
                 redo()
             }
@@ -97,7 +102,7 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
         }
         document.addEventListener('keydown', onKeyDown)
         return () => document.removeEventListener('keydown', onKeyDown)
-    }, [undo, redo, goBack, goForward, treeActive])
+    }, [readOnly, undo, redo, goBack, goForward, treeActive])
 
     const handleSave = async () => {
         try {
@@ -158,14 +163,30 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
 
     return (
         <div className="p-4 border-b border-gray-800 font-semibold text-gray-300 bg-gray-800/50 backdrop-blur-sm flex items-center justify-between">
-            <span className="flex items-center gap-2" title="Integra">
+            <button
+                type="button"
+                className={`flex items-center gap-2 rounded px-1.5 py-1 transition-colors ${
+                    readOnly
+                        ? 'hover:bg-gray-700/70'
+                        : 'bg-blue-950/50 ring-1 ring-blue-500/70 hover:bg-blue-900/40'
+                }`}
+                title={
+                    readOnly
+                        ? 'Switch to edit mode'
+                        : 'Switch to browse mode (currently in edit mode)'
+                }
+                onClick={toggleUiMode}
+                aria-pressed={!readOnly}
+                aria-label={readOnly ? 'Switch to edit mode' : 'Switch to browse mode'}
+            >
                 <img src={integraLogo} width={18} height={18} alt="Integra" />
+                {!readOnly && <span className="h-2 w-2 rounded-full bg-blue-400" />}
                 {hasUnsavedChanges && (
                     <span className="text-xs font-normal text-yellow-500" title="Unsaved changes">
                         ●
                     </span>
                 )}
-            </span>
+            </button>
             <div className="flex gap-1">
                 <button
                     onClick={goBack}
@@ -183,31 +204,35 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
                 >
                     <ArrowRight size={16} />
                 </button>
-                <button
-                    onClick={undo}
-                    disabled={!canUndo}
-                    className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                    title="Undo (Cmd+Z)"
-                >
-                    <Undo2 size={16} />
-                </button>
-                <button
-                    onClick={redo}
-                    disabled={!canRedo}
-                    className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                    title="Redo (Cmd+Shift+Z)"
-                >
-                    <Redo2 size={16} />
-                </button>
-                <button
-                    onClick={() => {
-                        void handleSave()
-                    }}
-                    className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-gray-200 transition-colors"
-                    title="Save system to YAML file"
-                >
-                    <Download size={16} />
-                </button>
+                {!readOnly && (
+                    <>
+                        <button
+                            onClick={undo}
+                            disabled={!canUndo}
+                            className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Undo (Cmd+Z)"
+                        >
+                            <Undo2 size={16} />
+                        </button>
+                        <button
+                            onClick={redo}
+                            disabled={!canRedo}
+                            className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Redo (Cmd+Shift+Z)"
+                        >
+                            <Redo2 size={16} />
+                        </button>
+                        <button
+                            onClick={() => {
+                                void handleSave()
+                            }}
+                            className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-gray-200 transition-colors"
+                            title="Save system to YAML file"
+                        >
+                            <Download size={16} />
+                        </button>
+                    </>
+                )}
                 <button
                     onClick={() => {
                         void handleLoad()
@@ -217,13 +242,15 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
                 >
                     <Upload size={16} />
                 </button>
-                <button
-                    onClick={handleClear}
-                    className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-red-400 transition-colors"
-                    title="Clear system"
-                >
-                    <RotateCcw size={16} />
-                </button>
+                {!readOnly && (
+                    <button
+                        onClick={handleClear}
+                        className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-red-400 transition-colors"
+                        title="Clear system"
+                    >
+                        <RotateCcw size={16} />
+                    </button>
+                )}
             </div>
         </div>
     )

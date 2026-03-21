@@ -121,6 +121,7 @@ export const FunctionEditor = ({
                 placeholder="Function description..."
                 contextComponentUuid={contextComponentUuid}
                 readOnly={readOnly}
+                hideWhenEmpty={readOnly}
             />
             {fn.parameters && fn.parameters.length > 0 && (
                 <div className="mt-1">
@@ -143,17 +144,25 @@ export const FunctionEditor = ({
                                         </span>
                                     )}
                                 </div>
-                                <input
-                                    className="mt-0.5 w-full text-[0.7rem] text-gray-500 bg-transparent border-b border-transparent hover:border-gray-700 focus:border-gray-600 focus:outline-none placeholder-gray-700"
-                                    placeholder="Parameter description..."
-                                    defaultValue={param.description || ''}
-                                    readOnly={readOnly}
-                                    onBlur={(e) => {
-                                        if (e.target.value !== (param.description || '')) {
-                                            onParamDescriptionUpdate(idx, e.target.value)
-                                        }
-                                    }}
-                                />
+                                {readOnly ? (
+                                    param.description ? (
+                                        <div className="mt-0.5 text-[0.7rem] text-gray-500 whitespace-pre-wrap">
+                                            {param.description}
+                                        </div>
+                                    ) : null
+                                ) : (
+                                    <input
+                                        className="mt-0.5 w-full text-[0.7rem] text-gray-500 bg-transparent border-b border-transparent hover:border-gray-700 focus:border-gray-600 focus:outline-none placeholder-gray-700"
+                                        placeholder="Parameter description..."
+                                        defaultValue={param.description || ''}
+                                        readOnly={readOnly}
+                                        onBlur={(e) => {
+                                            if (e.target.value !== (param.description || '')) {
+                                                onParamDescriptionUpdate(idx, e.target.value)
+                                            }
+                                        }}
+                                    />
+                                )}
                             </div>
                         ))}
                     </div>

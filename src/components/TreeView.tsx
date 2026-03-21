@@ -9,14 +9,16 @@ import { TreeToolbar } from './tree/TreeToolbar'
 import { findParentNode } from '../nodes/nodeTree'
 
 export const TreeView = () => {
-    const { rootComponent, addNode, selectNode, selectedNodeId } = useSystemStore(
+    const { rootComponent, addNode, selectNode, selectedNodeId, uiMode } = useSystemStore(
         useShallow((s) => ({
             rootComponent: s.rootComponent,
             addNode: s.addNode,
             selectNode: s.selectNode,
             selectedNodeId: s.selectedNodeId,
+            uiMode: s.uiMode,
         }))
     )
+    const readOnly = uiMode === 'browse'
 
     const treeRef = useRef<HTMLDivElement>(null)
     const treeActive = useRef(false)
@@ -162,6 +164,7 @@ export const TreeView = () => {
     }
 
     const handleContextMenu = (e: React.MouseEvent, node: Node) => {
+        if (readOnly) return
         e.preventDefault()
         const items = computeMenuItems(node)
         if (items.length === 0) return
@@ -174,8 +177,12 @@ export const TreeView = () => {
         <div ref={treeRef} className="contents">
             <TreeToolbar treeActive={treeActive} />
             <div className="flex-1 overflow-auto pb-8">
-                <TreeNode node={rootComponent} onContextMenu={handleContextMenu} />
-                {contextMenu && (
+                <TreeNode
+                    node={rootComponent}
+                    onContextMenu={handleContextMenu}
+                    readOnly={readOnly}
+                />
+                {!readOnly && contextMenu && (
                     <ContextMenu
                         x={contextMenu.x}
                         y={contextMenu.y}
@@ -184,7 +191,7 @@ export const TreeView = () => {
                     />
                 )}
             </div>
-            {createDialog && (
+            {!readOnly && createDialog && (
                 <CreateNodeDialog
                     title={createDialog.title}
                     placeholder={createDialog.placeholder}

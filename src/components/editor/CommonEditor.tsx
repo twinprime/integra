@@ -14,10 +14,12 @@ export const CommonEditor = ({
     node,
     onUpdate,
     contextComponentUuid,
+    readOnly = false,
 }: {
     node: Node
     onUpdate: (updates: Partial<Node>) => void
     contextComponentUuid?: string
+    readOnly?: boolean
 }) => {
     const [name, setName] = useState(node.name || '')
     const [description, setDescription] = useState(node.description || '')
@@ -76,6 +78,7 @@ export const CommonEditor = ({
                     nodeType={node.type}
                     onChange={setName}
                     onBlur={handleNameBlur}
+                    readOnly={readOnly}
                 />
                 <NodePathEditorRow
                     nodeUuid={node.uuid}
@@ -84,6 +87,7 @@ export const CommonEditor = ({
                     onIdChange={handleIdChange}
                     onIdBlur={handleIdBlur}
                     trailingContent={<NodeReferencesButton refs={referencingDiagrams} />}
+                    readOnly={readOnly}
                 />
             </div>
 
@@ -96,6 +100,8 @@ export const CommonEditor = ({
                     className="flex-1 min-h-0"
                     placeholder="Add a description..."
                     contextComponentUuid={contextComponentUuid}
+                    readOnly={readOnly}
+                    hideWhenEmpty={readOnly}
                 />
             </div>
         </div>

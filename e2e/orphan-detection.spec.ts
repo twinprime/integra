@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { gotoHome } from './helpers/app'
 import {
     makeLocalStorageValue,
     makeLocalStorageValueWithOrphanedActor,
@@ -12,7 +13,7 @@ test.describe('orphan detection & deletion', () => {
         await page.addInitScript((value) => {
             localStorage.setItem('integra-system', value)
         }, makeLocalStorageValue())
-        await page.goto('/')
+        await gotoHome(page)
 
         // Hover over the "User" actor in the tree
         const userItem = await revealTreeItem(page, /^User$/)
@@ -28,7 +29,7 @@ test.describe('orphan detection & deletion', () => {
         await page.addInitScript((value) => {
             localStorage.setItem('integra-system', value)
         }, makeLocalStorageValueWithOrphanedActor())
-        await page.goto('/')
+        await gotoHome(page)
 
         // Hover over "GhostUser" — not referenced in any diagram
         const ghostItem = await revealTreeItem(page, /^GhostUser$/)
@@ -44,7 +45,7 @@ test.describe('orphan detection & deletion', () => {
         await page.addInitScript((value) => {
             localStorage.setItem('integra-system', value)
         }, makeLocalStorageValueWithOrphanedActor())
-        await page.goto('/')
+        await gotoHome(page)
 
         // Confirm GhostUser is in the tree
         const ghostItem = await revealTreeItem(page, /^GhostUser$/)
@@ -64,7 +65,7 @@ test.describe('orphan detection & deletion', () => {
         await page.addInitScript((value) => {
             localStorage.setItem('integra-system', value)
         }, makeLocalStorageValue())
-        await page.goto('/')
+        await gotoHome(page)
 
         // AuthService is referenced in the Login Flow sequence diagram
         const authItem = await revealTreeItem(page, /^AuthService$/)
@@ -81,7 +82,7 @@ test.describe('orphan detection & deletion', () => {
         await page.addInitScript((value) => {
             localStorage.setItem('integra-system', value)
         }, makeLocalStorageValue())
-        await page.goto('/')
+        await gotoHome(page)
 
         // "Order Use Cases" contains PlaceOrder, which is referenced via UseCase: in the Login Flow sequence.
         // isUseCaseReferenced returns true for PlaceOrder → isNodeOrphaned returns false → no delete button.

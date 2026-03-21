@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { selectTreeItem } from './helpers/interactions'
 import { makeLocalStorageValue } from './fixtures/sample-system'
+import { gotoHome } from './helpers/app'
 
 // ─── In-memory mock for window.showDirectoryPicker (save) ─────────────────────
 
@@ -107,12 +108,12 @@ test.beforeEach(async ({ page }) => {
 
 test.describe('toolbar button visibility', () => {
     test('Save button is visible in the toolbar', async ({ page }) => {
-        await page.goto('/')
+        await gotoHome(page)
         await expect(page.getByTitle('Save system to YAML file')).toBeVisible()
     })
 
     test('Load button is visible in the toolbar', async ({ page }) => {
-        await page.goto('/')
+        await gotoHome(page)
         await expect(page.getByTitle('Load system from YAML file')).toBeVisible()
     })
 })
@@ -121,7 +122,7 @@ test.describe('toolbar button visibility', () => {
 
 test.describe('unsaved changes indicator', () => {
     test('yellow dot appears after modifying the loaded fixture', async ({ page }) => {
-        await page.goto('/')
+        await gotoHome(page)
 
         // No unsaved changes initially
         await expect(page.getByTitle('Unsaved changes')).not.toBeVisible()
@@ -146,7 +147,7 @@ test.describe('save flow with mocked directory picker', () => {
     })
 
     test('clicking Save invokes showDirectoryPicker and writes YAML files', async ({ page }) => {
-        await page.goto('/')
+        await gotoHome(page)
 
         // Make a change so the system is dirty and the save path is meaningful
         await selectTreeItem(page, 'Login')
@@ -179,7 +180,7 @@ test.describe('save flow with mocked directory picker', () => {
     })
 
     test('unsaved indicator disappears after a successful save', async ({ page }) => {
-        await page.goto('/')
+        await gotoHome(page)
 
         // Dirty the state
         await selectTreeItem(page, 'Login')
@@ -209,7 +210,7 @@ test.describe('save flow with mocked directory picker', () => {
       `,
         })
 
-        await page.goto('/')
+        await gotoHome(page)
 
         // Capture any dialog that appears
         let alertShown = false
@@ -236,7 +237,7 @@ test.describe('load flow with mocked directory picker', () => {
     test('clicking Load reads YAML from the mock directory and updates the tree', async ({
         page,
     }) => {
-        await page.goto('/')
+        await gotoHome(page)
 
         // Dismiss any confirmation dialog (none expected on clean state, but be safe)
         page.on('dialog', (dialog) => void dialog.accept())

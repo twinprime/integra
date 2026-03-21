@@ -40,10 +40,12 @@ export const ComponentEditor = ({
     node,
     onUpdate,
     contextComponentUuid,
+    readOnly = false,
 }: {
     node: ComponentNode
     onUpdate: (updates: Partial<ComponentNode>) => void
     contextComponentUuid?: string
+    readOnly?: boolean
 }) => {
     const [name, setName] = useState(node.name || '')
     const [description, setDescription] = useState(node.description || '')
@@ -262,6 +264,7 @@ export const ComponentEditor = ({
                     nodeType={node.type}
                     onChange={setName}
                     onBlur={handleNameBlur}
+                    readOnly={readOnly}
                 />
                 <NodePathEditorRow
                     nodeUuid={node.uuid}
@@ -270,6 +273,7 @@ export const ComponentEditor = ({
                     onIdChange={handleIdChange}
                     onIdBlur={handleIdBlur}
                     trailingContent={<NodeReferencesButton refs={referencingDiagrams} />}
+                    readOnly={readOnly}
                 />
             </div>
 
@@ -281,11 +285,13 @@ export const ComponentEditor = ({
                     height={100}
                     placeholder="Add a description..."
                     contextComponentUuid={contextComponentUuid}
+                    readOnly={readOnly}
+                    hideWhenEmpty={readOnly}
                 />
             </div>
 
             {/* Inherit parent interface selector — above tabs, visible even with no interfaces yet */}
-            {uninheritedParentInterfaces.length > 0 && (
+            {!readOnly && uninheritedParentInterfaces.length > 0 && (
                 <div className="flex items-center gap-1.5 mb-3">
                     <span className="text-xs text-gray-500">Inherit parent interface:</span>
                     <select
@@ -410,6 +416,7 @@ export const ComponentEditor = ({
                                         )
                                     }
                                     contextComponentUuid={contextComponentUuid}
+                                    readOnly={readOnly}
                                 />
                             </div>
                         ) : null

@@ -10,6 +10,7 @@ type DescriptionFieldProps = {
     height?: number | string
     className?: string
     readOnly?: boolean
+    hideWhenEmpty?: boolean
 }
 
 export const DescriptionField = ({
@@ -21,9 +22,14 @@ export const DescriptionField = ({
     height = '100%',
     className,
     readOnly = false,
+    hideWhenEmpty = false,
 }: DescriptionFieldProps) => {
     const [isEditing, setIsEditing] = useState(false)
     const hasDescription = value.trim().length > 0
+
+    if (hideWhenEmpty && !hasDescription) {
+        return null
+    }
 
     if (readOnly) {
         return (

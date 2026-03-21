@@ -1,3 +1,4 @@
+import { gotoHome } from './helpers/app'
 /**
  * Reproduces the bug: when a node's ID is renamed, diagrams that reference
  * that node via UseCase: or Sequence: path syntax break with a parse error
@@ -14,7 +15,7 @@ test.describe('renaming a node updates UseCase: and Sequence: refs in diagram co
         await page.addInitScript((value) => {
             localStorage.setItem('integra-system', value)
         }, makeLocalStorageValue())
-        await page.goto('/')
+        await gotoHome(page)
 
         // The LoginFlow seq diagram has: User ->> OrderService: UseCase:OrderService/PlaceOrder:Place an order
         // Rename PlaceOrder -> CheckOut
@@ -41,7 +42,7 @@ test.describe('renaming a node updates UseCase: and Sequence: refs in diagram co
         await page.addInitScript((value) => {
             localStorage.setItem('integra-system', value)
         }, makeLocalStorageValueWithSeqRef())
-        await page.goto('/')
+        await gotoHome(page)
 
         // Main Flow diagram has: User ->> AuthService: Sequence:LoginFlow
         // Rename LoginFlow -> AuthFlow

@@ -193,6 +193,29 @@ describe('DiagramEditor', () => {
         expect(editableContent).not.toBeNull()
     })
 
+    it('hides the specification section in read-only mode', () => {
+        render(
+            <DiagramEditor node={makeSequenceDiagramNode()} onUpdate={vi.fn()} readOnly={true} />
+        )
+
+        expect(screen.queryByText('Specification')).not.toBeInTheDocument()
+        expect(
+            screen.queryByRole('button', { name: /diagram specification/i })
+        ).not.toBeInTheDocument()
+    })
+
+    it('hides an empty description in read-only mode', () => {
+        render(
+            <DiagramEditor
+                node={makeSequenceDiagramNode({ description: '' })}
+                onUpdate={vi.fn()}
+                readOnly={true}
+            />
+        )
+
+        expect(screen.queryByTestId('markdown-preview')).not.toBeInTheDocument()
+    })
+
     it('renders the full path for nested diagrams and lets ancestors select nodes', async () => {
         const user = userEvent.setup()
         vi.mocked(getNodeAbsolutePath).mockReturnValue('System/MainUCD/Login/LoginFlow')

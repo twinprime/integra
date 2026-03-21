@@ -166,9 +166,27 @@ describe('CommonEditor', () => {
             expect(screen.getByTestId('markdown-preview')).toHaveTextContent('No Description')
         })
 
+        it('hides an empty description in read-only mode', () => {
+            const node = makeActorNode({ description: '' })
+            render(<CommonEditor node={node} onUpdate={vi.fn()} readOnly={true} />)
+
+            expect(screen.queryByTestId('markdown-preview')).not.toBeInTheDocument()
+        })
+
         it('does not render a Description label', () => {
             render(<CommonEditor node={makeActorNode()} onUpdate={vi.fn()} />)
             expect(screen.queryByText('Description')).not.toBeInTheDocument()
+        })
+    })
+
+    describe('read-only mode', () => {
+        it('renders name and id as non-editable text', () => {
+            render(<CommonEditor node={makeActorNode()} onUpdate={vi.fn()} readOnly={true} />)
+
+            expect(screen.queryByLabelText('Node name')).not.toBeInTheDocument()
+            expect(screen.queryByLabelText('Node ID')).not.toBeInTheDocument()
+            expect(screen.getByText('My Actor')).toBeInTheDocument()
+            expect(screen.getByText('myActor')).toBeInTheDocument()
         })
     })
 

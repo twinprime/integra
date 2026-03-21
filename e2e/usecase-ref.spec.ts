@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { gotoHome } from './helpers/app'
 import {
     makeLocalStorageValue,
     makeLocalStorageValueWithUseCaseDiagramRef,
@@ -17,7 +18,7 @@ test.beforeEach(async ({ page }) => {
 
 test.describe('UseCase path reference in sequence diagram', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('/')
+        await gotoHome(page)
         await selectTreeItem(page, 'Login Flow')
         await page.locator(`${diagram()} svg`).waitFor()
     })
@@ -55,7 +56,7 @@ test.describe('UseCaseDiagram path reference in sequence specification preview',
         await page.addInitScript((value) => {
             localStorage.setItem('integra-system', value)
         }, lsValue)
-        await page.goto('/')
+        await gotoHome(page)
         await selectTreeItem(page, 'Login Flow')
         await page.locator('[data-testid="cm-editor-container"]').waitFor()
     })

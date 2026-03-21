@@ -7,7 +7,7 @@ import {
     makeLocalStorageValueWithDependencyOnlyComponent,
     makeLocalStorageValueWithInheritance,
 } from './fixtures/sample-system'
-import { loadAppWithFixture } from './helpers/app'
+import { loadAppWithFixture, gotoHome } from './helpers/app'
 import type {
     ComponentNode,
     SequenceDiagramNode,
@@ -93,7 +93,7 @@ test.describe('component class diagram', () => {
         await page.addInitScript((value) => {
             localStorage.setItem('integra-system', value)
         }, lsValue)
-        await page.goto('/')
+        await gotoHome(page)
     })
 
     runClassDiagramTests((page) => selectTreeItem(page, 'AuthService'))
@@ -129,7 +129,7 @@ test.describe('use case class diagram', () => {
         await page.addInitScript((value) => {
             localStorage.setItem('integra-system', value)
         }, lsValue)
-        await page.goto('/')
+        await gotoHome(page)
     })
 
     runClassDiagramTests((page) => selectTreeItem(page, 'Login'))
@@ -141,7 +141,7 @@ test.describe('use-case-diagram visualization views', () => {
         await page.addInitScript((value) => {
             localStorage.setItem('integra-system', value)
         }, lsValue)
-        await page.goto('/')
+        await gotoHome(page)
     })
 
     test('switches between the authored use-case diagram and generated class diagram', async ({
@@ -187,7 +187,7 @@ test.describe('root class diagram', () => {
         await page.addInitScript((value) => {
             localStorage.setItem('integra-system', value)
         }, lsValue)
-        await page.goto('/')
+        await gotoHome(page)
     })
 
     runClassDiagramTests((page) => selectTreeItem(page, /^System$/))
@@ -216,7 +216,7 @@ test.describe('component class diagram — block message support', () => {
         await page.addInitScript((value) => {
             localStorage.setItem('integra-system', value)
         }, lsValue)
-        await page.goto('/')
+        await gotoHome(page)
 
         await selectTreeItem(page, 'AuthService')
 
@@ -239,7 +239,7 @@ test.describe('component class diagram — dependency arrows', () => {
         await page.addInitScript((value) => {
             localStorage.setItem('integra-system', value)
         }, lsValue)
-        await page.goto('/')
+        await gotoHome(page)
 
         await selectTreeItem(page, 'AuthService')
 
@@ -273,7 +273,7 @@ test.describe('component class diagram — dependency arrows', () => {
         await page.addInitScript((value) => {
             localStorage.setItem('integra-system', value)
         }, lsValue)
-        await page.goto('/')
+        await gotoHome(page)
 
         await selectTreeItem(page, 'AuthService')
 

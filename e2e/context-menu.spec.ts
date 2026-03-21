@@ -1,13 +1,14 @@
 import { test, expect } from '@playwright/test'
 import { makeLocalStorageValue } from './fixtures/sample-system'
 import { revealTreeItem, selectTreeItem } from './helpers/interactions'
+import { gotoHome } from './helpers/app'
 
 test.beforeEach(async ({ page }) => {
     const lsValue = makeLocalStorageValue()
     await page.addInitScript((value) => {
         localStorage.setItem('integra-system', value)
     }, lsValue)
-    await page.goto('/')
+    await gotoHome(page)
 })
 
 test.describe('context menu', () => {

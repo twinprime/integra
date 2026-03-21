@@ -9,6 +9,7 @@ type NodePathEditorRowProps = {
     onIdChange: (value: string) => void
     onIdBlur: () => void
     trailingContent?: ReactNode
+    readOnly?: boolean
 }
 
 export const NodePathEditorRow = ({
@@ -18,6 +19,7 @@ export const NodePathEditorRow = ({
     onIdChange,
     onIdBlur,
     trailingContent,
+    readOnly = false,
 }: NodePathEditorRowProps) => {
     const rootComponent = useSystemStore((state) => state.rootComponent)
     const selectNode = useSystemStore((state) => state.selectNode)
@@ -46,26 +48,30 @@ export const NodePathEditorRow = ({
                                 <span className="font-mono text-sm text-gray-500">/</span>
                             </Fragment>
                         ))}
-                        <input
-                            className={`font-mono text-sm bg-transparent border-b focus:outline-none ${
-                                idError
-                                    ? 'border-red-500 text-red-400'
-                                    : 'border-transparent text-gray-400 hover:border-gray-600 focus:border-blue-400'
-                            }`}
-                            style={{ width: `${Math.max(localId.length, 4) + 1}ch` }}
-                            value={localId}
-                            onChange={(event) => onIdChange(event.target.value)}
-                            onBlur={onIdBlur}
-                            onKeyDown={(event) => {
-                                if (event.key === 'Enter') event.currentTarget.blur()
-                            }}
-                            aria-label="Node ID"
-                        />
+                        {readOnly ? (
+                            <span className="font-mono text-sm text-gray-400">{localId}</span>
+                        ) : (
+                            <input
+                                className={`font-mono text-sm bg-transparent border-b focus:outline-none ${
+                                    idError
+                                        ? 'border-red-500 text-red-400'
+                                        : 'border-transparent text-gray-400 hover:border-gray-600 focus:border-blue-400'
+                                }`}
+                                style={{ width: `${Math.max(localId.length, 4) + 1}ch` }}
+                                value={localId}
+                                onChange={(event) => onIdChange(event.target.value)}
+                                onBlur={onIdBlur}
+                                onKeyDown={(event) => {
+                                    if (event.key === 'Enter') event.currentTarget.blur()
+                                }}
+                                aria-label="Node ID"
+                            />
+                        )}
                     </div>
                     {trailingContent}
                 </div>
             </div>
-            {idError && <p className="text-xs text-red-400 mt-0.5">{idError}</p>}
+            {!readOnly && idError && <p className="text-xs text-red-400 mt-0.5">{idError}</p>}
         </div>
     )
 }

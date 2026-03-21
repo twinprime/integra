@@ -74,12 +74,17 @@ export const MarkdownEditor = ({
     const hasDescription = value.trim().length > 0
 
     if (previewOnly) {
+        const isInteractive = !!onPreviewClick
         return (
             <div
-                role="button"
-                tabIndex={0}
+                role={isInteractive ? 'button' : undefined}
+                tabIndex={isInteractive ? 0 : undefined}
                 data-color-mode="dark"
-                className={`overflow-auto rounded-md border border-gray-700 bg-gray-950 cursor-text hover:border-gray-600 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 ${hasDescription ? 'min-h-0 flex-1 p-3' : 'px-3 py-2'}${className ? ` ${className}` : ''}`}
+                className={`overflow-auto rounded-md border border-gray-700 bg-gray-950 ${
+                    isInteractive
+                        ? 'cursor-text hover:border-gray-600 focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400'
+                        : ''
+                } ${hasDescription ? 'min-h-0 flex-1 p-3' : 'px-3 py-2'}${className ? ` ${className}` : ''}`}
                 onClick={(e) => {
                     if (e.target instanceof Element && e.target.closest("a, [role='link']")) return
                     onPreviewClick?.()
@@ -91,7 +96,13 @@ export const MarkdownEditor = ({
                     }
                 }}
                 aria-label={
-                    value ? 'Description preview — click to edit' : 'No Description — click to edit'
+                    isInteractive
+                        ? value
+                            ? 'Description preview — click to edit'
+                            : 'No Description — click to edit'
+                        : value
+                          ? 'Description preview'
+                          : 'No Description'
                 }
             >
                 {hasDescription ? (

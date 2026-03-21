@@ -134,6 +134,7 @@ function resetStore() {
         rootComponent: initialSystem,
         selectedNodeId: null,
         savedSnapshot: null,
+        uiMode: 'edit',
     })
 }
 
@@ -332,6 +333,7 @@ describe('TreeView node visibility', () => {
             rootComponent: nestedSystem,
             selectedNodeId: null,
             savedSnapshot: null,
+            uiMode: 'edit',
         })
     })
 
@@ -376,6 +378,7 @@ describe('TreeView — undo/redo keyboard shortcuts', () => {
             rootComponent: { ...initialSystem },
             past: [pastSnapshot],
             future: [],
+            uiMode: 'edit',
         })
     })
 

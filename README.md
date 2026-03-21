@@ -25,7 +25,13 @@ Use the **Save** / **Load** buttons in the toolbar to persist your model as a **
 
 #### 3. Build your system model
 
-The left panel shows your **system tree**. Start by renaming the root component, then add sub-components, use case diagrams, and sequence diagrams using the **+** buttons on each node. When you select a node, the right panel lets you edit its title inline at the top of the panel and shows its absolute path directly underneath; the final segment remains the editable node ID, while earlier segments are clickable breadcrumbs back into the tree.
+The left panel shows your **system tree**. Start by clicking the **Integra** icon
+to switch from the default **browse mode** into **edit mode**, then rename the
+root component and add sub-components, use case diagrams, and sequence diagrams
+using the **+** buttons on each node. When you select a node, the right panel
+lets you edit its title inline at the top of the panel and shows its absolute
+path directly underneath; the final segment remains the editable node ID, while
+earlier segments are clickable breadcrumbs back into the tree.
 
 #### 4. Write diagram specifications
 
@@ -88,7 +94,22 @@ Node descriptions open in a **preview-first** mode. The selected node shows its
 rendered markdown immediately, without a separate description label or markdown
 toolbar. Click the description area to switch into the full markdown editor;
 when the description is empty, the preview shows a compact **No Description**
-placeholder until you enter edit mode.
+placeholder until you enter edit mode. In **browse mode**, empty description
+sections are hidden instead of showing the placeholder.
+
+#### Browse mode
+
+Integra restores the last used mode from `localStorage` and defaults to
+**browse mode** on first load. Click the **Integra** icon in the tree toolbar
+to toggle between browse and edit mode; the icon is decorated while edit mode
+is active.
+
+In browse mode:
+- visible fields stay readable but become non-editable
+- empty description sections are hidden across nodes, interfaces, and functions
+- diagram specification editor fields are hidden so the visualization panel can use the freed space
+- tree mutation affordances such as add/delete/reorder controls are hidden
+- the **Undo**, **Redo**, **Save**, and **Clear** toolbar buttons are hidden
 
 #### TODO comments
 

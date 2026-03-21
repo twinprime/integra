@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { gotoHome } from './helpers/app'
 import {
     makeLocalStorageValue,
     makeLocalStorageValueWithNewlineLabel,
@@ -20,7 +21,7 @@ test.beforeEach(async ({ page }) => {
 
 test.describe('use-case diagram entity clicks', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('/')
+        await gotoHome(page)
         await selectTreeItem(page, 'Main Use Cases')
         // Wait for Mermaid SVG to finish rendering
         await page.locator(`${diagram()} svg`).waitFor()
@@ -45,7 +46,7 @@ test.describe('use-case diagram entity clicks', () => {
 
 test.describe('sequence diagram entity clicks', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('/')
+        await gotoHome(page)
         await selectTreeItem(page, 'Login Flow')
         // Wait for Mermaid SVG to finish rendering
         await page.locator(`${diagram()} svg`).waitFor()
@@ -92,7 +93,7 @@ test.describe('sequence diagram entity clicks', () => {
 // ─── Navigation sanity check ──────────────────────────────────────────────────
 
 test('clicking diagram entity does not navigate when uuid is unresolvable', async ({ page }) => {
-    await page.goto('/')
+    await gotoHome(page)
     await selectTreeItem(page, 'Login Flow')
     await page.locator(`${diagram()} svg`).waitFor()
 
@@ -107,7 +108,7 @@ test('clicking diagram entity does not navigate when uuid is unresolvable', asyn
 
 test.describe('spec editor function link navigation', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('/')
+        await gotoHome(page)
         // Select the Login Flow sequence diagram to show its spec in the editor
         await selectTreeItem(page, 'Login Flow')
     })
@@ -139,7 +140,7 @@ test.describe('spec editor function link navigation', () => {
 
 test.describe('delete empty interface', () => {
     test.beforeEach(async ({ page }) => {
-        await page.goto('/')
+        await gotoHome(page)
         await selectTreeItem(page, 'AuthService')
         await page.getByTestId('interface-tab-IEmpty').click()
     })
@@ -167,7 +168,7 @@ test.describe('function ref label with \\n line break', () => {
         await page.addInitScript((value) => {
             localStorage.setItem('integra-system', value)
         }, lsValue)
-        await page.goto('/')
+        await gotoHome(page)
         await selectTreeItem(page, 'Login Flow')
         await page.locator('[data-testid="diagram-svg-container"] svg').waitFor()
     })
@@ -203,7 +204,7 @@ test.describe('numbered suffix for same function on different receivers', () => 
         await page.addInitScript((value) => {
             localStorage.setItem('integra-system', value)
         }, lsValue)
-        await page.goto('/')
+        await gotoHome(page)
         // Select the Health Check sequence diagram
         await selectTreeItem(page, 'Health Check')
         await page.locator('[data-testid="diagram-svg-container"] svg').waitFor()
@@ -248,7 +249,7 @@ test.describe('interface tab activation when target is not the first tab', () =>
         await page.addInitScript((value) => {
             localStorage.setItem('integra-system', value)
         }, lsValue)
-        await page.goto('/')
+        await gotoHome(page)
         await selectTreeItem(page, 'Login Flow')
         await page.locator('[data-testid="diagram-svg-container"] svg').waitFor()
     })

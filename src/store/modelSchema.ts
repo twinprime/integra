@@ -125,6 +125,7 @@ export const componentNodeSchema: z.ZodType<ComponentNode> = z.lazy(() =>
 export const persistedSystemStateSchema = z.object({
     rootComponent: componentNodeSchema,
     savedSnapshot: z.string().nullable().optional(),
+    uiMode: z.enum(['browse', 'edit']).optional(),
 })
 
 export function parseComponentNode(input: unknown): ComponentNode {

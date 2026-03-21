@@ -131,4 +131,25 @@ describe('modelSchema', () => {
 
         expect(result.data.savedSnapshot).toBe('root: saved')
     })
+
+    it('accepts an optional persisted uiMode', () => {
+        const result = safeParsePersistedSystemState({
+            rootComponent: {
+                uuid: 'root-uuid',
+                id: 'root',
+                name: 'Root',
+                type: 'component',
+                interfaces: [],
+                actors: [],
+                subComponents: [],
+                useCaseDiagrams: [],
+            },
+            uiMode: 'edit',
+        })
+
+        expect(result.success).toBe(true)
+        if (!result.success) return
+
+        expect(result.data.uiMode).toBe('edit')
+    })
 })

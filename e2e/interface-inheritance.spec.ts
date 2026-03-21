@@ -1,12 +1,13 @@
 import { test, expect } from '@playwright/test'
 import { makeLocalStorageValueWithInheritance } from './fixtures/sample-system'
 import { selectTreeItem } from './helpers/interactions'
+import { gotoHome } from './helpers/app'
 
 test.beforeEach(async ({ page }) => {
     await page.addInitScript((value) => {
         localStorage.setItem('integra-system', value)
     }, makeLocalStorageValueWithInheritance())
-    await page.goto('/')
+    await gotoHome(page)
 })
 
 test.describe('interface inheritance', () => {

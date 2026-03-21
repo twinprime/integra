@@ -10,6 +10,7 @@ export const EditorPanel = () => {
     const selectedNodeId = useSystemStore((state) => state.selectedNodeId)
     const rootComponent = useSystemStore((state) => state.rootComponent)
     const updateNode = useSystemStore((state) => state.updateNode)
+    const readOnly = useSystemStore((state) => state.uiMode === 'browse')
 
     const selectedNode = selectedNodeId ? findNode([rootComponent], selectedNodeId) : null
 
@@ -32,7 +33,13 @@ export const EditorPanel = () => {
               rootComponent.uuid)
 
     if (selectedNode.type === 'use-case-diagram' || selectedNode.type === 'sequence-diagram') {
-        return <DiagramEditor node={selectedNode as DiagramNode} onUpdate={handleUpdate} />
+        return (
+            <DiagramEditor
+                node={selectedNode as DiagramNode}
+                onUpdate={handleUpdate}
+                readOnly={readOnly}
+            />
+        )
     }
 
     if (selectedNode.type === 'component') {
@@ -42,6 +49,7 @@ export const EditorPanel = () => {
                 node={selectedNode}
                 onUpdate={handleUpdate}
                 contextComponentUuid={contextComponentUuid}
+                readOnly={readOnly}
             />
         )
     }
@@ -52,6 +60,7 @@ export const EditorPanel = () => {
             node={selectedNode}
             onUpdate={handleUpdate}
             contextComponentUuid={contextComponentUuid}
+            readOnly={readOnly}
         />
     )
 }

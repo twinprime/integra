@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { gotoHome } from './helpers/app'
 import {
     codeMirrorEditor,
     getVisibleCodeMirrorEditor,
@@ -65,7 +66,7 @@ async function openDiagramEditor(page: Page, targetText: string | RegExp) {
 }
 
 async function authorLoginWorkflow(page: Page): Promise<void> {
-    await page.goto('/')
+    await gotoHome(page)
 
     await expect(treeItem(page, /^My System$/)).toBeVisible()
 

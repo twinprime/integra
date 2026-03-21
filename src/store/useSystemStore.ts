@@ -58,6 +58,7 @@ export const useSystemStore = create<SystemState>()(
             partialize: (state) => ({
                 rootComponent: state.rootComponent,
                 savedSnapshot: state.savedSnapshot,
+                uiMode: state.uiMode,
             }),
             version: 3,
             migrate: (persistedState) => persistedState,
@@ -71,6 +72,7 @@ export const useSystemStore = create<SystemState>()(
                     ...currentState,
                     rootComponent: normalizeComponentDeep(parsed.data.rootComponent),
                     savedSnapshot: parsed.data.savedSnapshot ?? null,
+                    uiMode: parsed.data.uiMode ?? currentState.uiMode,
                 }
             },
         }

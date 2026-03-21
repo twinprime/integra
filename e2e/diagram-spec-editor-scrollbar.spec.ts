@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import { gotoHome } from './helpers/app'
 import type {
     ComponentNode,
     SequenceDiagramNode,
@@ -63,7 +64,7 @@ test.describe('diagram spec editor — preview mode scrollbar', () => {
         await page.addInitScript((value) => {
             localStorage.setItem('integra-system', value)
         }, lsValue)
-        await page.goto('/')
+        await gotoHome(page)
         await selectTreeItem(page, 'Long Flow')
         await page.getByRole('button', { name: /diagram specification/i }).waitFor()
     })
