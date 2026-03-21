@@ -8,6 +8,7 @@ The goal is to maintain or improve coverage while reducing execution time and ma
 
 1. Map the Coverage
 
+- Run a coverage report for both unit and E2E tests if available and record as the baseline for comparison after optimization.
 - Analyze existing Unit tests for logic branches and edge cases.
 - Analyze E2E tests for user workflows and integration points.
 
@@ -20,7 +21,10 @@ The goal is to maintain or improve coverage while reducing execution time and ma
 
 3. Validate
 
-- Ensure all tests remain independent and isolated and there is no reduction in test coverage.
+- Review the test code for readability and maintainability, ensuring that it is clear and concise.
+- Ensure coverage is maintained or improved.
+    - Run a coverage report for both unit and E2E tests if available and compare against baseline.
+- Run the optimized test suite and verify that all tests pass successfully.
 
 4. Output
 
