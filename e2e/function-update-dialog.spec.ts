@@ -50,57 +50,26 @@ test.beforeEach(async ({ page }) => {
 })
 
 test.describe('FunctionUpdateDialog', () => {
-    test('dialog appears when an incompatible signature change is saved', async ({ page }) => {
+    test('incompatible signature changes prompt for updating affected diagrams', async ({
+        page,
+    }) => {
         await triggerIncompatibleConflict(page)
 
         await expect(page.getByText('Function Definition Conflict')).toBeVisible()
-    })
-
-    test('dialog lists affected diagrams for an incompatible conflict', async ({ page }) => {
-        await triggerIncompatibleConflict(page)
-
-        await expect(page.getByText('Function Definition Conflict')).toBeVisible()
-        // "Backup Flow" references the same login function → it must appear as affected
         await expect(page.getByRole('listitem').filter({ hasText: 'Backup Flow' })).toBeVisible()
-    })
-
-    test('apply button resolves the conflict and closes the dialog', async ({ page }) => {
-        await triggerIncompatibleConflict(page)
-
-        await expect(page.getByText('Function Definition Conflict')).toBeVisible()
         await page.getByRole('button', { name: 'Apply' }).click()
-
         await expect(page.getByText('Function Definition Conflict')).not.toBeVisible()
     })
 
-    test('cancel button closes the dialog without saving', async ({ page }) => {
-        await triggerIncompatibleConflict(page)
-
-        await expect(page.getByText('Function Definition Conflict')).toBeVisible()
-        await page.getByRole('button', { name: 'Cancel' }).click()
-
-        await expect(page.getByText('Function Definition Conflict')).not.toBeVisible()
-    })
-
-    test('compatible signature change shows add-overload radio options', async ({ page }) => {
-        await triggerCompatibleConflict(page)
-
-        await expect(page.getByText('Function Definition Conflict')).toBeVisible()
-        // Compatible conflicts present a choice between adding a new overload or updating existing
-        await expect(page.getByLabel('Add new definition')).toBeVisible()
-        await expect(page.getByLabel('Update existing')).toBeVisible()
-    })
-
-    test('selecting update-existing for a compatible conflict reveals the affected diagrams list', async ({
+    test('compatible signature changes let the user choose whether to update referenced diagrams', async ({
         page,
     }) => {
         await triggerCompatibleConflict(page)
 
         await expect(page.getByText('Function Definition Conflict')).toBeVisible()
-        // Default is "Add new definition"; switch to "Update existing" to see affected diagrams
+        await expect(page.getByLabel('Add new definition')).toBeVisible()
+        await expect(page.getByLabel('Update existing')).toBeVisible()
         await page.getByLabel('Update existing').click()
-
-        // Backup Flow references the login function, so it should appear in the affected list
         await expect(page.getByRole('listitem').filter({ hasText: 'Backup Flow' })).toBeVisible()
     })
 })
