@@ -4,6 +4,7 @@ import {
     findConflictingInheritedChildFunctions,
     findInheritedParentFunction,
     isResolvedInterfaceDeletable,
+    type ResolvedInterface,
     resolveEffectiveInterfaceFunctions,
     resolveInterface,
 } from './interfaceFunctions'
@@ -172,7 +173,7 @@ describe('resolveInterface', () => {
 
 describe('isResolvedInterfaceDeletable', () => {
     it('returns true for local interfaces only when they have no effective functions', () => {
-        const resolved = {
+        const resolved: ResolvedInterface = {
             uuid: 'local-iface-uuid',
             id: 'IFace',
             name: 'IFace',
@@ -187,21 +188,17 @@ describe('isResolvedInterfaceDeletable', () => {
         }
 
         expect(isResolvedInterfaceDeletable(resolved, new Set())).toBe(true)
-        expect(
-            isResolvedInterfaceDeletable(
-                {
-                    ...resolved,
-                    functions: [{ uuid: 'fn-uuid', id: 'call', parameters: [] }],
-                    effectiveFunctions: [{ uuid: 'fn-uuid', id: 'call', parameters: [] }],
-                    localFunctions: [{ uuid: 'fn-uuid', id: 'call', parameters: [] }],
-                },
-                new Set()
-            )
-        ).toBe(false)
+        const populatedResolved: ResolvedInterface = {
+            ...resolved,
+            functions: [{ uuid: 'fn-uuid', id: 'call', parameters: [] }],
+            effectiveFunctions: [{ uuid: 'fn-uuid', id: 'call', parameters: [] }],
+            localFunctions: [{ uuid: 'fn-uuid', id: 'call', parameters: [] }],
+        }
+        expect(isResolvedInterfaceDeletable(populatedResolved, new Set())).toBe(false)
     })
 
     it('returns false for inherited interfaces when any resolved function is referenced', () => {
-        const resolved = {
+        const resolved: ResolvedInterface = {
             uuid: 'child-iface-uuid',
             id: 'IFace',
             name: 'IFace',

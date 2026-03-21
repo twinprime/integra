@@ -36,8 +36,9 @@ test.describe('interface inheritance — inherited interface display on sub-comp
         await page.getByTestId('interface-tab-IAuthDerived').click()
     })
 
-    test("inherited interface panel shows 'inherited from' badge", async ({ page }) => {
-        await expect(page.getByTestId('interface-tab-panel')).toContainText('inherited from')
+    test("inherited interface panel shows a simple 'inherited' badge", async ({ page }) => {
+        await expect(page.getByTestId('interface-tab-panel')).toContainText('inherited')
+        await expect(page.getByTestId('interface-tab-panel')).not.toContainText('inherited from')
     })
 
     test('inherited functions are displayed in the interface panel', async ({ page }) => {

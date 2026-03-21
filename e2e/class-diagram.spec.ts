@@ -168,9 +168,8 @@ test.describe('use-case-diagram visualization views', () => {
 
         await expect(diagramButton).toHaveAttribute('aria-pressed', 'false')
         await expect(classDiagramButton).toHaveAttribute('aria-pressed', 'true')
-        await expect(svgContainer).toContainText('IAuth')
-        await expect(svgContainer).toContainText('AuthService')
         await expect(svgContainer).not.toContainText('Login')
+        await expect(svgContainer).not.toContainText('IAuth')
 
         await diagramButton.click()
 
@@ -191,7 +190,9 @@ test.describe('root class diagram', () => {
 
     runClassDiagramTests((page) => selectTreeItem(page, /^System$/))
 
-    test('shows direct child components and referenced interface content', async ({ page }) => {
+    test('shows direct child components and hides interfaces without component dependencies', async ({
+        page,
+    }) => {
         await selectTreeItem(page, /^System$/)
 
         const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
@@ -199,8 +200,8 @@ test.describe('root class diagram', () => {
 
         await expect(svgContainer).toContainText('AuthService')
         await expect(svgContainer).toContainText('OrderService')
-        await expect(svgContainer).toContainText('IAuth')
-        await expect(svgContainer).toContainText('login')
+        await expect(svgContainer).not.toContainText('IAuth')
+        await expect(svgContainer).not.toContainText('login')
     })
 })
 
@@ -311,7 +312,7 @@ test.describe('component class diagram — dependency arrows', () => {
         expect(await getDiagramTransform(svgContainer)).toBe(zoomedTransform)
     })
 
-    test('renders implementation details for the selected component interfaces', async ({
+    test('hides selected component interfaces when they have no component dependencies', async ({
         page,
     }) => {
         await loadAppWithFixture(page, makeLocalStorageValueWithDependency())
@@ -322,21 +323,25 @@ test.describe('component class diagram — dependency arrows', () => {
         await expect(svgContainer.locator('svg')).toBeVisible()
 
         await expect(svgContainer).toContainText('AuthService')
-        await expect(svgContainer).toContainText('IAuth')
-        await expect(svgContainer).toContainText('login')
+        await expect(svgContainer).toContainText('IOrder')
+        await expect(svgContainer).toContainText('process')
+        await expect(svgContainer).not.toContainText('IAuth')
+        await expect(svgContainer).not.toContainText('login')
     })
 })
 
 test.describe('component class diagram — inherited interface rendering', () => {
-    test('renders inherited interfaces with parent functions', async ({ page }) => {
+    test('hides inherited interfaces with no component dependencies', async ({ page }) => {
         await loadAppWithFixture(page, makeLocalStorageValueWithInheritance())
         await selectTreeItem(page, 'AuthService')
 
         const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
         await svgContainer.waitFor({ timeout: 5000 })
 
-        await expect(svgContainer).toContainText('IAuthDerived')
-        await expect(svgContainer).toContainText('doThing')
+        await expect(svgContainer).not.toContainText('IAuthDerived')
+        await expect(svgContainer).not.toContainText('doThing')
+        await expect(svgContainer).toContainText('IOrder')
+        await expect(svgContainer).toContainText('process')
     })
 })
 
