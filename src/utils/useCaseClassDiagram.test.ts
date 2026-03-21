@@ -155,14 +155,21 @@ describe('buildUseCaseClassDiagram', () => {
 
         const result = buildUseCaseClassDiagram(primaryUseCase, root)
 
+        expect(result.mermaidContent).toContain('class user["User"]:::actor')
         expect(result.mermaidContent).toContain('class childSvc["Child Service"]')
         expect(result.mermaidContent).toContain('class platform["Platform"]')
         expect(result.mermaidContent).not.toContain('class compA["Component A"]')
-        expect(result.mermaidContent).not.toContain('class user["User"]')
-        expect(result.mermaidContent).not.toContain('iface_child_iface_uuid')
+        expect(result.mermaidContent).toContain('class iface_child_iface_uuid["IChild"] {')
         expect(result.idToUuid).toEqual({
+            user: 'user-uuid',
             childSvc: 'child-uuid',
             platform: 'platform-uuid',
+        })
+        expect(result.relationshipMetadata).toContainEqual({
+            kind: 'dependency',
+            sourceName: 'User',
+            targetName: 'IChild',
+            sequenceDiagrams: [{ uuid: 'entry-uuid', name: 'entry' }],
         })
     })
 

@@ -124,7 +124,7 @@ describe('buildRootClassDiagram', () => {
         expect(result.mermaidContent).not.toContain('orders ..>')
     })
 
-    it('does not render actors even when they participate in root-owned diagrams', () => {
+    it('renders actors when they participate in root-owned diagrams', () => {
         const root = makeRoot([
             makeSeqDiagram(
                 'actor-root-flow',
@@ -136,8 +136,8 @@ describe('buildRootClassDiagram', () => {
 
         const result = buildRootClassDiagram(root)
 
-        expect(result.mermaidContent).not.toContain('class user["User"]')
-        expect(result.relationshipMetadata).not.toContainEqual(
+        expect(result.mermaidContent).toContain('class user["User"]:::actor')
+        expect(result.relationshipMetadata).toContainEqual(
             expect.objectContaining({ sourceName: 'User' })
         )
     })

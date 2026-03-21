@@ -73,7 +73,15 @@ function makeRoot(useCaseDiagram: UseCaseDiagramNode): ComponentNode {
                         ],
                     },
                 ],
-                actors: [],
+                actors: [
+                    {
+                        uuid: 'customer-uuid',
+                        id: 'customer',
+                        name: 'customer',
+                        type: 'actor',
+                        description: '',
+                    },
+                ],
                 useCaseDiagrams: [useCaseDiagram],
                 interfaces: [],
             },
@@ -109,8 +117,10 @@ describe('buildUseCaseDiagramClassDiagram', () => {
                 makeSeqDiagram(
                     'seq-1',
                     [
+                        'actor customer',
                         'component childSvc',
                         'component root/platform as platform',
+                        'customer ->> childSvc: start',
                         'childSvc ->> platform: IPlatform:handle()',
                     ].join('\n')
                 )
@@ -120,8 +130,10 @@ describe('buildUseCaseDiagramClassDiagram', () => {
                 makeSeqDiagram(
                     'seq-2',
                     [
+                        'actor customer',
                         'component childSvc',
                         'component root/platform as platform',
+                        'customer ->> childSvc: start',
                         'childSvc ->> platform: IPlatform:handle()',
                     ].join('\n')
                 )
@@ -131,11 +143,21 @@ describe('buildUseCaseDiagramClassDiagram', () => {
 
         const result = buildUseCaseDiagramClassDiagram(useCaseDiagram, root)
 
+        expect(result.mermaidContent).toContain('class customer["customer"]:::actor')
         expect(result.mermaidContent).toContain('class childSvc["Child Service"]')
         expect(result.mermaidContent).toContain('class platform["Platform"]')
         expect(result.mermaidContent).toContain('+handle()')
         expect(result.mermaidContent).not.toContain('class compA["Component A"]')
         expect(result.mermaidContent).not.toContain('iface_child_iface_uuid')
+        expect(result.relationshipMetadata).toContainEqual({
+            kind: 'dependency',
+            sourceName: 'customer',
+            targetName: 'Child Service',
+            sequenceDiagrams: [
+                { uuid: 'seq-1-uuid', name: 'seq-1' },
+                { uuid: 'seq-2-uuid', name: 'seq-2' },
+            ],
+        })
         expect(result.relationshipMetadata).toContainEqual({
             kind: 'dependency',
             sourceName: 'Child Service',

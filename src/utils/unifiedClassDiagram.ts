@@ -1,12 +1,17 @@
 import type { ComponentNode, SequenceDiagramNode } from '../store/types'
-import { collectAllDiagrams, findNode, findParentNode } from '../nodes/nodeTree'
-import { findOwnerActorOrComponentUuidById } from './diagramResolvers'
+import { collectAllDiagrams, findNode } from '../nodes/nodeTree'
 import { flattenMessages, type SeqAst } from '../parser/sequenceDiagram/visitor'
 import { getCachedSeqAst } from './seqAstCache'
-import { findNodeByPath, getAncestorComponentChain } from './nodeUtils'
+import { getAncestorComponentChain } from './nodeUtils'
 import { collectReferencedSequenceDiagrams } from './referencedSequenceDiagrams'
 import { getInterfaceDiagramNodeId } from './classDiagramNodeIds'
 import { emitInterfaceClass, emitParticipantClass } from './classDiagramRendering'
+import { resolveDeclarationUuid } from './classDiagramDeclarationResolution'
+import {
+    getVisibleRepresentativeUuid,
+    isVisibleActorUuid,
+    type ComponentVisibilityConfig,
+} from './classDiagramParticipants'
 import {
     DEFAULT_CLASS_DIAGRAM_RENDER_OPTIONS,
     addSequenceDiagramSource,
@@ -19,12 +24,6 @@ import {
     type ClassDiagramRenderOptions,
 } from './classDiagramMetadata'
 
-type ComponentVisibilityConfig = {
-    rootComponent: ComponentNode
-    ownerComponent: ComponentNode
-    includeOwner: boolean
-}
-
 type SharedBuilderConfig = ComponentVisibilityConfig & {
     startDiagrams: ReadonlyArray<SequenceDiagramNode>
     alwaysIncludeComponentUuids?: ReadonlyArray<string>
@@ -33,17 +32,6 @@ type SharedBuilderConfig = ComponentVisibilityConfig & {
 }
 
 type SequenceDiagramSources = Map<string, { uuid: string; name: string }>
-
-function resolveDeclarationUuid(
-    path: string[],
-    ownerComp: ComponentNode | null,
-    root: ComponentNode
-): string | undefined {
-    if (path.length === 1) {
-        return ownerComp ? findOwnerActorOrComponentUuidById(ownerComp, path[0]) : undefined
-    }
-    return findNodeByPath(root, path.join('/')) ?? undefined
-}
 
 function collectSequenceDiagramsFromComponent(component: ComponentNode): SequenceDiagramNode[] {
     const diagrams = component.useCaseDiagrams.flatMap((useCaseDiagram) =>
@@ -59,38 +47,6 @@ function getAllSystemSequenceDiagrams(rootComponent: ComponentNode): SequenceDia
     return collectAllDiagrams(rootComponent)
         .filter(({ diagram }) => diagram.type === 'sequence-diagram')
         .map(({ diagram }) => diagram as SequenceDiagramNode)
-}
-
-function isVisibleComponentUuid(
-    config: ComponentVisibilityConfig,
-    candidateUuid: string,
-    ownerAncestors: Set<string>
-): boolean {
-    const { rootComponent, ownerComponent, includeOwner } = config
-    if (includeOwner && candidateUuid === ownerComponent.uuid) return true
-
-    const parent = findParentNode(rootComponent, candidateUuid)
-    if (parent?.type !== 'component') return false
-    if (parent.uuid === ownerComponent.uuid) return true
-    if (ownerAncestors.has(candidateUuid)) return true
-    return ownerAncestors.has(parent.uuid)
-}
-
-function getVisibleRepresentativeUuid(
-    config: ComponentVisibilityConfig,
-    actualUuid: string,
-    ownerAncestors: Set<string>
-): string | undefined {
-    let currentUuid: string | undefined = actualUuid
-    while (currentUuid) {
-        const node = findNode([config.rootComponent], currentUuid)
-        if (node?.type !== 'component') return undefined
-        if (isVisibleComponentUuid(config, currentUuid, ownerAncestors)) return currentUuid
-
-        const parent = findParentNode(config.rootComponent, currentUuid)
-        currentUuid = parent?.type === 'component' ? parent.uuid : undefined
-    }
-    return undefined
 }
 
 // eslint-disable-next-line complexity
@@ -115,6 +71,7 @@ function buildClassDiagramGraph({
     )
 
     const componentNodeMap = new Map<string, ClassDiagramNodeDefinition>()
+    const actorNodeMap = new Map<string, ClassDiagramNodeDefinition>()
     const interfaceNodeMap = new Map<string, ClassDiagramNodeDefinition>()
     const interfaceMethodIds = new Map<string, Set<string>>()
     const edgeMap = new Map<
@@ -145,6 +102,40 @@ function buildClassDiagramGraph({
         }
         componentNodeMap.set(componentUuid, definition)
         return definition
+    }
+
+    const ensureActorNode = (actorUuid: string): ClassDiagramNodeDefinition | null => {
+        const existing = actorNodeMap.get(actorUuid)
+        if (existing) return existing
+        const actorNode = findNode([rootComponent], actorUuid)
+        if (actorNode?.type !== 'actor') return null
+
+        const definition: ClassDiagramNodeDefinition = {
+            kind: 'actor',
+            nodeId: actorNode.id,
+            uuid: actorNode.uuid,
+            name: actorNode.name,
+        }
+        actorNodeMap.set(actorUuid, definition)
+        return definition
+    }
+
+    const getVisibleParticipantUuid = (participantUuid: string): string | undefined => {
+        const participantNode = findNode([rootComponent], participantUuid)
+        if (participantNode?.type === 'component')
+            return getVisibleRepresentativeUuid(visibilityConfig, participantUuid, ownerAncestors)
+        if (participantNode?.type === 'actor')
+            return isVisibleActorUuid(visibilityConfig, participantUuid, ownerAncestors)
+                ? participantUuid
+                : undefined
+        return undefined
+    }
+
+    const ensureParticipantNode = (participantUuid: string): ClassDiagramNodeDefinition | null => {
+        const participantNode = findNode([rootComponent], participantUuid)
+        if (participantNode?.type === 'component') return ensureComponentNode(participantUuid)
+        if (participantNode?.type === 'actor') return ensureActorNode(participantUuid)
+        return null
     }
 
     const ensureInterfaceNode = (
@@ -217,35 +208,33 @@ function buildClassDiagramGraph({
             if (message.excludeFromDependencies) continue
             const senderUuid = aliasToUuid.get(message.from)
             const receiverUuid = aliasToUuid.get(message.to)
-            const visibleSenderUuid = senderUuid
-                ? getVisibleRepresentativeUuid(visibilityConfig, senderUuid, ownerAncestors)
-                : undefined
+            const visibleSenderUuid = senderUuid ? getVisibleParticipantUuid(senderUuid) : undefined
             const visibleReceiverUuid = receiverUuid
-                ? getVisibleRepresentativeUuid(visibilityConfig, receiverUuid, ownerAncestors)
+                ? getVisibleParticipantUuid(receiverUuid)
                 : undefined
-
-            if (visibleSenderUuid) ensureComponentNode(visibleSenderUuid)
-            if (visibleReceiverUuid) ensureComponentNode(visibleReceiverUuid)
+            const senderNodeDefinition = visibleSenderUuid
+                ? ensureParticipantNode(visibleSenderUuid)
+                : null
+            const receiverNodeDefinition = visibleReceiverUuid
+                ? ensureParticipantNode(visibleReceiverUuid)
+                : null
 
             if (
                 !visibleSenderUuid ||
                 !visibleReceiverUuid ||
+                !senderNodeDefinition ||
+                !receiverNodeDefinition ||
                 visibleSenderUuid === visibleReceiverUuid
             ) {
                 continue
             }
 
-            const senderNode = findNode([rootComponent], visibleSenderUuid)
-            const receiverVisibleNode = findNode([rootComponent], visibleReceiverUuid)
-            if (senderNode?.type !== 'component' || receiverVisibleNode?.type !== 'component')
-                continue
-
             if (message.content.kind !== 'functionRef') {
                 addDependencyEdge(
-                    senderNode.id,
-                    receiverVisibleNode.id,
-                    senderNode.name,
-                    receiverVisibleNode.name,
+                    senderNodeDefinition.nodeId,
+                    receiverNodeDefinition.nodeId,
+                    senderNodeDefinition.name,
+                    receiverNodeDefinition.name,
                     sequenceDiagram
                 )
                 continue
@@ -254,10 +243,10 @@ function buildClassDiagramGraph({
             const actualReceiverNode = receiverUuid ? findNode([rootComponent], receiverUuid) : null
             if (actualReceiverNode?.type !== 'component') {
                 addDependencyEdge(
-                    senderNode.id,
-                    receiverVisibleNode.id,
-                    senderNode.name,
-                    receiverVisibleNode.name,
+                    senderNodeDefinition.nodeId,
+                    receiverNodeDefinition.nodeId,
+                    senderNodeDefinition.name,
+                    receiverNodeDefinition.name,
                     sequenceDiagram
                 )
                 continue
@@ -275,9 +264,9 @@ function buildClassDiagramGraph({
                 calledIds.add(functionId)
                 interfaceMethodIds.set(interfaceNode.nodeId, calledIds)
                 addDependencyEdge(
-                    senderNode.id,
+                    senderNodeDefinition.nodeId,
                     interfaceNode.nodeId,
-                    senderNode.name,
+                    senderNodeDefinition.name,
                     interfaceNode.name,
                     sequenceDiagram
                 )
@@ -285,10 +274,10 @@ function buildClassDiagramGraph({
             }
 
             addDependencyEdge(
-                senderNode.id,
-                receiverVisibleNode.id,
-                senderNode.name,
-                receiverVisibleNode.name,
+                senderNodeDefinition.nodeId,
+                receiverNodeDefinition.nodeId,
+                senderNodeDefinition.name,
+                receiverNodeDefinition.name,
                 sequenceDiagram
             )
         }
@@ -329,6 +318,7 @@ function buildClassDiagramGraph({
 
     const nodes: ClassDiagramNodeDefinition[] = [
         ...componentNodeMap.values(),
+        ...actorNodeMap.values(),
         ...Array.from(interfaceNodeMap.values())
             .filter((node) => interfaceNodeIdsWithDependencies.has(node.nodeId))
             .map((node) => ({
@@ -358,6 +348,10 @@ function buildClassDiagramGraph({
         if (node.kind !== 'component') continue
         idToUuid[node.nodeId] = node.uuid
         focusableNodeIds.push(node.nodeId)
+    }
+    for (const node of actorNodeMap.values()) {
+        if (node.kind !== 'actor') continue
+        idToUuid[node.nodeId] = node.uuid
     }
 
     return {
@@ -436,12 +430,12 @@ export function renderClassDiagramGraph(
     }
 
     for (const node of visibleNodes) {
-        if (node.kind === 'component') {
+        if (node.kind !== 'interface') {
             emitParticipantClass(
                 {
                     nodeId: node.nodeId,
                     name: node.name,
-                    kind: 'component',
+                    kind: node.kind,
                 },
                 mermaidLines
             )
@@ -486,8 +480,10 @@ export function renderClassDiagramGraph(
         }
     } else {
         for (const node of visibleNodes) {
-            if (node.baseStyle === 'subject') applyComponentStyle(node.nodeId)
-            if (node.baseStyle === 'subject-interface') applyInterfaceStyle(node.nodeId)
+            if (node.kind === 'component' && node.baseStyle === 'subject')
+                applyComponentStyle(node.nodeId)
+            if (node.kind === 'interface' && node.baseStyle === 'subject-interface')
+                applyInterfaceStyle(node.nodeId)
         }
     }
 

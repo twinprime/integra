@@ -169,7 +169,9 @@ test.describe('use-case-diagram visualization views', () => {
         await expect(diagramButton).toHaveAttribute('aria-pressed', 'false')
         await expect(classDiagramButton).toHaveAttribute('aria-pressed', 'true')
         await expect(svgContainer).not.toContainText('Login')
-        await expect(svgContainer).not.toContainText('IAuth')
+        await expect(svgContainer).toContainText('User')
+        await expect(svgContainer).toContainText('IAuth')
+        await expect(svgContainer).toContainText('login')
 
         await diagramButton.click()
 
@@ -190,7 +192,7 @@ test.describe('root class diagram', () => {
 
     runClassDiagramTests((page) => selectTreeItem(page, /^System$/))
 
-    test('shows direct child components and hides interfaces without component dependencies', async ({
+    test('shows direct child components and keeps interfaces with actor-driven dependencies', async ({
         page,
     }) => {
         await selectTreeItem(page, /^System$/)
@@ -198,10 +200,11 @@ test.describe('root class diagram', () => {
         const svgContainer = page.locator('[data-testid="diagram-svg-container"]')
         await svgContainer.waitFor({ timeout: 5000 })
 
+        await expect(svgContainer).toContainText('User')
         await expect(svgContainer).toContainText('AuthService')
         await expect(svgContainer).toContainText('OrderService')
-        await expect(svgContainer).not.toContainText('IAuth')
-        await expect(svgContainer).not.toContainText('login')
+        await expect(svgContainer).toContainText('IAuth')
+        await expect(svgContainer).toContainText('login')
     })
 })
 

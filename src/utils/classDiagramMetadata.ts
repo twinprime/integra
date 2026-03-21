@@ -48,6 +48,12 @@ export type ClassDiagramNodeDefinition =
           baseStyle?: 'subject'
       }
     | {
+          kind: 'actor'
+          nodeId: string
+          uuid: string
+          name: string
+      }
+    | {
           kind: 'interface'
           nodeId: string
           name: string

@@ -246,9 +246,31 @@ describe('buildComponentClassDiagram', () => {
 
         expect(result.mermaidContent).toContain('class childSvc["Child Service"]')
         expect(result.mermaidContent).toContain('class platform["Platform"]')
-        expect(result.mermaidContent).not.toContain('class user["User"]')
+        expect(result.mermaidContent).not.toContain('class user["User"]:::actor')
         expect(result.relationshipMetadata).not.toContainEqual(
             expect.objectContaining({ sourceName: 'User' })
+        )
+    })
+
+    it('renders actors from sequence diagrams owned under the selected component subtree', () => {
+        const root = makeRoot([
+            makeSeqDiagram(
+                'component-owned-actor',
+                [
+                    'actor user',
+                    'component childSvc',
+                    'component root/platform as platform',
+                    'user ->> childSvc: IChild:run()',
+                    'childSvc ->> platform: IPlatform:handle()',
+                ].join('\n')
+            ),
+        ])
+
+        const result = buildComponentClassDiagram(root.subComponents[0], root)
+
+        expect(result.mermaidContent).toContain('class user["User"]:::actor')
+        expect(result.relationshipMetadata).toContainEqual(
+            expect.objectContaining({ sourceName: 'User', targetName: 'IChild' })
         )
     })
 
