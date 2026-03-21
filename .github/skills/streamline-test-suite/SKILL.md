@@ -28,4 +28,4 @@ The goal is to maintain or improve coverage while reducing execution time and ma
 
 4. Output
 
-- Provide a summary of removed redundancies and the refactored test code.
+- Provide a summary of removed redundancies and the refactored test code and any changes to test coverage.
