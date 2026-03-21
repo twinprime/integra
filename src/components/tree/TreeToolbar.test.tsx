@@ -9,6 +9,10 @@ vi.mock('../../assets/integra-logo.svg', () => ({
     default: 'integra-logo.svg',
 }))
 
+vi.mock('../../assets/integra-logo-edit.svg', () => ({
+    default: 'integra-logo-edit.svg',
+}))
+
 vi.mock('../../store/useSystemStore', () => ({
     useSystemStore: vi.fn(),
 }))
@@ -66,9 +70,13 @@ describe('TreeToolbar', () => {
         expect(screen.queryByTitle('Save system to YAML file')).not.toBeInTheDocument()
         expect(screen.queryByTitle('Clear system')).not.toBeInTheDocument()
         expect(screen.getByTitle('Load system from YAML file')).toBeInTheDocument()
+        expect(screen.getByAltText('Integra browse mode')).toHaveAttribute(
+            'src',
+            'integra-logo.svg'
+        )
     })
 
-    it('shows edit-only actions and decoration in edit mode', () => {
+    it('shows edit-only actions and the edit-mode icon variant', () => {
         setupStoreMock('edit')
 
         render(<TreeToolbar treeActive={treeActive} />)
@@ -80,6 +88,10 @@ describe('TreeToolbar', () => {
         expect(screen.getByLabelText('Switch to browse mode')).toHaveAttribute(
             'aria-pressed',
             'true'
+        )
+        expect(screen.getByAltText('Integra edit mode')).toHaveAttribute(
+            'src',
+            'integra-logo-edit.svg'
         )
     })
 

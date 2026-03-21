@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Download, Upload, RotateCcw, Undo2, Redo2, ArrowLeft, ArrowRight } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import integraLogo from '../../assets/integra-logo.svg'
+import integraEditLogo from '../../assets/integra-logo-edit.svg'
 import { useSystemStore } from '../../store/useSystemStore'
 import type { ComponentNode } from '../../store/types'
 import { saveToDirectory, loadFromDirectory } from '../../utils/systemFiles'
@@ -179,8 +180,12 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
                 aria-pressed={!readOnly}
                 aria-label={readOnly ? 'Switch to edit mode' : 'Switch to browse mode'}
             >
-                <img src={integraLogo} width={18} height={18} alt="Integra" />
-                {!readOnly && <span className="h-2 w-2 rounded-full bg-blue-400" />}
+                <img
+                    src={readOnly ? integraLogo : integraEditLogo}
+                    width={18}
+                    height={18}
+                    alt={readOnly ? 'Integra browse mode' : 'Integra edit mode'}
+                />
                 {hasUnsavedChanges && (
                     <span className="text-xs font-normal text-yellow-500" title="Unsaved changes">
                         ●
