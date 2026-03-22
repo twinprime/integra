@@ -302,6 +302,61 @@ describe('parseSequenceDiagram — idempotency', () => {
             .interfaces.find((i) => i.id === 'OrdersAPI')
         expect(iface!.functions.filter((f) => f.id === 'placeOrder')).toHaveLength(1)
     })
+
+    it('allows a child local interface to add a same-id function even when a parent interface already has it', () => {
+        const child: ComponentNode = {
+            uuid: 'child-uuid',
+            id: 'orderSvc',
+            name: 'orderSvc',
+            type: 'component',
+            description: '',
+            subComponents: [],
+            actors: [],
+            interfaces: [
+                {
+                    uuid: 'child-iface-uuid',
+                    id: 'OrdersAPI',
+                    name: 'OrdersAPI',
+                    type: 'rest',
+                    functions: [],
+                },
+            ],
+            useCaseDiagrams: [],
+        }
+        const root = makeRoot({
+            interfaces: [
+                {
+                    uuid: 'parent-iface-uuid',
+                    id: 'OrdersAPI',
+                    name: 'OrdersAPI',
+                    type: 'rest',
+                    functions: [
+                        {
+                            uuid: 'parent-fn-uuid',
+                            id: 'placeOrder',
+                            parameters: [{ name: 'id', type: 'string', required: true }],
+                        },
+                    ],
+                },
+            ],
+            subComponents: [child],
+        })
+        const content = [
+            'actor customer',
+            'component orderSvc',
+            'customer ->> orderSvc: OrdersAPI:placeOrder(orderId: number)',
+        ].join('\n')
+
+        const result = parseSequenceDiagram(content, root, OWNER_UUID, SEQ_UUID)
+        const updatedChild = getOwner(result).subComponents.find((c) => c.id === 'orderSvc')
+        const childFn = updatedChild?.interfaces
+            .find((iface) => iface.id === 'OrdersAPI')
+            ?.functions.find((fn) => fn.id === 'placeOrder')
+        const parentFn = getOwner(result).interfaces[0].functions[0]
+
+        expect(childFn?.parameters).toEqual([{ name: 'orderId', type: 'number', required: true }])
+        expect(parentFn.parameters).toEqual([{ name: 'id', type: 'string', required: true }])
+    })
 })
 
 describe('parseSequenceDiagram — empty / whitespace content', () => {

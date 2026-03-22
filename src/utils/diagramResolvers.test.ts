@@ -357,6 +357,22 @@ describe('resolveFunctionReferenceTarget', () => {
         expect(resolveFunctionReferenceTarget(root, 'root', 'API', 'getData')).toBeNull()
     })
 
+    it('does not fall back outside the receiver subtree when that subtree already owns the interface', () => {
+        const child = makeCompWithIface('child-uuid', 'child', 'API', 'child-iface-uuid')
+        const svcA = makeCompWithFn(
+            'a-uuid',
+            'ServiceA',
+            'API',
+            'a-iface-uuid',
+            'getData',
+            'a-fn-uuid'
+        )
+        const svcB = makeComp('b-uuid', 'ServiceB', [child])
+        const root = makeComp('root-uuid', 'root', [svcA, svcB])
+
+        expect(resolveFunctionReferenceTarget(root, 'child', 'API', 'getData')).toBeNull()
+    })
+
     it('resolves inherited interface functions on the receiver component', () => {
         const child: ComponentNode = {
             uuid: 'child-uuid',
