@@ -1,8 +1,11 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest'
 import {
+    analyzeInterfaceInheritanceMerge,
+    classifyFunctionCompatibility,
     findConflictingInheritedChildFunctions,
     findInheritedParentFunction,
+    formatFunctionSignature,
     isResolvedInterfaceDeletable,
     type ResolvedInterface,
     resolveEffectiveInterfaceFunctions,
@@ -168,6 +171,97 @@ describe('resolveInterface', () => {
         expect(resolved.localFunctions).toEqual([childExtraFn])
         expect(resolved.effectiveFunctions).toEqual([childExtraFn, parentExtraFn, rootFn])
         expect(resolved.inheritedFrom?.uuid).toBe('parent-inherited-iface-uuid')
+    })
+})
+
+describe('classifyFunctionCompatibility', () => {
+    const exactFn = {
+        uuid: 'exact-fn',
+        id: 'syncUser',
+        parameters: [{ name: 'userId', type: 'string', required: true }],
+    }
+    const sameArityFn = {
+        uuid: 'same-arity-fn',
+        id: 'syncUser',
+        parameters: [{ name: 'id', type: 'string', required: true }],
+    }
+
+    it('returns match for exact signatures', () => {
+        expect(
+            classifyFunctionCompatibility([exactFn], 'syncUser', [
+                { name: 'userId', type: 'string', required: true },
+            ])
+        ).toEqual({
+            kind: 'match',
+            matchedFunction: exactFn,
+        })
+    })
+
+    it('returns incompatible for same-id signatures with the same arity', () => {
+        expect(
+            classifyFunctionCompatibility([sameArityFn], 'syncUser', [
+                { name: 'userId', type: 'string', required: true },
+            ])
+        ).toEqual({
+            kind: 'incompatible',
+            conflictingFunction: sameArityFn,
+        })
+    })
+
+    it('returns distinct when no existing function conflicts', () => {
+        expect(
+            classifyFunctionCompatibility([exactFn], 'createUser', [
+                { name: 'payload', type: 'object', required: true },
+            ])
+        ).toEqual({ kind: 'distinct' })
+    })
+})
+
+describe('analyzeInterfaceInheritanceMerge', () => {
+    it('drops exact matches, keeps distinct functions, and reports incompatible ones', () => {
+        const matchingFn = {
+            uuid: 'matching-fn',
+            id: 'syncUser',
+            parameters: [{ name: 'userId', type: 'string', required: true }],
+        }
+        const inheritedConflict = {
+            uuid: 'inherited-conflict',
+            id: 'deleteUser',
+            parameters: [{ name: 'userId', type: 'string', required: true }],
+        }
+        const localConflict = {
+            uuid: 'local-conflict',
+            id: 'deleteUser',
+            parameters: [{ name: 'id', type: 'string', required: true }],
+        }
+        const localExtra = {
+            uuid: 'local-extra',
+            id: 'listUsers',
+            parameters: [],
+        }
+
+        const analysis = analyzeInterfaceInheritanceMerge(
+            [matchingFn, localConflict, localExtra],
+            [matchingFn, inheritedConflict]
+        )
+
+        expect(analysis.additionalFunctions).toEqual([localExtra])
+        expect(analysis.problems).toEqual([
+            {
+                functionId: 'deleteUser',
+                localFunction: localConflict,
+                inheritedFunction: inheritedConflict,
+            },
+        ])
+    })
+
+    it('formats signatures for dialog display', () => {
+        expect(
+            formatFunctionSignature('syncUser', [
+                { name: 'userId', type: 'string', required: true },
+                { name: 'includeRoles', type: 'boolean', required: false },
+            ])
+        ).toBe('syncUser(userId: string, includeRoles: boolean?)')
     })
 })
 

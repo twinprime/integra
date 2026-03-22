@@ -140,6 +140,11 @@ A sub-component can declare that one of its interfaces **inherits** a parent com
 1. Select a sub-component in the tree.
 2. If its parent component defines interfaces, an **"Inherit parent interface:"** selector appears above the interface tabs.
 3. The dropdown lists all parent interfaces not yet inherited by this component. Select one to create a new inherited interface entry and activate its tab.
+4. If the component already has an interface with the same ID, Integra analyzes the existing child-local functions before inheriting:
+   - exact matches with the inherited contract are dropped as redundant
+   - non-matching functions are kept as additional child-local functions
+   - incompatible functions block inheritance and are shown in an error prompt
+5. When there are no blocking conflicts, the user is prompted to confirm merging into the existing same-ID interface; cancelling leaves the existing interface unchanged.
 
 #### Inherited interface behaviour
 

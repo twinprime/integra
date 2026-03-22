@@ -10,9 +10,11 @@ import { upsertNodeInTree } from '../../nodes/nodeTree'
 import { findCompByUuid } from '../../nodes/nodeTree'
 import { normalizeComponent } from '../../nodes/interfaceOps'
 import {
+    classifyFunctionCompatibility,
     type InheritedChildFunctionConflict,
     findConflictingInheritedChildFunctions,
     findInheritedParentFunction,
+    formatFunctionSignature,
     isInheritedInterface,
 } from '../../utils/interfaceFunctions'
 
@@ -112,18 +114,17 @@ function withFunctionOnInterface(
     functionId: string,
     newParams: Parameter[]
 ): InterfaceSpecification {
-    const exactMatch = currentInterface.functions.findIndex(
-        (f) => f.id === functionId && paramsMatch(f.parameters, newParams)
+    const compatibility = classifyFunctionCompatibility(
+        currentInterface.functions,
+        functionId,
+        newParams
     )
-    if (exactMatch !== -1) return currentInterface
+    if (compatibility.kind === 'match') return currentInterface
 
-    const sameIdSameCount = currentInterface.functions.find(
-        (f) => f.id === functionId && f.parameters.length === newParams.length
-    )
-    if (sameIdSameCount) {
+    if (compatibility.kind === 'incompatible') {
         throw new Error(
             `Parameter mismatch for function "${functionId}" in interface "${currentInterface.id}": ` +
-                `existing (${paramsToString(sameIdSameCount.parameters)}) vs new (${paramsToString(newParams)})`
+                `existing (${formatFunctionSignature(functionId, compatibility.conflictingFunction.parameters)}) vs new (${formatFunctionSignature(functionId, newParams)})`
         )
     }
 

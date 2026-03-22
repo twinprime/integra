@@ -70,6 +70,99 @@ export function functionSignatureKey(
     ].join('|')
 }
 
+export type FunctionCompatibility =
+    | {
+          readonly kind: 'match'
+          readonly matchedFunction: InterfaceFunction
+      }
+    | {
+          readonly kind: 'incompatible'
+          readonly conflictingFunction: InterfaceFunction
+      }
+    | {
+          readonly kind: 'distinct'
+      }
+
+export type InterfaceInheritanceMergeProblem = {
+    readonly functionId: string
+    readonly localFunction: InterfaceFunction
+    readonly inheritedFunction: InterfaceFunction
+}
+
+export type InterfaceInheritanceMergeAnalysis = {
+    readonly additionalFunctions: ReadonlyArray<InterfaceFunction>
+    readonly problems: ReadonlyArray<InterfaceInheritanceMergeProblem>
+}
+
+export function formatFunctionSignature(
+    functionId: string,
+    parameters: ReadonlyArray<InterfaceFunction['parameters'][number]>
+): string {
+    const formattedParams = parameters
+        .map((param) => `${param.name}: ${param.type}${param.required ? '' : '?'}`)
+        .join(', ')
+    return `${functionId}(${formattedParams})`
+}
+
+export function classifyFunctionCompatibility(
+    functions: ReadonlyArray<InterfaceFunction>,
+    functionId: string,
+    parameters: ReadonlyArray<InterfaceFunction['parameters'][number]>
+): FunctionCompatibility {
+    const matchedFunction = functions.find(
+        (fn) => fn.id === functionId && paramsMatch(fn.parameters, parameters)
+    )
+    if (matchedFunction) {
+        return {
+            kind: 'match',
+            matchedFunction,
+        }
+    }
+
+    const conflictingFunction = functions.find(
+        (fn) => fn.id === functionId && fn.parameters.length === parameters.length
+    )
+    if (conflictingFunction) {
+        return {
+            kind: 'incompatible',
+            conflictingFunction,
+        }
+    }
+
+    return { kind: 'distinct' }
+}
+
+export function analyzeInterfaceInheritanceMerge(
+    localFunctions: ReadonlyArray<InterfaceFunction>,
+    inheritedFunctions: ReadonlyArray<InterfaceFunction>
+): InterfaceInheritanceMergeAnalysis {
+    const additionalFunctions: InterfaceFunction[] = []
+    const problems: InterfaceInheritanceMergeProblem[] = []
+
+    for (const localFunction of localFunctions) {
+        const compatibility = classifyFunctionCompatibility(
+            inheritedFunctions,
+            localFunction.id,
+            localFunction.parameters
+        )
+        if (compatibility.kind === 'match') continue
+        if (compatibility.kind === 'incompatible') {
+            problems.push({
+                functionId: localFunction.id,
+                localFunction,
+                inheritedFunction: compatibility.conflictingFunction,
+            })
+            continue
+        }
+        additionalFunctions.push(localFunction)
+    }
+
+    return {
+        additionalFunctions,
+        problems,
+    }
+}
+
 function mergeInheritedAndLocalFunctions(
     inheritedFunctions: ReadonlyArray<InterfaceFunction>,
     localFunctions: ReadonlyArray<InterfaceFunction>

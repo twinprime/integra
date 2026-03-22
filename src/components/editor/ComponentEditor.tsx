@@ -4,6 +4,7 @@ import { useSystemStore } from '../../store/useSystemStore'
 import { collectReferencedFunctionUuids, findReferencingDiagrams } from '../../utils/nodeUtils'
 import { getNodeSiblingIds } from '../../nodes/nodeTree'
 import { FunctionRenameConflictDialog } from '../FunctionRenameConflictDialog'
+import { InterfaceInheritanceDialog } from '../InterfaceInheritanceDialog'
 import { DescriptionField } from './DescriptionField'
 import { InterfaceEditor } from './InterfaceEditor'
 import { NodeReferencesButton } from './NodeReferencesButton'
@@ -11,13 +12,16 @@ import { NodePathEditorRow } from './NodePathEditorRow'
 import { PanelTitleInput } from './PanelTitleInput'
 import { useInterfaceTabManager } from './useInterfaceTabManager'
 import {
+    analyzeInterfaceInheritanceMerge,
     findConflictingInheritedChildFunctions,
     findInheritedParentFunction,
     isInheritedInterface,
     isLocalInterface,
     isResolvedInterfaceDeletable,
+    type InterfaceInheritanceMergeProblem,
     type InheritedChildFunctionConflict,
     type ResolvedInterface,
+    resolveEffectiveInterfaceFunctions,
 } from '../../utils/interfaceFunctions'
 
 type EditableInterfaceUpdates = Partial<
@@ -34,6 +38,10 @@ type PendingFunctionRenameConflict = {
     description: string
     confirmLabel: string
     conflictingChildren?: ReadonlyArray<InheritedChildFunctionConflict>
+}
+
+type PendingInterfaceInheritanceMerge = {
+    interfaces: ReadonlyArray<InterfaceSpecification>
 }
 
 export const ComponentEditor = ({
@@ -53,6 +61,10 @@ export const ComponentEditor = ({
     const [idError, setIdError] = useState<string | null>(null)
     const [pendingFunctionRenameConflict, setPendingFunctionRenameConflict] =
         useState<PendingFunctionRenameConflict | null>(null)
+    const [pendingInterfaceInheritanceMerge, setPendingInterfaceInheritanceMerge] =
+        useState<PendingInterfaceInheritanceMerge | null>(null)
+    const [interfaceInheritanceProblems, setInterfaceInheritanceProblems] =
+        useState<ReadonlyArray<InterfaceInheritanceMergeProblem> | null>(null)
 
     const rootComponent = useSystemStore((state) => state.rootComponent)
     const renameNodeId = useSystemStore((s) => s.renameNodeId)
@@ -66,8 +78,10 @@ export const ComponentEditor = ({
         activeTabUuid,
         setActiveTabUuid,
         resolvedInterfaces,
+        parentComponent,
         uninheritedParentInterfaces,
         handleInheritParentInterface,
+        parentInterfaces,
     } = useInterfaceTabManager(node)
 
     const handleNameBlur = () => {
@@ -239,6 +253,50 @@ export const ComponentEditor = ({
         onUpdate({ interfaces: newInterfaces })
     }
 
+    const handleInheritParentInterfaceSelection = (parentUuid: string) => {
+        const parentIface = parentInterfaces.find((iface) => iface.uuid === parentUuid)
+        if (!parentIface || !parentComponent) return
+
+        const existingInterface = node.interfaces.find((iface) => iface.id === parentIface.id)
+        if (!existingInterface) {
+            handleInheritParentInterface(parentUuid, onUpdate)
+            return
+        }
+
+        const inheritedFunctions = resolveEffectiveInterfaceFunctions(
+            parentIface,
+            parentComponent,
+            rootComponent
+        )
+        const mergeAnalysis = analyzeInterfaceInheritanceMerge(
+            existingInterface.functions,
+            inheritedFunctions
+        )
+
+        if (mergeAnalysis.problems.length > 0) {
+            setInterfaceInheritanceProblems(mergeAnalysis.problems)
+            return
+        }
+
+        setPendingInterfaceInheritanceMerge({
+            interfaces: node.interfaces.map((iface) =>
+                iface.uuid === existingInterface.uuid
+                    ? {
+                          uuid: existingInterface.uuid,
+                          kind: 'inherited' as const,
+                          id: parentIface.id,
+                          name: parentIface.name,
+                          description: existingInterface.description,
+                          type: parentIface.type,
+                          parentInterfaceUuid: parentIface.uuid,
+                          functions: mergeAnalysis.additionalFunctions,
+                      }
+                    : iface
+            ),
+        })
+        setActiveTabUuid(existingInterface.uuid)
+    }
+
     return (
         <div className="p-4 h-full flex flex-col overflow-y-auto">
             {pendingFunctionRenameConflict && (
@@ -256,6 +314,26 @@ export const ComponentEditor = ({
                         )
                         setPendingFunctionRenameConflict(null)
                     }}
+                />
+            )}
+            {pendingInterfaceInheritanceMerge && (
+                <InterfaceInheritanceDialog
+                    title="Merge with existing interface?"
+                    description="This component already has an interface with the same ID. Confirm to convert the existing interface into an inherited one and keep only child-local functions that are not already provided by the inherited contract."
+                    confirmLabel="Merge interface"
+                    onClose={() => setPendingInterfaceInheritanceMerge(null)}
+                    onConfirm={() => {
+                        onUpdate({ interfaces: pendingInterfaceInheritanceMerge.interfaces })
+                        setPendingInterfaceInheritanceMerge(null)
+                    }}
+                />
+            )}
+            {interfaceInheritanceProblems && (
+                <InterfaceInheritanceDialog
+                    title="Cannot inherit interface"
+                    description="One or more existing functions are incompatible with the inherited interface. Resolve these conflicts before trying again."
+                    problems={interfaceInheritanceProblems}
+                    onClose={() => setInterfaceInheritanceProblems(null)}
                 />
             )}
             <div className="mb-6 border-b border-gray-800 pb-4">
@@ -299,7 +377,7 @@ export const ComponentEditor = ({
                         value=""
                         onChange={(e) => {
                             if (e.target.value)
-                                handleInheritParentInterface(e.target.value, onUpdate)
+                                handleInheritParentInterfaceSelection(e.target.value)
                         }}
                         data-testid="inherit-parent-select"
                     >

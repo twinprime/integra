@@ -133,6 +133,21 @@ function makeInterface(
     }
 }
 
+function makeFunction(
+    id: string,
+    parameters: Array<{ name: string; type?: string; required?: boolean }>
+) {
+    return {
+        uuid: `fn-uuid-${id}-${parameters.map((param) => param.name).join('-') || 'none'}`,
+        id,
+        parameters: parameters.map((param) => ({
+            name: param.name,
+            type: param.type ?? 'string',
+            required: param.required ?? true,
+        })),
+    }
+}
+
 function makeComponentNode(overrides: Partial<ComponentNode> = {}): ComponentNode {
     return {
         uuid: 'comp-uuid-1',
@@ -403,6 +418,110 @@ describe('ComponentEditor', () => {
                     }),
                 ])
             )
+        })
+
+        it('prompts before merging when a same-id child interface already exists', async () => {
+            const user = userEvent.setup()
+            const onUpdate = makeOnUpdate()
+            const parentIface = makeInterface('parentApi', 'Parent API')
+            const parentNode = makeComponentNode({
+                uuid: 'parent-uuid',
+                id: 'parent',
+                name: 'Parent',
+                interfaces: [parentIface],
+            })
+            vi.mocked(findParentNode).mockReturnValue(parentNode)
+
+            const childNode = makeComponentNode({
+                interfaces: [
+                    makeInterface('parentApi', 'Existing Parent API', {
+                        functions: [makeFunction('keepLocal', [{ name: 'id' }])],
+                    }),
+                ],
+            })
+            render(<ComponentEditor node={childNode} onUpdate={onUpdate} />)
+
+            await user.selectOptions(screen.getByTestId('inherit-parent-select'), parentIface.uuid)
+
+            expect(onUpdate).not.toHaveBeenCalled()
+            expect(screen.getByText('Merge with existing interface?')).toBeInTheDocument()
+        })
+
+        it('merges into the existing interface when confirmed and keeps only non-matching child functions', async () => {
+            const user = userEvent.setup()
+            const onUpdate = makeOnUpdate()
+            const parentIface = makeInterface('parentApi', 'Parent API', {
+                functions: [makeFunction('syncUser', [{ name: 'userId', type: 'string' }])],
+            })
+            const parentNode = makeComponentNode({
+                uuid: 'parent-uuid',
+                id: 'parent',
+                name: 'Parent',
+                interfaces: [parentIface],
+            })
+            vi.mocked(findParentNode).mockReturnValue(parentNode)
+
+            const existingInterface = makeInterface('parentApi', 'Existing Parent API', {
+                functions: [
+                    makeFunction('syncUser', [{ name: 'userId', type: 'string' }]),
+                    makeFunction('keepLocal', [{ name: 'id', type: 'string' }]),
+                ],
+            })
+            const childNode = makeComponentNode({
+                interfaces: [existingInterface],
+            })
+            render(<ComponentEditor node={childNode} onUpdate={onUpdate} />)
+
+            await user.selectOptions(screen.getByTestId('inherit-parent-select'), parentIface.uuid)
+            await user.click(screen.getByText('Merge interface'))
+
+            expect(onUpdate).toHaveBeenCalledTimes(1)
+            const [updates] = onUpdate.mock.calls[0]
+            expect(updates.interfaces).toEqual([
+                expect.objectContaining({
+                    uuid: existingInterface.uuid,
+                    kind: 'inherited',
+                    id: 'parentApi',
+                    name: 'Parent API',
+                    parentInterfaceUuid: parentIface.uuid,
+                    functions: [
+                        expect.objectContaining({
+                            id: 'keepLocal',
+                        }),
+                    ],
+                }),
+            ])
+        })
+
+        it('shows an error prompt and cancels inheritance when existing functions are incompatible', async () => {
+            const user = userEvent.setup()
+            const onUpdate = makeOnUpdate()
+            const parentIface = makeInterface('parentApi', 'Parent API', {
+                functions: [makeFunction('syncUser', [{ name: 'userId', type: 'string' }])],
+            })
+            const parentNode = makeComponentNode({
+                uuid: 'parent-uuid',
+                id: 'parent',
+                name: 'Parent',
+                interfaces: [parentIface],
+            })
+            vi.mocked(findParentNode).mockReturnValue(parentNode)
+
+            const childNode = makeComponentNode({
+                interfaces: [
+                    makeInterface('parentApi', 'Existing Parent API', {
+                        functions: [makeFunction('syncUser', [{ name: 'id', type: 'string' }])],
+                    }),
+                ],
+            })
+            render(<ComponentEditor node={childNode} onUpdate={onUpdate} />)
+
+            await user.selectOptions(screen.getByTestId('inherit-parent-select'), parentIface.uuid)
+
+            expect(onUpdate).not.toHaveBeenCalled()
+            expect(screen.getByText('Cannot inherit interface')).toBeInTheDocument()
+            expect(screen.getByText('Existing: syncUser(id: string)')).toBeInTheDocument()
+            expect(screen.getByText('Inherited: syncUser(userId: string)')).toBeInTheDocument()
         })
     })
 

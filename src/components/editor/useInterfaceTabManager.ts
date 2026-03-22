@@ -9,6 +9,7 @@ export interface InterfaceTabManager {
     activeTabUuid: string | null
     setActiveTabUuid: (uuid: string | null) => void
     resolvedInterfaces: ReadonlyArray<ResolvedInterface>
+    parentComponent: ComponentNode | null
     parentInterfaces: ReadonlyArray<InterfaceSpecification>
     uninheritedParentInterfaces: ReadonlyArray<InterfaceSpecification>
     handleInheritParentInterface: (
@@ -17,13 +18,42 @@ export interface InterfaceTabManager {
     ) => void
 }
 
+function resolveParentComponent(
+    rootComponent: ComponentNode,
+    nodeUuid: string
+): ComponentNode | null {
+    const parentNode = findParentNode(rootComponent, nodeUuid)
+    return parentNode?.type === 'component' ? parentNode : null
+}
+
+function getSelectedNodeInterfaceUuid(
+    node: ComponentNode,
+    selectedInterfaceUuid: string | null
+): string | null {
+    if (selectedInterfaceUuid == null) return null
+    return node.interfaces.some((iface) => iface.uuid === selectedInterfaceUuid)
+        ? selectedInterfaceUuid
+        : null
+}
+
+function getFirstInterfaceUuid(node: ComponentNode): string | null {
+    return node.interfaces[0]?.uuid ?? null
+}
+
+function getInitialActiveTabUuid(
+    node: ComponentNode,
+    selectedInterfaceUuid: string | null
+): string | null {
+    return getSelectedNodeInterfaceUuid(node, selectedInterfaceUuid) ?? getFirstInterfaceUuid(node)
+}
+
 export function useInterfaceTabManager(node: ComponentNode): InterfaceTabManager {
     const rootComponent = useSystemStore((state) => state.rootComponent)
     const selectedInterfaceUuid = useSystemStore((s) => s.selectedInterfaceUuid)
 
-    const parentNode = findParentNode(rootComponent, node.uuid)
+    const parentComponent = resolveParentComponent(rootComponent, node.uuid)
     const parentInterfaces: ReadonlyArray<InterfaceSpecification> =
-        parentNode?.type === 'component' ? parentNode.interfaces : []
+        parentComponent?.interfaces ?? []
 
     const uninheritedParentInterfaces = parentInterfaces.filter(
         (pi) =>
@@ -35,12 +65,8 @@ export function useInterfaceTabManager(node: ComponentNode): InterfaceTabManager
     const resolvedInterfaces = resolveComponentInterfaces(node, rootComponent)
 
     // On initial mount, prefer selectedInterfaceUuid if it belongs to this component.
-    const firstIfaceUuid = node.interfaces?.[0]?.uuid ?? null
-    const selectedIfaceMatchesNode =
-        selectedInterfaceUuid != null &&
-        node.interfaces?.some((i) => i.uuid === selectedInterfaceUuid)
     const [activeTabUuid, setActiveTabUuid] = useState<string | null>(
-        selectedIfaceMatchesNode ? selectedInterfaceUuid : firstIfaceUuid
+        getInitialActiveTabUuid(node, selectedInterfaceUuid)
     )
 
     // Reset to first tab (or the already-selected interface) when the selected node changes.
@@ -49,12 +75,7 @@ export function useInterfaceTabManager(node: ComponentNode): InterfaceTabManager
     const [prevNodeUuid, setPrevNodeUuid] = useState<string>(node.uuid)
     if (node.uuid !== prevNodeUuid) {
         setPrevNodeUuid(node.uuid)
-        const matchedOnNodeChange =
-            selectedInterfaceUuid != null &&
-            node.interfaces?.find((i) => i.uuid === selectedInterfaceUuid)
-        setActiveTabUuid(
-            matchedOnNodeChange ? selectedInterfaceUuid : (node.interfaces?.[0]?.uuid ?? null)
-        )
+        setActiveTabUuid(getInitialActiveTabUuid(node, selectedInterfaceUuid))
     }
 
     // Switch to the clicked interface's tab when a function is clicked in the sequence diagram.
@@ -63,10 +84,8 @@ export function useInterfaceTabManager(node: ComponentNode): InterfaceTabManager
     )
     if (selectedInterfaceUuid !== prevSelectedIfaceUuid) {
         setPrevSelectedIfaceUuid(selectedInterfaceUuid)
-        if (selectedInterfaceUuid) {
-            const match = node.interfaces?.find((i) => i.uuid === selectedInterfaceUuid)
-            if (match) setActiveTabUuid(selectedInterfaceUuid)
-        }
+        const matchedInterfaceUuid = getSelectedNodeInterfaceUuid(node, selectedInterfaceUuid)
+        if (matchedInterfaceUuid) setActiveTabUuid(matchedInterfaceUuid)
     }
 
     const handleInheritParentInterface = (
@@ -92,6 +111,7 @@ export function useInterfaceTabManager(node: ComponentNode): InterfaceTabManager
         activeTabUuid,
         setActiveTabUuid,
         resolvedInterfaces,
+        parentComponent,
         parentInterfaces,
         uninheritedParentInterfaces,
         handleInheritParentInterface,
