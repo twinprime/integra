@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { ComponentNode, InterfaceSpecification, InterfaceFunction } from '../../store/types'
 import { useSystemStore } from '../../store/useSystemStore'
-import { collectReferencedFunctionUuids, findReferencingDiagrams } from '../../utils/nodeUtils'
+import { findReferencingDiagrams } from '../../utils/nodeUtils'
 import { getNodeSiblingIds } from '../../nodes/nodeTree'
 import { FunctionRenameConflictDialog } from '../FunctionRenameConflictDialog'
 import { InterfaceInheritanceDialog } from '../InterfaceInheritanceDialog'
@@ -23,6 +23,10 @@ import {
     type ResolvedInterface,
     resolveEffectiveInterfaceFunctions,
 } from '../../utils/interfaceFunctions'
+import {
+    buildFunctionReferenceLookup,
+    getInterfaceReferencedFunctionIds,
+} from '../../utils/functionReferenceLookup'
 
 type EditableInterfaceUpdates = Partial<
     Pick<InterfaceSpecification, 'id' | 'name' | 'description' | 'type'>
@@ -71,8 +75,11 @@ export const ComponentEditor = ({
     const renameNodeIdAndResolveFunctionConflicts = useSystemStore(
         (s) => s.renameNodeIdAndResolveFunctionConflicts
     )
-    const referencedFunctionUuids = collectReferencedFunctionUuids(rootComponent)
     const referencingDiagrams = findReferencingDiagrams(rootComponent, node.uuid)
+    const functionReferenceLookup = useMemo(
+        () => buildFunctionReferenceLookup(rootComponent),
+        [rootComponent]
+    )
 
     const {
         activeTabUuid,
@@ -407,6 +414,10 @@ export const ComponentEditor = ({
                         {resolvedInterfaces.map((iface) => {
                             const isActive = iface.uuid === activeTabUuid
                             const hasSubComponents = node.subComponents.length > 0
+                            const referencedFunctionIds = getInterfaceReferencedFunctionIds(
+                                functionReferenceLookup,
+                                iface.uuid
+                            )
                             const isInherited = node.subComponents.some((sub) =>
                                 sub.interfaces.some(
                                     (si) =>
@@ -430,7 +441,7 @@ export const ComponentEditor = ({
                                         className={
                                             isResolvedInterfaceDeletable(
                                                 iface,
-                                                referencedFunctionUuids
+                                                referencedFunctionIds
                                             )
                                                 ? 'line-through'
                                                 : undefined
@@ -455,49 +466,63 @@ export const ComponentEditor = ({
 
                     {/* Active interface panel */}
                     {resolvedInterfaces.map((iface: ResolvedInterface, ifaceIdx) =>
-                        iface.uuid === activeTabUuid ? (
-                            <div
-                                key={iface.uuid}
-                                data-testid="interface-tab-panel"
-                                className="mt-3"
-                            >
-                                <InterfaceEditor
-                                    iface={iface}
-                                    ifaceIdx={ifaceIdx}
-                                    referencedFunctionUuids={referencedFunctionUuids}
-                                    siblingInterfaceIds={node.interfaces
-                                        .filter((_, i) => i !== ifaceIdx)
-                                        .map((i) => i.id)}
-                                    onInterfaceUpdate={(updates) =>
-                                        handleInterfaceUpdate(ifaceIdx, updates)
-                                    }
-                                    onFunctionUpdate={(fnIdx, updates) =>
-                                        handleFunctionUpdate(ifaceIdx, fnIdx, updates)
-                                    }
-                                    onDeleteFunction={(fnIdx) =>
-                                        handleDeleteFunction(ifaceIdx, fnIdx)
-                                    }
-                                    onFunctionRenameAttempt={(fnIdx, newId) =>
-                                        handleFunctionRenameAttempt(
-                                            node.interfaces[ifaceIdx],
-                                            node.interfaces[ifaceIdx].functions[fnIdx],
-                                            newId
-                                        )
-                                    }
-                                    onDeleteInterface={() => handleDeleteInterface(ifaceIdx)}
-                                    onParamDescriptionUpdate={(fnIdx, paramIdx, desc) =>
-                                        handleParamDescriptionUpdate(
-                                            ifaceIdx,
-                                            fnIdx,
-                                            paramIdx,
-                                            desc
-                                        )
-                                    }
-                                    contextComponentUuid={contextComponentUuid}
-                                    readOnly={readOnly}
-                                />
-                            </div>
-                        ) : null
+                        iface.uuid === activeTabUuid
+                            ? (() => {
+                                  const referencedFunctionIds = getInterfaceReferencedFunctionIds(
+                                      functionReferenceLookup,
+                                      iface.uuid
+                                  )
+                                  const functionReferencesById =
+                                      functionReferenceLookup.get(iface.uuid) ?? new Map()
+
+                                  return (
+                                      <div
+                                          key={iface.uuid}
+                                          data-testid="interface-tab-panel"
+                                          className="mt-3"
+                                      >
+                                          <InterfaceEditor
+                                              iface={iface}
+                                              ifaceIdx={ifaceIdx}
+                                              referencedFunctionIds={referencedFunctionIds}
+                                              functionReferencesById={functionReferencesById}
+                                              siblingInterfaceIds={node.interfaces
+                                                  .filter((_, i) => i !== ifaceIdx)
+                                                  .map((i) => i.id)}
+                                              onInterfaceUpdate={(updates) =>
+                                                  handleInterfaceUpdate(ifaceIdx, updates)
+                                              }
+                                              onFunctionUpdate={(fnIdx, updates) =>
+                                                  handleFunctionUpdate(ifaceIdx, fnIdx, updates)
+                                              }
+                                              onDeleteFunction={(fnIdx) =>
+                                                  handleDeleteFunction(ifaceIdx, fnIdx)
+                                              }
+                                              onFunctionRenameAttempt={(fnIdx, newId) =>
+                                                  handleFunctionRenameAttempt(
+                                                      node.interfaces[ifaceIdx],
+                                                      node.interfaces[ifaceIdx].functions[fnIdx],
+                                                      newId
+                                                  )
+                                              }
+                                              onDeleteInterface={() =>
+                                                  handleDeleteInterface(ifaceIdx)
+                                              }
+                                              onParamDescriptionUpdate={(fnIdx, paramIdx, desc) =>
+                                                  handleParamDescriptionUpdate(
+                                                      ifaceIdx,
+                                                      fnIdx,
+                                                      paramIdx,
+                                                      desc
+                                                  )
+                                              }
+                                              contextComponentUuid={contextComponentUuid}
+                                              readOnly={readOnly}
+                                          />
+                                      </div>
+                                  )
+                              })()
+                            : null
                     )}
                 </div>
             )}

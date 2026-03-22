@@ -133,7 +133,8 @@ describe('InterfaceEditor', () => {
             <InterfaceEditor
                 iface={buildInheritedInterface()}
                 ifaceIdx={0}
-                referencedFunctionUuids={new Set()}
+                referencedFunctionIds={new Set()}
+                functionReferencesById={new Map()}
                 siblingInterfaceIds={[]}
                 onInterfaceUpdate={noop}
                 onFunctionUpdate={noop}
@@ -157,7 +158,8 @@ describe('InterfaceEditor', () => {
             <InterfaceEditor
                 iface={buildInheritedInterface()}
                 ifaceIdx={0}
-                referencedFunctionUuids={new Set()}
+                referencedFunctionIds={new Set()}
+                functionReferencesById={new Map()}
                 siblingInterfaceIds={[]}
                 onInterfaceUpdate={noop}
                 onFunctionUpdate={noop}
@@ -179,7 +181,8 @@ describe('InterfaceEditor', () => {
             <InterfaceEditor
                 iface={buildInheritedInterface()}
                 ifaceIdx={0}
-                referencedFunctionUuids={new Set(['parent-fn-uuid'])}
+                referencedFunctionIds={new Set(['doThing'])}
+                functionReferencesById={new Map([['doThing', [{ uuid: 'seq-uuid', name: 'Seq' }]]])}
                 siblingInterfaceIds={[]}
                 onInterfaceUpdate={noop}
                 onFunctionUpdate={noop}
@@ -200,7 +203,8 @@ describe('InterfaceEditor', () => {
             <InterfaceEditor
                 iface={buildLocalInterface()}
                 ifaceIdx={0}
-                referencedFunctionUuids={new Set()}
+                referencedFunctionIds={new Set()}
+                functionReferencesById={new Map()}
                 siblingInterfaceIds={[]}
                 onInterfaceUpdate={noop}
                 onFunctionUpdate={noop}

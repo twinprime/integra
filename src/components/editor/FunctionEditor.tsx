@@ -4,6 +4,7 @@ import type { InterfaceFunction } from '../../store/types'
 import { DescriptionField } from './DescriptionField'
 import { useSystemStore, getSequenceDiagrams } from '../../store/useSystemStore'
 import { NodeReferencesButton } from './NodeReferencesButton'
+import type { DiagramReference } from '../../utils/functionReferenceLookup'
 
 const ID_FORMAT = /^[a-zA-Z_][a-zA-Z0-9_]*$/
 
@@ -16,6 +17,7 @@ export const FunctionEditor = ({
     onParamDescriptionUpdate,
     onRenameAttempt,
     contextComponentUuid,
+    referencingDiagrams,
     readOnly = false,
 }: {
     fn: InterfaceFunction
@@ -27,6 +29,7 @@ export const FunctionEditor = ({
     onParamDescriptionUpdate: (paramIdx: number, desc: string) => void
     onRenameAttempt?: (newId: string) => void
     contextComponentUuid?: string
+    referencingDiagrams?: DiagramReference[]
     readOnly?: boolean
 }) => {
     const [fnId, setFnId] = useState(fn.id)
@@ -34,9 +37,11 @@ export const FunctionEditor = ({
     const [fnDescription, setFnDescription] = useState(fn.description || '')
 
     const { rootComponent, renameNodeId } = useSystemStore()
-    const referencingDiagrams = getSequenceDiagrams(rootComponent).filter((d) =>
-        d.referencedFunctionUuids.includes(fn.uuid)
-    )
+    const resolvedReferencingDiagrams =
+        referencingDiagrams ??
+        getSequenceDiagrams(rootComponent).filter((d) =>
+            d.referencedFunctionUuids.includes(fn.uuid)
+        )
 
     const handleIdChange = (value: string) => {
         setFnId(value)
@@ -96,7 +101,7 @@ export const FunctionEditor = ({
                     )}
                 </div>
                 <NodeReferencesButton
-                    refs={referencingDiagrams}
+                    refs={resolvedReferencingDiagrams}
                     title="Show referencing sequence diagrams"
                 />
                 {!readOnly && isUnreferenced && (

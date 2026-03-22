@@ -396,9 +396,9 @@ export function resolveComponentInterfaces(
 
 export function isResolvedInterfaceDeletable(
     iface: ResolvedInterface,
-    referencedFunctionUuids: ReadonlySet<string>
+    referencedFunctionIds: ReadonlySet<string>
 ): boolean {
     if (isLocalInterface(iface)) return iface.effectiveFunctions.length === 0
 
-    return iface.effectiveFunctions.every((fn) => !referencedFunctionUuids.has(fn.uuid))
+    return iface.effectiveFunctions.every((fn) => !referencedFunctionIds.has(fn.id))
 }

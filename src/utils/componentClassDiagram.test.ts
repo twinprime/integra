@@ -337,4 +337,73 @@ describe('buildComponentClassDiagram', () => {
             sequenceDiagrams: [{ uuid: 'collapse-hidden-uuid', name: 'collapse-hidden' }],
         })
     })
+
+    it('does not treat parent-targeted calls as dependencies on a child inherited interface', () => {
+        const childSequence = makeSeqDiagram(
+            'parent-targeted-call',
+            [
+                'actor user',
+                'component compA',
+                'component root as root',
+                'compA ->> root: API:doThing()',
+            ].join('\n'),
+            'child-uuid'
+        )
+
+        const root: ComponentNode = {
+            uuid: 'root-uuid',
+            id: 'root',
+            name: 'Root',
+            type: 'component',
+            description: '',
+            actors: [
+                { uuid: 'user-uuid', id: 'user', name: 'User', type: 'actor', description: '' },
+            ],
+            interfaces: [
+                {
+                    uuid: 'root-api-iface-uuid',
+                    id: 'API',
+                    name: 'API',
+                    type: 'rest',
+                    functions: [{ uuid: 'root-fn-uuid', id: 'doThing', parameters: [] }],
+                },
+            ],
+            useCaseDiagrams: [],
+            subComponents: [
+                {
+                    uuid: 'child-uuid',
+                    id: 'compA',
+                    name: 'Component A',
+                    type: 'component',
+                    description: '',
+                    actors: [],
+                    interfaces: [
+                        {
+                            uuid: 'child-api-iface-uuid',
+                            id: 'API',
+                            name: 'API',
+                            type: 'rest',
+                            parentInterfaceUuid: 'root-api-iface-uuid',
+                            functions: [],
+                        },
+                    ],
+                    useCaseDiagrams: [
+                        makeUseCaseDiagram(
+                            'child-diagram',
+                            'child-uuid',
+                            makeUseCase('child-flow', childSequence)
+                        ),
+                    ],
+                    subComponents: [],
+                },
+            ],
+        }
+
+        const result = buildComponentClassDiagram(root.subComponents[0], root)
+
+        expect(result.mermaidContent).not.toContain('iface_child_api_iface_uuid')
+        expect(result.relationshipMetadata).not.toContainEqual(
+            expect.objectContaining({ targetName: 'API', sourceName: 'Component A' })
+        )
+    })
 })

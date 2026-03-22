@@ -21,7 +21,8 @@ const INTERFACE_TYPES = ['rest', 'graphql', 'kafka', 'other'] as const
 
 export const InterfaceEditor = ({
     iface,
-    referencedFunctionUuids,
+    referencedFunctionIds,
+    functionReferencesById,
     siblingInterfaceIds,
     onInterfaceUpdate,
     onFunctionUpdate,
@@ -34,7 +35,8 @@ export const InterfaceEditor = ({
 }: {
     iface: ResolvedInterface
     ifaceIdx: number
-    referencedFunctionUuids: Set<string>
+    referencedFunctionIds: Set<string>
+    functionReferencesById: ReadonlyMap<string, Array<{ uuid: string; name: string }>>
     siblingInterfaceIds: string[]
     onInterfaceUpdate: (updates: EditableInterfaceUpdates) => void
     onFunctionUpdate: (fnIdx: number, updates: Partial<InterfaceFunction>) => void
@@ -55,7 +57,7 @@ export const InterfaceEditor = ({
 
     const isInherited = isInheritedInterface(iface)
     const isDangling = iface.isDangling
-    const isInterfaceDeletable = isResolvedInterfaceDeletable(iface, referencedFunctionUuids)
+    const isInterfaceDeletable = isResolvedInterfaceDeletable(iface, referencedFunctionIds)
 
     const handleIdChange = (value: string) => {
         setLocalId(value)
@@ -148,6 +150,7 @@ export const InterfaceEditor = ({
                                 onParamDescriptionUpdate={() => {}}
                                 onRenameAttempt={() => {}}
                                 contextComponentUuid={contextComponentUuid}
+                                referencingDiagrams={functionReferencesById.get(fn.id) ?? []}
                                 readOnly={true}
                             />
                         ))}
@@ -166,7 +169,7 @@ export const InterfaceEditor = ({
                             Child-added functions ({iface.localFunctions.length})
                         </p>
                         {iface.localFunctions.map((fn, fnIdx) => {
-                            const isUnreferenced = !referencedFunctionUuids.has(fn.uuid)
+                            const isUnreferenced = !referencedFunctionIds.has(fn.id)
                             const siblingFunctionIds = iface.localFunctions
                                 .filter((_, j) => j !== fnIdx)
                                 .map((candidate) => candidate.id)
@@ -186,6 +189,7 @@ export const InterfaceEditor = ({
                                         onParamDescriptionUpdate(fnIdx, paramIdx, desc)
                                     }
                                     contextComponentUuid={contextComponentUuid}
+                                    referencingDiagrams={functionReferencesById.get(fn.id) ?? []}
                                     readOnly={readOnly}
                                 />
                             )
@@ -297,7 +301,7 @@ export const InterfaceEditor = ({
                         Functions ({iface.functions.length})
                     </p>
                     {iface.functions.map((fn, fnIdx) => {
-                        const isUnreferenced = !referencedFunctionUuids.has(fn.uuid)
+                        const isUnreferenced = !referencedFunctionIds.has(fn.id)
                         const siblingFunctionIds = iface.functions
                             .filter((_, j) => j !== fnIdx)
                             .map((f) => f.id)
@@ -315,6 +319,7 @@ export const InterfaceEditor = ({
                                     onParamDescriptionUpdate(fnIdx, paramIdx, desc)
                                 }
                                 contextComponentUuid={contextComponentUuid}
+                                referencingDiagrams={functionReferencesById.get(fn.id) ?? []}
                                 readOnly={readOnly}
                             />
                         )

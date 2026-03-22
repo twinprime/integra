@@ -7,6 +7,7 @@ import { collectReferencedSequenceDiagrams } from './referencedSequenceDiagrams'
 import { getInterfaceDiagramNodeId } from './classDiagramNodeIds'
 import { emitInterfaceClass, emitParticipantClass } from './classDiagramRendering'
 import { resolveDeclarationUuid } from './classDiagramDeclarationResolution'
+import { resolveFunctionReferenceTarget } from './diagramResolvers'
 import {
     getVisibleRepresentativeUuid,
     isVisibleActorUuid,
@@ -140,11 +141,11 @@ function buildClassDiagramGraph({
 
     const ensureInterfaceNode = (
         componentUuid: string,
-        interfaceId: string
+        interfaceUuid: string
     ): ClassDiagramNodeDefinition | null => {
         const componentNode = findNode([rootComponent], componentUuid)
         if (componentNode?.type !== 'component') return null
-        const iface = componentNode.interfaces.find((candidate) => candidate.id === interfaceId)
+        const iface = componentNode.interfaces.find((candidate) => candidate.uuid === interfaceUuid)
         if (!iface) return null
 
         const interfaceNodeId = getInterfaceDiagramNodeId(iface)
@@ -240,8 +241,14 @@ function buildClassDiagramGraph({
                 continue
             }
 
-            const actualReceiverNode = receiverUuid ? findNode([rootComponent], receiverUuid) : null
-            if (actualReceiverNode?.type !== 'component') {
+            const { interfaceId, functionId } = message.content
+            const resolvedTarget = resolveFunctionReferenceTarget(
+                rootComponent,
+                message.to,
+                interfaceId,
+                functionId
+            )
+            if (!resolvedTarget) {
                 addDependencyEdge(
                     senderNodeDefinition.nodeId,
                     receiverNodeDefinition.nodeId,
@@ -252,11 +259,25 @@ function buildClassDiagramGraph({
                 continue
             }
 
-            const { interfaceId, functionId } = message.content
-            const visibleReceiverMatchesActual = visibleReceiverUuid === actualReceiverNode.uuid
+            const visibleTargetUuid = getVisibleParticipantUuid(resolvedTarget.componentUuid)
+            const visibleTargetNode = visibleTargetUuid
+                ? ensureParticipantNode(visibleTargetUuid)
+                : null
+            if (
+                !visibleTargetUuid ||
+                !visibleTargetNode ||
+                visibleSenderUuid === visibleTargetUuid
+            ) {
+                continue
+            }
+
+            const visibleReceiverMatchesActual = visibleTargetUuid === resolvedTarget.componentUuid
             const interfaceNode =
                 visibleReceiverMatchesActual && options.showInterfaces
-                    ? ensureInterfaceNode(actualReceiverNode.uuid, interfaceId)
+                    ? ensureInterfaceNode(
+                          resolvedTarget.componentUuid,
+                          resolvedTarget.interfaceUuid
+                      )
                     : null
 
             if (interfaceNode?.kind === 'interface') {
@@ -275,9 +296,9 @@ function buildClassDiagramGraph({
 
             addDependencyEdge(
                 senderNodeDefinition.nodeId,
-                receiverNodeDefinition.nodeId,
+                visibleTargetNode.nodeId,
                 senderNodeDefinition.name,
-                receiverNodeDefinition.name,
+                visibleTargetNode.name,
                 sequenceDiagram
             )
         }

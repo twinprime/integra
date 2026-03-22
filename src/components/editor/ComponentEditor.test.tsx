@@ -56,11 +56,11 @@ vi.mock('./InterfaceEditor', () => ({
 vi.mock('../../nodes/nodeTree', () => ({
     getNodeSiblingIds: vi.fn(() => []),
     findParentNode: vi.fn(() => null),
+    collectAllDiagrams: vi.fn(() => []),
 }))
 
 vi.mock('../../utils/nodeUtils', () => ({
     findReferencingDiagrams: vi.fn(() => []),
-    collectReferencedFunctionUuids: vi.fn(() => new Set<string>()),
     getNodeAbsolutePath: vi.fn(() => ''),
     getNodeAbsolutePathSegments: vi.fn(() => []),
 }))
@@ -68,11 +68,7 @@ vi.mock('../../utils/nodeUtils', () => ({
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 import { useSystemStore } from '../../store/useSystemStore'
-import {
-    collectReferencedFunctionUuids,
-    getNodeAbsolutePath,
-    getNodeAbsolutePathSegments,
-} from '../../utils/nodeUtils'
+import { getNodeAbsolutePath, getNodeAbsolutePathSegments } from '../../utils/nodeUtils'
 import { findParentNode } from '../../nodes/nodeTree'
 
 const mockRenameNodeId = vi.fn()
@@ -278,7 +274,6 @@ describe('ComponentEditor', () => {
         })
 
         it('shows strikethrough in the tab label for deletable interfaces', () => {
-            vi.mocked(collectReferencedFunctionUuids).mockReturnValue(new Set<string>())
             const node = makeComponentNode({
                 interfaces: [makeInterface('api', 'API', { functions: [] })],
             })

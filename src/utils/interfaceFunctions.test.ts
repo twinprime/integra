@@ -318,7 +318,7 @@ describe('isResolvedInterfaceDeletable', () => {
         }
 
         expect(isResolvedInterfaceDeletable(resolved, new Set())).toBe(true)
-        expect(isResolvedInterfaceDeletable(resolved, new Set(['parent-fn-uuid']))).toBe(false)
+        expect(isResolvedInterfaceDeletable(resolved, new Set(['parentCall']))).toBe(false)
     })
 })
 
