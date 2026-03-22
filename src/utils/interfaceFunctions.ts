@@ -119,9 +119,7 @@ export function classifyFunctionCompatibility(
         }
     }
 
-    const conflictingFunction = functions.find(
-        (fn) => fn.id === functionId && fn.parameters.length === parameters.length
-    )
+    const conflictingFunction = functions.find((fn) => fn.id === functionId)
     if (conflictingFunction) {
         return {
             kind: 'incompatible',
@@ -307,6 +305,16 @@ export function findInheritedParentFunction(
                 candidate.id === functionId && paramsMatch(candidate.parameters, parameters)
         ) ?? null
     )
+}
+
+export function findInheritedParentFunctionById(
+    iface: InheritedInterfaceSpecification,
+    ownerComp: ComponentNode,
+    rootComponent: ComponentNode,
+    functionId: string
+): InterfaceFunction | null {
+    const parentFunctions = resolveInheritedParentFunctions(iface, ownerComp, rootComponent)
+    return parentFunctions.find((candidate) => candidate.id === functionId) ?? null
 }
 
 export function findConflictingInheritedChildFunctions(

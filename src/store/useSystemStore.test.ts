@@ -718,7 +718,7 @@ describe('useSystemStore', () => {
             ],
         })
 
-        it('update-all updates function params and text-substitutes in affected diagrams', () => {
+        it('update-existing updates function params and text-substitutes in affected diagrams', () => {
             const { result } = renderHook(() => useSystemStore())
 
             act(() => {
@@ -727,7 +727,7 @@ describe('useSystemStore', () => {
 
             const decision: FunctionDecision = {
                 kind: 'incompatible',
-                action: 'update-all',
+                action: 'update-existing',
                 interfaceId: 'API',
                 functionId: 'fn',
                 functionUuid: FN_UUID,
@@ -756,46 +756,6 @@ describe('useSystemStore', () => {
             expect(result.current.parseError).toBeNull()
         })
 
-        it('add-new adds a new function entry alongside the existing one', () => {
-            const { result } = renderHook(() => useSystemStore())
-
-            act(() => {
-                useSystemStore.setState({ rootComponent: buildSharedFunctionSystem() })
-            })
-
-            const decision: FunctionDecision = {
-                kind: 'compatible',
-                action: 'add-new',
-                interfaceId: 'API',
-                functionId: 'fn',
-                functionUuid: FN_UUID,
-                oldParams: [{ name: 'id', type: 'number', required: true }],
-                newParams: [
-                    { name: 'id', type: 'number', required: true },
-                    { name: 'name', type: 'string', required: true },
-                ],
-                affectedDiagramUuids: [],
-            }
-
-            act(() => {
-                result.current.applyFunctionUpdates(
-                    [decision],
-                    CURRENT_DIAG,
-                    'component a\ncomponent b\na ->> b: API:fn(id: number, name: string)'
-                )
-            })
-
-            const comp = result.current.rootComponent.subComponents[0]
-            const fns = comp.interfaces[0].functions
-            // Old function still present with original params
-            const oldFn = fns.find((f) => f.uuid === FN_UUID)
-            expect(oldFn?.parameters).toHaveLength(1)
-            // New function added with 2 params
-            const newFn = fns.find((f) => f.uuid !== FN_UUID && f.id === 'fn')
-            expect(newFn?.parameters).toHaveLength(2)
-            expect(result.current.parseError).toBeNull()
-        })
-
         it("update-existing updates function params without touching other diagrams' content", () => {
             const { result } = renderHook(() => useSystemStore())
 
@@ -804,7 +764,7 @@ describe('useSystemStore', () => {
             })
 
             const decision: FunctionDecision = {
-                kind: 'compatible',
+                kind: 'incompatible',
                 action: 'update-existing',
                 interfaceId: 'API',
                 functionId: 'fn',
@@ -847,7 +807,7 @@ describe('useSystemStore', () => {
             })
 
             const decision: FunctionDecision = {
-                kind: 'compatible',
+                kind: 'incompatible',
                 action: 'update-existing',
                 interfaceId: 'API',
                 functionId: 'fn',
@@ -974,7 +934,7 @@ describe('useSystemStore', () => {
             })
 
             const decision: FunctionDecision = {
-                kind: 'compatible',
+                kind: 'incompatible',
                 action: 'update-existing',
                 interfaceId: 'API',
                 functionId: 'fn',
@@ -1035,7 +995,7 @@ describe('useSystemStore', () => {
             expect(result.current.parseError).toBeNull()
         })
 
-        it('update-all removes conflicting child-local inherited functions when confirmed', () => {
+        it('update-existing removes conflicting child-local inherited functions when confirmed', () => {
             const { result } = renderHook(() => useSystemStore())
 
             act(() => {
@@ -1044,7 +1004,7 @@ describe('useSystemStore', () => {
 
             const decision: FunctionDecision = {
                 kind: 'incompatible',
-                action: 'update-all',
+                action: 'update-existing',
                 interfaceId: 'API',
                 functionId: 'fn',
                 functionUuid: PARENT_FN_UUID,

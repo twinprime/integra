@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-    updateFunctionParams,
-    addFunctionToInterface,
-    normalizeComponent,
-    normalizeComponentDeep,
-} from './interfaceOps'
+import { updateFunctionParams, normalizeComponent, normalizeComponentDeep } from './interfaceOps'
 import type { ComponentNode } from '../store/types'
 import { getStoredInterfaceFunctions } from '../utils/interfaceFunctions'
 
@@ -112,90 +107,6 @@ describe('updateFunctionParams', () => {
         const fn = getStoredInterfaceFunctions(result.subComponents[0].interfaces[0])[0]
         expect(fn.description).toBe('Does something useful')
         expect(fn.parameters[0].description).toBe('The entity ID')
-    })
-})
-
-// ─── addFunctionToInterface ───────────────────────────────────────────────────
-
-describe('addFunctionToInterface', () => {
-    it('copies function description from the original function', () => {
-        const comp = buildComp()
-        const result = addFunctionToInterface(comp, FN_UUID, 'fn', [
-            { name: 'id', type: 'number', required: true },
-            { name: 'name', type: 'string', required: true },
-            { name: 'extra', type: 'string', required: false },
-        ])
-        const fns = getStoredInterfaceFunctions(result.interfaces[0])
-        expect(fns).toHaveLength(2)
-        const newFn = fns[1]
-        expect(newFn.description).toBe('Does something useful')
-    })
-
-    it('copies parameter descriptions for params whose names match', () => {
-        const comp = buildComp()
-        const result = addFunctionToInterface(comp, FN_UUID, 'fn', [
-            { name: 'id', type: 'number', required: true },
-            { name: 'name', type: 'string', required: true },
-            { name: 'extra', type: 'string', required: false },
-        ])
-        const params = getStoredInterfaceFunctions(result.interfaces[0])[1].parameters
-        expect(params[0].description).toBe('The entity ID')
-        expect(params[1].description).toBe('The entity name')
-        expect(params[2].description).toBeUndefined()
-    })
-
-    it('does not include a description key when original has no description', () => {
-        const comp = buildComp()
-        // Remove description from the original function
-        const originalInterface = getStoredInterfaceFunctions(comp.interfaces[0])
-        const withoutDescription = {
-            ...comp,
-            interfaces: [
-                {
-                    ...comp.interfaces[0],
-                    functions: [
-                        { ...originalInterface[0], description: undefined },
-                        ...originalInterface.slice(1),
-                    ],
-                },
-            ],
-        }
-        const result = addFunctionToInterface(withoutDescription, FN_UUID, 'fn', [
-            { name: 'id', type: 'number', required: true },
-        ])
-        const newFn = getStoredInterfaceFunctions(result.interfaces[0])[1]
-        expect(newFn.description).toBeUndefined()
-    })
-
-    it('keeps the original function unchanged', () => {
-        const comp = buildComp()
-        const result = addFunctionToInterface(comp, FN_UUID, 'fn', [
-            { name: 'id', type: 'number', required: true },
-        ])
-        const originalFn = getStoredInterfaceFunctions(result.interfaces[0])[0]
-        expect(originalFn.uuid).toBe(FN_UUID)
-        expect(originalFn.description).toBe('Does something useful')
-        expect(originalFn.parameters).toHaveLength(2)
-    })
-
-    it('recurses into subComponents', () => {
-        const root: ComponentNode = {
-            uuid: 'root-uuid',
-            id: 'root',
-            name: 'Root',
-            type: 'component',
-            description: '',
-            actors: [],
-            useCaseDiagrams: [],
-            interfaces: [],
-            subComponents: [buildComp()],
-        }
-        const result = addFunctionToInterface(root, FN_UUID, 'fn', [
-            { name: 'id', type: 'number', required: true },
-        ])
-        const fns = getStoredInterfaceFunctions(result.subComponents[0].interfaces[0])
-        expect(fns).toHaveLength(2)
-        expect(fns[1].description).toBe('Does something useful')
     })
 })
 
@@ -342,40 +253,5 @@ describe('normalizeComponentDeep', () => {
         }
         const result = normalizeComponentDeep(root)
         expect(result.subComponents[0].interfaces.map((i) => i.id)).toEqual(['IA', 'IZ'])
-    })
-})
-
-describe('addFunctionToInterface normalizes order', () => {
-    it('returns functions sorted by id after adding a new function', () => {
-        const comp: ComponentNode = {
-            uuid: 'c',
-            id: 'c',
-            name: 'C',
-            type: 'component',
-            description: '',
-            subComponents: [],
-            actors: [],
-            useCaseDiagrams: [],
-            interfaces: [
-                {
-                    kind: 'local',
-                    uuid: 'i1',
-                    id: 'API',
-                    name: 'API',
-                    type: 'rest',
-                    functions: [
-                        { uuid: 'f1', id: 'zoo', parameters: [] },
-                        { uuid: 'f2', id: 'mid', parameters: [] },
-                    ],
-                },
-            ],
-        }
-        // Add a function that should sort before existing ones
-        const result = addFunctionToInterface(comp, 'f1', 'alpha', [])
-        expect(getStoredInterfaceFunctions(result.interfaces[0]).map((f) => f.id)).toEqual([
-            'alpha',
-            'mid',
-            'zoo',
-        ])
     })
 })

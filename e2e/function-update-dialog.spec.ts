@@ -29,10 +29,10 @@ async function triggerIncompatibleConflict(page: Page) {
 }
 
 /**
- * Helper: type a compatible signature change (different param count) and save.
- * This triggers a "compatible" FunctionMatch → FunctionUpdateDialog shows radio buttons.
+ * Helper: type a signature change that grows the parameter list and save.
+ * Function IDs are unique per interface, so this still updates the existing function.
  */
-async function triggerCompatibleConflict(page: Page) {
+async function triggerSignatureGrowthConflict(page: Page) {
     const editor = await openAuthFlowEditor(page)
     await editor.click()
     await editor.type(
@@ -61,15 +61,14 @@ test.describe('FunctionUpdateDialog', () => {
         await expect(page.getByText('Function Definition Conflict')).not.toBeVisible()
     })
 
-    test('compatible signature changes let the user choose whether to update referenced diagrams', async ({
+    test('signature changes with additional parameters still update the existing function', async ({
         page,
     }) => {
-        await triggerCompatibleConflict(page)
+        await triggerSignatureGrowthConflict(page)
 
         await expect(page.getByText('Function Definition Conflict')).toBeVisible()
-        await expect(page.getByLabel('Add new definition')).toBeVisible()
-        await expect(page.getByLabel('Update existing')).toBeVisible()
-        await page.getByLabel('Update existing').click()
         await expect(page.getByRole('listitem').filter({ hasText: 'Backup Flow' })).toBeVisible()
+        await page.getByRole('button', { name: 'Apply' }).click()
+        await expect(page.getByText('Function Definition Conflict')).not.toBeVisible()
     })
 })

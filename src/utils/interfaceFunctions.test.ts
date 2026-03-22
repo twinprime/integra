@@ -180,8 +180,8 @@ describe('classifyFunctionCompatibility', () => {
         id: 'syncUser',
         parameters: [{ name: 'userId', type: 'string', required: true }],
     }
-    const sameArityFn = {
-        uuid: 'same-arity-fn',
+    const existingFn = {
+        uuid: 'existing-fn',
         id: 'syncUser',
         parameters: [{ name: 'id', type: 'string', required: true }],
     }
@@ -197,14 +197,15 @@ describe('classifyFunctionCompatibility', () => {
         })
     })
 
-    it('returns incompatible for same-id signatures with the same arity', () => {
+    it('returns incompatible for same-id signatures even when the parameter list changes shape', () => {
         expect(
-            classifyFunctionCompatibility([sameArityFn], 'syncUser', [
+            classifyFunctionCompatibility([existingFn], 'syncUser', [
                 { name: 'userId', type: 'string', required: true },
+                { name: 'includeRoles', type: 'boolean', required: false },
             ])
         ).toEqual({
             kind: 'incompatible',
-            conflictingFunction: sameArityFn,
+            conflictingFunction: existingFn,
         })
     })
 

@@ -47,12 +47,6 @@ export function analyzeSequenceDiagramChanges(
 
     const ast = buildSeqAst(cst)
 
-    const otherRefs = new Set(
-        allSeqDiagrams
-            .filter((d) => d.uuid !== diagramUuid)
-            .flatMap((d) => d.referencedFunctionUuids)
-    )
-
     const matches: FunctionMatch[] = []
     const seen = new Set<string>()
 
@@ -117,7 +111,6 @@ export function analyzeSequenceDiagramChanges(
             }
         }
 
-        const kind = existing.parameters.length === newParams.length ? 'incompatible' : 'compatible'
         const affectedDiagramUuids = allSeqDiagrams
             .filter(
                 (d) =>
@@ -132,16 +125,8 @@ export function analyzeSequenceDiagramChanges(
             newParams
         )
 
-        if (
-            kind === 'incompatible' &&
-            !otherRefs.has(existing.functionUuid) &&
-            conflictingChildFunctions.length === 0
-        ) {
-            continue
-        }
-
         matches.push({
-            kind,
+            kind: 'incompatible',
             interfaceId,
             functionId,
             functionUuid: existing.functionUuid,

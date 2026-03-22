@@ -13,7 +13,7 @@ import {
     classifyFunctionCompatibility,
     type InheritedChildFunctionConflict,
     findConflictingInheritedChildFunctions,
-    findInheritedParentFunction,
+    findInheritedParentFunctionById,
     formatFunctionSignature,
     isInheritedInterface,
 } from '../../utils/interfaceFunctions'
@@ -44,7 +44,7 @@ export function paramsMatch(a: ReadonlyArray<Parameter>, b: ReadonlyArray<Parame
 }
 
 export type FunctionMatch = {
-    kind: 'compatible' | 'incompatible' | 'redundant'
+    kind: 'incompatible' | 'redundant'
     interfaceId: string
     functionId: string
     functionUuid: string
@@ -71,17 +71,15 @@ function findInterfaceByUuid(
 function functionExistsOnParentInterface(
     root: ComponentNode,
     iface: ComponentNode['interfaces'][number],
-    functionId: string,
-    newParams: Parameter[]
+    functionId: string
 ): boolean {
     if (!isInheritedInterface(iface)) return false
     return (
-        findInheritedParentFunction(
+        findInheritedParentFunctionById(
             iface,
             findOwningComponent(root, iface.uuid),
             root,
-            functionId,
-            newParams
+            functionId
         ) != null
     )
 }
@@ -123,7 +121,7 @@ function withFunctionOnInterface(
 
     if (compatibility.kind === 'incompatible') {
         throw new Error(
-            `Parameter mismatch for function "${functionId}" in interface "${currentInterface.id}": ` +
+            `Signature mismatch for function "${functionId}" in interface "${currentInterface.id}": ` +
                 `existing (${formatFunctionSignature(functionId, compatibility.conflictingFunction.parameters)}) vs new (${formatFunctionSignature(functionId, newParams)})`
         )
     }
@@ -189,7 +187,7 @@ export function applyFunctionToComponentByUuid(
         const currentInterface = interfaces[ifaceIdx]
         const newParams = parseParameters(rawParams)
         if (isInheritedInterface(currentInterface)) {
-            if (functionExistsOnParentInterface(root, currentInterface, functionId, newParams)) {
+            if (functionExistsOnParentInterface(root, currentInterface, functionId)) {
                 return comp
             }
         }
@@ -270,7 +268,7 @@ export function applyMessageToComponents(
     const currentInterface = interfaces[ifaceIdx]
     const newParams = parseParameters(rawParams)
     if (isInheritedInterface(currentInterface)) {
-        if (functionExistsOnParentInterface(root, currentInterface, functionId, newParams)) {
+        if (functionExistsOnParentInterface(root, currentInterface, functionId)) {
             return result
         }
     }

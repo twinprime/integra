@@ -11,7 +11,7 @@ import { safeParsePersistedSystemState } from './modelSchema'
 import { normalizeComponentDeep } from '../nodes/interfaceOps'
 
 export type FunctionDecision = FunctionMatch & {
-    action: 'add-new' | 'update-existing' | 'update-all' | 'remove-redundant'
+    action: 'update-existing' | 'remove-redundant'
 }
 
 export interface SystemState extends HistorySlice, UiSlice, NodeOpsSlice, DiagramSlice {

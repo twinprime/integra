@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { FunctionDecision } from '../store/useSystemStore'
 import type { FunctionMatch } from '../parser/sequenceDiagram/systemUpdater'
 import { paramsToString } from '../parser/sequenceDiagram/systemUpdater'
@@ -11,8 +10,6 @@ type Props = {
     onResolve: (decisions: FunctionDecision[]) => void
     onCancel: () => void
 }
-
-type CompatibleAction = 'add-new' | 'update-existing'
 
 function DiagramList({ uuids, seqDiagrams }: { uuids: string[]; seqDiagrams: SeqDiagramInfo[] }) {
     if (uuids.length === 0) return null
@@ -62,30 +59,14 @@ function SignatureChange({
 }
 
 export function FunctionUpdateDialog({ matches, seqDiagrams, onResolve, onCancel }: Props) {
-    const [compatibleActions, setCompatibleActions] = useState<Record<string, CompatibleAction>>(
-        () =>
-            Object.fromEntries(
-                matches
-                    .filter((m) => m.kind === 'compatible')
-                    .map((m) => [`${m.interfaceId}:${m.functionId}`, 'add-new'])
-            )
-    )
-
-    const compatibleMatches = matches.filter((m) => m.kind === 'compatible')
-    const incompatibleMatches = matches.filter((m) => m.kind === 'incompatible')
+    const changedMatches = matches.filter((m) => m.kind === 'incompatible')
     const redundantMatches = matches.filter((m) => m.kind === 'redundant')
 
     const handleApply = (): void => {
         const decisions: FunctionDecision[] = []
 
-        for (const m of compatibleMatches) {
-            const key = `${m.interfaceId}:${m.functionId}`
-            const action = compatibleActions[key] ?? 'add-new'
-            decisions.push({ ...m, action })
-        }
-
-        for (const m of incompatibleMatches) {
-            decisions.push({ ...m, action: 'update-all' })
+        for (const m of changedMatches) {
+            decisions.push({ ...m, action: 'update-existing' })
         }
 
         for (const m of redundantMatches) {
@@ -108,9 +89,8 @@ export function FunctionUpdateDialog({ matches, seqDiagrams, onResolve, onCancel
                 </div>
 
                 <div className="px-5 py-4 space-y-5">
-                    {compatibleMatches.map((m) => {
+                    {changedMatches.map((m) => {
                         const key = `${m.interfaceId}:${m.functionId}`
-                        const action = compatibleActions[key] ?? 'add-new'
                         const conflictingChildFunctions = m.conflictingChildFunctions ?? []
                         return (
                             <div key={key} className="space-y-2">
@@ -118,85 +98,8 @@ export function FunctionUpdateDialog({ matches, seqDiagrams, onResolve, onCancel
                                     <span className="font-semibold text-yellow-400">
                                         {m.interfaceId}:{m.functionId}
                                     </span>{' '}
-                                    already exists with a different number of parameters.
-                                </p>
-                                <SignatureChange
-                                    interfaceId={m.interfaceId}
-                                    functionId={m.functionId}
-                                    oldParams={m.oldParams}
-                                    newParams={m.newParams}
-                                />
-                                <div className="flex gap-3 mt-2">
-                                    <label className="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer">
-                                        <input
-                                            type="radio"
-                                            name={key}
-                                            value="add-new"
-                                            checked={action === 'add-new'}
-                                            onChange={() =>
-                                                setCompatibleActions((prev) => ({
-                                                    ...prev,
-                                                    [key]: 'add-new',
-                                                }))
-                                            }
-                                        />
-                                        Add new definition
-                                    </label>
-                                    <label className="flex items-center gap-1.5 text-sm text-gray-300 cursor-pointer">
-                                        <input
-                                            type="radio"
-                                            name={key}
-                                            value="update-existing"
-                                            checked={action === 'update-existing'}
-                                            onChange={() =>
-                                                setCompatibleActions((prev) => ({
-                                                    ...prev,
-                                                    [key]: 'update-existing',
-                                                }))
-                                            }
-                                        />
-                                        Update existing
-                                    </label>
-                                </div>
-                                {action === 'update-existing' &&
-                                    (m.affectedDiagramUuids.length > 0 ||
-                                        conflictingChildFunctions.length > 0) && (
-                                        <div className="text-xs text-gray-400 space-y-2">
-                                            {m.affectedDiagramUuids.length > 0 && (
-                                                <div>
-                                                    Affected diagrams:
-                                                    <DiagramList
-                                                        uuids={m.affectedDiagramUuids}
-                                                        seqDiagrams={seqDiagrams}
-                                                    />
-                                                </div>
-                                            )}
-                                            {conflictingChildFunctions.length > 0 && (
-                                                <div>
-                                                    Child-added inherited-interface functions that
-                                                    will be removed:
-                                                    <ChildConflictList
-                                                        matches={conflictingChildFunctions}
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                            </div>
-                        )
-                    })}
-
-                    {incompatibleMatches.map((m) => {
-                        const key = `${m.interfaceId}:${m.functionId}`
-                        const conflictingChildFunctions = m.conflictingChildFunctions ?? []
-                        return (
-                            <div key={key} className="space-y-2">
-                                <p className="text-sm text-gray-200">
-                                    <span className="font-semibold text-red-400">
-                                        {m.interfaceId}:{m.functionId}
-                                    </span>{' '}
-                                    has incompatible parameters. This will update all affected
-                                    diagrams.
+                                    already exists with a different signature. Applying this change
+                                    will update the existing function definition.
                                 </p>
                                 <SignatureChange
                                     interfaceId={m.interfaceId}

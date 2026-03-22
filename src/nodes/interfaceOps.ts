@@ -4,8 +4,6 @@ import type {
     InterfaceSpecification,
     Parameter,
 } from '../store/types'
-import { newFunctionUuid } from '../store/types'
-import { getStoredInterfaceFunctions } from '../utils/interfaceFunctions'
 
 /**
  * Normalises a single component's interfaces and functions into canonical order:
@@ -60,48 +58,6 @@ export const updateFunctionParams = (
         updateFunctionParams(sub, functionUuid, newParams)
     ),
 })
-
-export const addFunctionToInterface = (
-    comp: ComponentNode,
-    existingFunctionUuid: string,
-    functionId: string,
-    newParams: ReadonlyArray<Parameter>
-): ComponentNode => {
-    const ifaceIdx =
-        comp.interfaces?.findIndex((i) =>
-            getStoredInterfaceFunctions(i).some((f) => f.uuid === existingFunctionUuid)
-        ) ?? -1
-    if (ifaceIdx >= 0) {
-        const targetInterface = comp.interfaces[ifaceIdx]
-        const originalFn = targetInterface.functions.find((f) => f.uuid === existingFunctionUuid)
-        const newFn: InterfaceFunction = {
-            ...(originalFn ?? {}),
-            uuid: newFunctionUuid(),
-            id: functionId,
-            parameters: newParams.map((p) => {
-                const existing = originalFn?.parameters.find((ep) => ep.name === p.name)
-                return existing ? { ...existing, ...p } : p
-            }),
-        }
-        return normalizeComponent({
-            ...comp,
-            interfaces: comp.interfaces.map((iface, idx) =>
-                idx === ifaceIdx
-                    ? {
-                          ...iface,
-                          functions: [...targetInterface.functions, newFn],
-                      }
-                    : iface
-            ),
-        })
-    }
-    return {
-        ...comp,
-        subComponents: comp.subComponents.map((sub) =>
-            addFunctionToInterface(sub, existingFunctionUuid, functionId, newParams)
-        ),
-    }
-}
 
 export const removeFunctionsFromInterfaces = (
     comp: ComponentNode,

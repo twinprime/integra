@@ -142,8 +142,8 @@ A sub-component can declare that one of its interfaces **inherits** a parent com
 3. The dropdown lists all parent interfaces not yet inherited by this component. Select one to create a new inherited interface entry and activate its tab.
 4. If the component already has an interface with the same ID, Integra analyzes the existing child-local functions before inheriting:
    - exact matches with the inherited contract are dropped as redundant
-   - non-matching functions are kept as additional child-local functions
-   - incompatible functions block inheritance and are shown in an error prompt
+   - functions with different IDs are kept as additional child-local functions
+   - functions with the same ID but a different signature are incompatible and block inheritance
 5. When there are no blocking conflicts, the user is prompted to confirm merging into the existing same-ID interface; cancelling leaves the existing interface unchanged.
 
 #### Inherited interface behaviour
@@ -151,6 +151,9 @@ A sub-component can declare that one of its interfaces **inherits** a parent com
 - The inherited interface tab is a **mixed view**:
   - parent-inherited functions stay read-only
   - child-added functions on the inherited interface are editable and removable
+- Function IDs are unique within an interface. Child-added inherited functions may
+  extend the inherited contract, but they cannot reuse a parent function ID with a
+  different signature.
 - Component and root class diagrams use the inherited interface's **effective contract**, which combines the full inherited-chain parent contract with any child-local additions.
 - A badge shows which parent interface is being inherited (e.g. `inherited from IPaymentGateway`).
 - To remove the inheritance, click the **delete** button on the inherited interface tab.
@@ -582,8 +585,9 @@ shared helpers below instead of reaching into nested fields directly.
 | Invariant | What it means | Use these helpers |
 |---|---|---|
 | Inherited interfaces resolve their contract from the full inherited chain + child-local additions | An inherited `InterfaceSpecification` stores child-local added functions in `functions`, while read paths resolve the effective contract by recursively following inherited parent interfaces and merging that result with the local additions | `isInheritedInterface()`, `isLocalInterface()`, `getStoredInterfaceFunctions()`, `resolveEffectiveInterfaceFunctions()`, `resolveInterface()` in `src/utils/interfaceFunctions.ts` |
-| Components are updated immutably and kept in canonical order | Updates should return new objects, not mutate nested arrays, and interface/function ordering should stay normalized | `normalizeComponent()`, `normalizeComponentDeep()`, `addFunctionToInterface()`, `updateFunctionParams()`, `removeFunctionsFromInterfaces()` in `src/nodes/interfaceOps.ts` |
-| Parent functions remain authoritative while child-local inherited functions are additive | Child-added functions may exist on inherited interfaces, but exact duplicates with the parent must be removed explicitly through the conflict-resolution flow | `findInheritedParentFunction()`, `findConflictingInheritedChildFunctions()`, the parser/update flow in `src/parser/sequenceDiagram/systemUpdater.ts`, and `applyFunctionUpdates()` |
+| Function IDs are unique within each interface | A single interface cannot store two functions with the same `id`; a signature change updates the existing function instead of creating an overload-like sibling entry | `classifyFunctionCompatibility()` in `src/utils/interfaceFunctions.ts`, the parser/update flow in `src/parser/sequenceDiagram/systemUpdater.ts`, and `applyFunctionUpdates()` |
+| Components are updated immutably and kept in canonical order | Updates should return new objects, not mutate nested arrays, and interface/function ordering should stay normalized | `normalizeComponent()`, `normalizeComponentDeep()`, `updateFunctionParams()`, `removeFunctionsFromInterfaces()` in `src/nodes/interfaceOps.ts` |
+| Parent functions remain authoritative while child-local inherited functions are additive | Child-added functions may exist on inherited interfaces, but they cannot reuse a parent function ID; exact matches are removed explicitly through the conflict-resolution flow | `findInheritedParentFunction()`, `findInheritedParentFunctionById()`, `findConflictingInheritedChildFunctions()`, the parser/update flow in `src/parser/sequenceDiagram/systemUpdater.ts`, and `applyFunctionUpdates()` |
 | Reparsing sequence diagrams must preserve user-authored metadata | Rebuilding functions from diagram text should keep descriptions and parameter metadata where possible | `tryReparseContent()` in `src/store/systemOps.ts` |
 | Runtime boundaries validate and normalize model data before it enters the app state | Persisted YAML / `localStorage` data should be parsed through the schema layer, not trusted as-is | `parseComponentNode()`, `safeParseComponentNode()`, `safeParsePersistedSystemState()` in `src/store/modelSchema.ts` |
 | Cross-component references must stay within the supported scope rules | Diagram references are only valid for the owning component, its descendants, its ancestors, and direct children of those ancestors | `isInScope()` in `src/utils/nodeUtils.ts` |
@@ -914,9 +918,10 @@ Both parsers are implemented with **Chevrotain** (lexer + CstParser + CST visito
 Each `sender ->> receiver: InterfaceId:functionId(...)` message:
 1. Finds or creates an `InterfaceSpecification` with `id = InterfaceId` on the receiver (or sender for `kafka`)
 2. Finds or creates a function with `id = functionId` and the parsed parameter list
-3. If a function with the same id already exists with a **different** parameter count or types, the user is prompted via a dialog to update all affected diagrams or add as overload
-4. If the interface has `parentInterfaceUuid` set (**inherited interface**), exact parent matches continue using the inherited parent function, while new signatures are stored as child-local additions on the inherited interface
-5. If a child-local inherited function becomes identical to the parent, or a parent change would become identical to child-local inherited functions, the user is prompted to confirm removing the redundant child-local functions; otherwise the change is rejected
+3. If a function with the same id already exists with a **different** signature, the user is prompted via a dialog to update the existing function definition and any affected diagrams
+4. Function IDs are unique within an interface, so sequence-diagram edits no longer create overload-like sibling definitions with the same ID
+5. If the interface has `parentInterfaceUuid` set (**inherited interface**), exact parent matches continue using the inherited parent function, while only new function IDs are stored as child-local additions on the inherited interface
+6. If a child-local inherited function becomes identical to the parent, or a parent change would become identical to child-local inherited functions, the user is prompted to confirm removing the redundant child-local functions; otherwise the change is rejected
 
 #### Interface Inheritance (view-layer class)
 
@@ -975,7 +980,7 @@ sequenceDiagram
 
     alt Conflicts found
         DiagramEditor->>Dialog: Open conflict resolution dialog
-        User->>Dialog: Choose add-new / update-existing / update-all
+        User->>Dialog: Confirm updating existing function definition
         Dialog->>Store: Submit FunctionDecision[]
         Store->>Store: Update interface functions and affected diagrams
         Store->>Reparse: Reparse saved sequence content
