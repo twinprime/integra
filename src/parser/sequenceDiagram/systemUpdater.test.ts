@@ -5,7 +5,7 @@
  * by calling parseSequenceDiagram directly, inspecting the returned root.
  */
 import { describe, it, expect } from 'vitest'
-import { parseSequenceDiagram } from './systemUpdater'
+import { analyzeSequenceDiagramChanges, parseSequenceDiagram } from './systemUpdater'
 import type { ComponentNode, SequenceDiagramNode } from '../../store/types'
 
 // ─── UUIDs ────────────────────────────────────────────────────────────────────
@@ -356,6 +356,53 @@ describe('parseSequenceDiagram — idempotency', () => {
 
         expect(childFn?.parameters).toEqual([{ name: 'orderId', type: 'number', required: true }])
         expect(parentFn.parameters).toEqual([{ name: 'id', type: 'string', required: true }])
+    })
+
+    it('does not report a parent-signature conflict when the child receiver is referenced through an alias', () => {
+        const child: ComponentNode = {
+            uuid: 'child-uuid',
+            id: 'orderSvc',
+            name: 'orderSvc',
+            type: 'component',
+            description: '',
+            subComponents: [],
+            actors: [],
+            interfaces: [
+                {
+                    uuid: 'child-iface-uuid',
+                    id: 'OrdersAPI',
+                    name: 'OrdersAPI',
+                    type: 'rest',
+                    functions: [],
+                },
+            ],
+            useCaseDiagrams: [],
+        }
+        const root = makeRoot({
+            interfaces: [
+                {
+                    uuid: 'parent-iface-uuid',
+                    id: 'OrdersAPI',
+                    name: 'OrdersAPI',
+                    type: 'rest',
+                    functions: [
+                        {
+                            uuid: 'parent-fn-uuid',
+                            id: 'placeOrder',
+                            parameters: [{ name: 'id', type: 'string', required: true }],
+                        },
+                    ],
+                },
+            ],
+            subComponents: [child],
+        })
+        const content = [
+            'actor customer',
+            'component orderSvc as orders',
+            'customer ->> orders: OrdersAPI:placeOrder(orderId: number)',
+        ].join('\n')
+
+        expect(analyzeSequenceDiagramChanges(content, root, SEQ_UUID, [])).toEqual([])
     })
 })
 

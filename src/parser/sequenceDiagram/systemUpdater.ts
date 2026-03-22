@@ -5,7 +5,7 @@
  * updates the component tree accordingly.
  */
 import type { ComponentNode } from '../../store/types'
-import { upsertNodeInTree, mergeLists } from '../../nodes/nodeTree'
+import { upsertNodeInTree, mergeLists, findNode } from '../../nodes/nodeTree'
 import { findCompByUuid } from '../../nodes/nodeTree'
 import { findNodeByPath } from '../../utils/nodeUtils'
 import {
@@ -17,6 +17,7 @@ import {
     assertMessageReferencePathInScope,
     isComponentReferenceTargetInScope,
 } from '../../utils/diagramResolvers'
+import { resolveDeclarationUuid } from '../../utils/classDiagramDeclarationResolution'
 import { parseSequenceDiagramCst } from './parser'
 import { buildSeqAst, flattenMessages } from './visitor'
 import { deriveNameFromId } from '../../utils/nameUtils'
@@ -46,6 +47,22 @@ export function analyzeSequenceDiagramChanges(
     if (lexErrors.length || parseErrors.length) return []
 
     const ast = buildSeqAst(cst)
+    const diagramNode = findNode([rootComponent], diagramUuid)
+    const ownerNode =
+        diagramNode?.type === 'sequence-diagram'
+            ? findNode([rootComponent], diagramNode.ownerComponentUuid)
+            : null
+    const ownerComponent = ownerNode?.type === 'component' ? ownerNode : null
+    const participantToTreeId = new Map<string, string>()
+
+    for (const decl of ast.declarations) {
+        const resolvedUuid = resolveDeclarationUuid(decl.path, ownerComponent, rootComponent)
+        if (!resolvedUuid) continue
+        const resolvedNode = findNode([rootComponent], resolvedUuid)
+        if (resolvedNode?.type === 'component' || resolvedNode?.type === 'actor') {
+            participantToTreeId.set(decl.id, resolvedNode.id)
+        }
+    }
 
     const matches: FunctionMatch[] = []
     const seen = new Set<string>()
@@ -60,7 +77,7 @@ export function analyzeSequenceDiagramChanges(
         const newParams = parseParameters(rawParams)
         const existing = resolveFunctionReferenceTarget(
             rootComponent,
-            stmt.to,
+            participantToTreeId.get(stmt.to) ?? stmt.to,
             interfaceId,
             functionId
         )
