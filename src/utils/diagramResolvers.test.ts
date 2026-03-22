@@ -3,8 +3,6 @@ import {
     ensureScopedNodePath,
     findComponentUuidByInterfaceId,
     findInterfaceUuidById,
-    findPreferredInterfaceOwnerUuid,
-    findPreferredInterfaceUuid,
     isComponentReferenceTargetInScope,
     resolveFunctionReferenceTarget,
 } from './diagramResolvers'
@@ -197,86 +195,6 @@ describe('findInterfaceUuidById', () => {
     })
 })
 
-// ─── findPreferredInterfaceOwnerUuid ─────────────────────────────────────────
-
-describe('findPreferredInterfaceOwnerUuid', () => {
-    it('returns the receiver UUID when receiver directly has the interface', () => {
-        const svcA = makeCompWithIface('a-uuid', 'ServiceA', 'API', 'a-iface-uuid')
-        const svcB = makeCompWithIface('b-uuid', 'ServiceB', 'API', 'b-iface-uuid')
-        const root = makeComp('root-uuid', 'root', [svcA, svcB])
-        // ServiceB is the receiver — should return ServiceB UUID, not ServiceA's
-        expect(findPreferredInterfaceOwnerUuid(root, 'API', 'ServiceB')).toBe('b-uuid')
-    })
-
-    it('returns ServiceA UUID when ServiceA is the receiver', () => {
-        const svcA = makeCompWithIface('a-uuid', 'ServiceA', 'API', 'a-iface-uuid')
-        const svcB = makeCompWithIface('b-uuid', 'ServiceB', 'API', 'b-iface-uuid')
-        const root = makeComp('root-uuid', 'root', [svcA, svcB])
-        expect(findPreferredInterfaceOwnerUuid(root, 'API', 'ServiceA')).toBe('a-uuid')
-    })
-
-    it('returns the sub-component UUID when the interface is on a child of the receiver', () => {
-        // ServiceB itself has no "API", but ServiceB's child does
-        const child = makeCompWithIface('child-uuid', 'child', 'API', 'child-iface-uuid')
-        const svcA = makeCompWithIface('a-uuid', 'ServiceA', 'API', 'a-iface-uuid')
-        const svcB = makeComp('b-uuid', 'ServiceB', [child])
-        const root = makeComp('root-uuid', 'root', [svcA, svcB])
-        // Receiver is ServiceB; interface is on ServiceB's child
-        expect(findPreferredInterfaceOwnerUuid(root, 'API', 'ServiceB')).toBe('child-uuid')
-    })
-
-    it('falls back to global DFS search when receiver is not found', () => {
-        const svcA = makeCompWithIface('a-uuid', 'ServiceA', 'API', 'a-iface-uuid')
-        const root = makeComp('root-uuid', 'root', [svcA])
-        // "Unknown" is not a component in the tree
-        expect(findPreferredInterfaceOwnerUuid(root, 'API', 'Unknown')).toBe('a-uuid')
-    })
-
-    it('returns undefined when no component has the interface', () => {
-        const root = makeComp('root-uuid', 'root')
-        expect(findPreferredInterfaceOwnerUuid(root, 'API', 'root')).toBeUndefined()
-    })
-})
-
-// ─── findPreferredInterfaceUuid ──────────────────────────────────────────
-
-describe('findPreferredInterfaceUuid', () => {
-    it("returns the receiver's interface UUID when receiver directly has it", () => {
-        const svcA = makeCompWithIface('a-uuid', 'ServiceA', 'API', 'a-iface-uuid')
-        const svcB = makeCompWithIface('b-uuid', 'ServiceB', 'API', 'b-iface-uuid')
-        const root = makeComp('root-uuid', 'root', [svcA, svcB])
-        // Receiver is ServiceB — must return ServiceB's interface UUID, not ServiceA's
-        expect(findPreferredInterfaceUuid(root, 'API', 'ServiceB')).toBe('b-iface-uuid')
-    })
-
-    it("returns ServiceA's interface UUID when ServiceA is the receiver", () => {
-        const svcA = makeCompWithIface('a-uuid', 'ServiceA', 'API', 'a-iface-uuid')
-        const svcB = makeCompWithIface('b-uuid', 'ServiceB', 'API', 'b-iface-uuid')
-        const root = makeComp('root-uuid', 'root', [svcA, svcB])
-        expect(findPreferredInterfaceUuid(root, 'API', 'ServiceA')).toBe('a-iface-uuid')
-    })
-
-    it("returns the sub-component's interface UUID when interface is on a child of the receiver", () => {
-        const child = makeCompWithIface('child-uuid', 'child', 'API', 'child-iface-uuid')
-        const svcA = makeCompWithIface('a-uuid', 'ServiceA', 'API', 'a-iface-uuid')
-        const svcB = makeComp('b-uuid', 'ServiceB', [child])
-        const root = makeComp('root-uuid', 'root', [svcA, svcB])
-        // Receiver is ServiceB; interface is on child — must NOT fall back to ServiceA's interface
-        expect(findPreferredInterfaceUuid(root, 'API', 'ServiceB')).toBe('child-iface-uuid')
-    })
-
-    it('falls back to global DFS search when receiver is not found', () => {
-        const svcA = makeCompWithIface('a-uuid', 'ServiceA', 'API', 'a-iface-uuid')
-        const root = makeComp('root-uuid', 'root', [svcA])
-        expect(findPreferredInterfaceUuid(root, 'API', 'Unknown')).toBe('a-iface-uuid')
-    })
-
-    it('returns undefined when no component has the interface', () => {
-        const root = makeComp('root-uuid', 'root')
-        expect(findPreferredInterfaceUuid(root, 'API', 'root')).toBeUndefined()
-    })
-})
-
 describe('resolveFunctionReferenceTarget', () => {
     it("returns the receiver's matching component, interface, and function UUIDs", () => {
         const svcA = makeCompWithFn(
@@ -333,7 +251,7 @@ describe('resolveFunctionReferenceTarget', () => {
         })
     })
 
-    it('falls back to the global tree search when receiver is unknown', () => {
+    it('returns null when receiver is unknown', () => {
         const svcA = makeCompWithFn(
             'a-uuid',
             'ServiceA',
@@ -344,12 +262,7 @@ describe('resolveFunctionReferenceTarget', () => {
         )
         const root = makeComp('root-uuid', 'root', [svcA])
 
-        expect(resolveFunctionReferenceTarget(root, 'Unknown', 'API', 'getData')).toEqual({
-            componentUuid: 'a-uuid',
-            interfaceUuid: 'a-iface-uuid',
-            functionUuid: 'a-fn-uuid',
-            parameters: [],
-        })
+        expect(resolveFunctionReferenceTarget(root, 'Unknown', 'API', 'getData')).toBeNull()
     })
 
     it('returns null when no matching function exists', () => {

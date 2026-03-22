@@ -254,11 +254,11 @@ describe('applyIdRename — interface ID rename', () => {
         expect(updated.interfaces[0].id).toBe('OrdersV2')
     })
 
-    it('updates interface reference in sequence diagram content', () => {
+    it('does not update unresolved interface reference in sequence diagram content', () => {
         const updated = applyIdRename(makeTree(), 'iface-uuid', 'OrdersAPI', 'OrdersV2')
         const content = updated.useCaseDiagrams[0].useCases[0].sequenceDiagrams[0].content
-        expect(content).toContain('OrdersV2:placeOrder')
-        expect(content).not.toContain('OrdersAPI:')
+        expect(content).toContain('OrdersAPI:placeOrder')
+        expect(content).not.toContain('OrdersV2:')
     })
 })
 
@@ -268,11 +268,11 @@ describe('applyIdRename — function ID rename', () => {
         expect(updated.interfaces[0].functions[0].id).toBe('createOrder')
     })
 
-    it('updates function reference in sequence diagram content', () => {
+    it('does not update unresolved function reference in sequence diagram content', () => {
         const updated = applyIdRename(makeTree(), 'fn-uuid', 'placeOrder', 'createOrder')
         const content = updated.useCaseDiagrams[0].useCases[0].sequenceDiagrams[0].content
-        expect(content).toContain('OrdersAPI:createOrder')
-        expect(content).not.toContain('OrdersAPI:placeOrder')
+        expect(content).toContain('OrdersAPI:placeOrder')
+        expect(content).not.toContain('OrdersAPI:createOrder')
     })
 
     it('updates description path segments when renaming function', () => {

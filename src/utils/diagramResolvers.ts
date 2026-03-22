@@ -62,9 +62,6 @@ export function findComponentUuidByInterfaceId(
     return undefined
 }
 
-/**
- * Finds the component with the given node `id`, searching the subtree rooted at `root`.
- */
 function findComponentByIdInSubtree(
     root: ComponentNode,
     nodeId: string
@@ -77,34 +74,6 @@ function findComponentByIdInSubtree(
     return undefined
 }
 
-function findPreferredSubtreeMatch<T>(
-    root: ComponentNode,
-    preferredComponentId: string,
-    findInTree: (searchRoot: ComponentNode) => T | undefined
-): T | undefined {
-    const preferredComponent = findComponentByIdInSubtree(root, preferredComponentId)
-    if (preferredComponent) {
-        const preferredMatch = findInTree(preferredComponent)
-        if (preferredMatch !== undefined) return preferredMatch
-    }
-    return findInTree(root)
-}
-
-/**
- * Finds the UUID of the component that owns an interface with `ifaceId`,
- * preferring a match within the subtree rooted at the component identified by `receiverNodeId`.
- * Falls back to a global search if the receiver doesn't own the interface.
- */
-export function findPreferredInterfaceOwnerUuid(
-    root: ComponentNode,
-    ifaceId: string,
-    receiverNodeId: string
-): string | undefined {
-    return findPreferredSubtreeMatch(root, receiverNodeId, (searchRoot) =>
-        findComponentUuidByInterfaceId(searchRoot, ifaceId)
-    )
-}
-
 export function findInterfaceUuidById(root: ComponentNode, ifaceId: string): string | undefined {
     const match = root.interfaces?.find((iface) => iface.id === ifaceId)
     if (match) return match.uuid
@@ -113,20 +82,6 @@ export function findInterfaceUuidById(root: ComponentNode, ifaceId: string): str
         if (found) return found
     }
     return undefined
-}
-
-/**
- * Finds the UUID of the interface with `ifaceId`, preferring the interface on
- * the component identified by `receiverNodeId` (or its subtree). Falls back to global search.
- */
-export function findPreferredInterfaceUuid(
-    root: ComponentNode,
-    ifaceId: string,
-    receiverNodeId: string
-): string | undefined {
-    return findPreferredSubtreeMatch(root, receiverNodeId, (searchRoot) =>
-        findInterfaceUuidById(searchRoot, ifaceId)
-    )
 }
 
 export type ResolvedFunctionRefTarget = {
@@ -170,26 +125,8 @@ export function resolveFunctionReferenceTarget(
     functionId: string
 ): ResolvedFunctionRefTarget | null {
     const preferredComponent = findComponentByIdInSubtree(root, receiverNodeId)
-    if (preferredComponent) {
-        const preferredMatch = findFunctionReferenceTargetInTree(
-            preferredComponent,
-            root,
-            interfaceId,
-            functionId
-        )
-        if (preferredMatch) return preferredMatch
-        return null
-    }
-
-    return (
-        findPreferredSubtreeMatch(
-            root,
-            receiverNodeId,
-            (searchRoot) =>
-                findFunctionReferenceTargetInTree(searchRoot, root, interfaceId, functionId) ??
-                undefined
-        ) ?? null
-    )
+    if (!preferredComponent) return null
+    return findFunctionReferenceTargetInTree(preferredComponent, root, interfaceId, functionId)
 }
 
 export function findInterfaceNameById(root: ComponentNode, ifaceId: string): string | undefined {
