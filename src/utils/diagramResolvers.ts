@@ -163,11 +163,6 @@ function findFunctionReferenceTargetInTree(
     return null
 }
 
-function subtreeHasInterfaceId(current: ComponentNode, interfaceId: string): boolean {
-    if (current.interfaces?.some((candidate) => candidate.id === interfaceId)) return true
-    return current.subComponents.some((sub) => subtreeHasInterfaceId(sub, interfaceId))
-}
-
 export function resolveFunctionReferenceTarget(
     root: ComponentNode,
     receiverNodeId: string,
@@ -183,10 +178,7 @@ export function resolveFunctionReferenceTarget(
             functionId
         )
         if (preferredMatch) return preferredMatch
-
-        if (subtreeHasInterfaceId(preferredComponent, interfaceId)) {
-            return null
-        }
+        return null
     }
 
     return (

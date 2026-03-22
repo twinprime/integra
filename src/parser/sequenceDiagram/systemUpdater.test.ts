@@ -358,6 +358,46 @@ describe('parseSequenceDiagram — idempotency', () => {
         expect(parentFn.parameters).toEqual([{ name: 'id', type: 'string', required: true }])
     })
 
+    it('creates a child-local interface when only the parent owns that interface id', () => {
+        const child: ComponentNode = {
+            uuid: 'child-uuid',
+            id: 'orderSvc',
+            name: 'orderSvc',
+            type: 'component',
+            description: '',
+            subComponents: [],
+            actors: [],
+            interfaces: [],
+            useCaseDiagrams: [],
+        }
+        const root = makeRoot({
+            interfaces: [
+                {
+                    uuid: 'parent-iface-uuid',
+                    id: 'OrdersAPI',
+                    name: 'OrdersAPI',
+                    type: 'rest',
+                    functions: [{ uuid: 'parent-fn-uuid', id: 'placeOrder', parameters: [] }],
+                },
+            ],
+            subComponents: [child],
+        })
+        const content = [
+            'actor customer',
+            'component orderSvc',
+            'customer ->> orderSvc: OrdersAPI:placeOrder(orderId: number)',
+        ].join('\n')
+
+        const result = parseSequenceDiagram(content, root, OWNER_UUID, SEQ_UUID)
+        const updatedChild = getOwner(result).subComponents.find((c) => c.id === 'orderSvc')
+        const childInterface = updatedChild?.interfaces.find((iface) => iface.id === 'OrdersAPI')
+        const childFn = childInterface?.functions.find((fn) => fn.id === 'placeOrder')
+
+        expect(childInterface).toBeDefined()
+        expect(childFn?.parameters).toEqual([{ name: 'orderId', type: 'number', required: true }])
+        expect(getOwner(result).interfaces[0].functions[0].parameters).toEqual([])
+    })
+
     it('does not report a parent-signature conflict when the child receiver is referenced through an alias', () => {
         const child: ComponentNode = {
             uuid: 'child-uuid',
@@ -400,6 +440,45 @@ describe('parseSequenceDiagram — idempotency', () => {
             'actor customer',
             'component orderSvc as orders',
             'customer ->> orders: OrdersAPI:placeOrder(orderId: number)',
+        ].join('\n')
+
+        expect(analyzeSequenceDiagramChanges(content, root, SEQ_UUID, [])).toEqual([])
+    })
+
+    it('does not report a parent-signature conflict when the child receiver has no local interface yet', () => {
+        const child: ComponentNode = {
+            uuid: 'child-uuid',
+            id: 'orderSvc',
+            name: 'orderSvc',
+            type: 'component',
+            description: '',
+            subComponents: [],
+            actors: [],
+            interfaces: [],
+            useCaseDiagrams: [],
+        }
+        const root = makeRoot({
+            interfaces: [
+                {
+                    uuid: 'parent-iface-uuid',
+                    id: 'OrdersAPI',
+                    name: 'OrdersAPI',
+                    type: 'rest',
+                    functions: [
+                        {
+                            uuid: 'parent-fn-uuid',
+                            id: 'placeOrder',
+                            parameters: [{ name: 'id', type: 'string', required: true }],
+                        },
+                    ],
+                },
+            ],
+            subComponents: [child],
+        })
+        const content = [
+            'actor customer',
+            'component orderSvc',
+            'customer ->> orderSvc: OrdersAPI:placeOrder(orderId: number)',
         ].join('\n')
 
         expect(analyzeSequenceDiagramChanges(content, root, SEQ_UUID, [])).toEqual([])
