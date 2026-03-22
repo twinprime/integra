@@ -312,6 +312,8 @@ export function useMermaidClassDiagram<T>(
     const handleDiagramMouseMove = useCallback(
         (event: React.MouseEvent<HTMLDivElement>) => {
             cancelPendingPopupClose()
+            if (isPopupPinnedRef.current) return
+
             const target = event.target as Element
             const edgeInfo = getEdgeMetadata(target)
             if (!edgeInfo) {

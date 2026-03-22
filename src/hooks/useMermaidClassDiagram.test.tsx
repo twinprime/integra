@@ -757,6 +757,61 @@ describe('useMermaidClassDiagram', () => {
         expect(screen.getByTestId('popup-pinned')).toHaveTextContent('true')
     })
 
+    it('keeps a click-pinned multi-source popup pinned while the pointer moves away from the edge', async () => {
+        vi.mocked(mermaid.render).mockResolvedValueOnce({
+            svg: `
+        <svg>
+          <g class="edgePaths">
+            <path data-edge="true" data-id="edge-0"></path>
+          </g>
+          <g class="edgeLabels">
+            <g class="edgeLabel"><g class="label" data-id="edge-0"><foreignObject><div>Uses</div></foreignObject></g></g>
+          </g>
+        </svg>
+      `,
+            diagramType: 'classDiagram',
+            bindFunctions: undefined,
+        } satisfies RenderResult)
+
+        render(
+            <HookHarness
+                buildResult={{
+                    mermaidContent: 'classDiagram\n  A ..> B',
+                    idToUuid: {},
+                    relationshipMetadata: [
+                        makeDependencyRelationship([
+                            { uuid: 'seq-1', name: 'Checkout Flow' },
+                            { uuid: 'seq-2', name: 'Retry Flow' },
+                        ]),
+                    ],
+                }}
+            />
+        )
+
+        await waitFor(() => {
+            expect(screen.getByText('Uses')).toBeInTheDocument()
+            expect(
+                screen.getByTestId('diagram').querySelector('[data-integra-edge-hit-target="true"]')
+            ).not.toBeNull()
+        })
+
+        const hitTarget = screen
+            .getByTestId('diagram')
+            .querySelector('[data-integra-edge-hit-target="true"]')
+        expect(hitTarget).not.toBeNull()
+
+        fireEvent.click(hitTarget!, { clientX: 120, clientY: 140 })
+        expect(screen.getByTestId('popup-pinned')).toHaveTextContent('true')
+
+        fireEvent.mouseMove(hitTarget!, { clientX: 121, clientY: 141 })
+        fireEvent.mouseLeave(screen.getByTestId('diagram'))
+
+        expect(screen.getByTestId('active-count')).toHaveTextContent('2')
+        expect(screen.getByTestId('popup-pinned')).toHaveTextContent('true')
+        expect(screen.getByText('Checkout Flow')).toBeInTheDocument()
+        expect(screen.getByText('Retry Flow')).toBeInTheDocument()
+    })
+
     it('keeps dependency links clickable after closing the popup', async () => {
         const user = userEvent.setup()
         vi.mocked(mermaid.render).mockResolvedValueOnce({
