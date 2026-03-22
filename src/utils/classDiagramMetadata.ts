@@ -67,6 +67,7 @@ export type ClassDiagramEdgeDefinition = {
     kind: 'dependency' | 'implementation'
     fromNodeId: string
     toNodeId: string
+    calledFunctionIds?: string[]
     metadata: ClassDiagramRelationshipMetadata | null
 }
 

@@ -33,6 +33,7 @@ type SharedBuilderConfig = ComponentVisibilityConfig & {
 }
 
 type SequenceDiagramSources = Map<string, { uuid: string; name: string }>
+type EdgeMethodIds = Map<string, Set<string>>
 
 function collectSequenceDiagramsFromComponent(component: ComponentNode): SequenceDiagramNode[] {
     const diagrams = component.useCaseDiagrams.flatMap((useCaseDiagram) =>
@@ -84,6 +85,7 @@ function buildClassDiagramGraph({
             sources: SequenceDiagramSources
             sourceName: string
             targetName: string
+            calledFunctionIds?: Set<string>
         }
     >()
 
@@ -170,7 +172,8 @@ function buildClassDiagramGraph({
         toNodeId: string,
         sourceName: string,
         targetName: string,
-        sequenceDiagram: SequenceDiagramNode
+        sequenceDiagram: SequenceDiagramNode,
+        functionId?: string
     ): void => {
         if (fromNodeId === toNodeId) return
         const key = `dependency|${fromNodeId}|${toNodeId}`
@@ -183,6 +186,11 @@ function buildClassDiagramGraph({
             targetName,
         }
         addSequenceDiagramSource(existing.sources, sequenceDiagram)
+        if (functionId) {
+            const calledFunctionIds = existing.calledFunctionIds ?? new Set<string>()
+            calledFunctionIds.add(functionId)
+            existing.calledFunctionIds = calledFunctionIds
+        }
         edgeMap.set(key, existing)
     }
 
@@ -289,7 +297,8 @@ function buildClassDiagramGraph({
                     interfaceNode.nodeId,
                     senderNodeDefinition.name,
                     interfaceNode.name,
-                    sequenceDiagram
+                    sequenceDiagram,
+                    functionId
                 )
                 continue
             }
@@ -353,6 +362,7 @@ function buildClassDiagramGraph({
         kind: edge.kind,
         fromNodeId: edge.fromNodeId,
         toNodeId: edge.toNodeId,
+        calledFunctionIds: edge.calledFunctionIds ? Array.from(edge.calledFunctionIds) : undefined,
         metadata:
             edge.kind === 'implementation'
                 ? createImplementationRelationshipMetadata(edge.sourceName, edge.targetName)
@@ -420,6 +430,40 @@ function getFocusedVisibleNodeIds(
     return visibleNodeIds
 }
 
+function getFocusedInterfaceMethodIds(
+    graph: ClassDiagramGraph,
+    focusedNodeId: string,
+    visibleNodeIds: Set<string>
+): EdgeMethodIds {
+    const focusedInterfaceMethodIds: EdgeMethodIds = new Map()
+
+    for (const edge of graph.edges) {
+        if (
+            edge.kind !== 'dependency' ||
+            !edge.calledFunctionIds ||
+            !visibleNodeIds.has(edge.fromNodeId) ||
+            !visibleNodeIds.has(edge.toNodeId)
+        ) {
+            continue
+        }
+
+        const targetNode = graph.nodes.find(
+            (node) => node.kind === 'interface' && node.nodeId === edge.toNodeId
+        )
+        if (!targetNode || targetNode.kind !== 'interface') continue
+
+        const isFocusedOwnInterface = targetNode.ownerComponent.id === focusedNodeId
+        const isFocusedDependencyInterface = edge.fromNodeId === focusedNodeId
+        if (!isFocusedOwnInterface && !isFocusedDependencyInterface) continue
+
+        const calledIds = focusedInterfaceMethodIds.get(targetNode.nodeId) ?? new Set<string>()
+        for (const functionId of edge.calledFunctionIds) calledIds.add(functionId)
+        focusedInterfaceMethodIds.set(targetNode.nodeId, calledIds)
+    }
+
+    return focusedInterfaceMethodIds
+}
+
 export function renderClassDiagramGraph(
     graph: ClassDiagramGraph,
     rootComponent: ComponentNode,
@@ -430,6 +474,10 @@ export function renderClassDiagramGraph(
         ? graph.nodes.filter((node) => focusedVisibleNodeIds.has(node.nodeId))
         : graph.nodes
     const visibleNodeIds = new Set(visibleNodes.map((node) => node.nodeId))
+    const focusedInterfaceMethodIds =
+        focusedNodeId && focusedVisibleNodeIds
+            ? getFocusedInterfaceMethodIds(graph, focusedNodeId, visibleNodeIds)
+            : null
     const visibleEdges = graph.edges.filter(
         (edge) => visibleNodeIds.has(edge.fromNodeId) && visibleNodeIds.has(edge.toNodeId)
     )
@@ -470,7 +518,8 @@ export function renderClassDiagramGraph(
             rootComponent,
             mermaidLines,
             node.nodeId,
-            node.calledFunctionIds ? new Set(node.calledFunctionIds) : undefined
+            focusedInterfaceMethodIds?.get(node.nodeId) ??
+                (node.calledFunctionIds ? new Set(node.calledFunctionIds) : undefined)
         )
     }
 

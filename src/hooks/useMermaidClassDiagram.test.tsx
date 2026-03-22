@@ -118,6 +118,121 @@ function makeGraphBuildResult(): ClassDiagramBuildResult {
     }
 }
 
+function makeFocusedMethodFilterGraphBuildResult(): ClassDiagramBuildResult {
+    const compA: ComponentNode = {
+        ...mockNode,
+        id: 'A',
+        uuid: 'uuid-a',
+        name: 'A',
+        interfaces: [
+            {
+                uuid: 'iface-a-uuid',
+                id: 'IA',
+                name: 'IA',
+                type: 'rest',
+                functions: [
+                    { uuid: 'fn-a-uuid', id: 'ping', parameters: [] },
+                    { uuid: 'fn-a2-uuid', id: 'pong', parameters: [] },
+                ],
+            },
+        ],
+    }
+    const compX: ComponentNode = {
+        ...mockNode,
+        id: 'X',
+        uuid: 'uuid-x',
+        name: 'X',
+        interfaces: [
+            {
+                uuid: 'iface-x-uuid',
+                id: 'IX',
+                name: 'IX',
+                type: 'rest',
+                functions: [
+                    { uuid: 'fn-x-uuid', id: 'handle', parameters: [] },
+                    { uuid: 'fn-x2-uuid', id: 'audit', parameters: [] },
+                ],
+            },
+        ],
+    }
+
+    return {
+        mermaidContent: '',
+        idToUuid: { A: 'uuid-a', C: 'uuid-c', X: 'uuid-x' },
+        relationshipMetadata: [],
+        graph: {
+            nodes: [
+                { kind: 'component', nodeId: 'A', uuid: 'uuid-a', name: 'A' },
+                { kind: 'component', nodeId: 'C', uuid: 'uuid-c', name: 'C' },
+                { kind: 'component', nodeId: 'X', uuid: 'uuid-x', name: 'X' },
+                {
+                    kind: 'interface',
+                    nodeId: 'iface_iface_a_uuid',
+                    name: 'IA',
+                    iface: compA.interfaces[0],
+                    ownerComponent: compA,
+                    calledFunctionIds: ['ping'],
+                },
+                {
+                    kind: 'interface',
+                    nodeId: 'iface_iface_x_uuid',
+                    name: 'IX',
+                    iface: compX.interfaces[0],
+                    ownerComponent: compX,
+                    calledFunctionIds: ['handle', 'audit'],
+                },
+            ],
+            edges: [
+                {
+                    kind: 'implementation',
+                    fromNodeId: 'A',
+                    toNodeId: 'iface_iface_a_uuid',
+                    metadata: {
+                        kind: 'implementation',
+                        sourceName: 'A',
+                        targetName: 'IA',
+                        sequenceDiagrams: [],
+                    },
+                },
+                {
+                    kind: 'implementation',
+                    fromNodeId: 'X',
+                    toNodeId: 'iface_iface_x_uuid',
+                    metadata: {
+                        kind: 'implementation',
+                        sourceName: 'X',
+                        targetName: 'IX',
+                        sequenceDiagrams: [],
+                    },
+                },
+                {
+                    kind: 'dependency',
+                    fromNodeId: 'A',
+                    toNodeId: 'iface_iface_x_uuid',
+                    calledFunctionIds: ['handle'],
+                    metadata: makeDependencyRelationship([{ uuid: 'seq-1', name: 'A uses X' }]),
+                },
+                {
+                    kind: 'dependency',
+                    fromNodeId: 'C',
+                    toNodeId: 'iface_iface_x_uuid',
+                    calledFunctionIds: ['audit'],
+                    metadata: makeDependencyRelationship([{ uuid: 'seq-2', name: 'C uses X' }]),
+                },
+                {
+                    kind: 'dependency',
+                    fromNodeId: 'C',
+                    toNodeId: 'iface_iface_a_uuid',
+                    calledFunctionIds: ['ping'],
+                    metadata: makeDependencyRelationship([{ uuid: 'seq-3', name: 'C uses A' }]),
+                },
+            ],
+            idToUuid: { A: 'uuid-a', C: 'uuid-c', X: 'uuid-x' },
+            focusableNodeIds: ['A', 'C', 'X'],
+        },
+    }
+}
+
 function makeDependencyRelationship(
     sequenceDiagrams: SequenceDiagramSource[]
 ): ClassDiagramRelationshipMetadata {
@@ -414,6 +529,39 @@ describe('useMermaidClassDiagram', () => {
             expect.stringContaining('class B["B"]')
         )
         expect(mockSelectNode).not.toHaveBeenCalled()
+    })
+
+    it('filters interface methods to the focused component usage after single click', async () => {
+        render(<HookHarness buildResult={makeFocusedMethodFilterGraphBuildResult()} />)
+
+        await waitFor(() => expect(screen.getByTestId('diagram')).toBeInTheDocument())
+        vi.useFakeTimers()
+
+        globalThis.__integraNavigate?.('A')
+        await act(async () => {
+            await vi.advanceTimersByTimeAsync(250)
+        })
+
+        expect(vi.mocked(mermaid.render)).toHaveBeenLastCalledWith(
+            expect.any(String),
+            expect.stringContaining(
+                'class iface_iface_a_uuid["IA"] {\n        <<interface>>\n        +ping()'
+            )
+        )
+        expect(vi.mocked(mermaid.render)).toHaveBeenLastCalledWith(
+            expect.any(String),
+            expect.not.stringContaining('+pong()')
+        )
+        expect(vi.mocked(mermaid.render)).toHaveBeenLastCalledWith(
+            expect.any(String),
+            expect.stringContaining(
+                'class iface_iface_x_uuid["IX"] {\n        <<interface>>\n        +handle()'
+            )
+        )
+        expect(vi.mocked(mermaid.render)).toHaveBeenLastCalledWith(
+            expect.any(String),
+            expect.not.stringContaining('+audit()')
+        )
     })
 
     it('uses double click to navigate graph-backed diagrams', async () => {

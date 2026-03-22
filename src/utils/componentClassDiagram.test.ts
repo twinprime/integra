@@ -7,6 +7,7 @@ import type {
     UseCaseNode,
 } from '../store/types'
 import { buildComponentClassDiagram } from './componentClassDiagram'
+import { renderClassDiagramGraph } from './unifiedClassDiagram'
 
 const makeSeqDiagram = (
     id: string,
@@ -310,6 +311,56 @@ describe('buildComponentClassDiagram', () => {
         expect(result.mermaidContent).toContain('+handle()')
         expect(result.mermaidContent).not.toContain('+audit()')
         expect(result.mermaidContent).not.toContain('compA ..|> iface_subject_iface_uuid')
+    })
+
+    it('filters focused interface methods to usage within the focused component view', () => {
+        const root = makeRoot([
+            makeSeqDiagram(
+                'focus-filter-methods',
+                [
+                    'actor user',
+                    'component compA',
+                    'component childSvc',
+                    'component root/platform as platform',
+                    'user ->> compA: ISubject:ping()',
+                    'compA ->> platform: IPlatform:handle()',
+                    'childSvc ->> platform: IPlatform:audit()',
+                ].join('\n')
+            ),
+        ])
+        const subject = {
+            ...root.subComponents[0],
+            interfaces: [
+                {
+                    ...root.subComponents[0].interfaces[0],
+                    functions: [
+                        { uuid: 'subject-fn-uuid', id: 'ping', parameters: [] },
+                        { uuid: 'subject-extra-fn-uuid', id: 'pong', parameters: [] },
+                    ],
+                },
+            ],
+        }
+        const rootWithSubject = {
+            ...root,
+            subComponents: [subject, ...root.subComponents.slice(1)],
+        }
+
+        const result = buildComponentClassDiagram(subject, rootWithSubject)
+        const focusedResult = renderClassDiagramGraph(result.graph!, rootWithSubject, 'compA')
+
+        expect(result.mermaidContent).toContain('+handle()')
+        expect(result.mermaidContent).toContain('+audit()')
+
+        expect(focusedResult.mermaidContent).toContain(
+            'class iface_subject_iface_uuid["ISubject"] {'
+        )
+        expect(focusedResult.mermaidContent).toContain('+ping()')
+        expect(focusedResult.mermaidContent).not.toContain('+pong()')
+        expect(focusedResult.mermaidContent).toContain(
+            'class iface_platform_iface_uuid["IPlatform"] {'
+        )
+        expect(focusedResult.mermaidContent).toContain('+handle()')
+        expect(focusedResult.mermaidContent).not.toContain('+audit()')
     })
 
     it('collapses interface dependencies to component links when interfaces are hidden', () => {
