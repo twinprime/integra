@@ -16,4 +16,5 @@ For every commit, follow these strict rules:
     - Focus on the 'What' and 'Why', not the 'How'.
     - Use bullet points to list specific changes.
     - Reference any related issue numbers or tickets (e.g., 'Fixes #123').
+    - Always use real newlines for formatting. Never include literal \n strings in the body.
 4. AI Context: Include a list of the specific user prompts that led to these changes at the end of the message for traceability.
