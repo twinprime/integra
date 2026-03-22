@@ -29,12 +29,19 @@ function hasVisualizationPanel(node: ReturnType<typeof findNode>): boolean {
 }
 
 function getPreferredTopPanelSize(
-    hasDiagram: boolean,
+    selectedNode: ReturnType<typeof findNode>,
     readOnly: boolean,
     hasVisibleDescription: boolean
 ) {
+    const hasDiagram = hasVisualizationPanel(selectedNode)
     if (!hasDiagram) return 100
-    if (!readOnly) return 60
+    if (!readOnly) {
+        if (selectedNode?.type === 'use-case') return 30
+        if (selectedNode?.type === 'component') {
+            return selectedNode.interfaces.length > 0 ? 45 : 30
+        }
+        return 60
+    }
     return hasVisibleDescription ? 30 : 18
 }
 
@@ -147,7 +154,7 @@ export function MainLayout({ leftPanel, rightPanel, bottomPanel }: MainLayoutPro
     const hasDiagram = hasVisualizationPanel(selectedNode)
     const hasVisibleDescription = !!selectedNode?.description?.trim() || !readOnly
     const preferredTopPanelSize = getPreferredTopPanelSize(
-        hasDiagram,
+        selectedNode,
         readOnly,
         hasVisibleDescription
     )
