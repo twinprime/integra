@@ -139,7 +139,7 @@ export function findParentInterfaceChildConflicts(
     newParams: ReadonlyArray<Parameter>
 ): ReadonlyArray<InheritedChildFunctionConflict> {
     const iface = findInterfaceByUuid(root, interfaceUuid)
-    if (!iface || isInheritedInterface(iface)) return []
+    if (!iface) return []
     return findConflictingInheritedChildFunctions(root, iface.uuid, functionId, newParams)
 }
 

@@ -210,6 +210,143 @@ describe('parseSequenceDiagram — function call message', () => {
     })
 })
 
+describe('analyzeSequenceDiagramChanges', () => {
+    it('reports inherited parent signature changes when edited through an inherited child interface', () => {
+        const CURRENT_DIAG_UUID = 'current-seq-uuid'
+        const OTHER_DIAG_UUID = 'other-seq-uuid'
+        const PARENT_FN_UUID = 'parent-fn-uuid'
+        const CHILD_FN_UUID = 'child-fn-uuid'
+        const childComponent: ComponentNode = {
+            uuid: 'child-uuid',
+            id: 'child',
+            name: 'Child',
+            type: 'component',
+            description: '',
+            subComponents: [],
+            actors: [],
+            interfaces: [
+                {
+                    uuid: 'child-api-iface-uuid',
+                    id: 'API',
+                    name: 'API',
+                    type: 'rest',
+                    kind: 'inherited',
+                    parentInterfaceUuid: 'parent-api-iface-uuid',
+                    functions: [
+                        {
+                            uuid: CHILD_FN_UUID,
+                            id: 'fn',
+                            parameters: [{ name: 'id', type: 'number', required: true }],
+                        },
+                    ],
+                },
+            ],
+            useCaseDiagrams: [
+                {
+                    uuid: 'child-ucd-uuid',
+                    id: 'childUcd',
+                    name: 'Child Use Cases',
+                    type: 'use-case-diagram',
+                    content: '',
+                    ownerComponentUuid: 'child-uuid',
+                    referencedNodeIds: [],
+                    useCases: [
+                        {
+                            uuid: 'child-uc-uuid',
+                            id: 'childUseCase',
+                            name: 'Child Use Case',
+                            type: 'use-case',
+                            description: '',
+                            sequenceDiagrams: [
+                                {
+                                    uuid: CURRENT_DIAG_UUID,
+                                    id: 'currentSeq',
+                                    name: 'Current Diagram',
+                                    type: 'sequence-diagram',
+                                    content: 'component child\nchild ->> child: API:fn(id: string)',
+                                    ownerComponentUuid: 'child-uuid',
+                                    referencedNodeIds: [],
+                                    referencedFunctionUuids: [PARENT_FN_UUID],
+                                },
+                                {
+                                    uuid: OTHER_DIAG_UUID,
+                                    id: 'otherSeq',
+                                    name: 'Other Diagram',
+                                    type: 'sequence-diagram',
+                                    content: 'component child\nchild ->> child: API:fn(id: string)',
+                                    ownerComponentUuid: 'child-uuid',
+                                    referencedNodeIds: [],
+                                    referencedFunctionUuids: [PARENT_FN_UUID],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        }
+        const root: ComponentNode = {
+            uuid: ROOT_UUID,
+            id: 'root',
+            name: 'Root',
+            type: 'component',
+            description: '',
+            subComponents: [childComponent],
+            actors: [],
+            useCaseDiagrams: [],
+            interfaces: [
+                {
+                    uuid: 'parent-api-iface-uuid',
+                    id: 'API',
+                    name: 'API',
+                    type: 'rest',
+                    kind: 'local',
+                    functions: [
+                        {
+                            uuid: PARENT_FN_UUID,
+                            id: 'fn',
+                            parameters: [{ name: 'id', type: 'string', required: true }],
+                        },
+                    ],
+                },
+            ],
+        }
+        const content = ['component child', 'child ->> child: API:fn(id: number)'].join('\n')
+
+        expect(
+            analyzeSequenceDiagramChanges(content, root, CURRENT_DIAG_UUID, [
+                {
+                    uuid: CURRENT_DIAG_UUID,
+                    referencedFunctionUuids: [PARENT_FN_UUID],
+                },
+                {
+                    uuid: OTHER_DIAG_UUID,
+                    referencedFunctionUuids: [PARENT_FN_UUID],
+                },
+            ])
+        ).toEqual([
+            {
+                kind: 'incompatible',
+                interfaceId: 'API',
+                functionId: 'fn',
+                functionUuid: PARENT_FN_UUID,
+                oldParams: [{ name: 'id', type: 'string', required: true }],
+                newParams: [{ name: 'id', type: 'number', required: true }],
+                affectedDiagramUuids: [OTHER_DIAG_UUID],
+                conflictingChildFunctions: [
+                    {
+                        componentUuid: 'child-uuid',
+                        componentName: 'Child',
+                        interfaceUuid: 'child-api-iface-uuid',
+                        interfaceId: 'API',
+                        functionUuid: CHILD_FN_UUID,
+                        functionId: 'fn',
+                    },
+                ],
+            },
+        ])
+    })
+})
+
 describe('parseSequenceDiagram — cross-component path references', () => {
     it('multi-segment path reference adds target UUID to referencedNodeIds', () => {
         const authSvc: ComponentNode = {
