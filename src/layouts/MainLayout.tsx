@@ -112,6 +112,8 @@ export function MainLayout({ leftPanel, rightPanel, bottomPanel }: MainLayoutPro
     const rightPanelRef = useRef<ImperativePanelHandle>(null)
     const topPanelRef = useRef<ImperativePanelHandle>(null)
     const bottomPanelRef = useRef<ImperativePanelHandle>(null)
+    const previousSelectedNodeIdRef = useRef<string | null | undefined>(undefined)
+    const vLayoutRef = useRef<VLayout>('default')
 
     const [hLayout, setHLayout] = useState<HLayout>('default')
     const [vLayout, setVLayout] = useState<VLayout>('default')
@@ -160,7 +162,15 @@ export function MainLayout({ leftPanel, rightPanel, bottomPanel }: MainLayoutPro
     )
 
     useEffect(() => {
+        vLayoutRef.current = vLayout
+    }, [vLayout])
+
+    useEffect(() => {
+        const selectionChanged = previousSelectedNodeIdRef.current !== selectedNodeId
+        previousSelectedNodeIdRef.current = selectedNodeId
+
         if (!hasDiagram) return
+        if (selectionChanged && vLayoutRef.current !== 'default') return
         topPanelRef.current?.resize(preferredTopPanelSize)
     }, [hasDiagram, preferredTopPanelSize, selectedNodeId, readOnly])
 
@@ -215,7 +225,10 @@ export function MainLayout({ leftPanel, rightPanel, bottomPanel }: MainLayoutPro
                                             Visualization
                                         </div>
                                         <div className="flex-1 overflow-auto p-4 bg-gray-900/30">
-                                            <ErrorBoundary label="Diagram">
+                                            <ErrorBoundary
+                                                key={selectedNodeId ?? 'no-selection'}
+                                                label="Diagram"
+                                            >
                                                 {bottomPanel}
                                             </ErrorBoundary>
                                         </div>
