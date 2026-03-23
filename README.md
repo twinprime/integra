@@ -154,6 +154,8 @@ A sub-component can declare that one of its interfaces **inherits** a parent com
 - Function IDs are unique within an interface. Child-added inherited functions may
   extend the inherited contract, but they cannot reuse a parent function ID with a
   different signature.
+- An interface cannot be deleted while any descendant sub-component still inherits
+  it, whether that interface is local or itself inherited from an ancestor.
 - Component and root class diagrams use the inherited interface's **effective contract**, which combines the full inherited-chain parent contract with any child-local additions.
 - A badge shows which parent interface is being inherited (e.g. `inherited from IPaymentGateway`).
 - To remove the inheritance, click the **delete** button on the inherited interface tab.

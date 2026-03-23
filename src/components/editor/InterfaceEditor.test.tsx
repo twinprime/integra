@@ -123,6 +123,13 @@ function buildLocalInterface(): ResolvedInterface {
     }
 }
 
+function buildInheritedParentLocalInterface(): ResolvedInterface {
+    return {
+        ...buildLocalInterface(),
+        inheritedByCount: 1,
+    }
+}
+
 describe('InterfaceEditor', () => {
     beforeEach(() => {
         vi.clearAllMocks()
@@ -217,5 +224,26 @@ describe('InterfaceEditor', () => {
 
         expect(screen.getByDisplayValue('Local API')).toHaveClass('line-through')
         expect(screen.getByTestId('delete-interface-btn')).toBeInTheDocument()
+    })
+
+    it('prevents deleting local interfaces that are inherited by descendants', () => {
+        render(
+            <InterfaceEditor
+                iface={buildInheritedParentLocalInterface()}
+                ifaceIdx={0}
+                referencedFunctionIds={new Set()}
+                functionReferencesById={new Map()}
+                siblingInterfaceIds={[]}
+                onInterfaceUpdate={noop}
+                onFunctionUpdate={noop}
+                onDeleteFunction={noop}
+                onFunctionRenameAttempt={noop}
+                onDeleteInterface={noop}
+                onParamDescriptionUpdate={noop}
+            />
+        )
+
+        expect(screen.getByDisplayValue('Local API')).not.toHaveClass('line-through')
+        expect(screen.queryByTestId('delete-interface-btn')).not.toBeInTheDocument()
     })
 })

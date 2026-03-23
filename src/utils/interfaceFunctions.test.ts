@@ -292,6 +292,122 @@ describe('isResolvedInterfaceDeletable', () => {
         expect(isResolvedInterfaceDeletable(populatedResolved, new Set())).toBe(false)
     })
 
+    it('returns false for local interfaces with inheriting descendant interfaces', () => {
+        const rootInterface = {
+            uuid: 'parent-iface-uuid',
+            id: 'IFace',
+            name: 'IFace',
+            type: 'rest' as const,
+            kind: 'local' as const,
+            functions: [],
+        }
+        const childInheritedInterface = {
+            uuid: 'child-iface-uuid',
+            id: 'IFace',
+            name: 'IFace',
+            type: 'rest' as const,
+            kind: 'inherited' as const,
+            parentInterfaceUuid: 'parent-iface-uuid',
+            functions: [],
+        }
+        const root: ComponentNode = {
+            uuid: 'root-uuid',
+            id: 'root',
+            name: 'Root',
+            type: 'component',
+            description: '',
+            interfaces: [rootInterface],
+            actors: [],
+            useCaseDiagrams: [],
+            subComponents: [
+                {
+                    uuid: 'child-uuid',
+                    id: 'child',
+                    name: 'Child',
+                    type: 'component',
+                    description: '',
+                    interfaces: [childInheritedInterface],
+                    actors: [],
+                    useCaseDiagrams: [],
+                    subComponents: [],
+                },
+            ],
+        }
+
+        const resolved = resolveInterface(rootInterface, root, root)
+
+        expect(isResolvedInterfaceDeletable(resolved, new Set())).toBe(false)
+    })
+
+    it('returns false for inherited interfaces that are still inherited by descendants', () => {
+        const rootInterface = {
+            uuid: 'root-iface-uuid',
+            id: 'IFace',
+            name: 'IFace',
+            type: 'rest' as const,
+            kind: 'local' as const,
+            functions: [],
+        }
+        const childInheritedInterface = {
+            uuid: 'child-iface-uuid',
+            id: 'IFace',
+            name: 'IFace',
+            type: 'rest' as const,
+            kind: 'inherited' as const,
+            parentInterfaceUuid: 'root-iface-uuid',
+            functions: [],
+        }
+        const grandchildInheritedInterface = {
+            uuid: 'grandchild-iface-uuid',
+            id: 'IFace',
+            name: 'IFace',
+            type: 'rest' as const,
+            kind: 'inherited' as const,
+            parentInterfaceUuid: 'child-iface-uuid',
+            functions: [],
+        }
+        const root: ComponentNode = {
+            uuid: 'root-uuid',
+            id: 'root',
+            name: 'Root',
+            type: 'component',
+            description: '',
+            interfaces: [rootInterface],
+            actors: [],
+            useCaseDiagrams: [],
+            subComponents: [
+                {
+                    uuid: 'child-uuid',
+                    id: 'child',
+                    name: 'Child',
+                    type: 'component',
+                    description: '',
+                    interfaces: [childInheritedInterface],
+                    actors: [],
+                    useCaseDiagrams: [],
+                    subComponents: [
+                        {
+                            uuid: 'grandchild-uuid',
+                            id: 'grandchild',
+                            name: 'Grandchild',
+                            type: 'component',
+                            description: '',
+                            interfaces: [grandchildInheritedInterface],
+                            actors: [],
+                            useCaseDiagrams: [],
+                            subComponents: [],
+                        },
+                    ],
+                },
+            ],
+        }
+
+        const child = root.subComponents[0]
+        const resolved = resolveInterface(childInheritedInterface, child, root)
+
+        expect(isResolvedInterfaceDeletable(resolved, new Set())).toBe(false)
+    })
+
     it('returns false for inherited interfaces when any resolved function is referenced', () => {
         const resolved: ResolvedInterface = {
             uuid: 'child-iface-uuid',

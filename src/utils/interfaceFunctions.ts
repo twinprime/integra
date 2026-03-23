@@ -13,6 +13,7 @@ export type ResolvedInterface =
           readonly localFunctions: ReadonlyArray<InterfaceFunction>
           readonly inheritedFunctions: ReadonlyArray<InterfaceFunction>
           readonly inheritedFrom: null
+          readonly inheritedByCount?: number
           readonly isDangling: false
       })
     | (InheritedInterfaceSpecification & {
@@ -20,6 +21,7 @@ export type ResolvedInterface =
           readonly localFunctions: ReadonlyArray<InterfaceFunction>
           readonly inheritedFunctions: ReadonlyArray<InterfaceFunction>
           readonly inheritedFrom: InterfaceSpecification | null
+          readonly inheritedByCount?: number
           readonly isDangling: boolean
       })
 
@@ -358,11 +360,39 @@ export function findConflictingInheritedChildFunctions(
     return conflicts
 }
 
+function countInheritedDescendantInterfaces(
+    ownerComp: ComponentNode,
+    rootComponent: ComponentNode,
+    interfaceUuid: string
+): number {
+    let count = 0
+
+    const walk = (component: ComponentNode): void => {
+        for (const iface of component.interfaces) {
+            if (
+                isInheritedInterface(iface) &&
+                inheritsFromInterface(iface, component, rootComponent, interfaceUuid, new Set())
+            ) {
+                count += 1
+            }
+        }
+        for (const child of component.subComponents) walk(child)
+    }
+
+    for (const child of ownerComp.subComponents) walk(child)
+    return count
+}
+
 export function resolveInterface(
     iface: InterfaceSpecification,
     ownerComp: ComponentNode,
     rootComponent: ComponentNode
 ): ResolvedInterface {
+    const inheritedByCount = countInheritedDescendantInterfaces(
+        ownerComp,
+        rootComponent,
+        iface.uuid
+    )
     if (isLocalInterface(iface)) {
         return {
             ...iface,
@@ -370,6 +400,7 @@ export function resolveInterface(
             localFunctions: iface.functions,
             inheritedFunctions: [],
             inheritedFrom: null,
+            inheritedByCount,
             isDangling: false,
         }
     }
@@ -383,6 +414,7 @@ export function resolveInterface(
         localFunctions,
         inheritedFunctions,
         inheritedFrom,
+        inheritedByCount,
         isDangling: inheritedFrom == null,
     }
 }
@@ -398,6 +430,7 @@ export function isResolvedInterfaceDeletable(
     iface: ResolvedInterface,
     referencedFunctionIds: ReadonlySet<string>
 ): boolean {
+    if ((iface.inheritedByCount ?? 0) > 0) return false
     if (isLocalInterface(iface)) return iface.effectiveFunctions.length === 0
 
     return iface.effectiveFunctions.every((fn) => !referencedFunctionIds.has(fn.id))
