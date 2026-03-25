@@ -53,6 +53,7 @@ export const createUiSlice: StateCreator<SystemState, [], [], UiSlice> = (set) =
             return {
                 selectedNodeId: nodeId,
                 activeVisualizationViewId: null,
+                parseError: null,
                 navBack: newBack,
                 navForward: [],
                 canNavBack: newBack.length > 0,
@@ -71,6 +72,7 @@ export const createUiSlice: StateCreator<SystemState, [], [], UiSlice> = (set) =
             return {
                 selectedNodeId: prev,
                 activeVisualizationViewId: null,
+                parseError: null,
                 navBack: newBack,
                 navForward: newForward,
                 canNavBack: newBack.length > 0,
@@ -89,6 +91,7 @@ export const createUiSlice: StateCreator<SystemState, [], [], UiSlice> = (set) =
             return {
                 selectedNodeId: next,
                 activeVisualizationViewId: null,
+                parseError: null,
                 navBack: newBack,
                 navForward: newForward,
                 canNavBack: newBack.length > 0,

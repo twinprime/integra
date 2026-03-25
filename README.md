@@ -78,7 +78,7 @@ Suggestions appear automatically as you type. They reflect nodes already defined
 | `Alt+→` | Navigate forward (after going back) |
 
 Tree-level undo/redo is also accessible via the toolbar buttons above the system tree.
-The diagram spec editor uses CodeMirror's built-in history, fully independent from the tree-level history.
+The diagram spec editor uses CodeMirror's built-in history, fully independent from the tree-level history, and its undo/redo stack resets when you switch tree selection to a different node.
 
 #### Node Navigation History
 

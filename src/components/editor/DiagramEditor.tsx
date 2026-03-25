@@ -218,6 +218,7 @@ export const DiagramEditor = ({
                     {isEditing ? (
                         <div className="flex-1 min-h-0 bg-gray-950 border border-blue-400 rounded-md overflow-hidden">
                             <DiagramCodeMirrorEditor
+                                key={node.uuid}
                                 content={content}
                                 diagramType={node.type as 'sequence-diagram' | 'use-case-diagram'}
                                 ownerComponentUuid={node.ownerComponentUuid}
@@ -244,6 +245,7 @@ export const DiagramEditor = ({
                             }}
                         >
                             <DiagramCodeMirrorEditor
+                                key={node.uuid}
                                 content={content}
                                 diagramType={node.type as 'sequence-diagram' | 'use-case-diagram'}
                                 ownerComponentUuid={node.ownerComponentUuid}

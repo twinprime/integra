@@ -100,6 +100,21 @@ describe('useSystemStore', () => {
             expect(result.current.activeVisualizationViewId).toBeNull()
         })
 
+        it('should clear parse errors when selection changes', () => {
+            const { result } = renderHook(() => useSystemStore())
+
+            act(() => {
+                useSystemStore.setState({
+                    selectedNodeId: null,
+                    parseError: 'Unexpected token',
+                })
+                result.current.selectNode('test-node-uuid')
+            })
+
+            expect(useSystemStore.getState().selectedNodeId).toBe('test-node-uuid')
+            expect(useSystemStore.getState().parseError).toBeNull()
+        })
+
         it('should keep the active visualization view when selecting the same node again', () => {
             const { result } = renderHook(() => useSystemStore())
 
