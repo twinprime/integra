@@ -4,14 +4,24 @@ A visual editor for system engineering models using diagram specifications.
 
 ### Quick Start
 
-#### 1. Install and run
+#### Browse mode
 
-```bash
-npm install
-npm run dev
-```
+Integra restores the last used mode from `localStorage` and defaults to
+**browse mode** on first load. Click the **Integra** icon in the tree toolbar
+to toggle between browse and edit mode; the icon is decorated while edit mode
+is active.
 
-Open [http://localhost:5173](http://localhost:5173) in your browser.
+In browse mode:
+
+- visible fields stay readable but become non-editable
+- empty description sections are hidden across nodes, interfaces, and functions
+- diagram specification editor fields are hidden so the visualization panel can use the freed space
+- tree mutation affordances such as add/delete/reorder controls are hidden
+- the **Undo**, **Redo**, **Save**, and **Clear** toolbar buttons are hidden
+
+#### 1. Switch to edit mode
+
+Click on the **Integra** icon in the tree toolbar to enter edit mode if you are currently in browse mode.
 
 #### 2. Save and load your model
 
@@ -36,18 +46,19 @@ Select a diagram node to open its specification editor. Type your spec in the te
 #### 5. Explore the derived model
 
 As you write sequence diagrams, Integra automatically derives:
+
 - **Actors and components** added to the owning component
 - **Interface specifications** (with typed functions and parameters) on the receiving component
 - **Use cases** listed under their use case diagram
 - **Visualization panel view switcher** — node types can expose multiple renderable diagram views in the bottom panel; the panel shows a switcher when more than one view is available and resets to that node type's default view when you change tree selection
 - **Generated class diagrams** — root, component, use-case-diagram, and use-case views now follow the same generation rules:
-  - Input comes from all sequence diagrams owned under the selected node's owner boundary plus all transitively referenced `Sequence:`, `UseCase:`, and `UseCaseDiagram:` targets
-  - Visible participants are limited to actors owned by visible components plus components that are direct children of the owner component, components that are in this guide's **Reference scope** for that owner component, and the selected component itself when the selected node is a component
-  - Interfaces are shown only for visible components that participate in at least one derived dependency; if a visible component interface is used, only the called methods are listed, otherwise the full interface is shown
-  - Dependencies to or from out-of-scope descendants are folded up to the closest ancestor component that is still visible in scope
-  - The shared **Interfaces** toggle hides interface nodes and collapses interface-derived dependencies into direct component-to-component links while preserving separate opposite-direction dependencies
-  - In component class diagrams, the selected component and its interfaces are styled as the default subject
-  - Single-click a class node to focus/filter the diagram to that component, its interfaces, and directly linked classes; single-click it again to clear the filter; double-click to navigate to the node in the tree
+    - Input comes from all sequence diagrams owned under the selected node's owner boundary plus all transitively referenced `Sequence:`, `UseCase:`, and `UseCaseDiagram:` targets
+    - Visible participants are limited to actors owned by visible components plus components that are direct children of the owner component, components that are in this guide's **Reference scope** for that owner component, and the selected component itself when the selected node is a component
+    - Interfaces are shown only for visible components that participate in at least one derived dependency; if a visible component interface is used, only the called methods are listed, otherwise the full interface is shown
+    - Dependencies to or from out-of-scope descendants are folded up to the closest ancestor component that is still visible in scope
+    - The shared **Interfaces** toggle hides interface nodes and collapses interface-derived dependencies into direct component-to-component links while preserving separate opposite-direction dependencies
+    - In component class diagrams, the selected component and its interfaces are styled as the default subject
+    - Single-click a class node to focus/filter the diagram to that component, its interfaces, and directly linked classes; single-click it again to clear the filter; double-click to navigate to the node in the tree
 
 Navigate the tree to inspect generated nodes. On initial load, only the root node starts expanded; descendants stay collapsed until you expand them or selection/navigation auto-reveals them. In generated class diagrams, single-clicking a class focuses the diagram around that component; double-clicking navigates to that node in the tree. Hovering a dependency link shows the dependency source and target names plus the sequence diagrams that derived that dependency; clicking a multi-source dependency keeps that popup available for selection, while clicking a single-source dependency navigates directly to that sequence diagram. Hovering an implementation link shows the component and interface names for that relationship, and clicking it pins the popup for inspection. Orphaned nodes (no longer referenced by any diagram) show a delete button on hover.
 
@@ -56,6 +67,7 @@ Navigate the tree to inspect generated nodes. On initial load, only the root nod
 #### Autocomplete
 
 The diagram spec editor provides context-aware suggestions as you type:
+
 - **Participants**: suggest known actors and components when typing after `actor`, `component`, or `from`; descendants of the owning component are suggested with a **relative path** (e.g. `grandchild` or `child/grandchild`), while cross-tree references use an **absolute path** with an alias (e.g. `root/services/auth as auth`)
 - **Message receivers**: suggest participants when typing the receiver in a message line
 - **UseCase targets**: suggest use case IDs after `UseCase:` in a message label; for use cases in other components the suggestion includes the full path (e.g. `UseCase:orders/placeOrder`)
@@ -65,13 +77,13 @@ Suggestions appear automatically as you type. They reflect nodes already defined
 
 #### Keyboard Shortcuts
 
-| Shortcut | Action |
-|---|---|
-| `Shift+Enter` | Save spec and preview diagram without leaving edit mode |
-| `Cmd/Ctrl+Z` | Undo in the diagram spec editor (CodeMirror history) *or* tree-level |
-| `Cmd/Ctrl+Shift+Z` / `Cmd/Ctrl+Y` | Redo |
-| `Alt+←` | Navigate back to the previously selected tree node |
-| `Alt+→` | Navigate forward (after going back) |
+| Shortcut                          | Action                                                               |
+| --------------------------------- | -------------------------------------------------------------------- |
+| `Shift+Enter`                     | Save spec and preview diagram without leaving edit mode              |
+| `Cmd/Ctrl+Z`                      | Undo in the diagram spec editor (CodeMirror history) _or_ tree-level |
+| `Cmd/Ctrl+Shift+Z` / `Cmd/Ctrl+Y` | Redo                                                                 |
+| `Alt+←`                           | Navigate back to the previously selected tree node                   |
+| `Alt+→`                           | Navigate forward (after going back)                                  |
 
 Tree-level undo/redo is also accessible via the toolbar buttons above the system tree.
 The diagram spec editor uses CodeMirror's built-in history, fully independent from the tree-level history.
@@ -92,20 +104,6 @@ toolbar. Click the description area to switch into the full markdown editor;
 when the description is empty, the preview shows a compact **No Description**
 placeholder until you enter edit mode. In **browse mode**, empty description
 sections are hidden instead of showing the placeholder.
-
-#### Browse mode
-
-Integra restores the last used mode from `localStorage` and defaults to
-**browse mode** on first load. Click the **Integra** icon in the tree toolbar
-to toggle between browse and edit mode; the icon is decorated while edit mode
-is active.
-
-In browse mode:
-- visible fields stay readable but become non-editable
-- empty description sections are hidden across nodes, interfaces, and functions
-- diagram specification editor fields are hidden so the visualization panel can use the freed space
-- tree mutation affordances such as add/delete/reorder controls are hidden
-- the **Undo**, **Redo**, **Save**, and **Clear** toolbar buttons are hidden
 
 #### TODO comments
 
@@ -137,16 +135,16 @@ A sub-component can declare that one of its interfaces **inherits** a parent com
 2. If its parent component defines interfaces, an **"Inherit parent interface:"** selector appears above the interface tabs.
 3. The dropdown lists all parent interfaces not yet inherited by this component. Select one to create a new inherited interface entry and activate its tab.
 4. If the component already has an interface with the same ID, Integra analyzes the existing child-local functions before inheriting:
-   - exact matches with the inherited contract are dropped as redundant
-   - functions with different IDs are kept as additional child-local functions
-   - functions with the same ID but a different signature are incompatible and block inheritance
+    - exact matches with the inherited contract are dropped as redundant
+    - functions with different IDs are kept as additional child-local functions
+    - functions with the same ID but a different signature are incompatible and block inheritance
 5. When there are no blocking conflicts, the user is prompted to confirm merging into the existing same-ID interface; cancelling leaves the existing interface unchanged.
 
 #### Inherited interface behaviour
 
 - The inherited interface tab is a **mixed view**:
-  - parent-inherited functions stay read-only
-  - child-added functions on the inherited interface are editable and removable
+    - parent-inherited functions stay read-only
+    - child-added functions on the inherited interface are editable and removable
 - Function IDs are unique within an interface. Child-added inherited functions may
   extend the inherited contract, but they cannot reuse a parent function ID with a
   different signature.
@@ -161,7 +159,7 @@ A sub-component can declare that one of its interfaces **inherits** a parent com
 
 #### Warning icon
 
-When a parent component's interface has no sub-component inheriting it, a **⚠** warning icon appears on the interface tab with the tooltip *"No sub-component inherits this interface"*. This is purely informational — it highlights interfaces that may be intended for inheritance but haven't been wired up yet.
+When a parent component's interface has no sub-component inheriting it, a **⚠** warning icon appears on the interface tab with the tooltip _"No sub-component inherits this interface"_. This is purely informational — it highlights interfaces that may be intended for inheritance but haven't been wired up yet.
 
 ---
 
@@ -186,33 +184,33 @@ customer ->> placeOrder
 admin ->> placeOrder
 ```
 
-| Syntax | Purpose |
-|---|---|
-| `actor id` | Declare a local actor |
-| `actor id as alias` | Declare a local actor; use `alias` in relationship lines |
-| `use case id` | Declare a use case |
-| `component path/to/node` | Reference an existing component by path (no new node created) |
-| `component path/to/node as alias` | Reference with an alias |
-| `A ->> B` | Relationship arrow (default — maps to `-->` in Mermaid) |
-| `A ->> B: label` | Relationship arrow with a link label |
+| Syntax                            | Purpose                                                       |
+| --------------------------------- | ------------------------------------------------------------- |
+| `actor id`                        | Declare a local actor                                         |
+| `actor id as alias`               | Declare a local actor; use `alias` in relationship lines      |
+| `use case id`                     | Declare a use case                                            |
+| `component path/to/node`          | Reference an existing component by path (no new node created) |
+| `component path/to/node as alias` | Reference with an alias                                       |
+| `A ->> B`                         | Relationship arrow (default — maps to `-->` in Mermaid)       |
+| `A ->> B: label`                  | Relationship arrow with a link label                          |
 
 **Arrow types** — the arrow between two nodes maps directly to Mermaid flowchart syntax:
 
-| Arrow | Mermaid meaning |
-|---|---|
-| `->>` | Arrowhead (**default**, backward-compatible — renders as `-->`) |
-| `-->` | Arrowhead |
-| `---` | Open link, no arrowhead |
-| `--o` | Circle at end |
-| `--x` | Cross/X at end |
-| `<-->` | Bidirectional arrow |
-| `o--o` | Bidirectional circle |
-| `x--x` | Bidirectional cross |
-| `-.->` | Dotted arrow |
-| `-.-` | Dotted open link |
-| `==>` | Thick arrow |
-| `===` | Thick open link |
-| `~~~` | Invisible link |
+| Arrow  | Mermaid meaning                                                 |
+| ------ | --------------------------------------------------------------- |
+| `->>`  | Arrowhead (**default**, backward-compatible — renders as `-->`) |
+| `-->`  | Arrowhead                                                       |
+| `---`  | Open link, no arrowhead                                         |
+| `--o`  | Circle at end                                                   |
+| `--x`  | Cross/X at end                                                  |
+| `<-->` | Bidirectional arrow                                             |
+| `o--o` | Bidirectional circle                                            |
+| `x--x` | Bidirectional cross                                             |
+| `-.->` | Dotted arrow                                                    |
+| `-.-`  | Dotted open link                                                |
+| `==>`  | Thick arrow                                                     |
+| `===`  | Thick open link                                                 |
+| `~~~`  | Invisible link                                                  |
 
 **Link labels** — append `: label text` to add a label displayed on the link:
 
@@ -253,55 +251,56 @@ note right of customer: initiates the flow
 note over orderSvc, paymentSvc: payment handshake
 ```
 
-| Syntax | Purpose |
-|---|---|
-| `# comment text` | Line comment — ignored by the parser; preserved through ID rename |
-| `actor id` | Declare a local actor participant |
-| `actor id as alias` | Declare a local actor; use `alias` in message lines |
-| `component id` | Declare a local component participant |
-| `component path/to/node` | Reference an existing component by path (no new node created) |
-| `component path/to/node as alias` | Reference with an alias |
-| `sender ->> receiver: Interface:function(param: type)` | Function call message — derives interface on receiver |
-| `sender ->> receiver: Interface:function(param: type):display label` | Function call message with a custom display label (diagram shows only the label) |
-| `sender ->> receiver: label text` | Plain message label |
-| `sender ->> receiver` | Bare arrow (no label) |
-| `sender ->> receiver: UseCase:useCaseId` | Use case reference (local — receiver's component) |
-| `sender ->> receiver: UseCase:comp/useCaseId` | Use case reference by path (relative or absolute) |
-| `sender ->> receiver: UseCase:useCaseId:label` | Use case reference with a custom display label |
-| `sender ->> receiver: UseCase:comp/useCaseId:label` | Use case path reference with a custom label |
-| `sender ->> receiver: UseCaseDiagram:diagramId` | Use case diagram reference (expands to all sequence diagrams under its use cases) |
-| `sender ->> receiver: UseCaseDiagram:comp/diagramId` | Use case diagram reference by path |
-| `sender ->> receiver: UseCaseDiagram:diagramId:label` | Use case diagram reference with a custom display label |
-| `sender ->> receiver: Sequence:seqDiagramId` | Sequence diagram reference (local — receiver's component) |
-| `sender ->> receiver: Sequence:comp/seqDiagramId` | Sequence diagram reference by path |
-| `sender ->> receiver: Sequence:seqDiagramId:label` | Sequence diagram reference with a custom display label |
-| `note right of id: text` | Note to the right of a participant |
-| `note left of id: text` | Note to the left of a participant |
-| `note over id: text` | Note spanning a single participant |
-| `note over id1, id2: text` | Note spanning two participants |
-| `loop [condition]` … `end` | Loop block (renders as Mermaid `loop`) |
-| `alt [condition]` … `else [condition]` … `end` | Conditional block (renders as Mermaid `alt`/`else`) |
-| `opt [condition]` … `end` | Optional block — single section, no `else` (renders as Mermaid `opt`) |
-| `par [label]` … `and [label]` … `end` | Parallel block (renders as Mermaid `par`/`and`) |
+| Syntax                                                               | Purpose                                                                           |
+| -------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `# comment text`                                                     | Line comment — ignored by the parser; preserved through ID rename                 |
+| `actor id`                                                           | Declare a local actor participant                                                 |
+| `actor id as alias`                                                  | Declare a local actor; use `alias` in message lines                               |
+| `component id`                                                       | Declare a local component participant                                             |
+| `component path/to/node`                                             | Reference an existing component by path (no new node created)                     |
+| `component path/to/node as alias`                                    | Reference with an alias                                                           |
+| `sender ->> receiver: Interface:function(param: type)`               | Function call message — derives interface on receiver                             |
+| `sender ->> receiver: Interface:function(param: type):display label` | Function call message with a custom display label (diagram shows only the label)  |
+| `sender ->> receiver: label text`                                    | Plain message label                                                               |
+| `sender ->> receiver`                                                | Bare arrow (no label)                                                             |
+| `sender ->> receiver: UseCase:useCaseId`                             | Use case reference (local — receiver's component)                                 |
+| `sender ->> receiver: UseCase:comp/useCaseId`                        | Use case reference by path (relative or absolute)                                 |
+| `sender ->> receiver: UseCase:useCaseId:label`                       | Use case reference with a custom display label                                    |
+| `sender ->> receiver: UseCase:comp/useCaseId:label`                  | Use case path reference with a custom label                                       |
+| `sender ->> receiver: UseCaseDiagram:diagramId`                      | Use case diagram reference (expands to all sequence diagrams under its use cases) |
+| `sender ->> receiver: UseCaseDiagram:comp/diagramId`                 | Use case diagram reference by path                                                |
+| `sender ->> receiver: UseCaseDiagram:diagramId:label`                | Use case diagram reference with a custom display label                            |
+| `sender ->> receiver: Sequence:seqDiagramId`                         | Sequence diagram reference (local — receiver's component)                         |
+| `sender ->> receiver: Sequence:comp/seqDiagramId`                    | Sequence diagram reference by path                                                |
+| `sender ->> receiver: Sequence:seqDiagramId:label`                   | Sequence diagram reference with a custom display label                            |
+| `note right of id: text`                                             | Note to the right of a participant                                                |
+| `note left of id: text`                                              | Note to the left of a participant                                                 |
+| `note over id: text`                                                 | Note spanning a single participant                                                |
+| `note over id1, id2: text`                                           | Note spanning two participants                                                    |
+| `loop [condition]` … `end`                                           | Loop block (renders as Mermaid `loop`)                                            |
+| `alt [condition]` … `else [condition]` … `end`                       | Conditional block (renders as Mermaid `alt`/`else`)                               |
+| `opt [condition]` … `end`                                            | Optional block — single section, no `else` (renders as Mermaid `opt`)             |
+| `par [label]` … `and [label]` … `end`                                | Parallel block (renders as Mermaid `par`/`and`)                                   |
 
 **Arrow types** — the arrow between sender and receiver maps 1:1 to Mermaid's sequence diagram arrow syntax:
 
-| Arrow | Mermaid meaning |
-|---|---|
-| `->>` | Solid line, arrowhead — synchronous call (**default**) |
-| `-->>` | Dotted line, arrowhead — reply or async |
-| `->` | Solid line, no arrowhead |
-| `-->` | Dotted line, no arrowhead |
-| `-x` | Solid line, X — destroy |
-| `--x` | Dotted line, X |
-| `-)` | Solid line, open arrowhead — async notation |
-| `--)` | Dotted line, open arrowhead |
+| Arrow  | Mermaid meaning                                        |
+| ------ | ------------------------------------------------------ |
+| `->>`  | Solid line, arrowhead — synchronous call (**default**) |
+| `-->>` | Dotted line, arrowhead — reply or async                |
+| `->`   | Solid line, no arrowhead                               |
+| `-->`  | Dotted line, no arrowhead                              |
+| `-x`   | Solid line, X — destroy                                |
+| `--x`  | Dotted line, X                                         |
+| `-)`   | Solid line, open arrowhead — async notation            |
+| `--)`  | Dotted line, open arrowhead                            |
 
 Prefix any sequence-diagram arrow with `X` (for example, `X->>` or `X-->`) to
 exclude that message from **class-diagram dependency derivation** while still
 rendering the underlying Mermaid arrow normally in the sequence diagram.
 
 Example:
+
 ```
 client ->> server: REST:getUser(id: string)
 server -->> client: response
@@ -338,6 +337,7 @@ end
 - `UseCase:`, `UseCaseDiagram:`, and `Sequence:` path targets are not scope-restricted today. Only component path references follow the component-scope rules.
 
 **Function call message format:** `sender ->> receiver: InterfaceId:functionId(param: type, param2: type?)`
+
 - Parameter types default to `any` if omitted
 - Append `?` to mark a parameter as optional (e.g. `name: string?`)
 - Append `:display label` after the closing `)` to show a custom label in the diagram instead of `Interface:function(params)` (e.g. `IAuth:login(user: string):sign in`)
@@ -367,6 +367,7 @@ customer ->> pay: PaymentsAPI:charge(amount: number)
 ```
 
 When a path reference is used:
+
 - If the terminal node does not yet exist it is **auto-created** (as a component), provided the path is in scope — intermediate missing components are also created automatically
 - The node's UUID is recorded in `referencedNodeIds`; the node cannot be deleted while this reference exists
 - The alias (if provided with `as alias`) is used in all message lines; otherwise the last path segment is used
@@ -377,15 +378,15 @@ When a path reference is used:
 
 Multi-segment path references are restricted to components that are **in scope** for the owning diagram. A component `X` is in scope when it is:
 
-| Relationship to ownerComp | Example (ownerComp = `child`) | Allowed |
-|---|---|---|
-| **Self** | `child` | ✅ |
-| **Direct child** | `child/grandchild` | ✅ |
-| **Ancestor** (parent, grandparent, …) | `root` | ✅ |
-| **Sibling** (direct child of parent) | `root/sibling` | ✅ |
-| **Uncle/Aunt** (direct child of grandparent) | `root/grandparent/uncle` — resolved as `uncle` | ✅ |
-| **Any descendant** (grandchild, great-grandchild, …) | `grandchild`, `grandchild/greatGrandchild` | ✅ |
-| **Cousin** (child of sibling/uncle) | `root/sibling/cousin` | ❌ |
+| Relationship to ownerComp                            | Example (ownerComp = `child`)                  | Allowed |
+| ---------------------------------------------------- | ---------------------------------------------- | ------- |
+| **Self**                                             | `child`                                        | ✅      |
+| **Direct child**                                     | `child/grandchild`                             | ✅      |
+| **Ancestor** (parent, grandparent, …)                | `root`                                         | ✅      |
+| **Sibling** (direct child of parent)                 | `root/sibling`                                 | ✅      |
+| **Uncle/Aunt** (direct child of grandparent)         | `root/grandparent/uncle` — resolved as `uncle` | ✅      |
+| **Any descendant** (grandchild, great-grandchild, …) | `grandchild`, `grandchild/greatGrandchild`     | ✅      |
+| **Cousin** (child of sibling/uncle)                  | `root/sibling/cousin`                          | ❌      |
 
 ```
 root
@@ -409,9 +410,9 @@ Message labels that use `UseCase:...`, `UseCaseDiagram:...`, or `Sequence:...` d
 All description fields support Markdown. In preview mode, write links to other nodes using their tree path:
 
 ```markdown
-See also [Login Flow](loginFlow)                          <!-- same component, bare id -->
-See also [Auth Service](services/auth)                    <!-- cross-component path -->
-See also [Login Use Case](services/auth/mainDiag/login)   <!-- deep path -->
+See also [Login Flow](loginFlow) <!-- same component, bare id -->
+See also [Auth Service](services/auth) <!-- cross-component path -->
+See also [Login Use Case](services/auth/mainDiag/login) <!-- deep path -->
 ```
 
 Clicking a node link navigates to that node in the tree.
@@ -444,12 +445,12 @@ Each component YAML file has the following shape:
 
 ```yaml
 uuid: <globally-unique-id>
-id: my-system               # must be "root" for the root component
+id: my-system # must be "root" for the root component
 name: My System
 type: component
-description: Optional description   # supports Markdown
+description: Optional description # supports Markdown
 subComponents:
-  - my-system/my-system-gateway.yaml   # relative path to child file
+    - my-system/my-system-gateway.yaml # relative path to child file
 actors: [...]
 useCaseDiagrams: [...]
 interfaces: [...]
@@ -457,23 +458,23 @@ interfaces: [...]
 
 #### Node type fields
 
-| Node type | Key fields (beyond `uuid`, `id`, `name`, `type`, `description`) |
-|---|---|
-| `component` | `subComponents[]` (file paths), `actors[]`, `useCaseDiagrams[]`, `interfaces[]` |
-| `actor` | *(none)* |
-| `use-case-diagram` | `content` (spec text), `useCases[]` |
-| `use-case` | `sequenceDiagrams[]` |
-| `sequence-diagram` | `content` (spec text) |
+| Node type          | Key fields (beyond `uuid`, `id`, `name`, `type`, `description`)                 |
+| ------------------ | ------------------------------------------------------------------------------- |
+| `component`        | `subComponents[]` (file paths), `actors[]`, `useCaseDiagrams[]`, `interfaces[]` |
+| `actor`            | _(none)_                                                                        |
+| `use-case-diagram` | `content` (spec text), `useCases[]`                                             |
+| `use-case`         | `sequenceDiagrams[]`                                                            |
+| `sequence-diagram` | `content` (spec text)                                                           |
 
 > All diagram types (`use-case-diagram` and `sequence-diagram`) support the `description` field.
 
 Interface specifications live directly on their owning component:
 
-| Object | Key fields |
-|---|---|
+| Object                   | Key fields                                                                        |
+| ------------------------ | --------------------------------------------------------------------------------- |
 | `InterfaceSpecification` | `uuid`, `id`, `name`, `type` (`rest`\|`kafka`\|`graphql`\|`other`), `functions[]` |
-| `InterfaceFunction` | `uuid`, `id`, `description?`, `parameters[]` |
-| `Parameter` | `name`, `type`, `required` (boolean), `description?` |
+| `InterfaceFunction`      | `uuid`, `id`, `description?`, `parameters[]`                                      |
+| `Parameter`              | `name`, `type`, `required` (boolean), `description?`                              |
 
 #### Example
 
@@ -485,35 +486,35 @@ id: e-commerce
 name: E-Commerce System
 type: component
 subComponents:
-  - e-commerce/e-commerce-orderSvc.yaml
+    - e-commerce/e-commerce-orderSvc.yaml
 actors:
-  - uuid: a1b2c3d4-0020
-    id: customer
-    name: Customer
-    type: actor
+    - uuid: a1b2c3d4-0020
+      id: customer
+      name: Customer
+      type: actor
 useCaseDiagrams:
-  - uuid: a1b2c3d4-0030
-    id: mainFlows
-    name: Main Flows
-    type: use-case-diagram
-    content: |
-      actor customer
-      use case placeOrder
-      customer ->> placeOrder
-    useCases:
-      - uuid: a1b2c3d4-0031
-        id: placeOrder
-        name: Place Order
-        type: use-case
-        sequenceDiagrams:
-          - uuid: a1b2c3d4-0040
-            id: placeOrderFlow
-            name: Place Order Flow
-            type: sequence-diagram
-            content: |
-              actor customer
-              component orderSvc
-              customer ->> orderSvc: OrdersAPI:placeOrder(orderId: string, amount: number)
+    - uuid: a1b2c3d4-0030
+      id: mainFlows
+      name: Main Flows
+      type: use-case-diagram
+      content: |
+          actor customer
+          use case placeOrder
+          customer ->> placeOrder
+      useCases:
+          - uuid: a1b2c3d4-0031
+            id: placeOrder
+            name: Place Order
+            type: use-case
+            sequenceDiagrams:
+                - uuid: a1b2c3d4-0040
+                  id: placeOrderFlow
+                  name: Place Order Flow
+                  type: sequence-diagram
+                  content: |
+                      actor customer
+                      component orderSvc
+                      customer ->> orderSvc: OrdersAPI:placeOrder(orderId: string, amount: number)
 interfaces: []
 ```
 
@@ -528,20 +529,20 @@ subComponents: []
 actors: []
 useCaseDiagrams: []
 interfaces:
-  - uuid: a1b2c3d4-0011
-    id: OrdersAPI
-    name: OrdersAPI
-    type: rest
-    functions:
-      - uuid: a1b2c3d4-0012
-        id: placeOrder
-        parameters:
-          - name: orderId
-            type: string
-            required: true
-          - name: amount
-            type: number
-            required: true
+    - uuid: a1b2c3d4-0011
+      id: OrdersAPI
+      name: OrdersAPI
+      type: rest
+      functions:
+          - uuid: a1b2c3d4-0012
+            id: placeOrder
+            parameters:
+                - name: orderId
+                  type: string
+                  required: true
+                - name: amount
+                  type: number
+                  required: true
 ```
 
 The only field you must ensure is unique is `uuid` — use any distinct string per node (e.g. standard UUIDs or simple incrementing IDs as in the example above).
