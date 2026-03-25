@@ -93,8 +93,10 @@ export interface SeqBlockSection {
 export interface SeqBlock {
     kind: 'loop' | 'alt' | 'par' | 'opt'
     sections: SeqBlockSection[]
-    /** Leading whitespace of the block header and `end` line, preserved for round-trip fidelity. */
+    /** Leading whitespace of the block header, preserved for round-trip fidelity. */
     indent?: string
+    /** Leading whitespace of the `end` line, preserved independently for round-trip fidelity. */
+    endIndent?: string
 }
 
 export interface SeqComment {
@@ -333,10 +335,8 @@ class SequenceDiagramVisitor extends BaseVisitor {
             sections.push(this.visit(sectionNode as never) as SeqBlockSection)
         }
 
-        // Indent is stored on the block itself (used for header + `end` line)
-        // Note: the Indent before `end` is consumed by the parser but not stored separately —
-        // the serializer reuses block.indent for the `end` line.
-        return { kind, sections }
+        const endIndent = (ctx.Indent as Array<{ image: string }> | undefined)?.[0]?.image
+        return endIndent ? { kind, sections, endIndent } : { kind, sections }
     }
 
     seqBlockSection(ctx: Record<string, unknown[]>): SeqBlockSection {

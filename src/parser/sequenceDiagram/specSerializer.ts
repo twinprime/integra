@@ -86,6 +86,7 @@ function sectionKeyword(kind: 'loop' | 'alt' | 'par' | 'opt'): string {
 
 function serializeBlock(block: SeqBlock): string {
     const bi = block.indent ?? ''
+    const ei = block.endIndent ?? bi
     const lines: string[] = []
     const [first, ...rest] = block.sections
     const headerGuard = first.guard ? ` ${first.guard}` : ''
@@ -97,7 +98,7 @@ function serializeBlock(block: SeqBlock): string {
         lines.push(`${si}${sectionKeyword(block.kind)}${secGuard}`)
         lines.push(...serializeStatements(section.statements))
     }
-    lines.push(`${bi}end`)
+    lines.push(`${ei}end`)
     return lines.join('\n')
 }
 

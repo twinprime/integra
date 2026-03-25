@@ -358,6 +358,12 @@ describe('seqAstToSpec — indentation preservation', () => {
         expect(roundTrip(spec)).toBe(spec)
     })
 
+    it('round-trips an alt preserving a custom end indentation', () => {
+        const spec =
+            'actor a\nloop outer\n  alt success\n    a ->> b: ok\n  else failure\n    a ->> b: fail\n    end\nend'
+        expect(roundTrip(spec)).toBe(spec)
+    })
+
     it('preserves indentation of notes inside a block', () => {
         const spec = 'actor a\nloop\n  note right of a: some text\nend'
         expect(roundTrip(spec)).toBe(spec)
@@ -366,6 +372,14 @@ describe('seqAstToSpec — indentation preservation', () => {
     it('preserves indentation when renaming a participant inside an indented block', () => {
         const input = 'actor a\nloop\n  a ->> b: call\nend'
         const output = 'actor user\nloop\n  user ->> b: call\nend'
+        expect(renameInSeqSpec(input, 'a', 'user')).toBe(output)
+    })
+
+    it('preserves custom alt end indentation during rename-based rewrites', () => {
+        const input =
+            'actor a\nloop outer\n  alt success\n    a ->> b: ok\n  else failure\n    a ->> b: fail\n    end\nend'
+        const output =
+            'actor user\nloop outer\n  alt success\n    user ->> b: ok\n  else failure\n    user ->> b: fail\n    end\nend'
         expect(renameInSeqSpec(input, 'a', 'user')).toBe(output)
     })
 })

@@ -69,6 +69,14 @@ export class SequenceDiagramParser extends CstParser {
         this.performSelfAnalysis()
     }
 
+    private isIndentedBlockBoundary(): boolean {
+        const nextType = this.LA(1).tokenType
+        if (nextType === End || nextType === Else || nextType === And) return true
+        if (nextType !== Indent) return false
+        const afterIndentType = this.LA(2).tokenType
+        return afterIndentType === End || afterIndentType === Else || afterIndentType === And
+    }
+
     // ─── Top-level ──────────────────────────────────────────────────────────────
 
     sequenceDiagram = this.RULE('sequenceDiagram', () => {
@@ -214,18 +222,21 @@ export class SequenceDiagramParser extends CstParser {
         this.MANY(() => this.CONSUME2(Newline)) // skip blank lines before body
 
         // First section body
-        this.MANY2(() => {
-            this.SUBRULE(this.seqStatement)
-            this.OR2([
-                { ALT: () => this.AT_LEAST_ONE(() => this.CONSUME3(Newline)) },
-                { ALT: () => {} }, // ε — statement immediately before else/and/end
-            ])
+        this.MANY2({
+            GATE: () => !this.isIndentedBlockBoundary(),
+            DEF: () => {
+                this.SUBRULE(this.seqStatement)
+                this.OR2([
+                    { ALT: () => this.AT_LEAST_ONE(() => this.CONSUME3(Newline)) },
+                    { ALT: () => {} }, // ε — statement immediately before else/and/end
+                ])
+            },
         })
 
         // Additional sections (else for alt, and for par)
         this.MANY3(() => this.SUBRULE(this.seqBlockSection))
 
-        this.OPTION2(() => this.CONSUME(Indent)) // consume indent before `end` (serializer reuses block.indent)
+        this.OPTION2(() => this.CONSUME(Indent)) // consume indent before `end`
         this.CONSUME(End)
     })
 
@@ -239,12 +250,15 @@ export class SequenceDiagramParser extends CstParser {
         this.MANY(() => this.CONSUME2(Newline))
 
         // Section body
-        this.MANY2(() => {
-            this.SUBRULE(this.seqStatement)
-            this.OR2([
-                { ALT: () => this.AT_LEAST_ONE(() => this.CONSUME3(Newline)) },
-                { ALT: () => {} },
-            ])
+        this.MANY2({
+            GATE: () => !this.isIndentedBlockBoundary(),
+            DEF: () => {
+                this.SUBRULE(this.seqStatement)
+                this.OR2([
+                    { ALT: () => this.AT_LEAST_ONE(() => this.CONSUME3(Newline)) },
+                    { ALT: () => {} },
+                ])
+            },
         })
     })
 }
