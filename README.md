@@ -18,7 +18,7 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 
 ## Repository notes
 
-- The developer guide is also packaged into the app and can be opened from the toolbar help button.
+- The user guide is also packaged into the app and can be opened from the toolbar help button.
 - Preserve the model invariants documented in `src/docs/developer-guide.md` when making code changes.
 
 ---
@@ -48,8 +48,4 @@ earlier segments are clickable breadcrumbs back into the tree.
 Select a diagram node to open its specification editor. Type your spec in the text area — the right panel renders the diagram in real time. Syntax is highlighted as you type.
 
 #### 5. Explore the derived model
-
-
-- The developer guide is also packaged into the app and can be opened from the toolbar help button.
-- Preserve the model invariants documented in `src/docs/developer-guide.md` when making code changes.
 

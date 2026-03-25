@@ -1,4 +1,4 @@
-import developerGuideMarkdown from '../docs/developer-guide.md?raw'
+import userGuideMarkdown from '../../docs/user-guide.md?raw'
 import { ReadonlyMarkdownPreview } from './ReadonlyMarkdownPreview'
 
 function getAppHref() {
@@ -7,13 +7,13 @@ function getAppHref() {
     return `${url.pathname}${url.search}${url.hash}`
 }
 
-export function DeveloperGuidePage() {
+export function UserGuidePage() {
     return (
         <div className="min-h-screen bg-gray-950 text-gray-100">
             <header className="border-b border-gray-800 bg-gray-900/90 px-6 py-4 backdrop-blur-sm">
                 <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-lg font-semibold text-gray-100">Developer Guide</h1>
+                        <h1 className="text-lg font-semibold text-gray-100">User Guide</h1>
                         <p className="text-sm text-gray-400">
                             Read-only documentation packaged with the app.
                         </p>
@@ -29,7 +29,7 @@ export function DeveloperGuidePage() {
 
             <main className="mx-auto max-w-5xl px-6 py-8">
                 <ReadonlyMarkdownPreview
-                    source={developerGuideMarkdown}
+                    source={userGuideMarkdown}
                     className="rounded-lg border border-gray-800 bg-gray-900/60 p-6 shadow-lg"
                 />
             </main>

@@ -8,15 +8,15 @@ describe('App', () => {
         window.history.replaceState({}, '', '/')
     })
 
-    it('renders the packaged developer guide view when requested from the URL', () => {
-        window.history.replaceState({}, '', '/?view=developer-guide')
+    it('renders the packaged user guide view when requested from the URL', () => {
+        window.history.replaceState({}, '', '/?view=user-guide')
 
         render(<App />)
 
         expect(
-            screen.getByRole('heading', { name: 'Developer Guide', level: 1 })
+            screen.getByRole('heading', { name: 'Integra User Guide', level: 1 })
         ).toBeInTheDocument()
-        expect(screen.getByText('Model Invariants')).toBeInTheDocument()
+        expect(screen.getByText('Quick Start')).toBeInTheDocument()
         expect(screen.getByRole('link', { name: 'Open app' })).toHaveAttribute('href', '/')
     })
 })

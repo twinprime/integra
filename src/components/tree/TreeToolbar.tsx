@@ -171,9 +171,9 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
         setDirHandle(null)
     }
 
-    const handleOpenDeveloperGuide = () => {
+    const handleOpenUserGuide = () => {
         const url = new URL(window.location.href)
-        url.searchParams.set('view', 'developer-guide')
+        url.searchParams.set('view', 'user-guide')
         window.open(url.toString(), '_blank', 'noopener,noreferrer')
     }
 
@@ -272,7 +272,7 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
                     </button>
                 )}
                 <button
-                    onClick={handleOpenDeveloperGuide}
+                    onClick={handleOpenUserGuide}
                     className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-gray-200 transition-colors"
                     title="Help"
                     aria-label="Help"

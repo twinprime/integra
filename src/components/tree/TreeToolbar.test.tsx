@@ -110,7 +110,7 @@ describe('TreeToolbar', () => {
         expect(mockToggleUiMode).toHaveBeenCalledTimes(1)
     })
 
-    it('opens the developer guide in a new tab', async () => {
+    it('opens the user guide in a new tab', async () => {
         const user = userEvent.setup()
 
         render(<TreeToolbar treeActive={treeActive} />)
@@ -118,7 +118,7 @@ describe('TreeToolbar', () => {
         await user.click(screen.getByTitle('Help'))
 
         expect(openSpy).toHaveBeenCalledWith(
-            'http://localhost:3000/?view=developer-guide',
+            'http://localhost:3000/?view=user-guide',
             '_blank',
             'noopener,noreferrer'
         )
