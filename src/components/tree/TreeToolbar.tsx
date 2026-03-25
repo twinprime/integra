@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Download, Upload, RotateCcw, Undo2, Redo2, ArrowLeft, ArrowRight } from 'lucide-react'
+import {
+    Download,
+    Upload,
+    RotateCcw,
+    Undo2,
+    Redo2,
+    ArrowLeft,
+    ArrowRight,
+    CircleHelp,
+} from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import integraLogo from '../../assets/integra-logo.svg'
 import integraEditLogo from '../../assets/integra-logo-edit.svg'
@@ -162,6 +171,12 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
         setDirHandle(null)
     }
 
+    const handleOpenDeveloperGuide = () => {
+        const url = new URL(window.location.href)
+        url.searchParams.set('view', 'developer-guide')
+        window.open(url.toString(), '_blank', 'noopener,noreferrer')
+    }
+
     return (
         <div className="p-4 border-b border-gray-800 font-semibold text-gray-300 bg-gray-800/50 backdrop-blur-sm flex items-center justify-between">
             <button
@@ -256,6 +271,14 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
                         <RotateCcw size={16} />
                     </button>
                 )}
+                <button
+                    onClick={handleOpenDeveloperGuide}
+                    className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-gray-200 transition-colors"
+                    title="Help"
+                    aria-label="Help"
+                >
+                    <CircleHelp size={16} />
+                </button>
             </div>
         </div>
     )

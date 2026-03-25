@@ -1,7 +1,7 @@
 import MDEditor from '@uiw/react-md-editor'
-import '@uiw/react-md-editor/markdown-editor.css'
 import { useSystemStore } from '../../store/useSystemStore'
 import { findNodeByPath } from '../../utils/nodeUtils'
+import { ReadonlyMarkdownPreview } from '../ReadonlyMarkdownPreview'
 
 // Renders markdown links as node-navigation links when href is a relative node path
 const NodeLink = ({
@@ -106,14 +106,13 @@ export const MarkdownEditor = ({
                 }
             >
                 {hasDescription ? (
-                    <MDEditor.Markdown
+                    <ReadonlyMarkdownPreview
                         source={value}
                         components={{
                             a: NodeLinkWithContext as React.ComponentType<
                                 React.HTMLProps<HTMLAnchorElement>
                             >,
                         }}
-                        className="bg-transparent text-sm"
                     />
                 ) : (
                     <div className="text-sm text-gray-500 italic">No Description</div>

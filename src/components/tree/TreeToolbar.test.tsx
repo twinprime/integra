@@ -21,6 +21,7 @@ import { useSystemStore } from '../../store/useSystemStore'
 
 const mockToggleUiMode = vi.fn()
 const treeActive = { current: false }
+const openSpy = vi.fn()
 
 function setupStoreMock(uiMode: 'browse' | 'edit' = 'browse') {
     const state = {
@@ -59,6 +60,8 @@ function setupStoreMock(uiMode: 'browse' | 'edit' = 'browse') {
 describe('TreeToolbar', () => {
     beforeEach(() => {
         vi.clearAllMocks()
+        openSpy.mockReset()
+        vi.stubGlobal('open', openSpy)
         setupStoreMock()
     })
 
@@ -70,6 +73,7 @@ describe('TreeToolbar', () => {
         expect(screen.queryByTitle('Save system to YAML file')).not.toBeInTheDocument()
         expect(screen.queryByTitle('Clear system')).not.toBeInTheDocument()
         expect(screen.getByTitle('Load system from YAML file')).toBeInTheDocument()
+        expect(screen.getByTitle('Help')).toBeInTheDocument()
         expect(screen.getByAltText('Integra browse mode')).toHaveAttribute(
             'src',
             'integra-logo.svg'
@@ -85,6 +89,7 @@ describe('TreeToolbar', () => {
         expect(screen.getByTitle('Redo (Cmd+Shift+Z)')).toBeInTheDocument()
         expect(screen.getByTitle('Save system to YAML file')).toBeInTheDocument()
         expect(screen.getByTitle('Clear system')).toBeInTheDocument()
+        expect(screen.getByTitle('Help')).toBeInTheDocument()
         expect(screen.getByLabelText('Switch to browse mode')).toHaveAttribute(
             'aria-pressed',
             'true'
@@ -103,5 +108,19 @@ describe('TreeToolbar', () => {
         await user.click(screen.getByLabelText('Switch to edit mode'))
 
         expect(mockToggleUiMode).toHaveBeenCalledTimes(1)
+    })
+
+    it('opens the developer guide in a new tab', async () => {
+        const user = userEvent.setup()
+
+        render(<TreeToolbar treeActive={treeActive} />)
+
+        await user.click(screen.getByTitle('Help'))
+
+        expect(openSpy).toHaveBeenCalledWith(
+            'http://localhost:3000/?view=developer-guide',
+            '_blank',
+            'noopener,noreferrer'
+        )
     })
 })
