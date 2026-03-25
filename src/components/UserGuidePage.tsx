@@ -9,7 +9,7 @@ function getAppHref() {
 
 export function UserGuidePage() {
     return (
-        <div className="min-h-screen bg-gray-950 text-gray-100">
+        <div className="h-screen overflow-y-auto bg-gray-950 text-gray-100">
             <header className="border-b border-gray-800 bg-gray-900/90 px-6 py-4 backdrop-blur-sm">
                 <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
                     <div>

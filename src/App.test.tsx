@@ -11,12 +11,13 @@ describe('App', () => {
     it('renders the packaged user guide view when requested from the URL', () => {
         window.history.replaceState({}, '', '/?view=user-guide')
 
-        render(<App />)
+        const { container } = render(<App />)
 
         expect(
             screen.getByRole('heading', { name: 'Integra User Guide', level: 1 })
         ).toBeInTheDocument()
         expect(screen.getByText('Quick Start')).toBeInTheDocument()
         expect(screen.getByRole('link', { name: 'Open app' })).toHaveAttribute('href', '/')
+        expect(container.firstElementChild).toHaveClass('overflow-y-auto')
     })
 })
