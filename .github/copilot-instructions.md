@@ -7,8 +7,6 @@ Review the file after each task to see if it should be updated.
 
 Before implementation of any plans or tasks, if the current branch is not main, check with user if he wants to merge the current branch to main then create a new branch for the implementation. If current branch is main, create a new branch for the implementation.
 
-After implementation, commit the changes but wait for confirmation from user before pushing the changes to the remote repository.
-
 # Maintain Model Invariants
 
 When implementing any changes, ensure that the core invariants of the model as documented in the README.md section "Model Invariants" are maintained.
