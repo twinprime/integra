@@ -1,0 +1,60 @@
+uuid: demo-system-uuid
+id: demo-system
+name: Demo System
+type: component
+description: |
+  A demo system for validating the `/models` route feature.
+
+  Contains two sub-components: **Auth Service** and **Order Service**.
+subComponents:
+  - demo-system/demo-system-auth-service.yaml
+  - demo-system/demo-system-order-service.yaml
+actors:
+  - uuid: demo-actor-customer-uuid
+    id: Customer
+    name: Customer
+    type: actor
+useCaseDiagrams:
+  - uuid: demo-ucd-main-flows-uuid
+    id: mainFlows
+    name: Main Flows
+    type: use-case-diagram
+    content: |
+      actor Customer
+      use case Login
+      use case PlaceOrder
+      Customer ->> Login
+      Customer ->> PlaceOrder
+    useCases:
+      - uuid: demo-uc-login-uuid
+        id: Login
+        name: Login
+        type: use-case
+        sequenceDiagrams:
+          - uuid: demo-seq-login-flow-uuid
+            id: loginFlow
+            name: Login Flow
+            type: sequence-diagram
+            content: |
+              actor Customer
+              component AuthService
+              Customer ->> AuthService: AuthAPI:login(username: string, password: string)
+              AuthService -->> Customer: token
+      - uuid: demo-uc-place-order-uuid
+        id: PlaceOrder
+        name: Place Order
+        type: use-case
+        sequenceDiagrams:
+          - uuid: demo-seq-place-order-uuid
+            id: placeOrderFlow
+            name: Place Order Flow
+            type: sequence-diagram
+            content: |
+              actor Customer
+              component AuthService
+              component OrderService
+              Customer ->> OrderService: OrdersAPI:placeOrder(items: string, address: string)
+              OrderService ->> AuthService: AuthAPI:validateToken(token: string)
+              AuthService -->> OrderService: valid
+              OrderService -->> Customer: orderId
+interfaces: []

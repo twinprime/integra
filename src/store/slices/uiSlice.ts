@@ -7,6 +7,7 @@ export type UiMode = 'browse' | 'edit'
 
 export type UiSlice = {
     uiMode: UiMode
+    browseLocked: boolean
     selectedNodeId: string | null
     activeVisualizationViewId: string | null
     showGeneratedClassDiagramInterfaces: boolean
@@ -19,6 +20,7 @@ export type UiSlice = {
     canNavForward: boolean
     setUiMode: (mode: UiMode) => void
     toggleUiMode: () => void
+    setBrowseLocked: (locked: boolean) => void
     selectNode: (nodeId: string | null) => void
     selectVisualizationView: (viewId: string | null) => void
     setShowGeneratedClassDiagramInterfaces: (show: boolean) => void
@@ -31,6 +33,7 @@ export type UiSlice = {
 
 export const createUiSlice: StateCreator<SystemState, [], [], UiSlice> = (set) => ({
     uiMode: 'browse',
+    browseLocked: false,
     selectedNodeId: null,
     activeVisualizationViewId: null,
     showGeneratedClassDiagramInterfaces: true,
@@ -42,7 +45,12 @@ export const createUiSlice: StateCreator<SystemState, [], [], UiSlice> = (set) =
     canNavBack: false,
     canNavForward: false,
     setUiMode: (uiMode) => set({ uiMode }),
-    toggleUiMode: () => set((state) => ({ uiMode: state.uiMode === 'browse' ? 'edit' : 'browse' })),
+    toggleUiMode: () =>
+        set((state) => {
+            if (state.browseLocked) return {}
+            return { uiMode: state.uiMode === 'browse' ? 'edit' : 'browse' }
+        }),
+    setBrowseLocked: (locked) => set({ browseLocked: locked }),
     selectNode: (nodeId) =>
         set((state) => {
             if (nodeId === state.selectedNodeId) return {}

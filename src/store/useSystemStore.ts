@@ -9,6 +9,7 @@ import { createNodeOpsSlice, type NodeOpsSlice } from './slices/nodeOpsSlice'
 import { createDiagramSlice, type DiagramSlice } from './slices/diagramSlice'
 import { safeParsePersistedSystemState } from './modelSchema'
 import { normalizeComponentDeep } from '../nodes/interfaceOps'
+import { getModelRouteComponentId } from '../utils/systemFiles'
 
 export type FunctionDecision = FunctionMatch & {
     action: 'update-existing' | 'remove-redundant'
@@ -28,6 +29,12 @@ const initialSystem: ComponentNode = {
     actors: [],
     useCaseDiagrams: [],
     interfaces: [],
+}
+
+const noopStorage = {
+    getItem: (_name: string) => null,
+    setItem: (_name: string, _value: unknown) => {},
+    removeItem: (_name: string) => {},
 }
 
 export const findNode = (nodes: Node[], uuid: string): Node | null => findNodeByUuid(nodes, uuid)
@@ -55,6 +62,7 @@ export const useSystemStore = create<SystemState>()(
         }),
         {
             name: 'integra-system',
+            ...(getModelRouteComponentId() !== null ? { storage: noopStorage } : {}),
             partialize: (state) => ({
                 rootComponent: state.rootComponent,
                 savedSnapshot: state.savedSnapshot,

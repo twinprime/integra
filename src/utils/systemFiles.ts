@@ -259,3 +259,55 @@ export async function loadFromDirectory(dir: FileSystemDirectoryHandle): Promise
     const [, rootRaw] = rootEntries[0]
     return parseComponentNode(assembleTree(rootRaw, fileMap))
 }
+
+// ── URL-based loading ─────────────────────────────────────────────────────────
+
+const MODELS_BASE_PATH = '/models'
+
+/** Returns the component ID from the URL if on a /models/<id> route, otherwise null. */
+export function getModelRouteComponentId(): string | null {
+    const match = window.location.pathname.match(new RegExp(`^${MODELS_BASE_PATH}/([^/]+)/?$`))
+    return match ? match[1] : null
+}
+
+export class NotFoundError extends Error {
+    constructor(path: string) {
+        super(`Not found: ${path}`)
+        this.name = 'NotFoundError'
+    }
+}
+
+async function fetchRawComponent(urlPath: string): Promise<RawComponent> {
+    const res = await fetch(urlPath)
+    if (res.status === 404) throw new NotFoundError(urlPath)
+    if (!res.ok) throw new Error(`Failed to fetch ${urlPath}: ${res.status} ${res.statusText}`)
+    const text = await res.text()
+    const parsed = yaml.load(text) as RawComponent | null
+    if (!parsed || typeof parsed !== 'object' || parsed.type !== 'component') {
+        throw new Error(`Invalid component YAML at ${urlPath}`)
+    }
+    return parsed
+}
+
+async function fetchComponentTree(
+    relativePath: string,
+    fileMap: Map<string, RawComponent>
+): Promise<void> {
+    if (fileMap.has(relativePath)) return
+    const raw = await fetchRawComponent(`${MODELS_BASE_PATH}/${relativePath}`)
+    fileMap.set(relativePath, raw)
+    await Promise.all(raw.subComponents.map((childPath) => fetchComponentTree(childPath, fileMap)))
+}
+
+/**
+ * Loads a component tree from the web server at /models/<rootId>.yaml,
+ * recursively fetching all referenced sub-components.
+ */
+export async function loadFromUrl(rootId: string): Promise<ComponentNode> {
+    const rootPath = rootFilename(rootId)
+    const fileMap = new Map<string, RawComponent>()
+    await fetchComponentTree(rootPath, fileMap)
+    const rootRaw = fileMap.get(rootPath)
+    if (!rootRaw) throw new Error(`Root component not found for id: ${rootId}`)
+    return parseComponentNode(assembleTree(rootRaw, fileMap))
+}

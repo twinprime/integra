@@ -48,3 +48,37 @@ earlier segments are clickable breadcrumbs back into the tree.
 Select a diagram node to open its specification editor. Type your spec in the text area — the right panel renders the diagram in real time. Syntax is highlighted as you type.
 
 #### 5. Explore the derived model
+
+---
+
+### Sharing models via direct URL
+
+If the web server serving Integra also hosts model YAML files under `/models/`, you can link directly to a model:
+
+```
+https://your-server/models/<component-id>
+```
+
+The app will fetch `/models/<component-id>.yaml` and all referenced sub-components automatically, then render the model in **browse mode** (read-only, edit mode locked). If the model file is not found, a 404 page is shown.
+
+**Expected file layout on the server:**
+
+```
+/models/
+  <component-id>.yaml          ← root component
+  <component-id>/
+    <parent-id>-<child-id>.yaml
+    ...
+```
+
+**Nginx configuration example:**
+
+```nginx
+# Serve YAML files directly
+location ~* ^/models/.*\.yaml$ { }
+
+# All other /models/<id> paths → SPA
+location /models/ {
+    try_files $uri /index.html;
+}
+```

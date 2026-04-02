@@ -1,0 +1,24 @@
+uuid: demo-order-service-uuid
+id: OrderService
+name: Order Service
+type: component
+description: Manages the order lifecycle from placement to fulfilment.
+subComponents: []
+actors: []
+useCaseDiagrams: []
+interfaces:
+  - uuid: demo-iface-orders-api-uuid
+    id: OrdersAPI
+    name: OrdersAPI
+    type: rest
+    functions:
+      - uuid: demo-fn-place-order-uuid
+        id: placeOrder
+        description: Creates a new order and returns the order ID.
+        parameters:
+          - name: items
+            type: string
+            required: true
+          - name: address
+            type: string
+            required: true

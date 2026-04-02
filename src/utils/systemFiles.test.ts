@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/require-await */
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import type { ComponentNode } from '../store/types'
 import {
     rootFilename,
@@ -9,6 +9,8 @@ import {
     assembleTree,
     saveToDirectory,
     loadFromDirectory,
+    loadFromUrl,
+    NotFoundError,
 } from './systemFiles'
 import yaml from 'js-yaml'
 import type { RawComponent } from './systemFiles'
@@ -478,5 +480,124 @@ describe('loadFromDirectory', () => {
     it('throws if no component files found', async () => {
         const handle = makeFSDirectoryHandle(new Map())
         await expect(loadFromDirectory(handle)).rejects.toThrow('No component files found')
+    })
+})
+
+// ─── loadFromUrl ─────────────────────────────────────────────────────────────
+
+function makeFetchMock(responses: Record<string, { status: number; body: string }>) {
+    return vi.fn((url: string) => {
+        const entry = responses[url]
+        if (!entry)
+            return Promise.resolve({
+                ok: false,
+                status: 404,
+                statusText: 'Not Found',
+                text: () => Promise.resolve(''),
+            })
+        return Promise.resolve({
+            ok: entry.status >= 200 && entry.status < 300,
+            status: entry.status,
+            statusText: entry.status === 200 ? 'OK' : 'Error',
+            text: () => Promise.resolve(entry.body),
+        })
+    })
+}
+
+describe('loadFromUrl', () => {
+    afterEach(() => {
+        vi.unstubAllGlobals()
+    })
+
+    it('loads a root component with no sub-components', async () => {
+        const rootYaml = serializeComponentYaml(makeComp('my-system'), [])
+        vi.stubGlobal(
+            'fetch',
+            makeFetchMock({ '/models/my-system.yaml': { status: 200, body: rootYaml } })
+        )
+
+        const result = await loadFromUrl('my-system')
+        expect(result.id).toBe('my-system')
+        expect(result.subComponents).toHaveLength(0)
+    })
+
+    it('recursively fetches sub-components', async () => {
+        const rootYaml = serializeComponentYaml(makeComp('my-system'), [
+            'my-system/my-system-auth.yaml',
+        ])
+        const authYaml = serializeComponentYaml(makeComp('auth'), [])
+        vi.stubGlobal(
+            'fetch',
+            makeFetchMock({
+                '/models/my-system.yaml': { status: 200, body: rootYaml },
+                '/models/my-system/my-system-auth.yaml': { status: 200, body: authYaml },
+            })
+        )
+
+        const result = await loadFromUrl('my-system')
+        expect(result.id).toBe('my-system')
+        expect(result.subComponents).toHaveLength(1)
+        expect(result.subComponents[0].id).toBe('auth')
+    })
+
+    it('fetches sibling sub-components in parallel (each URL fetched once)', async () => {
+        const rootYaml = serializeComponentYaml(makeComp('sys'), [
+            'sys/sys-a.yaml',
+            'sys/sys-b.yaml',
+        ])
+        const aYaml = serializeComponentYaml(makeComp('a'), [])
+        const bYaml = serializeComponentYaml(makeComp('b'), [])
+        const fetchMock = makeFetchMock({
+            '/models/sys.yaml': { status: 200, body: rootYaml },
+            '/models/sys/sys-a.yaml': { status: 200, body: aYaml },
+            '/models/sys/sys-b.yaml': { status: 200, body: bYaml },
+        })
+        vi.stubGlobal('fetch', fetchMock)
+
+        await loadFromUrl('sys')
+        expect(fetchMock).toHaveBeenCalledTimes(3)
+    })
+
+    it('throws NotFoundError when root YAML returns 404', async () => {
+        vi.stubGlobal(
+            'fetch',
+            makeFetchMock({ '/models/missing.yaml': { status: 404, body: 'Not Found' } })
+        )
+
+        await expect(loadFromUrl('missing')).rejects.toBeInstanceOf(NotFoundError)
+    })
+
+    it('throws NotFoundError when a sub-component returns 404', async () => {
+        const rootYaml = serializeComponentYaml(makeComp('sys'), ['sys/sys-ghost.yaml'])
+        vi.stubGlobal(
+            'fetch',
+            makeFetchMock({
+                '/models/sys.yaml': { status: 200, body: rootYaml },
+                '/models/sys/sys-ghost.yaml': { status: 404, body: 'Not Found' },
+            })
+        )
+
+        await expect(loadFromUrl('sys')).rejects.toBeInstanceOf(NotFoundError)
+    })
+
+    it('throws a generic Error for non-404 server errors', async () => {
+        vi.stubGlobal(
+            'fetch',
+            makeFetchMock({ '/models/sys.yaml': { status: 500, body: 'Internal Server Error' } })
+        )
+
+        await expect(loadFromUrl('sys')).rejects.toThrow('Failed to fetch')
+        await expect(loadFromUrl('sys')).rejects.not.toBeInstanceOf(NotFoundError)
+    })
+
+    it('throws if the fetched YAML is not a valid component', async () => {
+        vi.stubGlobal(
+            'fetch',
+            makeFetchMock({
+                '/models/bad.yaml': { status: 200, body: 'type: not-a-component\nid: bad' },
+            })
+        )
+
+        await expect(loadFromUrl('bad')).rejects.toThrow('Invalid component YAML')
     })
 })

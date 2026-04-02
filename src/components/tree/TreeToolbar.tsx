@@ -50,6 +50,8 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
         canNavForward,
         uiMode,
         toggleUiMode,
+        browseLocked,
+        setBrowseLocked,
     } = useSystemStore(
         useShallow((s) => ({
             rootComponent: s.rootComponent,
@@ -65,6 +67,8 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
             canNavForward: s.canNavForward,
             uiMode: s.uiMode,
             toggleUiMode: s.toggleUiMode,
+            browseLocked: s.browseLocked,
+            setBrowseLocked: s.setBrowseLocked,
         }))
     )
     const canUndo = useSystemStore((s) => s.past.length > 0)
@@ -155,6 +159,8 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
             setSystem(loadedSystem)
             setDirHandle(handle)
             markSaved(serializeYaml(loadedSystem))
+            setBrowseLocked(false)
+            window.location.href = '/'
         } catch (error) {
             if ((error as DOMException).name !== 'AbortError') {
                 console.error('Failed to load system:', error)
@@ -182,18 +188,29 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
             <button
                 type="button"
                 className={`flex items-center gap-2 rounded px-1.5 py-1 transition-colors ${
-                    readOnly
-                        ? 'hover:bg-gray-700/70'
-                        : 'bg-blue-950/50 ring-1 ring-blue-500/70 hover:bg-blue-900/40'
+                    browseLocked
+                        ? 'cursor-default opacity-50'
+                        : readOnly
+                          ? 'hover:bg-gray-700/70'
+                          : 'bg-blue-950/50 ring-1 ring-blue-500/70 hover:bg-blue-900/40'
                 }`}
                 title={
-                    readOnly
-                        ? 'Switch to edit mode'
-                        : 'Switch to browse mode (currently in edit mode)'
+                    browseLocked
+                        ? 'Browse mode (locked)'
+                        : readOnly
+                          ? 'Switch to edit mode'
+                          : 'Switch to browse mode (currently in edit mode)'
                 }
-                onClick={toggleUiMode}
+                onClick={browseLocked ? undefined : toggleUiMode}
                 aria-pressed={!readOnly}
-                aria-label={readOnly ? 'Switch to edit mode' : 'Switch to browse mode'}
+                aria-label={
+                    browseLocked
+                        ? 'Browse mode (locked)'
+                        : readOnly
+                          ? 'Switch to edit mode'
+                          : 'Switch to browse mode'
+                }
+                aria-disabled={browseLocked}
             >
                 <img
                     src={readOnly ? integraLogo : integraEditLogo}
@@ -201,7 +218,7 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
                     height={18}
                     alt={readOnly ? 'Integra browse mode' : 'Integra edit mode'}
                 />
-                {hasUnsavedChanges && (
+                {!browseLocked && hasUnsavedChanges && (
                     <span className="text-xs font-normal text-yellow-500" title="Unsaved changes">
                         ●
                     </span>

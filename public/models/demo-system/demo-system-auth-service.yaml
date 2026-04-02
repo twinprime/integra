@@ -1,0 +1,31 @@
+uuid: demo-auth-service-uuid
+id: AuthService
+name: Auth Service
+type: component
+description: Handles user authentication and session management.
+subComponents: []
+actors: []
+useCaseDiagrams: []
+interfaces:
+  - uuid: demo-iface-auth-api-uuid
+    id: AuthAPI
+    name: AuthAPI
+    type: rest
+    functions:
+      - uuid: demo-fn-login-uuid
+        id: login
+        description: Authenticates a user and returns a session token.
+        parameters:
+          - name: username
+            type: string
+            required: true
+          - name: password
+            type: string
+            required: true
+      - uuid: demo-fn-validate-token-uuid
+        id: validateToken
+        description: Validates a session token.
+        parameters:
+          - name: token
+            type: string
+            required: true

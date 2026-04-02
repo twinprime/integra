@@ -1058,6 +1058,41 @@ describe('useSystemStore', () => {
         })
     })
 
+    describe('toggleUiMode', () => {
+        it('toggles between browse and edit', () => {
+            const { result } = renderHook(() => useSystemStore())
+            act(() => result.current.setUiMode('browse'))
+            act(() => result.current.toggleUiMode())
+            expect(result.current.uiMode).toBe('edit')
+            act(() => result.current.toggleUiMode())
+            expect(result.current.uiMode).toBe('browse')
+        })
+
+        it('is a no-op when browseLocked is true', () => {
+            const { result } = renderHook(() => useSystemStore())
+            act(() => {
+                result.current.setUiMode('browse')
+                result.current.setBrowseLocked(true)
+            })
+            act(() => result.current.toggleUiMode())
+            expect(result.current.uiMode).toBe('browse')
+        })
+
+        it('resumes toggling after browseLocked is cleared', () => {
+            const { result } = renderHook(() => useSystemStore())
+            act(() => {
+                result.current.setUiMode('browse')
+                result.current.setBrowseLocked(true)
+            })
+            act(() => result.current.toggleUiMode())
+            expect(result.current.uiMode).toBe('browse')
+
+            act(() => result.current.setBrowseLocked(false))
+            act(() => result.current.toggleUiMode())
+            expect(result.current.uiMode).toBe('edit')
+        })
+    })
+
     describe('renameNodeId', () => {
         it('supports sequential use-case and actor renames on the sample fixture', () => {
             const { result } = renderHook(() => useSystemStore())
