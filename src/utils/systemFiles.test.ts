@@ -417,6 +417,140 @@ describe('saveToDirectory', () => {
         expect(descendantWrites.has('gateway-orders.yaml')).toBe(true)
     })
 
+    it('removes old root yaml and subdirectory when previousRootId differs from new root id', async () => {
+        const removeEntry = vi.fn().mockResolvedValue(undefined)
+        const mockSubdir: FileSystemDirectoryHandle = {
+            kind: 'directory',
+            name: 'my-system',
+            values: async function* () {},
+            getFileHandle: vi.fn().mockImplementation(async () => ({
+                createWritable: async () => ({
+                    write: vi.fn().mockResolvedValue(undefined),
+                    close: vi.fn().mockResolvedValue(undefined),
+                }),
+            })),
+            removeEntry: vi.fn().mockResolvedValue(undefined),
+        } as unknown as FileSystemDirectoryHandle
+        const mockDir: FileSystemDirectoryHandle = {
+            kind: 'directory',
+            name: 'test',
+            values: async function* () {},
+            getFileHandle: vi.fn().mockImplementation(async () => ({
+                createWritable: async () => ({
+                    write: vi.fn().mockResolvedValue(undefined),
+                    close: vi.fn().mockResolvedValue(undefined),
+                }),
+            })),
+            getDirectoryHandle: vi.fn().mockResolvedValue(mockSubdir),
+            removeEntry,
+        } as unknown as FileSystemDirectoryHandle
+
+        await saveToDirectory(mockDir, root, 'old-root')
+
+        expect(removeEntry).toHaveBeenCalledWith('old-root.yaml')
+        expect(removeEntry).toHaveBeenCalledWith('old-root', { recursive: true })
+    })
+
+    it('does not remove anything when previousRootId matches current root id', async () => {
+        const removeEntry = vi.fn().mockResolvedValue(undefined)
+        const mockSubdir: FileSystemDirectoryHandle = {
+            kind: 'directory',
+            name: 'my-system',
+            values: async function* () {},
+            getFileHandle: vi.fn().mockImplementation(async () => ({
+                createWritable: async () => ({
+                    write: vi.fn().mockResolvedValue(undefined),
+                    close: vi.fn().mockResolvedValue(undefined),
+                }),
+            })),
+            removeEntry: vi.fn().mockResolvedValue(undefined),
+        } as unknown as FileSystemDirectoryHandle
+        const mockDir: FileSystemDirectoryHandle = {
+            kind: 'directory',
+            name: 'test',
+            values: async function* () {},
+            getFileHandle: vi.fn().mockImplementation(async () => ({
+                createWritable: async () => ({
+                    write: vi.fn().mockResolvedValue(undefined),
+                    close: vi.fn().mockResolvedValue(undefined),
+                }),
+            })),
+            getDirectoryHandle: vi.fn().mockResolvedValue(mockSubdir),
+            removeEntry,
+        } as unknown as FileSystemDirectoryHandle
+
+        await saveToDirectory(mockDir, root, root.id)
+
+        expect(removeEntry).not.toHaveBeenCalledWith(`${root.id}.yaml`)
+        expect(removeEntry).not.toHaveBeenCalledWith(root.id, { recursive: true })
+    })
+
+    it('does not attempt cleanup when no previousRootId is given', async () => {
+        const removeEntry = vi.fn().mockResolvedValue(undefined)
+        const mockSubdir: FileSystemDirectoryHandle = {
+            kind: 'directory',
+            name: 'my-system',
+            values: async function* () {},
+            getFileHandle: vi.fn().mockImplementation(async () => ({
+                createWritable: async () => ({
+                    write: vi.fn().mockResolvedValue(undefined),
+                    close: vi.fn().mockResolvedValue(undefined),
+                }),
+            })),
+            removeEntry: vi.fn().mockResolvedValue(undefined),
+        } as unknown as FileSystemDirectoryHandle
+        const mockDir: FileSystemDirectoryHandle = {
+            kind: 'directory',
+            name: 'test',
+            values: async function* () {},
+            getFileHandle: vi.fn().mockImplementation(async () => ({
+                createWritable: async () => ({
+                    write: vi.fn().mockResolvedValue(undefined),
+                    close: vi.fn().mockResolvedValue(undefined),
+                }),
+            })),
+            getDirectoryHandle: vi.fn().mockResolvedValue(mockSubdir),
+            removeEntry,
+        } as unknown as FileSystemDirectoryHandle
+
+        await saveToDirectory(mockDir, root)
+
+        expect(removeEntry).not.toHaveBeenCalled()
+    })
+
+    it('proceeds with save even if old root files do not exist', async () => {
+        const removeEntry = vi
+            .fn()
+            .mockRejectedValue(new DOMException('Not found', 'NotFoundError'))
+        const mockSubdir: FileSystemDirectoryHandle = {
+            kind: 'directory',
+            name: 'my-system',
+            values: async function* () {},
+            getFileHandle: vi.fn().mockImplementation(async () => ({
+                createWritable: async () => ({
+                    write: vi.fn().mockResolvedValue(undefined),
+                    close: vi.fn().mockResolvedValue(undefined),
+                }),
+            })),
+            removeEntry: vi.fn().mockResolvedValue(undefined),
+        } as unknown as FileSystemDirectoryHandle
+        const mockDir: FileSystemDirectoryHandle = {
+            kind: 'directory',
+            name: 'test',
+            values: async function* () {},
+            getFileHandle: vi.fn().mockImplementation(async () => ({
+                createWritable: async () => ({
+                    write: vi.fn().mockResolvedValue(undefined),
+                    close: vi.fn().mockResolvedValue(undefined),
+                }),
+            })),
+            getDirectoryHandle: vi.fn().mockResolvedValue(mockSubdir),
+            removeEntry,
+        } as unknown as FileSystemDirectoryHandle
+
+        await expect(saveToDirectory(mockDir, root, 'old-root')).resolves.toBeUndefined()
+    })
+
     it('rejects when a concurrent descendant write fails', async () => {
         const writeError = new Error('disk full')
 

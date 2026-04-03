@@ -154,7 +154,8 @@ export function assembleTree(
  */
 export async function saveToDirectory(
     dir: FileSystemDirectoryHandle,
-    root: ComponentNode
+    root: ComponentNode,
+    previousRootId?: string
 ): Promise<void> {
     const entries = flattenToFiles(root)
     const subdirName = root.id
@@ -204,6 +205,14 @@ export async function saveToDirectory(
             await writeComponentFile(subdir, filename, content)
         }
     )
+
+    // Clean up old root files if the root ID was renamed
+    if (previousRootId && previousRootId !== root.id) {
+        await Promise.allSettled([
+            dir.removeEntry(`${previousRootId}.yaml`),
+            dir.removeEntry(previousRootId, { recursive: true }),
+        ])
+    }
 }
 
 /**

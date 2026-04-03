@@ -75,6 +75,7 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
     const canRedo = useSystemStore((s) => s.future.length > 0)
 
     const [dirHandle, setDirHandle] = useState<FileSystemDirectoryHandle | null>(null)
+    const [savedRootId, setSavedRootId] = useState<string | null>(null)
     const readOnly = uiMode === 'browse'
 
     const hasUnsavedChanges =
@@ -127,8 +128,9 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
                 return
             }
             const handle = dirHandle ?? (await window.showDirectoryPicker({ mode: 'readwrite' }))
-            await saveToDirectory(handle, rootComponent)
+            await saveToDirectory(handle, rootComponent, savedRootId ?? undefined)
             setDirHandle(handle)
+            setSavedRootId(rootComponent.id)
             markSaved(serializeYaml(rootComponent))
         } catch (error) {
             if ((error as DOMException).name !== 'AbortError') {
@@ -158,6 +160,7 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
             const loadedSystem = await loadFromDirectory(handle)
             setSystem(loadedSystem)
             setDirHandle(handle)
+            setSavedRootId(loadedSystem.id)
             markSaved(serializeYaml(loadedSystem))
             setBrowseLocked(false)
             window.location.href = '/'
@@ -175,6 +178,7 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
         }
         clearSystem()
         setDirHandle(null)
+        setSavedRootId(null)
     }
 
     const handleOpenUserGuide = () => {
