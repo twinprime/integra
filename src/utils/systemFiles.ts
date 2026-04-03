@@ -217,13 +217,14 @@ export async function saveToDirectory(
 
 /**
  * Loads a component tree from a directory.
- * Reads all `.yaml` files at the top level and in the `<rootId>/` subdirectory.
- * Finds the root by elimination (the component not referenced by any other's subComponents).
+ * The directory must contain exactly one top-level `.yaml` file — that file is
+ * the root component. Descendant components live in the `<rootId>/` subdirectory.
  */
 export async function loadFromDirectory(dir: FileSystemDirectoryHandle): Promise<ComponentNode> {
     const fileMap = new Map<string, RawComponent>()
+    const topLevelYamls: string[] = []
 
-    // Read top-level YAML files (the root lives here)
+    // Read top-level YAML files (exactly one is expected — the root)
     for await (const entry of dir.values()) {
         if (entry.kind === 'file' && entry.name.endsWith('.yaml')) {
             const file = await entry.getFile()
@@ -231,6 +232,7 @@ export async function loadFromDirectory(dir: FileSystemDirectoryHandle): Promise
             const parsed = yaml.load(text) as RawComponent | null
             if (parsed && typeof parsed === 'object' && parsed.type === 'component') {
                 fileMap.set(entry.name, parsed)
+                topLevelYamls.push(entry.name)
             }
         } else if (entry.kind === 'directory' && !entry.name.startsWith('.')) {
             // Read files inside the subdirectory
@@ -248,24 +250,16 @@ export async function loadFromDirectory(dir: FileSystemDirectoryHandle): Promise
         }
     }
 
-    if (fileMap.size === 0) throw new Error('No component files found in directory')
+    if (topLevelYamls.length === 0) throw new Error('No component files found in directory')
 
-    // Find root: the component whose relativePath is not listed in any other's subComponents
-    const allChildPaths = new Set<string>()
-    for (const comp of fileMap.values()) {
-        for (const path of comp.subComponents) allChildPaths.add(path)
-    }
-
-    const rootEntries = [...fileMap.entries()].filter(([path]) => !allChildPaths.has(path))
-    if (rootEntries.length !== 1) {
+    if (topLevelYamls.length > 1) {
         throw new Error(
-            rootEntries.length === 0
-                ? 'Could not determine root component (circular reference?)'
-                : `Multiple root candidates found: ${rootEntries.map(([p]) => p).join(', ')}`
+            `The selected folder contains ${topLevelYamls.length} YAML files ` +
+                `(${topLevelYamls.join(', ')}). Select a folder with exactly one root component YAML file.`
         )
     }
 
-    const [, rootRaw] = rootEntries[0]
+    const rootRaw = fileMap.get(topLevelYamls[0])!
     return parseComponentNode(assembleTree(rootRaw, fileMap))
 }
 

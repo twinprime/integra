@@ -615,6 +615,18 @@ describe('loadFromDirectory', () => {
         const handle = makeFSDirectoryHandle(new Map())
         await expect(loadFromDirectory(handle)).rejects.toThrow('No component files found')
     })
+
+    it('throws when the directory contains multiple top-level YAML files', async () => {
+        const yaml1 = serializeComponentYaml(makeComp('system-a'), [])
+        const yaml2 = serializeComponentYaml(makeComp('system-b'), [])
+        const handle = makeFSDirectoryHandle(
+            new Map([
+                ['system-a.yaml', yaml1],
+                ['system-b.yaml', yaml2],
+            ])
+        )
+        await expect(loadFromDirectory(handle)).rejects.toThrow('contains 2 YAML files')
+    })
 })
 
 // ─── loadFromUrl ─────────────────────────────────────────────────────────────
