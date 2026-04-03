@@ -62,6 +62,40 @@ As you write sequence diagrams, Integra automatically derives:
 
 Navigate the tree to inspect generated nodes. On initial load, only the root node starts expanded; descendants stay collapsed until you expand them or selection/navigation auto-reveals them. In generated class diagrams, single-clicking a class focuses the diagram around that component; double-clicking navigates to that node in the tree. Hovering a dependency link shows the dependency source and target names plus the sequence diagrams that derived that dependency; clicking a multi-source dependency keeps that popup available for selection, while clicking a single-source dependency navigates directly to that sequence diagram. Hovering an implementation link shows the component and interface names for that relationship, and clicking it pins the popup for inspection. Orphaned nodes (no longer referenced by any diagram) show a delete button on hover.
 
+### Sharing models via direct URL
+
+If the web server serving Integra also hosts model YAML files under `/models/`, you can link directly to a model:
+
+```
+https://your-server/models/<component-id>
+```
+
+The app will fetch `/models/<component-id>.yaml` and all referenced sub-components automatically, then render the model in **browse mode** (read-only, edit mode locked). If the model file is not found, a 404 page is shown.
+
+**Expected file layout on the server:**
+
+```
+/models/
+  <component-id>.yaml          ← root component
+  <component-id>/
+    <parent-id>-<child-id>.yaml
+    ...
+```
+
+**Nginx configuration example:**
+
+```nginx
+# Serve YAML files directly
+location ~* ^/models/.*\.yaml$ { }
+
+# All other /models/<id> paths → SPA
+location /models/ {
+    try_files $uri /index.html;
+}
+```
+
+---
+
 ### Editor Features
 
 #### Autocomplete
