@@ -7,14 +7,14 @@ import { DiagramPanel } from './components/DiagramPanel'
 import { getModelRouteComponentId } from './utils/systemFiles'
 
 function App() {
-    if (getModelRouteComponentId() !== null) {
-        return <ModelPage />
-    }
-
     const view = new URLSearchParams(window.location.search).get('view')
 
     if (view === 'user-guide') {
         return <UserGuidePage />
+    }
+
+    if (getModelRouteComponentId() !== null) {
+        return <ModelPage />
     }
 
     return (
