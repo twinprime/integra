@@ -13,6 +13,8 @@ RUN npm run build
 # Stage 2: serve with nginx (non-root)
 FROM nginx:alpine
 
+RUN apk add --no-cache git
+
 # Remove default nginx static content
 RUN rm -rf /usr/share/nginx/html/*
 
