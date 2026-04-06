@@ -303,11 +303,11 @@ async function fetchComponentTree(
 }
 
 /**
- * Loads a component tree from the web server at /models/<rootId>.yaml,
+ * Loads a component tree from the web server at /models/<rootId>/<rootId>.yaml,
  * recursively fetching all referenced sub-components.
  */
 export async function loadFromUrl(rootId: string): Promise<ComponentNode> {
-    const rootPath = rootFilename(rootId)
+    const rootPath = `${rootId}/${rootId}.yaml`
     const fileMap = new Map<string, RawComponent>()
     await fetchComponentTree(rootPath, fileMap)
     const rootRaw = fileMap.get(rootPath)

@@ -659,7 +659,7 @@ describe('loadFromUrl', () => {
         const rootYaml = serializeComponentYaml(makeComp('my-system'), [])
         vi.stubGlobal(
             'fetch',
-            makeFetchMock({ '/models/my-system.yaml': { status: 200, body: rootYaml } })
+            makeFetchMock({ '/models/my-system/my-system.yaml': { status: 200, body: rootYaml } })
         )
 
         const result = await loadFromUrl('my-system')
@@ -675,7 +675,7 @@ describe('loadFromUrl', () => {
         vi.stubGlobal(
             'fetch',
             makeFetchMock({
-                '/models/my-system.yaml': { status: 200, body: rootYaml },
+                '/models/my-system/my-system.yaml': { status: 200, body: rootYaml },
                 '/models/my-system/my-system-auth.yaml': { status: 200, body: authYaml },
             })
         )
@@ -694,7 +694,7 @@ describe('loadFromUrl', () => {
         const aYaml = serializeComponentYaml(makeComp('a'), [])
         const bYaml = serializeComponentYaml(makeComp('b'), [])
         const fetchMock = makeFetchMock({
-            '/models/sys.yaml': { status: 200, body: rootYaml },
+            '/models/sys/sys.yaml': { status: 200, body: rootYaml },
             '/models/sys/sys-a.yaml': { status: 200, body: aYaml },
             '/models/sys/sys-b.yaml': { status: 200, body: bYaml },
         })
@@ -707,7 +707,7 @@ describe('loadFromUrl', () => {
     it('throws NotFoundError when root YAML returns 404', async () => {
         vi.stubGlobal(
             'fetch',
-            makeFetchMock({ '/models/missing.yaml': { status: 404, body: 'Not Found' } })
+            makeFetchMock({ '/models/missing/missing.yaml': { status: 404, body: 'Not Found' } })
         )
 
         await expect(loadFromUrl('missing')).rejects.toBeInstanceOf(NotFoundError)
@@ -718,7 +718,7 @@ describe('loadFromUrl', () => {
         vi.stubGlobal(
             'fetch',
             makeFetchMock({
-                '/models/sys.yaml': { status: 200, body: rootYaml },
+                '/models/sys/sys.yaml': { status: 200, body: rootYaml },
                 '/models/sys/sys-ghost.yaml': { status: 404, body: 'Not Found' },
             })
         )
@@ -729,7 +729,9 @@ describe('loadFromUrl', () => {
     it('throws a generic Error for non-404 server errors', async () => {
         vi.stubGlobal(
             'fetch',
-            makeFetchMock({ '/models/sys.yaml': { status: 500, body: 'Internal Server Error' } })
+            makeFetchMock({
+                '/models/sys/sys.yaml': { status: 500, body: 'Internal Server Error' },
+            })
         )
 
         await expect(loadFromUrl('sys')).rejects.toThrow('Failed to fetch')
@@ -740,7 +742,7 @@ describe('loadFromUrl', () => {
         vi.stubGlobal(
             'fetch',
             makeFetchMock({
-                '/models/bad.yaml': { status: 200, body: 'type: not-a-component\nid: bad' },
+                '/models/bad/bad.yaml': { status: 200, body: 'type: not-a-component\nid: bad' },
             })
         )
 
