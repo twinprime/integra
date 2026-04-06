@@ -42,8 +42,8 @@ describe('rootFilename', () => {
 })
 
 describe('descendantPath', () => {
-    it('returns <rootId>/<parentId>-<selfId>.yaml', () => {
-        expect(descendantPath('my-system', 'gateway', 'auth')).toBe('my-system/gateway-auth.yaml')
+    it('returns <parentId>-<selfId>.yaml', () => {
+        expect(descendantPath('gateway', 'auth')).toBe('gateway-auth.yaml')
     })
 })
 
@@ -59,24 +59,19 @@ describe('flattenToFiles', () => {
         const entries = flattenToFiles(root)
         const rootEntry = entries.find((e) => e.relativePath === 'my-system.yaml')!
         expect(rootEntry).toBeDefined()
-        expect(rootEntry.childPaths).toEqual(['my-system/my-system-gateway.yaml'])
+        expect(rootEntry.childPaths).toEqual(['my-system-gateway.yaml'])
     })
 
     it('mid-level entry has correct path and childPaths', () => {
         const entries = flattenToFiles(root)
-        const gatewayEntry = entries.find(
-            (e) => e.relativePath === 'my-system/my-system-gateway.yaml'
-        )!
+        const gatewayEntry = entries.find((e) => e.relativePath === 'my-system-gateway.yaml')!
         expect(gatewayEntry).toBeDefined()
-        expect(gatewayEntry.childPaths).toEqual([
-            'my-system/gateway-auth.yaml',
-            'my-system/gateway-orders.yaml',
-        ])
+        expect(gatewayEntry.childPaths).toEqual(['gateway-auth.yaml', 'gateway-orders.yaml'])
     })
 
     it('leaf entry has empty childPaths', () => {
         const entries = flattenToFiles(root)
-        const authEntry = entries.find((e) => e.relativePath === 'my-system/gateway-auth.yaml')!
+        const authEntry = entries.find((e) => e.relativePath === 'gateway-auth.yaml')!
         expect(authEntry).toBeDefined()
         expect(authEntry.childPaths).toEqual([])
     })

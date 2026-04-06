@@ -6,15 +6,14 @@
  * File layout:
  *   <chosen-dir>/
  *     <root-id>.yaml              ← root component (entry point)
- *     <root-id>/                  ← flat subdir for ALL descendants
- *       <parent-id>-<self-id>.yaml
- *       ...
+ *     <root-id>-<child-id>.yaml   ← direct children of root
+ *     <parent-id>-<child-id>.yaml ← deeper descendants
  *
- * The `subComponents` field in each YAML holds a list of relative file paths
+ * The `subComponents` field in each YAML holds a list of bare filenames
  * (relative to the chosen directory root), e.g.:
  *   subComponents:
- *     - my-system/auth.yaml
- *     - my-system/orders.yaml
+ *     - my-system-auth.yaml
+ *     - my-system-orders.yaml
  */
 
 import yaml from 'js-yaml'
@@ -32,9 +31,9 @@ export function rootFilename(rootId: string): string {
     return `${rootId}.yaml`
 }
 
-/** Relative path for a descendant YAML (in the `<rootId>/` subdirectory). */
-export function descendantPath(rootId: string, parentId: string, selfId: string): string {
-    return `${rootId}/${parentId}-${selfId}.yaml`
+/** Filename for a descendant YAML (flat in the chosen directory). */
+export function descendantPath(parentId: string, selfId: string): string {
+    return `${parentId}-${selfId}.yaml`
 }
 
 // ── Flatten tree → file entries ───────────────────────────────────────────────
@@ -48,21 +47,13 @@ export interface FileEntry {
     childPaths: string[]
 }
 
-/**
- * DFS traversal that produces a flat list of FileEntry records.
- * The root entry's relativePath is `<rootId>.yaml`.
- * All descendants go in the `<rootId>/` subdirectory.
- */
 export function flattenToFiles(root: ComponentNode): FileEntry[] {
     const entries: FileEntry[] = []
 
     function visit(comp: ComponentNode, parentId: string | null): void {
-        const path =
-            parentId === null ? rootFilename(root.id) : descendantPath(root.id, parentId, comp.id)
+        const path = parentId === null ? rootFilename(root.id) : descendantPath(parentId, comp.id)
 
-        const childPaths = comp.subComponents.map((child) =>
-            descendantPath(root.id, comp.id, child.id)
-        )
+        const childPaths = comp.subComponents.map((child) => descendantPath(comp.id, child.id))
 
         entries.push({ relativePath: path, comp, childPaths })
 
