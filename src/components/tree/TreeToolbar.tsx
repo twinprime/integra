@@ -163,7 +163,9 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
             setSavedRootId(loadedSystem.id)
             markSaved(serializeYaml(loadedSystem))
             setBrowseLocked(false)
-            window.location.href = '/'
+            if (window.location.pathname !== '/' || window.location.search !== '') {
+                window.location.href = '/'
+            }
         } catch (error) {
             if ((error as DOMException).name !== 'AbortError') {
                 console.error('Failed to load system:', error)

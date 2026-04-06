@@ -440,3 +440,154 @@ describe('applyIdRename — scope-aware regressions', () => {
         )
     })
 })
+
+const makeRootPathRenameTree = (): ComponentNode => ({
+    uuid: 'root-rename',
+    id: 'root',
+    name: 'Root',
+    type: 'component',
+    description: 'See [Orders](root/orders) and [Customer](root/customer)',
+    actors: [
+        {
+            uuid: 'root-customer',
+            id: 'customer',
+            name: 'Customer',
+            type: 'actor',
+            description: 'See [Orders](root/orders)',
+        },
+    ],
+    interfaces: [],
+    useCaseDiagrams: [
+        {
+            uuid: 'root-ucd',
+            id: 'mainDiag',
+            name: 'Main Diagram',
+            type: 'use-case-diagram',
+            description: 'See [Orders Flow](root/orders/orderFlow)',
+            content: [
+                'actor root/customer as customer',
+                'component root/orders as orders',
+                'use case checkout',
+                'customer ->> checkout',
+            ].join('\n'),
+            referencedNodeIds: [],
+            ownerComponentUuid: 'root-rename',
+            useCases: [
+                {
+                    uuid: 'root-uc',
+                    id: 'checkout',
+                    name: 'Checkout',
+                    type: 'use-case',
+                    description: 'See [Orders Diagram](root/orders/orderFlows)',
+                    sequenceDiagrams: [
+                        {
+                            uuid: 'root-sd',
+                            id: 'checkoutFlow',
+                            name: 'Checkout Flow',
+                            type: 'sequence-diagram',
+                            description: 'See [Place Order](root/orders/placeOrder)',
+                            content: [
+                                'actor root/customer as customer',
+                                'component root/orders as orders',
+                                'customer ->> orders: UseCase:root/orders/placeOrder',
+                                'customer ->> orders: UseCaseDiagram:root/orders/orderFlows',
+                                'customer ->> orders: Sequence:root/orders/orderFlow',
+                            ].join('\n'),
+                            referencedNodeIds: [],
+                            referencedFunctionUuids: [],
+                            ownerComponentUuid: 'root-rename',
+                        },
+                    ],
+                },
+            ],
+        },
+    ],
+    subComponents: [
+        {
+            uuid: 'orders-comp',
+            id: 'orders',
+            name: 'Orders',
+            type: 'component',
+            description: 'See [Customer](root/customer)',
+            actors: [],
+            interfaces: [],
+            subComponents: [],
+            useCaseDiagrams: [
+                {
+                    uuid: 'orders-ucd',
+                    id: 'orderFlows',
+                    name: 'Order Flows',
+                    type: 'use-case-diagram',
+                    description: '',
+                    content: 'use case placeOrder',
+                    referencedNodeIds: [],
+                    ownerComponentUuid: 'orders-comp',
+                    useCases: [
+                        {
+                            uuid: 'orders-uc',
+                            id: 'placeOrder',
+                            name: 'Place Order',
+                            type: 'use-case',
+                            description: '',
+                            sequenceDiagrams: [
+                                {
+                                    uuid: 'orders-sd',
+                                    id: 'orderFlow',
+                                    name: 'Order Flow',
+                                    type: 'sequence-diagram',
+                                    description: '',
+                                    content: 'customer ->> orders: ok',
+                                    referencedNodeIds: [],
+                                    referencedFunctionUuids: [],
+                                    ownerComponentUuid: 'orders-comp',
+                                },
+                            ],
+                        },
+                    ],
+                },
+            ],
+        },
+    ],
+})
+
+describe('applyIdRename — root path regressions', () => {
+    it('updates root-prefixed use-case diagram paths when renaming the root component', () => {
+        const updated = applyIdRename(makeRootPathRenameTree(), 'root-rename', 'root', 'system')
+
+        expect(updated.id).toBe('system')
+        expect(updated.useCaseDiagrams[0].content).toContain('actor system/customer as customer')
+        expect(updated.useCaseDiagrams[0].content).toContain('component system/orders as orders')
+        expect(updated.useCaseDiagrams[0].content).not.toContain('root/orders')
+    })
+
+    it('updates root-prefixed sequence diagram paths when renaming the root component', () => {
+        const updated = applyIdRename(makeRootPathRenameTree(), 'root-rename', 'root', 'system')
+        const content = updated.useCaseDiagrams[0].useCases[0].sequenceDiagrams[0].content
+
+        expect(content).toContain('actor system/customer as customer')
+        expect(content).toContain('component system/orders as orders')
+        expect(content).toContain('UseCase:system/orders/placeOrder')
+        expect(content).toContain('UseCaseDiagram:system/orders/orderFlows')
+        expect(content).toContain('Sequence:system/orders/orderFlow')
+        expect(content).not.toContain('root/orders')
+    })
+
+    it('updates root-prefixed markdown links when renaming the root component', () => {
+        const updated = applyIdRename(makeRootPathRenameTree(), 'root-rename', 'root', 'system')
+
+        expect(updated.description).toBe(
+            'See [Orders](system/orders) and [Customer](system/customer)'
+        )
+        expect(updated.actors[0].description).toBe('See [Orders](system/orders)')
+        expect(updated.useCaseDiagrams[0].description).toBe(
+            'See [Orders Flow](system/orders/orderFlow)'
+        )
+        expect(updated.useCaseDiagrams[0].useCases[0].description).toBe(
+            'See [Orders Diagram](system/orders/orderFlows)'
+        )
+        expect(updated.useCaseDiagrams[0].useCases[0].sequenceDiagrams[0].description).toBe(
+            'See [Place Order](system/orders/placeOrder)'
+        )
+        expect(updated.subComponents[0].description).toBe('See [Customer](system/customer)')
+    })
+})
