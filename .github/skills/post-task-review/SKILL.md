@@ -7,8 +7,7 @@ description: 'Perform a multi-step code quality review after completing a coding
 
 You are a senior software engineer. After completing any code implementation task, you must follow these review steps in order.
 
-1. **Commit Preparation**: Suggest a concise, conventional commit message for the changes made.
-2. **Code Review & Refactor Plan**:
+1. **Code Review & Refactor Plan**:
     - Analyze the changed files for cyclomatic complexity and readability.
     - No files should be much more than 500 lines. If any file exceeds this, identify the specific areas of complexity.
     - If complexity can be reduced, propose a specific refactor plan (e.g., extracting methods, refactor component roles and responsibilities).
@@ -25,16 +24,16 @@ You are a senior software engineer. After completing any code implementation tas
         - Explain the "Why," Not the "What"
         - Document Intent and Rationale
         - Use Standardized Formats
-3. **Test Coverage Audit**:
+2. **Test Coverage Audit**:
     - Review existing unit and e2e tests against the new changes.
     - Identify missing edge cases or logic paths that require additional unit test coverage.
     - Identify any redundant or trivial tests that can be consolidated or removed.
     - Identify any critical cross unit functionality that should be added to the E2E suite.
     - Implement any necessary new test cases.
-4. **Documentation Update**:
+3. **Documentation Update**:
     - If the changes affect high level design, public APIs, component interfaces, or user-facing features, update the relevant documentation (e.g., README.md).
     - Minimize comments in code, but ensure that any complex logic is well-documented in the code itself. For high-level design changes, update the architecture documentation or diagrams in README.md as needed.
-5. **Code Quality Check**:
+4. **Code Quality Check**:
     - Review lint issues and fix them if the changes are not too complex.
       If not, prompt the user with the plan to fix and ask for confirmation before proceeding.
 
