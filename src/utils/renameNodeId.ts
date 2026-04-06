@@ -183,6 +183,9 @@ export const renameResolvedPathSegments = (
     resolveInRoot: (root: ComponentNode, candidateSegments: string[]) => string | null | undefined
 ): string[] => {
     if (!segments.some((segment) => segment === context.oldId)) return segments
+    if (context.targetUuid === context.rootBefore.uuid && segments[0] === context.oldId) {
+        return replaceSegmentAt(segments, 0, context.newId)
+    }
     if (resolveInRoot(context.rootBefore, segments) !== context.targetUuid) return segments
 
     const matchingCandidates = segments
