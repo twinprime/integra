@@ -3,18 +3,16 @@
  *
  * Utilities for saving and loading a ComponentNode tree as a directory of YAML files.
  *
- * File layout:
+ * File layout (flat — no subdirectories):
  *   <chosen-dir>/
- *     <root-id>.yaml              ← root component (entry point)
- *     <root-id>/                  ← flat subdir for ALL descendants
- *       <parent-id>-<self-id>.yaml
- *       ...
+ *     root.yaml                           ← root component (entry point)
+ *     root-<childId>.yaml                 ← direct child of root
+ *     root-<childId>-<grandchildId>.yaml  ← deeper descendants
  *
- * The `subComponents` field in each YAML holds a list of relative file paths
- * (relative to the chosen directory root), e.g.:
+ * The `subComponents` field in each YAML holds a list of bare filenames, e.g.:
  *   subComponents:
- *     - my-system/auth.yaml
- *     - my-system/orders.yaml
+ *     - root-auth-service.yaml
+ *     - root-order-service.yaml
  */
 
 import yaml from 'js-yaml'
