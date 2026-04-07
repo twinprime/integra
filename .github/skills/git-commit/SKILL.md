@@ -21,4 +21,3 @@ For every commit, follow these strict rules:
       multiline input such as repeated `-m` flags or `git commit -F -` with a
       heredoc. Do not rely on escaped newline sequences inside a single quoted
       or double-quoted `-m` string.
-4. AI Context: Include a list of the specific user prompts that led to these changes at the end of the message for traceability.
