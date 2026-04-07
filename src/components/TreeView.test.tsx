@@ -82,25 +82,12 @@ function makeWritable() {
 }
 
 /**
- * Creates a mock FileSystemDirectoryHandle that simulates a directory containing
- * the given component as a single-file tree (no subdirectory).
+ * Creates a mock FileSystemDirectoryHandle that simulates a flat directory containing
+ * the given component as root.yaml (no subdirectory).
  */
 function makeDirHandle(comp: ComponentNode) {
     const rootContent = serializeComponentYaml(comp, [])
     const writables = new Map<string, ReturnType<typeof makeWritable>>()
-    const subdirWritables = new Map<string, ReturnType<typeof makeWritable>>()
-
-    const mockSubdir: FileSystemDirectoryHandle = {
-        kind: 'directory',
-        name: comp.id,
-        values: async function* () {},
-        getFileHandle: vi.fn().mockImplementation(async (name: string) => {
-            const w = makeWritable()
-            subdirWritables.set(name, w)
-            return { kind: 'file', name, createWritable: async () => w }
-        }),
-        removeEntry: vi.fn().mockResolvedValue(undefined),
-    } as unknown as FileSystemDirectoryHandle
 
     const handle: FileSystemDirectoryHandle = {
         kind: 'directory',
@@ -108,11 +95,11 @@ function makeDirHandle(comp: ComponentNode) {
         values: async function* () {
             yield {
                 kind: 'file',
-                name: `${comp.id}.yaml`,
+                name: 'root.yaml',
                 getFile: async () => ({ text: async () => rootContent }),
                 createWritable: async () => {
                     const w = makeWritable()
-                    writables.set(`${comp.id}.yaml`, w)
+                    writables.set('root.yaml', w)
                     return w
                 },
             } as unknown as FileSystemFileHandle
@@ -122,11 +109,10 @@ function makeDirHandle(comp: ComponentNode) {
             writables.set(name, w)
             return { kind: 'file', name, createWritable: async () => w }
         }),
-        getDirectoryHandle: vi.fn().mockResolvedValue(mockSubdir),
         removeEntry: vi.fn().mockResolvedValue(undefined),
     } as unknown as FileSystemDirectoryHandle
 
-    return { handle, writables, subdirWritables, mockSubdir }
+    return { handle, writables }
 }
 
 function resetStore() {

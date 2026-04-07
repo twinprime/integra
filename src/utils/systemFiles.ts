@@ -196,50 +196,30 @@ export async function saveToDirectory(
 }
 
 /**
- * Loads a component tree from a directory.
- * The directory must contain exactly one top-level `.yaml` file — that file is
- * the root component. Descendant components live in the `<rootId>/` subdirectory.
+ * Loads a component tree from a flat directory.
+ * Expects root.yaml as the entry point; descendant files are referenced by
+ * bare filename in each component's subComponents list.
  */
 export async function loadFromDirectory(dir: FileSystemDirectoryHandle): Promise<ComponentNode> {
     const fileMap = new Map<string, RawComponent>()
-    const topLevelYamls: string[] = []
 
-    // Read top-level YAML files (exactly one is expected — the root)
     for await (const entry of dir.values()) {
-        if (entry.kind === 'file' && entry.name.endsWith('.yaml')) {
+        if (
+            entry.kind === 'file' &&
+            entry.name.endsWith('.yaml') &&
+            (entry.name === 'root.yaml' || entry.name.startsWith('root-'))
+        ) {
             const file = await entry.getFile()
             const text = await file.text()
             const parsed = yaml.load(text) as RawComponent | null
             if (parsed && typeof parsed === 'object' && parsed.type === 'component') {
                 fileMap.set(entry.name, parsed)
-                topLevelYamls.push(entry.name)
-            }
-        } else if (entry.kind === 'directory' && !entry.name.startsWith('.')) {
-            // Read files inside the subdirectory
-            const subdir = entry
-            for await (const child of subdir.values()) {
-                if (child.kind === 'file' && child.name.endsWith('.yaml')) {
-                    const file = await child.getFile()
-                    const text = await file.text()
-                    const parsed = yaml.load(text) as RawComponent | null
-                    if (parsed && typeof parsed === 'object' && parsed.type === 'component') {
-                        fileMap.set(`${subdir.name}/${child.name}`, parsed)
-                    }
-                }
             }
         }
     }
 
-    if (topLevelYamls.length === 0) throw new Error('No component files found in directory')
-
-    if (topLevelYamls.length > 1) {
-        throw new Error(
-            `The selected folder contains ${topLevelYamls.length} YAML files ` +
-                `(${topLevelYamls.join(', ')}). Select a folder with exactly one root component YAML file.`
-        )
-    }
-
-    const rootRaw = fileMap.get(topLevelYamls[0])!
+    const rootRaw = fileMap.get('root.yaml')
+    if (!rootRaw) throw new Error('No component files found in directory')
     return parseComponentNode(assembleTree(rootRaw, fileMap))
 }
 
