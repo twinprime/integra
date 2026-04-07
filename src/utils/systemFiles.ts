@@ -5,16 +5,16 @@
  *
  * File layout:
  *   <chosen-dir>/
- *     <root-id>.yaml              ← root component (entry point)
+ *     root.yaml                   ← root component (entry point)
  *     <root-id>/                  ← flat subdir for ALL descendants
- *       <parent-id>-<self-id>.yaml
+ *       root-<ancestor-id>-<self-id>.yaml
  *       ...
  *
  * The `subComponents` field in each YAML holds a list of relative file paths
  * (relative to the chosen directory root), e.g.:
  *   subComponents:
- *     - my-system/auth.yaml
- *     - my-system/orders.yaml
+ *     - root-gateway-auth.yaml
+ *     - root-gateway-orders.yaml
  */
 
 import yaml from 'js-yaml'
@@ -28,13 +28,13 @@ const DESCENDANT_WRITE_CONCURRENCY = 4
 // ── File path helpers ─────────────────────────────────────────────────────────
 
 /** Relative path for the root component YAML (in the chosen directory). */
-export function rootFilename(rootId: string): string {
-    return `${rootId}.yaml`
+export function rootFilename(_rootId: string): string {
+    return 'root.yaml'
 }
 
-/** Relative path for a descendant YAML (in the `<rootId>/` subdirectory). */
-export function descendantPath(rootId: string, parentId: string, selfId: string): string {
-    return `${rootId}/${parentId}-${selfId}.yaml`
+/** Relative path for a descendant YAML based on its ancestor chain. */
+export function descendantPath(parentIds: string[], selfId: string): string {
+    return ['root', ...parentIds, selfId].join('-') + '.yaml'
 }
 
 // ── Flatten tree → file entries ───────────────────────────────────────────────
@@ -50,28 +50,27 @@ export interface FileEntry {
 
 /**
  * DFS traversal that produces a flat list of FileEntry records.
- * The root entry's relativePath is `<rootId>.yaml`.
- * All descendants go in the `<rootId>/` subdirectory.
+ * The root entry's relativePath is `root.yaml`.
+ * Descendants are named by their ancestor chain, e.g. `root-gateway-auth.yaml`.
  */
 export function flattenToFiles(root: ComponentNode): FileEntry[] {
     const entries: FileEntry[] = []
 
-    function visit(comp: ComponentNode, parentId: string | null): void {
-        const path =
-            parentId === null ? rootFilename(root.id) : descendantPath(root.id, parentId, comp.id)
+    function visit(comp: ComponentNode, ancestorIds: string[], isRoot: boolean): void {
+        const relativePath = isRoot ? rootFilename(root.id) : descendantPath(ancestorIds, comp.id)
 
         const childPaths = comp.subComponents.map((child) =>
-            descendantPath(root.id, comp.id, child.id)
+            descendantPath(isRoot ? ancestorIds : [...ancestorIds, comp.id], child.id)
         )
 
-        entries.push({ relativePath: path, comp, childPaths })
+        entries.push({ relativePath, comp, childPaths })
 
         for (const child of comp.subComponents) {
-            visit(child, comp.id)
+            visit(child, isRoot ? ancestorIds : [...ancestorIds, comp.id], false)
         }
     }
 
-    visit(root, null)
+    visit(root, [], true)
     return entries
 }
 
@@ -161,9 +160,7 @@ export async function saveToDirectory(
     const subdirName = root.id
     const rootPath = rootFilename(root.id)
     const expectedDescendantFiles = new Set(
-        entries
-            .filter(({ relativePath }) => relativePath !== rootPath)
-            .map(({ relativePath }) => relativePath.slice(subdirName.length + 1))
+        entries.filter(({ relativePath }) => relativePath !== rootPath).map(({ relativePath }) => relativePath)
     )
 
     // Get or create the subdirectory
@@ -194,7 +191,7 @@ export async function saveToDirectory(
     const descendantJobs = entries
         .filter(({ relativePath }) => relativePath !== rootPath)
         .map(({ relativePath, comp, childPaths }) => ({
-            filename: relativePath.slice(subdirName.length + 1),
+            filename: relativePath,
             content: serializeComponentYaml(comp, childPaths),
         }))
 
@@ -243,7 +240,7 @@ export async function loadFromDirectory(dir: FileSystemDirectoryHandle): Promise
                     const text = await file.text()
                     const parsed = yaml.load(text) as RawComponent | null
                     if (parsed && typeof parsed === 'object' && parsed.type === 'component') {
-                        fileMap.set(`${subdir.name}/${child.name}`, parsed)
+                        fileMap.set(child.name, parsed)
                     }
                 }
             }

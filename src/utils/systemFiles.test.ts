@@ -36,14 +36,16 @@ const root = makeComp('my-system', [mid])
 // ─── rootFilename / descendantPath ────────────────────────────────────────────
 
 describe('rootFilename', () => {
-    it('returns <rootId>.yaml', () => {
-        expect(rootFilename('my-system')).toBe('my-system.yaml')
+    it('always returns root.yaml', () => {
+        expect(rootFilename('my-system')).toBe('root.yaml')
+        expect(rootFilename('another-root')).toBe('root.yaml')
     })
 })
 
 describe('descendantPath', () => {
-    it('returns <rootId>/<parentId>-<selfId>.yaml', () => {
-        expect(descendantPath('my-system', 'gateway', 'auth')).toBe('my-system/gateway-auth.yaml')
+    it('returns a flat root-prefixed filename from the ancestor chain', () => {
+        expect(descendantPath(['gateway'], 'auth')).toBe('root-gateway-auth.yaml')
+        expect(descendantPath(['gateway', 'auth'], 'token')).toBe('root-gateway-auth-token.yaml')
     })
 })
 
@@ -57,26 +59,26 @@ describe('flattenToFiles', () => {
 
     it('root entry has correct relativePath and childPaths', () => {
         const entries = flattenToFiles(root)
-        const rootEntry = entries.find((e) => e.relativePath === 'my-system.yaml')!
+        const rootEntry = entries.find((e) => e.relativePath === 'root.yaml')!
         expect(rootEntry).toBeDefined()
-        expect(rootEntry.childPaths).toEqual(['my-system/my-system-gateway.yaml'])
+        expect(rootEntry.childPaths).toEqual(['root-gateway.yaml'])
     })
 
     it('mid-level entry has correct path and childPaths', () => {
         const entries = flattenToFiles(root)
         const gatewayEntry = entries.find(
-            (e) => e.relativePath === 'my-system/my-system-gateway.yaml'
+            (e) => e.relativePath === 'root-gateway.yaml'
         )!
         expect(gatewayEntry).toBeDefined()
         expect(gatewayEntry.childPaths).toEqual([
-            'my-system/gateway-auth.yaml',
-            'my-system/gateway-orders.yaml',
+            'root-gateway-auth.yaml',
+            'root-gateway-orders.yaml',
         ])
     })
 
     it('leaf entry has empty childPaths', () => {
         const entries = flattenToFiles(root)
-        const authEntry = entries.find((e) => e.relativePath === 'my-system/gateway-auth.yaml')!
+        const authEntry = entries.find((e) => e.relativePath === 'root-gateway-auth.yaml')!
         expect(authEntry).toBeDefined()
         expect(authEntry.childPaths).toEqual([])
     })
@@ -85,7 +87,7 @@ describe('flattenToFiles', () => {
         const solo = makeComp('solo')
         const entries = flattenToFiles(solo)
         expect(entries).toHaveLength(1)
-        expect(entries[0].relativePath).toBe('solo.yaml')
+        expect(entries[0].relativePath).toBe('root.yaml')
         expect(entries[0].childPaths).toEqual([])
     })
 })
@@ -132,17 +134,17 @@ describe('assembleTree', () => {
     it('assembles a 3-level tree correctly', () => {
         const rawRoot: RawComponent = {
             ...makeComp('my-system'),
-            subComponents: ['my-system/my-system-gateway.yaml'],
+            subComponents: ['root-gateway.yaml'],
         }
         const rawGateway: RawComponent = {
             ...makeComp('gateway'),
-            subComponents: ['my-system/gateway-auth.yaml'],
+            subComponents: ['root-gateway-auth.yaml'],
         }
         const rawAuth: RawComponent = { ...makeComp('auth'), subComponents: [] }
         const fileMap = new Map<string, RawComponent>([
-            ['my-system.yaml', rawRoot],
-            ['my-system/my-system-gateway.yaml', rawGateway],
-            ['my-system/gateway-auth.yaml', rawAuth],
+            ['root.yaml', rawRoot],
+            ['root-gateway.yaml', rawGateway],
+            ['root-gateway-auth.yaml', rawAuth],
         ])
         const assembled = assembleTree(rawRoot, fileMap)
         expect(assembled.id).toBe('my-system')
@@ -152,7 +154,7 @@ describe('assembleTree', () => {
     })
 
     it('throws if a referenced file is missing', () => {
-        const rawRoot: RawComponent = { ...makeComp('root'), subComponents: ['root/missing.yaml'] }
+        const rawRoot: RawComponent = { ...makeComp('root'), subComponents: ['root-missing.yaml'] }
         const fileMap = new Map<string, RawComponent>([['root.yaml', rawRoot]])
         expect(() => assembleTree(rawRoot, fileMap)).toThrow('Missing component file')
     })
@@ -288,14 +290,14 @@ describe('saveToDirectory', () => {
 
         await saveToDirectory(mockDir, root)
 
-        expect(writtenFiles['my-system.yaml']).toBeDefined()
-        const rootParsed = yaml.load(writtenFiles['my-system.yaml']) as Record<string, unknown>
+        expect(writtenFiles['root.yaml']).toBeDefined()
+        const rootParsed = yaml.load(writtenFiles['root.yaml']) as Record<string, unknown>
         expect(rootParsed.id).toBe('my-system')
-        expect(rootParsed.subComponents).toEqual(['my-system/my-system-gateway.yaml'])
+        expect(rootParsed.subComponents).toEqual(['root-gateway.yaml'])
 
-        expect(subdirWritten['my-system-gateway.yaml']).toBeDefined()
-        expect(subdirWritten['gateway-auth.yaml']).toBeDefined()
-        expect(subdirWritten['gateway-orders.yaml']).toBeDefined()
+        expect(subdirWritten['root-gateway.yaml']).toBeDefined()
+        expect(subdirWritten['root-gateway-auth.yaml']).toBeDefined()
+        expect(subdirWritten['root-gateway-orders.yaml']).toBeDefined()
     })
 
     it('removes only stale descendant yaml files without reading or parsing existing files', async () => {
@@ -309,7 +311,7 @@ describe('saveToDirectory', () => {
             values: async function* () {
                 yield {
                     kind: 'file',
-                    name: 'my-system-gateway.yaml',
+                    name: 'root-gateway.yaml',
                     getFile: expectedGetFile,
                 } as unknown as FileSystemFileHandle
                 yield {
@@ -412,9 +414,9 @@ describe('saveToDirectory', () => {
         for (const release of releaseWrites) release()
         await savePromise
 
-        expect(descendantWrites.has('my-system-gateway.yaml')).toBe(true)
-        expect(descendantWrites.has('gateway-auth.yaml')).toBe(true)
-        expect(descendantWrites.has('gateway-orders.yaml')).toBe(true)
+        expect(descendantWrites.has('root-gateway.yaml')).toBe(true)
+        expect(descendantWrites.has('root-gateway-auth.yaml')).toBe(true)
+        expect(descendantWrites.has('root-gateway-orders.yaml')).toBe(true)
     })
 
     it('removes old root yaml and subdirectory when previousRootId differs from new root id', async () => {
@@ -561,7 +563,7 @@ describe('saveToDirectory', () => {
             getFileHandle: vi.fn().mockImplementation(async (name: string) => ({
                 createWritable: async () => ({
                     write: vi.fn().mockImplementation(async () => {
-                        if (name === 'gateway-auth.yaml') throw writeError
+                        if (name === 'root-gateway-auth.yaml') throw writeError
                     }),
                     close: vi.fn().mockResolvedValue(undefined),
                 }),
@@ -590,18 +592,18 @@ describe('saveToDirectory', () => {
 describe('loadFromDirectory', () => {
     it('loads and assembles a tree from directory files', async () => {
         const rootYaml = serializeComponentYaml(makeComp('my-system'), [
-            'my-system/my-system-gateway.yaml',
+            'root-gateway.yaml',
         ])
         const gatewayYaml = serializeComponentYaml(makeComp('gateway'), [
-            'my-system/gateway-auth.yaml',
+            'root-gateway-auth.yaml',
         ])
         const authYaml = serializeComponentYaml(makeComp('auth'), [])
 
         const subdirFiles = new Map([
-            ['my-system-gateway.yaml', gatewayYaml],
-            ['gateway-auth.yaml', authYaml],
+            ['root-gateway.yaml', gatewayYaml],
+            ['root-gateway-auth.yaml', authYaml],
         ])
-        const topFiles = new Map([['my-system.yaml', rootYaml]])
+        const topFiles = new Map([['root.yaml', rootYaml]])
         const handle = makeFSDirectoryHandle(topFiles, new Map([['my-system', subdirFiles]]))
 
         const loaded = await loadFromDirectory(handle)
