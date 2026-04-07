@@ -74,7 +74,7 @@ The app will fetch `/models/<component-id>/root.yaml` and all referenced sub-com
 
 **Expected file layout on the server:**
 
-``` 
+```
 /models/
   <component-id>/
     root.yaml
