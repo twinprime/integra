@@ -19,7 +19,7 @@ name: E2E Parent System
 type: component
 description: Parent system with sub-component
 subComponents:
-  - e2e-parent/root-child.yaml
+  - root-child.yaml
 actors: []
 useCaseDiagrams: []
 interfaces: []
