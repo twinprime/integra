@@ -42,7 +42,7 @@ export function descendantPath(ancestors: string[], selfId: string): string {
 // ── Flatten tree → file entries ───────────────────────────────────────────────
 
 export interface FileEntry {
-    /** Relative path from the chosen directory root, e.g. "my-system/auth.yaml" */
+    /** Relative path from the chosen directory root, e.g. "root-gateway-auth.yaml" */
     relativePath: string
     /** The component node (without nested subComponents — those become childPaths) */
     comp: ComponentNode
@@ -52,8 +52,8 @@ export interface FileEntry {
 
 /**
  * DFS traversal that produces a flat list of FileEntry records.
- * The root entry's relativePath is `<rootId>.yaml`.
- * All descendants go in the `<rootId>/` subdirectory.
+ * The root entry's relativePath is always `root.yaml`.
+ * Descendants use flat filenames: `root-<child>.yaml`, `root-<child>-<grandchild>.yaml`, etc.
  */
 export function flattenToFiles(root: ComponentNode): FileEntry[] {
     const entries: FileEntry[] = []
