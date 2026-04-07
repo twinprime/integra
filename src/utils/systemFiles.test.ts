@@ -89,9 +89,9 @@ describe('flattenToFiles', () => {
 
 describe('serializeComponentYaml', () => {
     it('puts childPaths as subComponents list', () => {
-        const content = serializeComponentYaml(leaf1, ['my-system/gateway-auth-child.yaml'])
+        const content = serializeComponentYaml(leaf1, ['gateway-auth-child.yaml'])
         const parsed = yaml.load(content) as Record<string, unknown>
-        expect(parsed.subComponents).toEqual(['my-system/gateway-auth-child.yaml'])
+        expect(parsed.subComponents).toEqual(['gateway-auth-child.yaml'])
     })
 
     it('emits empty list when no children', () => {
@@ -155,94 +155,39 @@ describe('assembleTree', () => {
 
 // ─── saveToDirectory / loadFromDirectory ─────────────────────────────────────
 
-function makeWritable() {
-    return {
-        write: vi.fn().mockResolvedValue(undefined),
-        close: vi.fn().mockResolvedValue(undefined),
-    }
-}
-
-function makeFSDirectoryHandle(
-    files: Map<string, string>,
-    subdirs: Map<string, Map<string, string>> = new Map()
-): FileSystemDirectoryHandle {
-    async function* yieldEntries(
-        fileMap: Map<string, string>,
-        subdirMap: Map<string, Map<string, string>> = new Map()
-    ): AsyncIterableIterator<FileSystemFileHandle | FileSystemDirectoryHandle> {
-        for (const [name, content] of fileMap) {
+function makeFSDirectoryHandle(files: Map<string, string>): FileSystemDirectoryHandle {
+    async function* yieldEntries(): AsyncIterableIterator<FileSystemFileHandle> {
+        for (const [name, content] of files) {
             yield {
                 kind: 'file',
                 name,
                 getFile: async () => ({ text: async () => content }) as unknown as File,
                 createWritable: async () =>
-                    makeWritable() as unknown as FileSystemWritableFileStream,
+                    ({
+                        write: vi.fn().mockResolvedValue(undefined),
+                        close: vi.fn().mockResolvedValue(undefined),
+                    }) as unknown as FileSystemWritableFileStream,
             } as unknown as FileSystemFileHandle
-        }
-        for (const [dirName, dirFiles] of subdirMap) {
-            yield {
-                kind: 'directory',
-                name: dirName,
-                values: () => yieldEntries(dirFiles),
-                getFileHandle: vi
-                    .fn()
-                    .mockImplementation(async (name: string, _opts?: { create?: boolean }) => {
-                        return {
-                            kind: 'file',
-                            name,
-                            getFile: async () =>
-                                ({ text: async () => dirFiles.get(name) ?? '' }) as unknown as File,
-                            createWritable: async () =>
-                                makeWritable() as unknown as FileSystemWritableFileStream,
-                        }
-                    }),
-                removeEntry: vi.fn().mockResolvedValue(undefined),
-            } as unknown as FileSystemDirectoryHandle
         }
     }
 
-    const writables = new Map<string, ReturnType<typeof makeWritable>>()
-    const handle: FileSystemDirectoryHandle = {
+    return {
         kind: 'directory',
         name: 'test-dir',
-        values: () => yieldEntries(files, subdirs),
-        getFileHandle: vi.fn().mockImplementation(async (name: string) => {
-            const writable = makeWritable()
-            writables.set(name, writable)
-            return {
-                kind: 'file',
-                name,
-                getFile: async () =>
-                    ({ text: async () => files.get(name) ?? '' }) as unknown as File,
-                createWritable: async () => writable as unknown as FileSystemWritableFileStream,
-            }
-        }),
-        getDirectoryHandle: vi.fn().mockImplementation(async (name: string) => {
-            const subdirFiles = subdirs.get(name) ?? new Map<string, string>()
-            subdirs.set(name, subdirFiles)
-            const subdirWritables = new Map<string, ReturnType<typeof makeWritable>>()
-            return {
-                kind: 'directory',
-                name,
-                values: () => yieldEntries(subdirFiles),
-                getFileHandle: vi.fn().mockImplementation(async (fname: string) => {
-                    const w = makeWritable()
-                    subdirWritables.set(fname, w)
-                    return {
-                        kind: 'file',
-                        name: fname,
-                        getFile: async () =>
-                            ({ text: async () => subdirFiles.get(fname) ?? '' }) as unknown as File,
-                        createWritable: async () => w as unknown as FileSystemWritableFileStream,
-                    }
-                }),
-                removeEntry: vi.fn().mockResolvedValue(undefined),
-            } as unknown as FileSystemDirectoryHandle
-        }),
+        values: () => yieldEntries(),
+        getFileHandle: vi.fn().mockImplementation(async (name: string) => ({
+            kind: 'file',
+            name,
+            getFile: async () =>
+                ({ text: async () => files.get(name) ?? '' }) as unknown as File,
+            createWritable: async () =>
+                ({
+                    write: vi.fn().mockResolvedValue(undefined),
+                    close: vi.fn().mockResolvedValue(undefined),
+                }) as unknown as FileSystemWritableFileStream,
+        })),
         removeEntry: vi.fn().mockResolvedValue(undefined),
     } as unknown as FileSystemDirectoryHandle
-
-    return handle
 }
 
 describe('saveToDirectory', () => {
