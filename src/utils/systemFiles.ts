@@ -166,6 +166,7 @@ export async function saveToDirectory(
 ): Promise<void> {
     const entries = flattenToFiles(root)
     const expectedFiles = new Set(entries.map(({ relativePath }) => relativePath))
+    const stalePaths: string[] = []
 
     for await (const entry of dir.values()) {
         if (
@@ -173,12 +174,16 @@ export async function saveToDirectory(
             entry.name.endsWith('.yaml') &&
             !expectedFiles.has(entry.name)
         ) {
-            try {
-                await dir.removeEntry(entry.name)
-            } catch (error) {
-                if (!isConcurrentMissingEntryError(error)) {
-                    throw error
-                }
+            stalePaths.push(entry.name)
+        }
+    }
+
+    for (const name of stalePaths) {
+        try {
+            await dir.removeEntry(name)
+        } catch (error) {
+            if (!isConcurrentMissingEntryError(error)) {
+                throw error
             }
         }
     }

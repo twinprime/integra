@@ -290,6 +290,57 @@ describe('saveToDirectory', () => {
         expect(removeEntry).toHaveBeenCalledWith('config.yaml')
     })
 
+    it('removes all stale top-level yaml files found during iteration before deleting any', async () => {
+        const entries = [
+            {
+                kind: 'file',
+                name: 'root.yaml',
+                getFile: async () => ({ text: async () => 'expected' }) as unknown as File,
+            },
+            {
+                kind: 'file',
+                name: 'stale-a.yaml',
+                getFile: async () => ({ text: async () => 'stale-a' }) as unknown as File,
+            },
+            {
+                kind: 'file',
+                name: 'stale-b.yaml',
+                getFile: async () => ({ text: async () => 'stale-b' }) as unknown as File,
+            },
+        ]
+        const removedNames: string[] = []
+        const removeEntry = vi.fn().mockImplementation(async (name: string) => {
+            removedNames.push(name)
+            const index = entries.findIndex((entry) => entry.name === name)
+            if (index >= 0) {
+                entries.splice(index, 1)
+            }
+        })
+
+        const handle: FileSystemDirectoryHandle = {
+            kind: 'directory',
+            name: 'test-dir',
+            values: async function* () {
+                let index = 0
+                while (index < entries.length) {
+                    yield entries[index] as unknown as FileSystemFileHandle
+                    index += 1
+                }
+            },
+            getFileHandle: vi.fn().mockImplementation(async () => ({
+                createWritable: async () => ({
+                    write: vi.fn().mockResolvedValue(undefined),
+                    close: vi.fn().mockResolvedValue(undefined),
+                }),
+            })),
+            removeEntry,
+        } as unknown as FileSystemDirectoryHandle
+
+        await saveToDirectory(handle, root)
+
+        expect(removedNames).toEqual(['stale-a.yaml', 'stale-b.yaml'])
+    })
+
     it('continues saving when stale top-level yaml removal races with another deletion', async () => {
         const writtenFiles: Record<string, string> = {}
         const removeEntry = vi
