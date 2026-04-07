@@ -478,9 +478,7 @@ describe('loadFromUrl', () => {
     })
 
     it('recursively fetches sub-components', async () => {
-        const rootYaml = serializeComponentYaml(makeComp('my-system'), [
-            'my-system/my-system-auth.yaml',
-        ])
+        const rootYaml = serializeComponentYaml(makeComp('my-system'), ['my-system-auth.yaml'])
         const authYaml = serializeComponentYaml(makeComp('auth'), [])
         vi.stubGlobal(
             'fetch',
@@ -497,10 +495,7 @@ describe('loadFromUrl', () => {
     })
 
     it('fetches sibling sub-components in parallel (each URL fetched once)', async () => {
-        const rootYaml = serializeComponentYaml(makeComp('sys'), [
-            'sys/sys-a.yaml',
-            'sys/sys-b.yaml',
-        ])
+        const rootYaml = serializeComponentYaml(makeComp('sys'), ['sys-a.yaml', 'sys-b.yaml'])
         const aYaml = serializeComponentYaml(makeComp('a'), [])
         const bYaml = serializeComponentYaml(makeComp('b'), [])
         const fetchMock = makeFetchMock({
@@ -517,14 +512,16 @@ describe('loadFromUrl', () => {
     it('throws NotFoundError when root YAML returns 404', async () => {
         vi.stubGlobal(
             'fetch',
-            makeFetchMock({ '/models/missing/missing.yaml': { status: 404, body: 'Not Found' } })
+            makeFetchMock({
+                '/models/missing/missing.yaml': { status: 404, body: 'Not Found' },
+            })
         )
 
         await expect(loadFromUrl('missing')).rejects.toBeInstanceOf(NotFoundError)
     })
 
     it('throws NotFoundError when a sub-component returns 404', async () => {
-        const rootYaml = serializeComponentYaml(makeComp('sys'), ['sys/sys-ghost.yaml'])
+        const rootYaml = serializeComponentYaml(makeComp('sys'), ['sys-ghost.yaml'])
         vi.stubGlobal(
             'fetch',
             makeFetchMock({
