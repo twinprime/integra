@@ -3,7 +3,7 @@
  *
  * Utilities for saving and loading a ComponentNode tree as a directory of YAML files.
  *
- * File layout:
+ * File layout (all files are flat in the chosen directory):
  *   <chosen-dir>/
  *     <root-id>.yaml              ← root component (entry point)
  *     <root-id>-<child-id>.yaml   ← direct children of root
@@ -145,70 +145,34 @@ export function assembleTree(
 
 /**
  * Writes the entire component tree to a directory as individual YAML files.
- * - Creates the `<rootId>/` subdirectory if needed.
- * - Removes stale descendant `*.yaml` files in the subdir before writing fresh ones.
+ * All files are written flat — no subdirectory is created.
+ * Removes stale *.yaml files in the directory before writing fresh ones.
  */
 export async function saveToDirectory(
     dir: FileSystemDirectoryHandle,
-    root: ComponentNode,
-    previousRootId?: string
+    root: ComponentNode
 ): Promise<void> {
     const entries = flattenToFiles(root)
-    const subdirName = root.id
-    const rootPath = rootFilename(root.id)
-    const expectedDescendantFiles = new Set(
-        entries
-            .filter(({ relativePath }) => relativePath !== rootPath)
-            .map(({ relativePath }) => relativePath.slice(subdirName.length + 1))
-    )
+    const expectedFiles = new Set(entries.map(({ relativePath }) => relativePath))
 
-    // Get or create the subdirectory
-    const subdir = await dir.getDirectoryHandle(subdirName, { create: true })
-
-    // Remove stale descendant YAML files in the subdirectory.
-    for await (const entry of subdir.values()) {
+    // Remove stale YAML files from the directory
+    for await (const entry of dir.values()) {
         if (
             entry.kind === 'file' &&
             entry.name.endsWith('.yaml') &&
-            !expectedDescendantFiles.has(entry.name)
+            !expectedFiles.has(entry.name)
         ) {
-            await subdir.removeEntry(entry.name)
+            await dir.removeEntry(entry.name)
         }
     }
-
-    const rootEntry = entries.find(({ relativePath }) => relativePath === rootPath)
-    if (!rootEntry) {
-        throw new Error(`Missing root file entry for component ${root.id}`)
-    }
-
-    await writeComponentFile(
-        dir,
-        rootPath,
-        serializeComponentYaml(rootEntry.comp, rootEntry.childPaths)
-    )
-
-    const descendantJobs = entries
-        .filter(({ relativePath }) => relativePath !== rootPath)
-        .map(({ relativePath, comp, childPaths }) => ({
-            filename: relativePath.slice(subdirName.length + 1),
-            content: serializeComponentYaml(comp, childPaths),
-        }))
 
     await runWithConcurrency(
-        descendantJobs,
+        entries,
         DESCENDANT_WRITE_CONCURRENCY,
-        async ({ filename, content }) => {
-            await writeComponentFile(subdir, filename, content)
+        async ({ relativePath, comp, childPaths }) => {
+            await writeComponentFile(dir, relativePath, serializeComponentYaml(comp, childPaths))
         }
     )
-
-    // Clean up old root files if the root ID was renamed
-    if (previousRootId && previousRootId !== root.id) {
-        await Promise.allSettled([
-            dir.removeEntry(`${previousRootId}.yaml`),
-            dir.removeEntry(previousRootId, { recursive: true }),
-        ])
-    }
 }
 
 /**
