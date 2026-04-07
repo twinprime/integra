@@ -60,17 +60,18 @@ export function flattenToFiles(root: ComponentNode): FileEntry[] {
 
     function visit(comp: ComponentNode, ancestorIds: string[], isRoot: boolean): void {
         const relativePath = isRoot ? rootFilename(root.id) : descendantPath(ancestorIds, comp.id)
+        const childAncestorIds = isRoot ? ancestorIds : [...ancestorIds, comp.id]
 
         const childPaths = comp.subComponents.map((child) =>
             // Exclude the root component id here; descendant filenames are rooted on the literal
             // `root-` prefix, not the actual root id.
-            descendantPath(isRoot ? ancestorIds : [...ancestorIds, comp.id], child.id)
+            descendantPath(childAncestorIds, child.id)
         )
 
         entries.push({ relativePath, comp, childPaths })
 
         for (const child of comp.subComponents) {
-            visit(child, isRoot ? ancestorIds : [...ancestorIds, comp.id], false)
+            visit(child, childAncestorIds, false)
         }
     }
 
@@ -213,6 +214,9 @@ export async function saveToDirectory(
 
     // Clean up old root files if the root ID was renamed
     if (previousRootId && previousRootId !== root.id) {
+        // Task 2: `${previousRootId}.yaml` cannot exist in Task 1 because the root file is
+        // always `root.yaml`; revisit this cleanup once descendants/root handling moves fully
+        // top-level.
         await Promise.allSettled([
             dir.removeEntry(`${previousRootId}.yaml`),
             dir.removeEntry(previousRootId, { recursive: true }),
@@ -258,6 +262,8 @@ export async function loadFromDirectory(dir: FileSystemDirectoryHandle): Promise
     if (topLevelYamls.length === 0) throw new Error('No component files found in directory')
 
     if (topLevelYamls.length > 1) {
+        // Task 2: replace this length check with a direct `root.yaml` lookup once descendant
+        // files move to top-level paths.
         throw new Error(
             `The selected folder contains ${topLevelYamls.length} YAML files ` +
                 `(${topLevelYamls.join(', ')}). Select a folder with exactly one root component YAML file.`

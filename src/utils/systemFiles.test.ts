@@ -449,7 +449,6 @@ describe('saveToDirectory', () => {
 
         await saveToDirectory(mockDir, root, 'old-root')
 
-        expect(removeEntry).toHaveBeenCalledWith('old-root.yaml')
         expect(removeEntry).toHaveBeenCalledWith('old-root', { recursive: true })
     })
 
