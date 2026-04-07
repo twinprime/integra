@@ -264,24 +264,8 @@ function makeFSDirectoryHandle(
 }
 
 describe('saveToDirectory', () => {
-    it('writes root file and descendant files', async () => {
+    it('writes root file and all descendant files to the flat directory', async () => {
         const writtenFiles: Record<string, string> = {}
-        const subdirWritten: Record<string, string> = {}
-
-        const mockSubdir: FileSystemDirectoryHandle = {
-            kind: 'directory',
-            name: 'my-system',
-            values: async function* () {},
-            getFileHandle: vi.fn().mockImplementation(async (name: string) => ({
-                createWritable: async () => ({
-                    write: vi.fn().mockImplementation(async (content: string) => {
-                        subdirWritten[name] = content
-                    }),
-                    close: vi.fn().mockResolvedValue(undefined),
-                }),
-            })),
-            removeEntry: vi.fn().mockResolvedValue(undefined),
-        } as unknown as FileSystemDirectoryHandle
 
         const mockDir: FileSystemDirectoryHandle = {
             kind: 'directory',
@@ -295,44 +279,50 @@ describe('saveToDirectory', () => {
                     close: vi.fn().mockResolvedValue(undefined),
                 }),
             })),
-            getDirectoryHandle: vi.fn().mockResolvedValue(mockSubdir),
             removeEntry: vi.fn().mockResolvedValue(undefined),
         } as unknown as FileSystemDirectoryHandle
 
         await saveToDirectory(mockDir, root)
 
-        expect(writtenFiles['my-system.yaml']).toBeDefined()
-        const rootParsed = yaml.load(writtenFiles['my-system.yaml']) as Record<string, unknown>
+        expect(writtenFiles['root.yaml']).toBeDefined()
+        const rootParsed = yaml.load(writtenFiles['root.yaml']) as Record<string, unknown>
         expect(rootParsed.id).toBe('my-system')
-        expect(rootParsed.subComponents).toEqual(['my-system/my-system-gateway.yaml'])
+        expect(rootParsed.subComponents).toEqual(['root-gateway.yaml'])
 
-        expect(subdirWritten['my-system-gateway.yaml']).toBeDefined()
-        expect(subdirWritten['gateway-auth.yaml']).toBeDefined()
-        expect(subdirWritten['gateway-orders.yaml']).toBeDefined()
+        expect(writtenFiles['root-gateway.yaml']).toBeDefined()
+        expect(writtenFiles['root-gateway-auth.yaml']).toBeDefined()
+        expect(writtenFiles['root-gateway-orders.yaml']).toBeDefined()
     })
 
-    it('removes only stale descendant yaml files without reading or parsing existing files', async () => {
-        const staleGetFile = vi.fn()
-        const expectedGetFile = vi.fn()
+    it('removes stale root-prefixed yaml files but leaves unrelated files', async () => {
         const removeEntry = vi.fn().mockResolvedValue(undefined)
 
-        const mockSubdir: FileSystemDirectoryHandle = {
+        const mockDir: FileSystemDirectoryHandle = {
             kind: 'directory',
-            name: 'my-system',
+            name: 'test',
             values: async function* () {
+                // 'root-gateway.yaml' is expected — should NOT be removed
                 yield {
                     kind: 'file',
-                    name: 'my-system-gateway.yaml',
-                    getFile: expectedGetFile,
+                    name: 'root-gateway.yaml',
+                    getFile: vi.fn(),
                 } as unknown as FileSystemFileHandle
+                // 'root-obsolete.yaml' is stale — should be removed
                 yield {
                     kind: 'file',
-                    name: 'obsolete.yaml',
-                    getFile: staleGetFile,
+                    name: 'root-obsolete.yaml',
+                    getFile: vi.fn(),
                 } as unknown as FileSystemFileHandle
+                // 'notes.txt' is not a yaml — should NOT be removed
                 yield {
                     kind: 'file',
                     name: 'notes.txt',
+                    getFile: vi.fn(),
+                } as unknown as FileSystemFileHandle
+                // 'unrelated.yaml' does not start with 'root' — should NOT be removed
+                yield {
+                    kind: 'file',
+                    name: 'unrelated.yaml',
                     getFile: vi.fn(),
                 } as unknown as FileSystemFileHandle
             },
@@ -345,26 +335,10 @@ describe('saveToDirectory', () => {
             removeEntry,
         } as unknown as FileSystemDirectoryHandle
 
-        const mockDir: FileSystemDirectoryHandle = {
-            kind: 'directory',
-            name: 'test',
-            values: async function* () {},
-            getFileHandle: vi.fn().mockImplementation(async (_name: string) => ({
-                createWritable: async () => ({
-                    write: vi.fn().mockResolvedValue(undefined),
-                    close: vi.fn().mockResolvedValue(undefined),
-                }),
-            })),
-            getDirectoryHandle: vi.fn().mockResolvedValue(mockSubdir),
-            removeEntry: vi.fn().mockResolvedValue(undefined),
-        } as unknown as FileSystemDirectoryHandle
-
         await saveToDirectory(mockDir, root)
 
         expect(removeEntry).toHaveBeenCalledTimes(1)
-        expect(removeEntry).toHaveBeenCalledWith('obsolete.yaml')
-        expect(expectedGetFile).not.toHaveBeenCalled()
-        expect(staleGetFile).not.toHaveBeenCalled()
+        expect(removeEntry).toHaveBeenCalledWith('root-obsolete.yaml')
     })
 
     it('overlaps descendant writes instead of forcing them to run sequentially', async () => {
@@ -378,37 +352,31 @@ describe('saveToDirectory', () => {
         }
         const descendantWrites = new Map<string, string>()
 
-        const mockSubdir: FileSystemDirectoryHandle = {
-            kind: 'directory',
-            name: 'my-system',
-            values: async function* () {},
-            getFileHandle: vi.fn().mockImplementation(async (name: string) => ({
-                createWritable: async () => ({
-                    write: vi.fn().mockImplementation(async (content: string) => {
-                        descendantWrites.set(name, content)
-                        activeWrites += 1
-                        maxActiveWrites = Math.max(maxActiveWrites, activeWrites)
-                        await new Promise<void>((resolve) => {
-                            releaseWrites.push(() => {
-                                activeWrites -= 1
-                                resolve()
-                            })
-                        })
-                    }),
-                    close: vi.fn().mockResolvedValue(undefined),
-                }),
-            })),
-            removeEntry: vi.fn().mockResolvedValue(undefined),
-        } as unknown as FileSystemDirectoryHandle
-
         const mockDir: FileSystemDirectoryHandle = {
             kind: 'directory',
             name: 'test',
             values: async function* () {},
-            getFileHandle: vi.fn().mockImplementation(async (_name: string) => ({
-                createWritable: async () => rootWritable,
-            })),
-            getDirectoryHandle: vi.fn().mockResolvedValue(mockSubdir),
+            getFileHandle: vi.fn().mockImplementation(async (name: string) => {
+                if (name === 'root.yaml') {
+                    return { createWritable: async () => rootWritable }
+                }
+                return {
+                    createWritable: async () => ({
+                        write: vi.fn().mockImplementation(async (content: string) => {
+                            descendantWrites.set(name, content)
+                            activeWrites += 1
+                            maxActiveWrites = Math.max(maxActiveWrites, activeWrites)
+                            await new Promise<void>((resolve) => {
+                                releaseWrites.push(() => {
+                                    activeWrites -= 1
+                                    resolve()
+                                })
+                            })
+                        }),
+                        close: vi.fn().mockResolvedValue(undefined),
+                    }),
+                }
+            }),
             removeEntry: vi.fn().mockResolvedValue(undefined),
         } as unknown as FileSystemDirectoryHandle
 
@@ -425,174 +393,26 @@ describe('saveToDirectory', () => {
         for (const release of releaseWrites) release()
         await savePromise
 
-        expect(descendantWrites.has('my-system-gateway.yaml')).toBe(true)
-        expect(descendantWrites.has('gateway-auth.yaml')).toBe(true)
-        expect(descendantWrites.has('gateway-orders.yaml')).toBe(true)
-    })
-
-    it('removes old root yaml and subdirectory when previousRootId differs from new root id', async () => {
-        const removeEntry = vi.fn().mockResolvedValue(undefined)
-        const mockSubdir: FileSystemDirectoryHandle = {
-            kind: 'directory',
-            name: 'my-system',
-            values: async function* () {},
-            getFileHandle: vi.fn().mockImplementation(async () => ({
-                createWritable: async () => ({
-                    write: vi.fn().mockResolvedValue(undefined),
-                    close: vi.fn().mockResolvedValue(undefined),
-                }),
-            })),
-            removeEntry: vi.fn().mockResolvedValue(undefined),
-        } as unknown as FileSystemDirectoryHandle
-        const mockDir: FileSystemDirectoryHandle = {
-            kind: 'directory',
-            name: 'test',
-            values: async function* () {},
-            getFileHandle: vi.fn().mockImplementation(async () => ({
-                createWritable: async () => ({
-                    write: vi.fn().mockResolvedValue(undefined),
-                    close: vi.fn().mockResolvedValue(undefined),
-                }),
-            })),
-            getDirectoryHandle: vi.fn().mockResolvedValue(mockSubdir),
-            removeEntry,
-        } as unknown as FileSystemDirectoryHandle
-
-        await saveToDirectory(mockDir, root, 'old-root')
-
-        expect(removeEntry).toHaveBeenCalledWith('old-root.yaml')
-        expect(removeEntry).toHaveBeenCalledWith('old-root', { recursive: true })
-    })
-
-    it('does not remove anything when previousRootId matches current root id', async () => {
-        const removeEntry = vi.fn().mockResolvedValue(undefined)
-        const mockSubdir: FileSystemDirectoryHandle = {
-            kind: 'directory',
-            name: 'my-system',
-            values: async function* () {},
-            getFileHandle: vi.fn().mockImplementation(async () => ({
-                createWritable: async () => ({
-                    write: vi.fn().mockResolvedValue(undefined),
-                    close: vi.fn().mockResolvedValue(undefined),
-                }),
-            })),
-            removeEntry: vi.fn().mockResolvedValue(undefined),
-        } as unknown as FileSystemDirectoryHandle
-        const mockDir: FileSystemDirectoryHandle = {
-            kind: 'directory',
-            name: 'test',
-            values: async function* () {},
-            getFileHandle: vi.fn().mockImplementation(async () => ({
-                createWritable: async () => ({
-                    write: vi.fn().mockResolvedValue(undefined),
-                    close: vi.fn().mockResolvedValue(undefined),
-                }),
-            })),
-            getDirectoryHandle: vi.fn().mockResolvedValue(mockSubdir),
-            removeEntry,
-        } as unknown as FileSystemDirectoryHandle
-
-        await saveToDirectory(mockDir, root, root.id)
-
-        expect(removeEntry).not.toHaveBeenCalledWith(`${root.id}.yaml`)
-        expect(removeEntry).not.toHaveBeenCalledWith(root.id, { recursive: true })
-    })
-
-    it('does not attempt cleanup when no previousRootId is given', async () => {
-        const removeEntry = vi.fn().mockResolvedValue(undefined)
-        const mockSubdir: FileSystemDirectoryHandle = {
-            kind: 'directory',
-            name: 'my-system',
-            values: async function* () {},
-            getFileHandle: vi.fn().mockImplementation(async () => ({
-                createWritable: async () => ({
-                    write: vi.fn().mockResolvedValue(undefined),
-                    close: vi.fn().mockResolvedValue(undefined),
-                }),
-            })),
-            removeEntry: vi.fn().mockResolvedValue(undefined),
-        } as unknown as FileSystemDirectoryHandle
-        const mockDir: FileSystemDirectoryHandle = {
-            kind: 'directory',
-            name: 'test',
-            values: async function* () {},
-            getFileHandle: vi.fn().mockImplementation(async () => ({
-                createWritable: async () => ({
-                    write: vi.fn().mockResolvedValue(undefined),
-                    close: vi.fn().mockResolvedValue(undefined),
-                }),
-            })),
-            getDirectoryHandle: vi.fn().mockResolvedValue(mockSubdir),
-            removeEntry,
-        } as unknown as FileSystemDirectoryHandle
-
-        await saveToDirectory(mockDir, root)
-
-        expect(removeEntry).not.toHaveBeenCalled()
-    })
-
-    it('proceeds with save even if old root files do not exist', async () => {
-        const removeEntry = vi
-            .fn()
-            .mockRejectedValue(new DOMException('Not found', 'NotFoundError'))
-        const mockSubdir: FileSystemDirectoryHandle = {
-            kind: 'directory',
-            name: 'my-system',
-            values: async function* () {},
-            getFileHandle: vi.fn().mockImplementation(async () => ({
-                createWritable: async () => ({
-                    write: vi.fn().mockResolvedValue(undefined),
-                    close: vi.fn().mockResolvedValue(undefined),
-                }),
-            })),
-            removeEntry: vi.fn().mockResolvedValue(undefined),
-        } as unknown as FileSystemDirectoryHandle
-        const mockDir: FileSystemDirectoryHandle = {
-            kind: 'directory',
-            name: 'test',
-            values: async function* () {},
-            getFileHandle: vi.fn().mockImplementation(async () => ({
-                createWritable: async () => ({
-                    write: vi.fn().mockResolvedValue(undefined),
-                    close: vi.fn().mockResolvedValue(undefined),
-                }),
-            })),
-            getDirectoryHandle: vi.fn().mockResolvedValue(mockSubdir),
-            removeEntry,
-        } as unknown as FileSystemDirectoryHandle
-
-        await expect(saveToDirectory(mockDir, root, 'old-root')).resolves.toBeUndefined()
+        expect(descendantWrites.has('root-gateway.yaml')).toBe(true)
+        expect(descendantWrites.has('root-gateway-auth.yaml')).toBe(true)
+        expect(descendantWrites.has('root-gateway-orders.yaml')).toBe(true)
     })
 
     it('rejects when a concurrent descendant write fails', async () => {
         const writeError = new Error('disk full')
 
-        const mockSubdir: FileSystemDirectoryHandle = {
-            kind: 'directory',
-            name: 'my-system',
-            values: async function* () {},
-            getFileHandle: vi.fn().mockImplementation(async (name: string) => ({
-                createWritable: async () => ({
-                    write: vi.fn().mockImplementation(async () => {
-                        if (name === 'gateway-auth.yaml') throw writeError
-                    }),
-                    close: vi.fn().mockResolvedValue(undefined),
-                }),
-            })),
-            removeEntry: vi.fn().mockResolvedValue(undefined),
-        } as unknown as FileSystemDirectoryHandle
-
         const mockDir: FileSystemDirectoryHandle = {
             kind: 'directory',
             name: 'test',
             values: async function* () {},
-            getFileHandle: vi.fn().mockImplementation(async (_name: string) => ({
+            getFileHandle: vi.fn().mockImplementation(async (name: string) => ({
                 createWritable: async () => ({
-                    write: vi.fn().mockResolvedValue(undefined),
+                    write: vi.fn().mockImplementation(async () => {
+                        if (name === 'root-gateway-auth.yaml') throw writeError
+                    }),
                     close: vi.fn().mockResolvedValue(undefined),
                 }),
             })),
-            getDirectoryHandle: vi.fn().mockResolvedValue(mockSubdir),
             removeEntry: vi.fn().mockResolvedValue(undefined),
         } as unknown as FileSystemDirectoryHandle
 
