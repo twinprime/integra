@@ -36,14 +36,26 @@ const root = makeComp('my-system', [mid])
 // ─── rootFilename / descendantPath ────────────────────────────────────────────
 
 describe('rootFilename', () => {
-    it('returns <rootId>.yaml', () => {
-        expect(rootFilename('my-system')).toBe('my-system.yaml')
+    it('always returns root.yaml', () => {
+        expect(rootFilename()).toBe('root.yaml')
     })
 })
 
 describe('descendantPath', () => {
-    it('returns <rootId>/<parentId>-<selfId>.yaml', () => {
-        expect(descendantPath('my-system', 'gateway', 'auth')).toBe('my-system/gateway-auth.yaml')
+    it('returns root-<selfId>.yaml for a direct child of root', () => {
+        expect(descendantPath([], 'auth')).toBe('root-auth.yaml')
+    })
+    it('returns root-<ancestor>-<selfId>.yaml for deeper descendants', () => {
+        expect(descendantPath(['gateway'], 'auth')).toBe('root-gateway-auth.yaml')
+    })
+    it('handles multiple ancestors', () => {
+        expect(descendantPath(['gateway', 'sub'], 'leaf')).toBe('root-gateway-sub-leaf.yaml')
+    })
+    it('produces the same filename for different ancestor/self splits that yield identical joined segments (known limitation of hyphen-separated scheme)', () => {
+        // 'my-system' ancestor + 'auth' self  vs  'my' ancestor + 'system-auth' self
+        // both produce the same filename — callers must ensure IDs don't create collisions
+        expect(descendantPath(['my-system'], 'auth')).toBe('root-my-system-auth.yaml')
+        expect(descendantPath(['my'], 'system-auth')).toBe('root-my-system-auth.yaml')
     })
 })
 
@@ -94,9 +106,9 @@ describe('flattenToFiles', () => {
 
 describe('serializeComponentYaml', () => {
     it('puts childPaths as subComponents list', () => {
-        const content = serializeComponentYaml(leaf1, ['my-system/gateway-auth-child.yaml'])
+        const content = serializeComponentYaml(leaf1, ['root-gateway-auth-child.yaml'])
         const parsed = yaml.load(content) as Record<string, unknown>
-        expect(parsed.subComponents).toEqual(['my-system/gateway-auth-child.yaml'])
+        expect(parsed.subComponents).toEqual(['root-gateway-auth-child.yaml'])
     })
 
     it('emits empty list when no children', () => {

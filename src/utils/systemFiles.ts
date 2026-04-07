@@ -27,14 +27,18 @@ const DESCENDANT_WRITE_CONCURRENCY = 4
 
 // ── File path helpers ─────────────────────────────────────────────────────────
 
-/** Relative path for the root component YAML (in the chosen directory). */
-export function rootFilename(rootId: string): string {
-    return `${rootId}.yaml`
+/** Filename for the root component YAML. Always 'root.yaml'. */
+export function rootFilename(): string {
+    return 'root.yaml'
 }
 
-/** Relative path for a descendant YAML (in the `<rootId>/` subdirectory). */
-export function descendantPath(rootId: string, parentId: string, selfId: string): string {
-    return `${rootId}/${parentId}-${selfId}.yaml`
+/**
+ * Filename for a descendant YAML.
+ * `ancestors` is the list of component IDs from root's direct child down to
+ * the immediate parent (not including the root itself or self).
+ */
+export function descendantPath(ancestors: string[], selfId: string): string {
+    return `root-${[...ancestors, selfId].join('-')}.yaml`
 }
 
 // ── Flatten tree → file entries ───────────────────────────────────────────────
