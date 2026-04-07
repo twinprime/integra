@@ -268,7 +268,7 @@ describe('TreeView - Directory File System', () => {
             )
 
             await userEvent.click(screen.getByTitle('Save system to YAML file'))
-            await waitFor(() => expect(writables.get('loaded.yaml')?.write).toHaveBeenCalledOnce())
+            await waitFor(() => expect(writables.get('root.yaml')?.write).toHaveBeenCalledOnce())
 
             // Only one showDirectoryPicker call (shared between load and save)
             expect(showDirectoryPicker).toHaveBeenCalledOnce()
