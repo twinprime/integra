@@ -1,5 +1,5 @@
 uuid: demo-auth-service-uuid
-id: auth-service
+id: AuthService
 name: Auth Service
 type: component
 description: Handles user authentication and session management.
