@@ -605,7 +605,7 @@ describe('loadFromUrl', () => {
         const rootYaml = serializeComponentYaml(makeComp('my-system'), [])
         vi.stubGlobal(
             'fetch',
-            makeFetchMock({ '/models/my-system/my-system.yaml': { status: 200, body: rootYaml } })
+            makeFetchMock({ '/models/my-system/root.yaml': { status: 200, body: rootYaml } })
         )
 
         const result = await loadFromUrl('my-system')
@@ -614,15 +614,13 @@ describe('loadFromUrl', () => {
     })
 
     it('recursively fetches sub-components', async () => {
-        const rootYaml = serializeComponentYaml(makeComp('my-system'), [
-            'my-system/my-system-auth.yaml',
-        ])
+        const rootYaml = serializeComponentYaml(makeComp('my-system'), ['root-auth.yaml'])
         const authYaml = serializeComponentYaml(makeComp('auth'), [])
         vi.stubGlobal(
             'fetch',
             makeFetchMock({
-                '/models/my-system/my-system.yaml': { status: 200, body: rootYaml },
-                '/models/my-system/my-system-auth.yaml': { status: 200, body: authYaml },
+                '/models/my-system/root.yaml': { status: 200, body: rootYaml },
+                '/models/my-system/root-auth.yaml': { status: 200, body: authYaml },
             })
         )
 
@@ -633,16 +631,13 @@ describe('loadFromUrl', () => {
     })
 
     it('fetches sibling sub-components in parallel (each URL fetched once)', async () => {
-        const rootYaml = serializeComponentYaml(makeComp('sys'), [
-            'sys/sys-a.yaml',
-            'sys/sys-b.yaml',
-        ])
+        const rootYaml = serializeComponentYaml(makeComp('sys'), ['root-a.yaml', 'root-b.yaml'])
         const aYaml = serializeComponentYaml(makeComp('a'), [])
         const bYaml = serializeComponentYaml(makeComp('b'), [])
         const fetchMock = makeFetchMock({
-            '/models/sys/sys.yaml': { status: 200, body: rootYaml },
-            '/models/sys/sys-a.yaml': { status: 200, body: aYaml },
-            '/models/sys/sys-b.yaml': { status: 200, body: bYaml },
+            '/models/sys/root.yaml': { status: 200, body: rootYaml },
+            '/models/sys/root-a.yaml': { status: 200, body: aYaml },
+            '/models/sys/root-b.yaml': { status: 200, body: bYaml },
         })
         vi.stubGlobal('fetch', fetchMock)
 
@@ -653,19 +648,19 @@ describe('loadFromUrl', () => {
     it('throws NotFoundError when root YAML returns 404', async () => {
         vi.stubGlobal(
             'fetch',
-            makeFetchMock({ '/models/missing/missing.yaml': { status: 404, body: 'Not Found' } })
+            makeFetchMock({ '/models/missing/root.yaml': { status: 404, body: 'Not Found' } })
         )
 
         await expect(loadFromUrl('missing')).rejects.toBeInstanceOf(NotFoundError)
     })
 
     it('throws NotFoundError when a sub-component returns 404', async () => {
-        const rootYaml = serializeComponentYaml(makeComp('sys'), ['sys/sys-ghost.yaml'])
+        const rootYaml = serializeComponentYaml(makeComp('sys'), ['root-ghost.yaml'])
         vi.stubGlobal(
             'fetch',
             makeFetchMock({
-                '/models/sys/sys.yaml': { status: 200, body: rootYaml },
-                '/models/sys/sys-ghost.yaml': { status: 404, body: 'Not Found' },
+                '/models/sys/root.yaml': { status: 200, body: rootYaml },
+                '/models/sys/root-ghost.yaml': { status: 404, body: 'Not Found' },
             })
         )
 
@@ -676,7 +671,7 @@ describe('loadFromUrl', () => {
         vi.stubGlobal(
             'fetch',
             makeFetchMock({
-                '/models/sys/sys.yaml': { status: 500, body: 'Internal Server Error' },
+                '/models/sys/root.yaml': { status: 500, body: 'Internal Server Error' },
             })
         )
 
@@ -688,7 +683,7 @@ describe('loadFromUrl', () => {
         vi.stubGlobal(
             'fetch',
             makeFetchMock({
-                '/models/bad/bad.yaml': { status: 200, body: 'type: not-a-component\nid: bad' },
+                '/models/bad/root.yaml': { status: 200, body: 'type: not-a-component\nid: bad' },
             })
         )
 

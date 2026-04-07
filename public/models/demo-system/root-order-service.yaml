@@ -1,5 +1,5 @@
 uuid: demo-order-service-uuid
-id: OrderService
+id: order-service
 name: Order Service
 type: component
 description: Manages the order lifecycle from placement to fulfilment.

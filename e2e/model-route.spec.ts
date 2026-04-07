@@ -19,7 +19,7 @@ name: E2E Parent System
 type: component
 description: Parent system with sub-component
 subComponents:
-  - e2e-parent/root-child.yaml
+  - root-child.yaml
 actors: []
 useCaseDiagrams: []
 interfaces: []
@@ -38,10 +38,10 @@ interfaces: []
 `.trim()
 
 test.describe('/models/:component-id route', () => {
-    test('loads a root component from /models/<id>/<id>.yaml and locks browse mode', async ({
+    test('loads a root component from /models/<id>/root.yaml and locks browse mode', async ({
         page,
     }) => {
-        await page.route('/models/e2e-system/e2e-system.yaml', (route) =>
+        await page.route('/models/e2e-system/root.yaml', (route) =>
             route.fulfill({ status: 200, contentType: 'text/yaml', body: ROOT_YAML })
         )
 
@@ -65,7 +65,7 @@ test.describe('/models/:component-id route', () => {
     })
 
     test('recursively loads sub-components', async ({ page }) => {
-        await page.route('/models/e2e-parent/e2e-parent.yaml', (route) =>
+        await page.route('/models/e2e-parent/root.yaml', (route) =>
             route.fulfill({ status: 200, contentType: 'text/yaml', body: ROOT_WITH_CHILD_YAML })
         )
         await page.route('/models/e2e-parent/root-child.yaml', (route) =>
@@ -79,7 +79,7 @@ test.describe('/models/:component-id route', () => {
     })
 
     test('shows 404 page when YAML is not found', async ({ page }) => {
-        await page.route('/models/nonexistent/nonexistent.yaml', (route) =>
+        await page.route('/models/nonexistent/root.yaml', (route) =>
             route.fulfill({ status: 404, body: 'Not Found' })
         )
 
@@ -92,7 +92,7 @@ test.describe('/models/:component-id route', () => {
     })
 
     test('"Go to app" link navigates to home', async ({ page }) => {
-        await page.route('/models/nonexistent/nonexistent.yaml', (route) =>
+        await page.route('/models/nonexistent/root.yaml', (route) =>
             route.fulfill({ status: 404, body: 'Not Found' })
         )
 
@@ -103,7 +103,7 @@ test.describe('/models/:component-id route', () => {
     })
 
     test('shows error page on non-404 fetch failure', async ({ page }) => {
-        await page.route('/models/broken/broken.yaml', (route) =>
+        await page.route('/models/broken/root.yaml', (route) =>
             route.fulfill({ status: 500, body: 'Internal Server Error' })
         )
 

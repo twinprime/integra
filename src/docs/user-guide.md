@@ -70,15 +70,16 @@ If the web server serving Integra also hosts model YAML files under `/models/`, 
 https://your-server/models/<component-id>
 ```
 
-The app will fetch `/models/<component-id>.yaml` and all referenced sub-components automatically, then render the model in **browse mode** (read-only, edit mode locked). If the model file is not found, a 404 page is shown.
+The app will fetch `/models/<component-id>/root.yaml` and all referenced sub-components automatically, then render the model in **browse mode** (read-only, edit mode locked). If the model file is not found, a 404 page is shown.
 
 **Expected file layout on the server:**
 
-```
+``` 
 /models/
-  <component-id>.yaml          ← root component
   <component-id>/
-    <parent-id>-<child-id>.yaml
+    root.yaml
+    root-<child-id>.yaml
+    root-<child-id>-<grandchild-id>.yaml
     ...
 ```
 
