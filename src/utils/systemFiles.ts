@@ -253,24 +253,26 @@ async function fetchRawComponent(urlPath: string): Promise<RawComponent> {
 }
 
 async function fetchComponentTree(
-    relativePath: string,
+    filename: string,
+    rootId: string,
     fileMap: Map<string, RawComponent>
 ): Promise<void> {
-    if (fileMap.has(relativePath)) return
-    const raw = await fetchRawComponent(`${MODELS_BASE_PATH}/${relativePath}`)
-    fileMap.set(relativePath, raw)
-    await Promise.all(raw.subComponents.map((childPath) => fetchComponentTree(childPath, fileMap)))
+    if (fileMap.has(filename)) return
+    const raw = await fetchRawComponent(`${MODELS_BASE_PATH}/${rootId}/${filename}`)
+    fileMap.set(filename, raw)
+    await Promise.all(
+        raw.subComponents.map((childFilename) => fetchComponentTree(childFilename, rootId, fileMap))
+    )
 }
 
 /**
- * Loads a component tree from the web server at /models/<rootId>/<rootId>.yaml,
- * recursively fetching all referenced sub-components.
+ * Loads a component tree from the web server at /models/<rootId>/root.yaml,
+ * recursively fetching all referenced sub-components by bare filename.
  */
 export async function loadFromUrl(rootId: string): Promise<ComponentNode> {
-    const rootPath = `${rootId}/${rootId}.yaml`
     const fileMap = new Map<string, RawComponent>()
-    await fetchComponentTree(rootPath, fileMap)
-    const rootRaw = fileMap.get(rootPath)
+    await fetchComponentTree('root.yaml', rootId, fileMap)
+    const rootRaw = fileMap.get('root.yaml')
     if (!rootRaw) throw new Error(`Root component not found for id: ${rootId}`)
     return parseComponentNode(assembleTree(rootRaw, fileMap))
 }
