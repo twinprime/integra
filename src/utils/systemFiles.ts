@@ -6,12 +6,14 @@
  * File layout:
  *   <chosen-dir>/
  *     root.yaml                   ← root component (entry point)
- *     <root-id>/                  ← flat subdir for ALL descendants
+ *     <root-id>/                  ← descendant YAML files for Task 1
  *       root-<ancestor-id>-<self-id>.yaml
  *       ...
  *
- * The `subComponents` field in each YAML holds a list of relative file paths
- * (relative to the chosen directory root), e.g.:
+ * The `subComponents` field in each YAML holds logical flat file-map keys
+ * used to resolve references during loading. In Task 1, those descendant
+ * files are still stored physically inside the `<root-id>/` subdirectory.
+ * Example:
  *   subComponents:
  *     - root-gateway-auth.yaml
  *     - root-gateway-orders.yaml
@@ -40,7 +42,7 @@ export function descendantPath(parentIds: string[], selfId: string): string {
 // ── Flatten tree → file entries ───────────────────────────────────────────────
 
 export interface FileEntry {
-    /** Relative path from the chosen directory root, e.g. "my-system/auth.yaml" */
+    /** Relative path from the chosen directory root, e.g. "root-gateway-auth.yaml" */
     relativePath: string
     /** The component node (without nested subComponents — those become childPaths) */
     comp: ComponentNode
@@ -160,7 +162,9 @@ export async function saveToDirectory(
     const subdirName = root.id
     const rootPath = rootFilename(root.id)
     const expectedDescendantFiles = new Set(
-        entries.filter(({ relativePath }) => relativePath !== rootPath).map(({ relativePath }) => relativePath)
+        entries
+            .filter(({ relativePath }) => relativePath !== rootPath)
+            .map(({ relativePath }) => relativePath)
     )
 
     // Get or create the subdirectory
