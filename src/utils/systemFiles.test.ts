@@ -388,21 +388,17 @@ describe('saveToDirectory', () => {
 })
 
 describe('loadFromDirectory', () => {
-    it('loads and assembles a tree from directory files', async () => {
-        const rootYaml = serializeComponentYaml(makeComp('my-system'), [
-            'my-system/my-system-gateway.yaml',
-        ])
-        const gatewayYaml = serializeComponentYaml(makeComp('gateway'), [
-            'my-system/gateway-auth.yaml',
-        ])
+    it('loads and assembles a tree from flat directory files', async () => {
+        const rootYaml = serializeComponentYaml(makeComp('my-system'), ['my-system-gateway.yaml'])
+        const gatewayYaml = serializeComponentYaml(makeComp('gateway'), ['gateway-auth.yaml'])
         const authYaml = serializeComponentYaml(makeComp('auth'), [])
 
-        const subdirFiles = new Map([
+        const topFiles = new Map([
+            ['my-system.yaml', rootYaml],
             ['my-system-gateway.yaml', gatewayYaml],
             ['gateway-auth.yaml', authYaml],
         ])
-        const topFiles = new Map([['my-system.yaml', rootYaml]])
-        const handle = makeFSDirectoryHandle(topFiles, new Map([['my-system', subdirFiles]]))
+        const handle = makeFSDirectoryHandle(topFiles)
 
         const loaded = await loadFromDirectory(handle)
         expect(loaded.id).toBe('my-system')
@@ -416,7 +412,7 @@ describe('loadFromDirectory', () => {
         await expect(loadFromDirectory(handle)).rejects.toThrow('No component files found')
     })
 
-    it('throws when the directory contains multiple top-level YAML files', async () => {
+    it('throws when the directory contains multiple root component YAML files', async () => {
         const yaml1 = serializeComponentYaml(makeComp('system-a'), [])
         const yaml2 = serializeComponentYaml(makeComp('system-b'), [])
         const handle = makeFSDirectoryHandle(
@@ -425,7 +421,9 @@ describe('loadFromDirectory', () => {
                 ['system-b.yaml', yaml2],
             ])
         )
-        await expect(loadFromDirectory(handle)).rejects.toThrow('contains 2 YAML files')
+        await expect(loadFromDirectory(handle)).rejects.toThrow(
+            'contains 2 root component YAML files'
+        )
     })
 })
 
