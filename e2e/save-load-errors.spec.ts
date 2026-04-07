@@ -21,26 +21,6 @@ const SAVE_FAILURE_MOCK_SCRIPT = `
           }
         };
       },
-      getDirectoryHandle: async function() {
-        return {
-          kind: 'directory',
-          name: 'System',
-          values: async function*() {},
-          getFileHandle: async function(name) {
-            return {
-              kind: 'file',
-              name: name,
-              createWritable: async function() {
-                return {
-                  write: async function() { throw new Error('disk full'); },
-                  close: async function() {}
-                };
-              }
-            };
-          },
-          removeEntry: async function() {}
-        };
-      },
       removeEntry: async function() {}
     };
   };
@@ -51,6 +31,17 @@ test.beforeEach(async ({ page }) => {
         localStorage.setItem('integra-system', value)
     }, makeLocalStorageValue())
     await page.addInitScript({ content: SAVE_FAILURE_MOCK_SCRIPT })
+})
+
+test('save failure mock exposes only flat file handles', async ({ page }) => {
+    await gotoHome(page)
+
+    const hasNestedDirectoryApi = await page.evaluate(async () => {
+        const handle = await window.showDirectoryPicker()
+        return 'getDirectoryHandle' in handle
+    })
+
+    expect(hasNestedDirectoryApi).toBe(false)
 })
 
 test('save failure shows an alert and keeps the model marked as unsaved', async ({ page }) => {

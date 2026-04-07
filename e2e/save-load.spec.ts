@@ -22,15 +22,6 @@ const SAVE_MOCK_SCRIPT = `
         close: async function() {}
       };
     }
-    var subdir = {
-      kind: 'directory',
-      name: 'System',
-      values: async function*() {},
-      getFileHandle: async function(name) {
-        return { kind: 'file', name: name, createWritable: async function() { return makeWritable('sub/' + name); } };
-      },
-      removeEntry: async function() {}
-    };
     return {
       kind: 'directory',
       name: 'test-dir',
@@ -38,7 +29,6 @@ const SAVE_MOCK_SCRIPT = `
       getFileHandle: async function(name) {
         return { kind: 'file', name: name, createWritable: async function() { return makeWritable(name); } };
       },
-      getDirectoryHandle: async function() { return subdir; },
       removeEntry: async function() {}
     };
   };
@@ -133,6 +123,17 @@ test.describe('unsaved changes indicator', () => {
 test.describe('save flow with mocked directory picker', () => {
     test.beforeEach(async ({ page }) => {
         await page.addInitScript({ content: SAVE_MOCK_SCRIPT })
+    })
+
+    test('save mock exposes only flat file handles', async ({ page }) => {
+        await gotoHome(page)
+
+        const hasNestedDirectoryApi = await page.evaluate(async () => {
+            const handle = await window.showDirectoryPicker()
+            return 'getDirectoryHandle' in handle
+        })
+
+        expect(hasNestedDirectoryApi).toBe(false)
     })
 
     test('clicking Save invokes showDirectoryPicker and writes YAML files', async ({ page }) => {
