@@ -127,17 +127,17 @@ describe('assembleTree', () => {
     it('assembles a 3-level tree correctly', () => {
         const rawRoot: RawComponent = {
             ...makeComp('my-system'),
-            subComponents: ['my-system/my-system-gateway.yaml'],
+            subComponents: ['my-system-gateway.yaml'],
         }
         const rawGateway: RawComponent = {
             ...makeComp('gateway'),
-            subComponents: ['my-system/gateway-auth.yaml'],
+            subComponents: ['gateway-auth.yaml'],
         }
         const rawAuth: RawComponent = { ...makeComp('auth'), subComponents: [] }
         const fileMap = new Map<string, RawComponent>([
             ['my-system.yaml', rawRoot],
-            ['my-system/my-system-gateway.yaml', rawGateway],
-            ['my-system/gateway-auth.yaml', rawAuth],
+            ['my-system-gateway.yaml', rawGateway],
+            ['gateway-auth.yaml', rawAuth],
         ])
         const assembled = assembleTree(rawRoot, fileMap)
         expect(assembled.id).toBe('my-system')
@@ -147,7 +147,7 @@ describe('assembleTree', () => {
     })
 
     it('throws if a referenced file is missing', () => {
-        const rawRoot: RawComponent = { ...makeComp('root'), subComponents: ['root/missing.yaml'] }
+        const rawRoot: RawComponent = { ...makeComp('root'), subComponents: ['missing.yaml'] }
         const fileMap = new Map<string, RawComponent>([['root.yaml', rawRoot]])
         expect(() => assembleTree(rawRoot, fileMap)).toThrow('Missing component file')
     })

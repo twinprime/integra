@@ -7,8 +7,8 @@ description: |
 
   Contains two sub-components: **Auth Service** and **Order Service**.
 subComponents:
-  - demo-system/demo-system-auth-service.yaml
-  - demo-system/demo-system-order-service.yaml
+  - demo-system-auth-service.yaml
+  - demo-system-order-service.yaml
 actors:
   - uuid: demo-actor-customer-uuid
     id: Customer
