@@ -67,28 +67,26 @@ describe('flattenToFiles', () => {
         expect(entries).toHaveLength(4) // root, gateway, auth, orders
     })
 
-    it('root entry has correct relativePath and childPaths', () => {
+    it('root entry has relativePath root.yaml and correct childPaths', () => {
         const entries = flattenToFiles(root)
-        const rootEntry = entries.find((e) => e.relativePath === 'my-system.yaml')!
+        const rootEntry = entries.find((e) => e.relativePath === 'root.yaml')!
         expect(rootEntry).toBeDefined()
-        expect(rootEntry.childPaths).toEqual(['my-system/my-system-gateway.yaml'])
+        expect(rootEntry.childPaths).toEqual(['root-gateway.yaml'])
     })
 
     it('mid-level entry has correct path and childPaths', () => {
         const entries = flattenToFiles(root)
-        const gatewayEntry = entries.find(
-            (e) => e.relativePath === 'my-system/my-system-gateway.yaml'
-        )!
+        const gatewayEntry = entries.find((e) => e.relativePath === 'root-gateway.yaml')!
         expect(gatewayEntry).toBeDefined()
         expect(gatewayEntry.childPaths).toEqual([
-            'my-system/gateway-auth.yaml',
-            'my-system/gateway-orders.yaml',
+            'root-gateway-auth.yaml',
+            'root-gateway-orders.yaml',
         ])
     })
 
     it('leaf entry has empty childPaths', () => {
         const entries = flattenToFiles(root)
-        const authEntry = entries.find((e) => e.relativePath === 'my-system/gateway-auth.yaml')!
+        const authEntry = entries.find((e) => e.relativePath === 'root-gateway-auth.yaml')!
         expect(authEntry).toBeDefined()
         expect(authEntry.childPaths).toEqual([])
     })
@@ -97,7 +95,7 @@ describe('flattenToFiles', () => {
         const solo = makeComp('solo')
         const entries = flattenToFiles(solo)
         expect(entries).toHaveLength(1)
-        expect(entries[0].relativePath).toBe('solo.yaml')
+        expect(entries[0].relativePath).toBe('root.yaml')
         expect(entries[0].childPaths).toEqual([])
     })
 })
@@ -144,17 +142,17 @@ describe('assembleTree', () => {
     it('assembles a 3-level tree correctly', () => {
         const rawRoot: RawComponent = {
             ...makeComp('my-system'),
-            subComponents: ['my-system/my-system-gateway.yaml'],
+            subComponents: ['root-gateway.yaml'],
         }
         const rawGateway: RawComponent = {
             ...makeComp('gateway'),
-            subComponents: ['my-system/gateway-auth.yaml'],
+            subComponents: ['root-gateway-auth.yaml'],
         }
         const rawAuth: RawComponent = { ...makeComp('auth'), subComponents: [] }
         const fileMap = new Map<string, RawComponent>([
-            ['my-system.yaml', rawRoot],
-            ['my-system/my-system-gateway.yaml', rawGateway],
-            ['my-system/gateway-auth.yaml', rawAuth],
+            ['root.yaml', rawRoot],
+            ['root-gateway.yaml', rawGateway],
+            ['root-gateway-auth.yaml', rawAuth],
         ])
         const assembled = assembleTree(rawRoot, fileMap)
         expect(assembled.id).toBe('my-system')
@@ -164,7 +162,10 @@ describe('assembleTree', () => {
     })
 
     it('throws if a referenced file is missing', () => {
-        const rawRoot: RawComponent = { ...makeComp('root'), subComponents: ['root/missing.yaml'] }
+        const rawRoot: RawComponent = {
+            ...makeComp('root'),
+            subComponents: ['root-missing.yaml'],
+        }
         const fileMap = new Map<string, RawComponent>([['root.yaml', rawRoot]])
         expect(() => assembleTree(rawRoot, fileMap)).toThrow('Missing component file')
     })

@@ -60,18 +60,18 @@ export interface FileEntry {
 export function flattenToFiles(root: ComponentNode): FileEntry[] {
     const entries: FileEntry[] = []
 
-    function visit(comp: ComponentNode, parentId: string | null): void {
-        const path =
-            parentId === null ? rootFilename(root.id) : descendantPath(root.id, parentId, comp.id)
+    function visit(comp: ComponentNode, ancestors: string[] | null): void {
+        const path = ancestors === null ? rootFilename() : descendantPath(ancestors, comp.id)
+        const childAncestors = ancestors === null ? [] : [...ancestors, comp.id]
 
         const childPaths = comp.subComponents.map((child) =>
-            descendantPath(root.id, comp.id, child.id)
+            descendantPath(childAncestors, child.id)
         )
 
         entries.push({ relativePath: path, comp, childPaths })
 
         for (const child of comp.subComponents) {
-            visit(child, comp.id)
+            visit(child, childAncestors)
         }
     }
 
