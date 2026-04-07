@@ -62,6 +62,8 @@ export function flattenToFiles(root: ComponentNode): FileEntry[] {
         const relativePath = isRoot ? rootFilename(root.id) : descendantPath(ancestorIds, comp.id)
 
         const childPaths = comp.subComponents.map((child) =>
+            // Exclude the root component id here; descendant filenames are rooted on the literal
+            // `root-` prefix, not the actual root id.
             descendantPath(isRoot ? ancestorIds : [...ancestorIds, comp.id], child.id)
         )
 
@@ -162,6 +164,8 @@ export async function saveToDirectory(
     const subdirName = root.id
     const rootPath = rootFilename(root.id)
     const expectedDescendantFiles = new Set(
+        // Task 1 keeps descendant files as bare filenames inside `<rootId>/`; Task 2 should
+        // revisit this comparison once descendants move to the top-level directory.
         entries
             .filter(({ relativePath }) => relativePath !== rootPath)
             .map(({ relativePath }) => relativePath)
