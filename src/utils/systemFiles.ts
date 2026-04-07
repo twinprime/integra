@@ -5,15 +5,13 @@
  *
  * File layout:
  *   <chosen-dir>/
- *     root.yaml                   ← root component (entry point)
- *     <root-id>/                  ← descendant YAML files for Task 1
- *       root-gateway.yaml         ← direct child example
- *       root-gateway-auth.yaml     ← deeper descendant example
- *       ...
+ *     root.yaml                    ← root component (entry point)
+ *     root-gateway.yaml            ← direct child example
+ *     root-gateway-auth.yaml       ← deeper descendant example
+ *     ...
  *
  * The `subComponents` field in each YAML holds logical flat file-map keys
- * used to resolve references during loading. In Task 1, those descendant
- * files are still stored physically inside the `<root-id>/` subdirectory.
+ * used to resolve references during loading.
  * Example:
  *   subComponents:
  *     - root-gateway-auth.yaml
@@ -127,6 +125,10 @@ async function runWithConcurrency<T>(
     )
 }
 
+function isConcurrentMissingEntryError(error: unknown): error is DOMException {
+    return error instanceof DOMException && error.name === 'NotFoundError'
+}
+
 // ── Deserialization ───────────────────────────────────────────────────────────
 
 /** Shape of a parsed component YAML before subComponents are resolved */
@@ -154,89 +156,49 @@ export function assembleTree(
 
 /**
  * Writes the entire component tree to a directory as individual YAML files.
- * - Creates the `<rootId>/` subdirectory if needed.
- * - Removes stale descendant `*.yaml` files in the subdir before writing fresh ones.
+ * - Writes root and descendants as top-level YAML files.
+ * - Treats the chosen directory as dedicated model storage and removes stale
+ *   top-level `*.yaml` files before writing fresh ones.
  */
 export async function saveToDirectory(
     dir: FileSystemDirectoryHandle,
-    root: ComponentNode,
-    previousRootId?: string
+    root: ComponentNode
 ): Promise<void> {
     const entries = flattenToFiles(root)
-    const subdirName = root.id
-    const rootPath = rootFilename(root.id)
-    const expectedDescendantFiles = new Set(
-        // Task 1 keeps descendant files as bare filenames inside `<rootId>/`. This comparison
-        // works because descendantPath() currently returns bare filenames with no `/`, so they
-        // match `entry.name` during the subdirectory iteration below. Task 2 should revisit this
-        // comparison once descendants move to the top-level directory.
-        entries
-            .filter(({ relativePath }) => relativePath !== rootPath)
-            .map(({ relativePath }) => relativePath)
-    )
+    const expectedFiles = new Set(entries.map(({ relativePath }) => relativePath))
 
-    // Get or create the subdirectory
-    const subdir = await dir.getDirectoryHandle(subdirName, { create: true })
-
-    // Remove stale descendant YAML files in the subdirectory.
-    for await (const entry of subdir.values()) {
+    for await (const entry of dir.values()) {
         if (
             entry.kind === 'file' &&
             entry.name.endsWith('.yaml') &&
-            !expectedDescendantFiles.has(entry.name)
+            !expectedFiles.has(entry.name)
         ) {
-            await subdir.removeEntry(entry.name)
+            try {
+                await dir.removeEntry(entry.name)
+            } catch (error) {
+                if (!isConcurrentMissingEntryError(error)) {
+                    throw error
+                }
+            }
         }
     }
-
-    const rootEntry = entries.find(({ relativePath }) => relativePath === rootPath)
-    if (!rootEntry) {
-        throw new Error(`Missing root file entry for component ${root.id}`)
-    }
-
-    await writeComponentFile(
-        dir,
-        rootPath,
-        serializeComponentYaml(rootEntry.comp, rootEntry.childPaths)
-    )
-
-    const descendantJobs = entries
-        .filter(({ relativePath }) => relativePath !== rootPath)
-        .map(({ relativePath, comp, childPaths }) => ({
-            filename: relativePath,
-            content: serializeComponentYaml(comp, childPaths),
-        }))
 
     await runWithConcurrency(
-        descendantJobs,
+        entries,
         DESCENDANT_WRITE_CONCURRENCY,
-        async ({ filename, content }) => {
-            await writeComponentFile(subdir, filename, content)
+        async ({ relativePath, comp, childPaths }) => {
+            await writeComponentFile(dir, relativePath, serializeComponentYaml(comp, childPaths))
         }
     )
-
-    // Clean up old root files if the root ID was renamed
-    if (previousRootId && previousRootId !== root.id) {
-        // Task 2: `${previousRootId}.yaml` cannot exist in Task 1 because the root file is
-        // always `root.yaml`; revisit this cleanup once descendants/root handling moves fully
-        // top-level.
-        await Promise.allSettled([
-            dir.removeEntry(`${previousRootId}.yaml`),
-            dir.removeEntry(previousRootId, { recursive: true }),
-        ])
-    }
 }
 
 /**
  * Loads a component tree from a directory.
- * The directory must contain exactly one top-level `.yaml` file — that file is
- * the root component. Descendant components live in the `<rootId>/` subdirectory.
+ * The directory must contain `root.yaml` plus any descendant top-level `.yaml` files.
  */
 export async function loadFromDirectory(dir: FileSystemDirectoryHandle): Promise<ComponentNode> {
     const fileMap = new Map<string, RawComponent>()
-    const topLevelYamls: string[] = []
 
-    // Read top-level YAML files (exactly one is expected — the root)
     for await (const entry of dir.values()) {
         if (entry.kind === 'file' && entry.name.endsWith('.yaml')) {
             const file = await entry.getFile()
@@ -244,39 +206,19 @@ export async function loadFromDirectory(dir: FileSystemDirectoryHandle): Promise
             const parsed = yaml.load(text) as RawComponent | null
             if (parsed && typeof parsed === 'object' && parsed.type === 'component') {
                 fileMap.set(entry.name, parsed)
-                topLevelYamls.push(entry.name)
-            }
-        } else if (entry.kind === 'directory' && !entry.name.startsWith('.')) {
-            // Read files inside the subdirectory
-            const subdir = entry
-            for await (const child of subdir.values()) {
-                if (child.kind === 'file' && child.name.endsWith('.yaml')) {
-                    const file = await child.getFile()
-                    const text = await file.text()
-                    const parsed = yaml.load(text) as RawComponent | null
-                    if (parsed && typeof parsed === 'object' && parsed.type === 'component') {
-                        // Keep the bare filename as the map key: serialized subComponents
-                        // still reference these flat logical names. Task 2 will unify this
-                        // once descendants move to top-level files.
-                        fileMap.set(child.name, parsed)
-                    }
-                }
             }
         }
     }
 
-    if (topLevelYamls.length === 0) throw new Error('No component files found in directory')
-
-    if (topLevelYamls.length > 1) {
-        // Task 2: replace this length check with a direct `root.yaml` lookup once descendant
-        // files move to top-level paths.
-        throw new Error(
-            `The selected folder contains ${topLevelYamls.length} YAML files ` +
-                `(${topLevelYamls.join(', ')}). Select a folder with exactly one root component YAML file.`
-        )
+    if (fileMap.size === 0) {
+        throw new Error('No component files found in directory')
     }
 
-    const rootRaw = fileMap.get(topLevelYamls[0])!
+    if (!fileMap.has('root.yaml')) {
+        throw new Error('The selected folder must contain root.yaml')
+    }
+
+    const rootRaw = fileMap.get('root.yaml')!
     return parseComponentNode(assembleTree(rootRaw, fileMap))
 }
 
