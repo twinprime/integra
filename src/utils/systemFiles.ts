@@ -7,7 +7,8 @@
  *   <chosen-dir>/
  *     root.yaml                   ← root component (entry point)
  *     <root-id>/                  ← descendant YAML files for Task 1
- *       root-<ancestor-id>-<self-id>.yaml
+ *       root-gateway.yaml         ← direct child example
+ *       root-gateway-auth.yaml     ← deeper descendant example
  *       ...
  *
  * The `subComponents` field in each YAML holds logical flat file-map keys
@@ -63,8 +64,8 @@ export function flattenToFiles(root: ComponentNode): FileEntry[] {
         const childAncestorIds = isRoot ? ancestorIds : [...ancestorIds, comp.id]
 
         const childPaths = comp.subComponents.map((child) =>
-            // Exclude the root component id here; descendant filenames are rooted on the literal
-            // `root-` prefix, not the actual root id.
+            // `childAncestorIds` is [] for the root component, so its children become
+            // `root-<childId>.yaml`. The `root-` prefix is literal here, not the root id.
             descendantPath(childAncestorIds, child.id)
         )
 
@@ -165,8 +166,10 @@ export async function saveToDirectory(
     const subdirName = root.id
     const rootPath = rootFilename(root.id)
     const expectedDescendantFiles = new Set(
-        // Task 1 keeps descendant files as bare filenames inside `<rootId>/`; Task 2 should
-        // revisit this comparison once descendants move to the top-level directory.
+        // Task 1 keeps descendant files as bare filenames inside `<rootId>/`. This comparison
+        // works because descendantPath() currently returns bare filenames with no `/`, so they
+        // match `entry.name` during the subdirectory iteration below. Task 2 should revisit this
+        // comparison once descendants move to the top-level directory.
         entries
             .filter(({ relativePath }) => relativePath !== rootPath)
             .map(({ relativePath }) => relativePath)
@@ -252,6 +255,9 @@ export async function loadFromDirectory(dir: FileSystemDirectoryHandle): Promise
                     const text = await file.text()
                     const parsed = yaml.load(text) as RawComponent | null
                     if (parsed && typeof parsed === 'object' && parsed.type === 'component') {
+                        // Keep the bare filename as the map key: serialized subComponents
+                        // still reference these flat logical names. Task 2 will unify this
+                        // once descendants move to top-level files.
                         fileMap.set(child.name, parsed)
                     }
                 }

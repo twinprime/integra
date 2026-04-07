@@ -66,14 +66,22 @@ describe('flattenToFiles', () => {
 
     it('mid-level entry has correct path and childPaths', () => {
         const entries = flattenToFiles(root)
-        const gatewayEntry = entries.find(
-            (e) => e.relativePath === 'root-gateway.yaml'
-        )!
+        const gatewayEntry = entries.find((e) => e.relativePath === 'root-gateway.yaml')!
         expect(gatewayEntry).toBeDefined()
         expect(gatewayEntry.childPaths).toEqual([
             'root-gateway-auth.yaml',
             'root-gateway-orders.yaml',
         ])
+    })
+
+    it('supports depth-3 descendant paths', () => {
+        const deepRoot = makeComp('deep-root', [
+            makeComp('gateway', [makeComp('auth', [makeComp('token')])]),
+        ])
+
+        const entries = flattenToFiles(deepRoot)
+        const authEntry = entries.find((e) => e.relativePath === 'root-gateway-auth.yaml')!
+        expect(authEntry.childPaths).toEqual(['root-gateway-auth-token.yaml'])
     })
 
     it('leaf entry has empty childPaths', () => {
@@ -590,12 +598,8 @@ describe('saveToDirectory', () => {
 
 describe('loadFromDirectory', () => {
     it('loads and assembles a tree from directory files', async () => {
-        const rootYaml = serializeComponentYaml(makeComp('my-system'), [
-            'root-gateway.yaml',
-        ])
-        const gatewayYaml = serializeComponentYaml(makeComp('gateway'), [
-            'root-gateway-auth.yaml',
-        ])
+        const rootYaml = serializeComponentYaml(makeComp('my-system'), ['root-gateway.yaml'])
+        const gatewayYaml = serializeComponentYaml(makeComp('gateway'), ['root-gateway-auth.yaml'])
         const authYaml = serializeComponentYaml(makeComp('auth'), [])
 
         const subdirFiles = new Map([
