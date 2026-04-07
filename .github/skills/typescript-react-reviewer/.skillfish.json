@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "name": "typescript-react-reviewer",
+  "owner": "dotneet",
+  "repo": "claude-code-marketplace",
+  "path": "review-tool/skills/typescript-react-reviewer",
+  "branch": "main",
+  "sha": "c42f66f381de0fa465b7e2dbc52e8e8f5ecca495",
+  "source": "manual"
+}
