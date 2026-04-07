@@ -425,6 +425,18 @@ describe('loadFromDirectory', () => {
             'contains 2 root component YAML files'
         )
     })
+
+    it('throws if no unreferenced root file exists', async () => {
+        const yaml1 = serializeComponentYaml(makeComp('system-a'), ['system-b.yaml'])
+        const yaml2 = serializeComponentYaml(makeComp('system-b'), ['system-a.yaml'])
+        const handle = makeFSDirectoryHandle(
+            new Map([
+                ['system-a.yaml', yaml1],
+                ['system-b.yaml', yaml2],
+            ])
+        )
+        await expect(loadFromDirectory(handle)).rejects.toThrow('No root component found')
+    })
 })
 
 // ─── loadFromUrl ─────────────────────────────────────────────────────────────

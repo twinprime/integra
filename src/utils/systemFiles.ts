@@ -212,6 +212,10 @@ export async function loadFromDirectory(dir: FileSystemDirectoryHandle): Promise
         )
     }
 
+    if (rootFiles.length === 0) {
+        throw new Error('No root component found in directory')
+    }
+
     const rootRaw = fileMap.get(rootFiles[0])!
     return parseComponentNode(assembleTree(rootRaw, fileMap))
 }
