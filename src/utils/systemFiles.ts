@@ -29,7 +29,7 @@ const DESCENDANT_WRITE_CONCURRENCY = 4
 // ── File path helpers ─────────────────────────────────────────────────────────
 
 /** Relative path for the root component YAML (in the chosen directory). */
-export function rootFilename(_rootId: string): string {
+export function rootFilename(): string {
     return 'root.yaml'
 }
 
@@ -58,7 +58,7 @@ export function flattenToFiles(root: ComponentNode): FileEntry[] {
     const entries: FileEntry[] = []
 
     function visit(comp: ComponentNode, ancestorIds: string[], isRoot: boolean): void {
-        const relativePath = isRoot ? rootFilename(root.id) : descendantPath(ancestorIds, comp.id)
+        const relativePath = isRoot ? rootFilename() : descendantPath(ancestorIds, comp.id)
         const childAncestorIds = isRoot ? ancestorIds : [...ancestorIds, comp.id]
 
         const childPaths = comp.subComponents.map((child) =>

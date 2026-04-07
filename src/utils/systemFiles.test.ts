@@ -36,9 +36,13 @@ const root = makeComp('my-system', [mid])
 // ─── rootFilename / descendantPath ────────────────────────────────────────────
 
 describe('rootFilename', () => {
+    it('accepts no arguments', () => {
+        expect(rootFilename.length).toBe(0)
+    })
+
     it('always returns root.yaml', () => {
-        expect(rootFilename('my-system')).toBe('root.yaml')
-        expect(rootFilename('another-root')).toBe('root.yaml')
+        expect(rootFilename()).toBe('root.yaml')
+        expect(rootFilename()).toBe('root.yaml')
     })
 })
 
