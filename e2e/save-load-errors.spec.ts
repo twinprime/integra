@@ -21,26 +21,6 @@ const SAVE_FAILURE_MOCK_SCRIPT = `
           }
         };
       },
-      getDirectoryHandle: async function() {
-        return {
-          kind: 'directory',
-          name: 'System',
-          values: async function*() {},
-          getFileHandle: async function(name) {
-            return {
-              kind: 'file',
-              name: name,
-              createWritable: async function() {
-                return {
-                  write: async function() { throw new Error('disk full'); },
-                  close: async function() {}
-                };
-              }
-            };
-          },
-          removeEntry: async function() {}
-        };
-      },
       removeEntry: async function() {}
     };
   };
