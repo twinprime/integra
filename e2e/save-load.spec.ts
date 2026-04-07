@@ -69,7 +69,7 @@ const LOAD_MOCK_SCRIPT = `
       values: async function*() {
         yield {
           kind: 'file',
-          name: 'LoadedSystem.yaml',
+          name: 'root.yaml',
           getFile: async function() { return { text: async function() { return LOADED_YAML; } }; }
         };
       },
@@ -77,17 +77,6 @@ const LOAD_MOCK_SCRIPT = `
         return {
           kind: 'file', name: name,
           createWritable: async function() { return { write: async function() {}, close: async function() {} }; }
-        };
-      },
-      getDirectoryHandle: async function() {
-        return {
-          kind: 'directory',
-          name: 'LoadedSystem',
-          values: async function*() {},
-          getFileHandle: async function(name) {
-            return { createWritable: async function() { return { write: async function() {}, close: async function() {} }; } };
-          },
-          removeEntry: async function() {}
         };
       },
       removeEntry: async function() {}
