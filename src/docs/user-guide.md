@@ -25,7 +25,7 @@ Click on the **Integra** icon in the tree toolbar to enter edit mode if you are 
 
 #### 2. Save and load your model
 
-Use the **Save** / **Load** buttons in the toolbar to persist your model as a **directory of YAML files** via the browser's File System Access API. Each component is saved as its own `.yaml` file inside a chosen directory. Changes are also auto-saved to `localStorage` and restored on page load.
+Use the **Save** / **Load** buttons in the toolbar to persist your model as a **flat directory of YAML files** via the browser's File System Access API. Each component is saved as its own `.yaml` file directly inside the chosen directory — no sub-directories are created. The root component is always saved as `root.yaml`; each descendant's filename encodes its full ancestor chain: `root-<parent>-<self>.yaml`. Changes are also auto-saved to `localStorage` and restored on page load.
 
 > **Browser support:** Save/Load requires Chrome or Edge (File System Access API). Firefox and Safari are not supported.
 
@@ -70,15 +70,16 @@ If the web server serving Integra also hosts model YAML files under `/models/`, 
 https://your-server/models/<component-id>
 ```
 
-The app will fetch `/models/<component-id>.yaml` and all referenced sub-components automatically, then render the model in **browse mode** (read-only, edit mode locked). If the model file is not found, a 404 page is shown.
+The app will fetch `/models/<component-id>/root.yaml` and all referenced sub-components automatically, then render the model in **browse mode** (read-only, edit mode locked). If the model file is not found, a 404 page is shown.
 
 **Expected file layout on the server:**
 
 ```
 /models/
-  <component-id>.yaml          ← root component
   <component-id>/
-    <parent-id>-<child-id>.yaml
+    root.yaml                              ← root component
+    root-<child-id>.yaml                   ← direct child of root
+    root-<child-id>-<grandchild-id>.yaml   ← grandchild, and so on
     ...
 ```
 
