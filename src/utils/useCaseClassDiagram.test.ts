@@ -210,6 +210,46 @@ describe('buildUseCaseClassDiagram', () => {
         })
     })
 
+    it('does not create a direct edge for a useCaseRef message', () => {
+        const primaryUseCase = makeUseCase(
+            'primary',
+            makeSeqDiagram(
+                'entry',
+                [
+                    'component childSvc',
+                    'component root/platform as platform',
+                    'childSvc ->> platform: UseCase:secondary',
+                ].join('\n')
+            )
+        )
+        const root = makeRoot(primaryUseCase)
+
+        const result = buildUseCaseClassDiagram(primaryUseCase, root)
+
+        expect(result.mermaidContent).not.toContain('childSvc ..> platform')
+        expect(result.relationshipMetadata.filter(Boolean)).toHaveLength(0)
+    })
+
+    it('does not create a direct edge for a seqDiagramRef message', () => {
+        const primaryUseCase = makeUseCase(
+            'primary',
+            makeSeqDiagram(
+                'entry',
+                [
+                    'component childSvc',
+                    'component root/platform as platform',
+                    'childSvc ->> platform: Sequence:secondary',
+                ].join('\n')
+            )
+        )
+        const root = makeRoot(primaryUseCase)
+
+        const result = buildUseCaseClassDiagram(primaryUseCase, root)
+
+        expect(result.mermaidContent).not.toContain('childSvc ..> platform')
+        expect(result.relationshipMetadata.filter(Boolean)).toHaveLength(0)
+    })
+
     it('collapses hidden interfaces into direct component dependencies', () => {
         const primaryUseCase = makeUseCase(
             'primary',

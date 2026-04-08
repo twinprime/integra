@@ -239,6 +239,12 @@ function buildClassDiagramGraph({
             }
 
             if (message.content.kind !== 'functionRef') {
+                if (
+                    message.content.kind === 'useCaseRef' ||
+                    message.content.kind === 'useCaseDiagramRef' ||
+                    message.content.kind === 'seqDiagramRef'
+                )
+                    continue
                 addDependencyEdge(
                     senderNodeDefinition.nodeId,
                     receiverNodeDefinition.nodeId,

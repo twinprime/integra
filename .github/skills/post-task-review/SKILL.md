@@ -34,6 +34,9 @@ You are a senior software engineer. After completing any code implementation tas
 3. **Documentation Update**:
     - If the changes affect high level design, public APIs, component interfaces, or user-facing features, update the relevant documentation (e.g., README.md).
     - Minimize comments in code, but ensure that any complex logic is well-documented in the code itself. For high-level design changes, update the architecture documentation or diagrams in README.md as needed.
-4. **Code Quality Check**:
+4. **E2E Test Verification**:
+    - Run the full end-to-end test suite with `npm run test:e2e` to verify no regressions.
+    - If any e2e tests fail, investigate the failure before declaring the task complete.
+5. **Code Quality Check**:
     - Review lint issues and fix them if the changes are not too complex.
       If not, prompt the user with the plan to fix and ask for confirmation before proceeding.

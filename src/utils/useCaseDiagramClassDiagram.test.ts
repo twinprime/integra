@@ -169,6 +169,28 @@ describe('buildUseCaseDiagramClassDiagram', () => {
         })
     })
 
+    it('does not create a direct edge for diagram reference messages (useCaseDiagramRef, seqDiagramRef)', () => {
+        const useCaseDiagram = makeUseCaseDiagram(
+            makeUseCase(
+                'uc-1',
+                makeSeqDiagram(
+                    'seq-1',
+                    [
+                        'component childSvc',
+                        'component root/platform as platform',
+                        'childSvc ->> platform: UseCaseDiagram:root/compA/compa-diagram',
+                    ].join('\n')
+                )
+            )
+        )
+        const root = makeRoot(useCaseDiagram)
+
+        const result = buildUseCaseDiagramClassDiagram(useCaseDiagram, root)
+
+        expect(result.mermaidContent).not.toContain('childSvc ..> platform')
+        expect(result.relationshipMetadata.filter(Boolean)).toHaveLength(0)
+    })
+
     it('collapses hidden interfaces across aggregated use cases', () => {
         const useCaseDiagram = makeUseCaseDiagram(
             makeUseCase(
