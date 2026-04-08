@@ -5,14 +5,16 @@ Review the file after each task to see if it should be updated.
 
 # Git Commits
 
-**⚠️ PRE-IMPLEMENTATION CHECKLIST — must be completed before writing any code:**
-
 Do not commit after individual TDD steps. Only commit once per high-level task defined in the plan.
 
+**⚠️ PRE-IMPLEMENTATION CHECKLIST — must be completed before writing any code:**
+
 ONLY when following the 'using-superpowers' workflow:
+
 1. Include the task number or spec filename in every commit message (e.g., feat: implement logic for [plan-xyz.md:Task 2]).
 
 ONLY when NOT following the 'using-superpowers' workflow:
+
 1. Check the current branch with `git branch --show-current`.
 2. If on `main`: create a new feature branch and switch to it before touching any files.
 3. If not on `main`: ask the user whether to merge to `main` first or continue on the current branch.
