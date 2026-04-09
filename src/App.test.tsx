@@ -26,7 +26,12 @@ vi.mock('./layouts/MainLayout', () => ({
 vi.mock('./components/TreeView', () => ({
     TreeView: () => {
         const selectNode = useSystemStore((state) => state.selectNode)
-        return <button onClick={() => selectNode('child-uuid')}>Select child</button>
+        return (
+            <>
+                <button onClick={() => selectNode('child-uuid')}>Select child</button>
+                <button onClick={() => selectNode(null)}>Clear selection</button>
+            </>
+        )
     },
 }))
 
@@ -102,14 +107,34 @@ describe('App', () => {
 
         await user.click(screen.getByRole('button', { name: 'Select child' }))
 
-        expect(window.location.pathname).toBe('/child')
+        expect(window.location.pathname).toBe('/file/child')
     })
 
-    it('hydrates the selected node from a deep link on the default app route', async () => {
-        window.history.replaceState({}, '', '/child')
+    it('hydrates the selected node from a /file deep link', async () => {
+        window.history.replaceState({}, '', '/file/child')
 
         render(<App />)
 
         await waitFor(() => expect(screen.getByText('Editor child-uuid')).toBeInTheDocument())
+    })
+
+    it('does not hydrate a bare path that is outside the /file namespace', async () => {
+        window.history.replaceState({}, '', '/child')
+
+        render(<App />)
+
+        await waitFor(() => expect(screen.getByText('Editor none')).toBeInTheDocument())
+    })
+
+    it('returns to / when a /file deep link clears its selection', async () => {
+        const user = userEvent.setup()
+        window.history.replaceState({}, '', '/file/child')
+
+        render(<App />)
+        await waitFor(() => expect(screen.getByText('Editor child-uuid')).toBeInTheDocument())
+
+        await user.click(screen.getByRole('button', { name: 'Clear selection' }))
+
+        expect(window.location.pathname).toBe('/')
     })
 })

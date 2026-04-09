@@ -3,6 +3,21 @@ import { useSystemStore } from '../store/useSystemStore'
 import { getNodeIdPath, findNodeByIdPath } from '../nodes/nodeTree'
 import type { ComponentNode } from '../store/types'
 
+function getEntitySegments(
+    pathname: string,
+    routePrefix: string,
+    emptySelectionUrl: string
+): string[] {
+    if (pathname === emptySelectionUrl || pathname === `${emptySelectionUrl}/`) return []
+    if (pathname === routePrefix || pathname === `${routePrefix}/`) return []
+    if (routePrefix === '') {
+        return pathname.replace(/^\/?/, '').split('/').filter(Boolean)
+    }
+    const prefixWithSlash = `${routePrefix}/`
+    if (!pathname.startsWith(prefixWithSlash)) return []
+    return pathname.slice(prefixWithSlash.length).split('/').filter(Boolean)
+}
+
 /**
  * Syncs selectedNodeId with the URL pathname using the browser History API.
  *
@@ -15,11 +30,13 @@ import type { ComponentNode } from '../store/types'
  *
  * @param root - The root component node (null while loading).
  * @param routePrefix - URL prefix for this page, e.g. "/models/my-system" or "/file".
+ * @param emptySelectionUrl - URL to use when no child entity is selected.
  * @returns notFoundPath - The unresolved path string, or null when not in an error state.
  */
 export function useEntityNavigation(
     root: ComponentNode | null,
-    routePrefix: string
+    routePrefix: string,
+    emptySelectionUrl: string = routePrefix || '/'
 ): { notFoundPath: string | null } {
     const selectedNodeId = useSystemStore((s) => s.selectedNodeId)
     const selectNode = useSystemStore((s) => s.selectNode)
@@ -27,10 +44,7 @@ export function useEntityNavigation(
     // Captured once on mount via lazy useState — entity path segments from the initial URL.
     // useState's lazy initializer guarantees a single execution, giving us a stable reference.
     const [initialSegments] = useState(() =>
-        window.location.pathname
-            .replace(new RegExp(`^${routePrefix}/?`), '')
-            .split('/')
-            .filter(Boolean)
+        getEntitySegments(window.location.pathname, routePrefix, emptySelectionUrl)
     )
 
     // Tracks a "not found" path from browser back/forward navigation.
@@ -56,19 +70,20 @@ export function useEntityNavigation(
         if (!root) return
         const path = selectedNodeId !== null ? getNodeIdPath(root, selectedNodeId) : []
         if (path === null) return
-        const newUrl = path.length > 0 ? `${routePrefix}/${path.join('/')}` : routePrefix
+        const newUrl = path.length > 0 ? `${routePrefix}/${path.join('/')}` : emptySelectionUrl
         if (newUrl === window.location.pathname) return
         history.pushState(null, '', newUrl)
-    }, [selectedNodeId, root, routePrefix])
+    }, [selectedNodeId, root, routePrefix, emptySelectionUrl])
 
     // Handle browser back/forward.
     useEffect(() => {
         const onPopState = () => {
             if (!root) return
-            const segments = window.location.pathname
-                .replace(new RegExp(`^${routePrefix}/?`), '')
-                .split('/')
-                .filter(Boolean)
+            const segments = getEntitySegments(
+                window.location.pathname,
+                routePrefix,
+                emptySelectionUrl
+            )
 
             if (segments.length === 0) {
                 selectNode(null)
@@ -88,7 +103,7 @@ export function useEntityNavigation(
 
         window.addEventListener('popstate', onPopState)
         return () => window.removeEventListener('popstate', onPopState)
-    }, [root, routePrefix, selectNode])
+    }, [root, routePrefix, emptySelectionUrl, selectNode])
 
     // Show "not found" for the initial URL segments when root loads but no
     // matching entity exists and nothing has been explicitly selected yet.

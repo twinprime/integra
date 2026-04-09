@@ -11,7 +11,7 @@ import { useSystemStore } from './store/useSystemStore'
 
 function DefaultPage() {
     const rootComponent = useSystemStore((state) => state.rootComponent)
-    const { notFoundPath } = useEntityNavigation(rootComponent, '')
+    const { notFoundPath } = useEntityNavigation(rootComponent, '/file', '/')
 
     const rightPanel = notFoundPath ? (
         <div className="h-full flex items-center justify-center text-gray-500 text-sm font-mono">
