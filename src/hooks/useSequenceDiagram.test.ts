@@ -21,6 +21,7 @@ vi.mock('../store/useSystemStore', () => ({
 
 vi.mock('../nodes/nodeTree', () => ({
     findNode: vi.fn(),
+    findNodeByUuid: vi.fn(),
 }))
 
 vi.mock('../parser/sequenceDiagram/mermaidGenerator', () => ({
@@ -43,7 +44,7 @@ vi.mock('../parser/sequenceDiagram/mermaidGenerator', () => ({
 
 import mermaid from 'mermaid'
 import { useSystemStore } from '../store/useSystemStore'
-import { findNode } from '../nodes/nodeTree'
+import { findNode, findNodeByUuid } from '../nodes/nodeTree'
 import { generateSequenceMermaid } from '../parser/sequenceDiagram/mermaidGenerator'
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -92,6 +93,7 @@ describe('useSequenceDiagram', () => {
             } as unknown as SystemState)
         )
         vi.mocked(findNode).mockReturnValue(mockRootComponent)
+        vi.mocked(findNodeByUuid).mockReturnValue(mockRootComponent)
         vi.mocked(mermaid.render).mockResolvedValue({
             svg: '<svg>seq</svg>',
             diagramType: 'sequence',
@@ -114,7 +116,7 @@ describe('useSequenceDiagram', () => {
         })
     })
 
-    it('returns expected shape: svg, error, errorDetails, mermaidSource, elementRef, handleSequenceClick', () => {
+    it('returns expected shape: svg, error, errorDetails, mermaidSource, elementRef, handleSequenceClick, tooltip handlers', () => {
         const { result } = renderHook(() => useSequenceDiagram(null))
 
         expect(result.current).toHaveProperty('svg')
@@ -124,6 +126,12 @@ describe('useSequenceDiagram', () => {
         expect(result.current).toHaveProperty('elementRef')
         expect(result.current).toHaveProperty('handleSequenceClick')
         expect(typeof result.current.handleSequenceClick).toBe('function')
+        expect(result.current).toHaveProperty('tooltipInfo')
+        expect(result.current).toHaveProperty('tooltipPosition')
+        expect(typeof result.current.handleSequenceMouseMove).toBe('function')
+        expect(typeof result.current.handleSequenceMouseLeave).toBe('function')
+        expect(result.current.tooltipInfo).toBeNull()
+        expect(result.current.tooltipPosition).toBeNull()
     })
 
     it('returns SVG after successful render', async () => {
@@ -241,6 +249,125 @@ describe('useSequenceDiagram', () => {
 
         expect(mockSelectNode).toHaveBeenCalledWith('use-case-uuid')
         expect(mockSelectInterface).not.toHaveBeenCalled()
+    })
+
+    it('handleSequenceMouseMove sets tooltip when hovering over a clickable link', async () => {
+        const { result } = renderHook(() => useSequenceDiagram(mockDiagramNode))
+        act(() => {
+            const container = createSvgContainer('<text class="messageText">hello</text>')
+            const msgText = container.querySelector<SVGTextElement>('text.messageText')!
+            msgText.setAttribute('data-integra-target-uuid', 'fn-uuid')
+            msgText.setAttribute('data-integra-link-kind', 'functionRef')
+            result.current.elementRef.current = container
+        })
+
+        await waitFor(() => expect(result.current.svg).toBe('<svg>seq</svg>'))
+
+        const msgText = result.current.elementRef.current?.querySelector(
+            'text.messageText'
+        ) as Element
+
+        act(() => {
+            result.current.handleSequenceMouseMove({
+                target: msgText,
+                clientX: 150,
+                clientY: 250,
+            } as unknown as React.MouseEvent<HTMLDivElement>)
+        })
+
+        expect(result.current.tooltipInfo).toEqual({ entityType: 'Function', entityName: 'Root' })
+        expect(result.current.tooltipPosition).toEqual({ x: 150, y: 250 })
+    })
+
+    it('handleSequenceMouseMove does not set tooltip when hovering over a non-link element', async () => {
+        const { result } = renderHook(() => useSequenceDiagram(mockDiagramNode))
+
+        await waitFor(() => expect(result.current.svg).toBe('<svg>seq</svg>'))
+
+        const plainDiv = document.createElement('div')
+
+        act(() => {
+            result.current.handleSequenceMouseMove({
+                target: plainDiv,
+                clientX: 100,
+                clientY: 100,
+            } as unknown as React.MouseEvent<HTMLDivElement>)
+        })
+
+        expect(result.current.tooltipInfo).toBeNull()
+    })
+
+    it('handleSequenceMouseMove does not set tooltip for label-kind links', async () => {
+        vi.mocked(generateSequenceMermaid).mockReturnValue({
+            mermaidContent: 'sequenceDiagram\n  A->>B: plain',
+            idToUuid: { A: 'uuid-a', B: 'uuid-b' },
+            messageLabelToUuid: {},
+            messageLabelToInterfaceUuid: {},
+            messageLinks: [{ kind: 'label', renderedLabel: 'plain', clickable: false }],
+        })
+
+        const { result } = renderHook(() => useSequenceDiagram(mockDiagramNode))
+        act(() => {
+            result.current.elementRef.current = createSvgContainer(
+                '<text class="messageText">plain</text>'
+            )
+        })
+
+        await waitFor(() => expect(result.current.svg).toBe('<svg>seq</svg>'))
+
+        // After the effect runs, the element should have no data-integra-target-uuid
+        const msgText = result.current.elementRef.current?.querySelector(
+            'text.messageText'
+        ) as Element
+
+        act(() => {
+            result.current.handleSequenceMouseMove({
+                target: msgText,
+                clientX: 100,
+                clientY: 100,
+            } as unknown as React.MouseEvent<HTMLDivElement>)
+        })
+
+        expect(result.current.tooltipInfo).toBeNull()
+    })
+
+    it('handleSequenceMouseLeave clears tooltip after debounce', async () => {
+        const { result } = renderHook(() => useSequenceDiagram(mockDiagramNode))
+        act(() => {
+            const container = createSvgContainer('<text class="messageText">hello</text>')
+            const msgText = container.querySelector<SVGTextElement>('text.messageText')!
+            msgText.setAttribute('data-integra-target-uuid', 'fn-uuid')
+            msgText.setAttribute('data-integra-link-kind', 'functionRef')
+            result.current.elementRef.current = container
+        })
+
+        await waitFor(() => expect(result.current.svg).toBe('<svg>seq</svg>'))
+
+        const msgText = result.current.elementRef.current?.querySelector(
+            'text.messageText'
+        ) as Element
+
+        // First, show the tooltip
+        act(() => {
+            result.current.handleSequenceMouseMove({
+                target: msgText,
+                clientX: 150,
+                clientY: 250,
+            } as unknown as React.MouseEvent<HTMLDivElement>)
+        })
+        expect(result.current.tooltipInfo).not.toBeNull()
+
+        // Then leave and wait past the 80ms debounce
+        act(() => {
+            result.current.handleSequenceMouseLeave()
+        })
+
+        await waitFor(
+            () => {
+                expect(result.current.tooltipInfo).toBeNull()
+            },
+            { timeout: 200 }
+        )
     })
 
     it('does nothing when clicking a plain-text message label', async () => {

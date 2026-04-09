@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type React from 'react'
 import { useSystemStore } from '../store/useSystemStore'
 import type { ComponentNode, DiagramNode } from '../store/types'
@@ -7,6 +7,14 @@ import {
     type SequenceMessageLink,
 } from '../parser/sequenceDiagram/mermaidGenerator'
 import { useMermaidBase } from './useMermaidBase'
+import { findNodeByUuid } from '../nodes/nodeTree'
+
+const ENTITY_TYPE_LABELS: Record<string, string> = {
+    functionRef: 'Function',
+    useCaseRef: 'Use Case',
+    useCaseDiagramRef: 'Use Case Diagram',
+    seqDiagramRef: 'Sequence Diagram',
+}
 
 function findActorRect(target: Element, container: Element): Element | null {
     if (target.classList?.contains('actor-top') || target.classList?.contains('actor-bottom')) {
@@ -24,8 +32,15 @@ function findActorRect(target: Element, container: Element): Element | null {
 export function useSequenceDiagram(diagramNode: DiagramNode | null) {
     const selectNode = useSystemStore((s) => s.selectNode)
     const selectInterface = useSystemStore((s) => s.selectInterface)
+    const rootComponent = useSystemStore((s) => s.rootComponent)
     const participantIdMapRef = useRef<Record<string, string>>({})
     const messageLinksRef = useRef<SequenceMessageLink[]>([])
+    const [tooltipInfo, setTooltipInfo] = useState<{
+        entityType: string
+        entityName: string
+    } | null>(null)
+    const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
+    const tooltipCloseTimeoutRef = useRef<number | null>(null)
 
     const buildContent = useCallback(
         (
@@ -51,6 +66,14 @@ export function useSequenceDiagram(diagramNode: DiagramNode | null) {
         diagramNode,
         buildContent
     )
+
+    useEffect(() => {
+        return () => {
+            if (tooltipCloseTimeoutRef.current != null) {
+                window.clearTimeout(tooltipCloseTimeoutRef.current)
+            }
+        }
+    }, [])
 
     // Add cursor/underline styling to navigable elements after SVG renders
     useEffect(() => {
@@ -80,30 +103,92 @@ export function useSequenceDiagram(diagramNode: DiagramNode | null) {
             })
     }, [svg, elementRef])
 
-    const handleSequenceClick = (e: React.MouseEvent<HTMLDivElement>) => {
-        const target = e.target as Element
-        if (!elementRef.current) return
+    const handleSequenceClick = useCallback(
+        (e: React.MouseEvent<HTMLDivElement>) => {
+            const target = e.target as Element
+            if (!elementRef.current) return
 
-        // Message label click (function ref or use-case ref)
-        const msgText = target.closest('text.messageText')
-        if (msgText) {
-            const uuid = msgText.getAttribute('data-integra-target-uuid')
-            if (uuid) {
-                selectNode(uuid)
-                const ifaceUuid = msgText.getAttribute('data-integra-interface-uuid')
-                if (ifaceUuid) selectInterface(ifaceUuid)
+            // Message label click (function ref or use-case ref)
+            const msgText = target.closest('text.messageText')
+            if (msgText) {
+                const uuid = msgText.getAttribute('data-integra-target-uuid')
+                if (uuid) {
+                    selectNode(uuid)
+                    const ifaceUuid = msgText.getAttribute('data-integra-interface-uuid')
+                    if (ifaceUuid) selectInterface(ifaceUuid)
+                    return
+                }
+            }
+
+            // Actor box click: use participant name attribute for UUID lookup
+            const actorRect = findActorRect(target, elementRef.current)
+            const participantId = actorRect?.getAttribute('name')
+            if (participantId) {
+                const uuid = participantIdMapRef.current[participantId]
+                if (uuid) selectNode(uuid)
+            }
+        },
+        [selectNode, selectInterface, elementRef]
+    )
+
+    const hideTooltip = useCallback(() => {
+        setTooltipInfo(null)
+        setTooltipPosition(null)
+    }, [])
+
+    const cancelPendingTooltipClose = useCallback(() => {
+        if (tooltipCloseTimeoutRef.current != null) {
+            window.clearTimeout(tooltipCloseTimeoutRef.current)
+            tooltipCloseTimeoutRef.current = null
+        }
+    }, [])
+
+    const scheduleTooltipClose = useCallback(() => {
+        cancelPendingTooltipClose()
+        tooltipCloseTimeoutRef.current = window.setTimeout(() => {
+            tooltipCloseTimeoutRef.current = null
+            hideTooltip()
+        }, 80)
+    }, [cancelPendingTooltipClose, hideTooltip])
+
+    const handleSequenceMouseMove = useCallback(
+        (e: React.MouseEvent<HTMLDivElement>) => {
+            cancelPendingTooltipClose()
+            const target = e.target as Element
+            const msgText = target.closest('text.messageText')
+            if (!msgText) {
+                scheduleTooltipClose()
                 return
             }
-        }
+            const uuid = msgText.getAttribute('data-integra-target-uuid')
+            const kind = msgText.getAttribute('data-integra-link-kind')
+            if (!uuid || !kind || kind === 'label') {
+                scheduleTooltipClose()
+                return
+            }
+            const node = findNodeByUuid([rootComponent], uuid)
+            const entityName = node?.name ?? uuid
+            const entityType = ENTITY_TYPE_LABELS[kind] ?? kind
+            setTooltipInfo({ entityType, entityName })
+            setTooltipPosition({ x: e.clientX, y: e.clientY })
+        },
+        [cancelPendingTooltipClose, scheduleTooltipClose, rootComponent]
+    )
 
-        // Actor box click: use participant name attribute for UUID lookup
-        const actorRect = findActorRect(target, elementRef.current)
-        const participantId = actorRect?.getAttribute('name')
-        if (participantId) {
-            const uuid = participantIdMapRef.current[participantId]
-            if (uuid) selectNode(uuid)
-        }
+    const handleSequenceMouseLeave = useCallback(() => {
+        scheduleTooltipClose()
+    }, [scheduleTooltipClose])
+
+    return {
+        svg,
+        error,
+        errorDetails,
+        mermaidSource,
+        elementRef,
+        handleSequenceClick,
+        tooltipInfo,
+        tooltipPosition,
+        handleSequenceMouseMove,
+        handleSequenceMouseLeave,
     }
-
-    return { svg, error, errorDetails, mermaidSource, elementRef, handleSequenceClick }
 }
