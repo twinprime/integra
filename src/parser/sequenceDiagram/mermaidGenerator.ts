@@ -68,6 +68,7 @@ export type SequenceMessageLink = {
     renderedLabel: string
     targetUuid?: string
     interfaceUuid?: string
+    functionId?: string
     clickable: boolean
 }
 
@@ -250,6 +251,7 @@ function emitStatements(
                         renderedLabel: mermaidLabel,
                         targetUuid: target?.componentUuid,
                         interfaceUuid: target?.interfaceUuid,
+                        functionId: c.functionId,
                         clickable: target?.componentUuid != null,
                     })
                     out += `${indent}${fromId}${msg.arrow}${toId}: ${renderedLabel}\n`

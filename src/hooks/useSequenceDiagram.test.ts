@@ -60,7 +60,15 @@ const mockRootComponent: ComponentNode = {
     subComponents: [],
     actors: [],
     useCaseDiagrams: [],
-    interfaces: [],
+    interfaces: [
+        {
+            uuid: 'iface-uuid',
+            id: 'IAuth',
+            name: 'IAuth',
+            type: 'rest',
+            functions: [{ uuid: 'fn-uuid', id: 'login', parameters: [] }],
+        },
+    ],
 }
 
 const mockDiagramNode: SequenceDiagramNode = {
@@ -110,6 +118,7 @@ describe('useSequenceDiagram', () => {
                     renderedLabel: 'hello',
                     targetUuid: 'fn-uuid',
                     interfaceUuid: 'iface-uuid',
+                    functionId: 'login',
                     clickable: true,
                 },
             ],
@@ -251,13 +260,15 @@ describe('useSequenceDiagram', () => {
         expect(mockSelectInterface).not.toHaveBeenCalled()
     })
 
-    it('handleSequenceMouseMove sets tooltip when hovering over a clickable link', async () => {
+    it('handleSequenceMouseMove sets tooltip when hovering over a functionRef link', async () => {
         const { result } = renderHook(() => useSequenceDiagram(mockDiagramNode))
         act(() => {
             const container = createSvgContainer('<text class="messageText">hello</text>')
             const msgText = container.querySelector<SVGTextElement>('text.messageText')!
-            msgText.setAttribute('data-integra-target-uuid', 'fn-uuid')
+            msgText.setAttribute('data-integra-target-uuid', 'root-uuid')
             msgText.setAttribute('data-integra-link-kind', 'functionRef')
+            msgText.setAttribute('data-integra-interface-uuid', 'iface-uuid')
+            msgText.setAttribute('data-integra-function-id', 'login')
             result.current.elementRef.current = container
         })
 
@@ -275,7 +286,10 @@ describe('useSequenceDiagram', () => {
             } as unknown as React.MouseEvent<HTMLDivElement>)
         })
 
-        expect(result.current.tooltipInfo).toEqual({ entityType: 'Function', entityName: 'Root' })
+        expect(result.current.tooltipInfo).toEqual({
+            entityType: 'Function',
+            entityName: 'IAuth:login',
+        })
         expect(result.current.tooltipPosition).toEqual({ x: 150, y: 250 })
     })
 

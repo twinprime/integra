@@ -92,6 +92,8 @@ export function useSequenceDiagram(diagramNode: DiagramNode | null) {
                     el.setAttribute('data-integra-link-kind', link.kind)
                     if (link.interfaceUuid)
                         el.setAttribute('data-integra-interface-uuid', link.interfaceUuid)
+                    if (link.functionId)
+                        el.setAttribute('data-integra-function-id', link.functionId)
                     el.style.cursor = 'pointer'
                     // Apply underline to tspan children as well: SVG text-decoration does not
                     // reliably cascade from <text> to <tspan> children in all browsers.
@@ -167,7 +169,15 @@ export function useSequenceDiagram(diagramNode: DiagramNode | null) {
                 return
             }
             const node = findNodeByUuid([rootComponent], uuid)
-            const entityName = node?.name ?? uuid
+            let entityName = node?.name ?? uuid
+            if (kind === 'functionRef' && node?.type === 'component') {
+                const ifaceUuid = msgText.getAttribute('data-integra-interface-uuid')
+                const functionId = msgText.getAttribute('data-integra-function-id')
+                const iface = ifaceUuid
+                    ? node.interfaces.find((i) => i.uuid === ifaceUuid)
+                    : undefined
+                if (iface && functionId) entityName = `${iface.id}:${functionId}`
+            }
             const entityType = ENTITY_TYPE_LABELS[kind] ?? kind
             setTooltipInfo({ entityType, entityName })
             setTooltipPosition({ x: e.clientX, y: e.clientY })
