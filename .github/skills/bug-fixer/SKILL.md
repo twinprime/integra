@@ -1,6 +1,6 @@
 ---
 name: bug-fixer
-description: Use when user reports any bug, validation failure or unexpected behavior and you are not following the 'using-superpowers' workflow
+description: Use when user reports any bug, validation failure or unexpected behavior and the 'systematic-debugging' skill is NOT available.
 ---
 
 ## 1. Analysis
