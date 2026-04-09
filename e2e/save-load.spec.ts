@@ -226,7 +226,11 @@ test.describe('load flow with mocked directory picker', () => {
     test('clicking Load reads YAML from the mock directory and updates the tree', async ({
         page,
     }) => {
-        await gotoHome(page)
+        // Navigate directly to /file so that clicking Load stays on the same page.
+        // handleLoad only redirects when the current pathname is not /file, so
+        // starting here avoids a full navigation (and the addInitScript re-runs
+        // that would overwrite localStorage with the fixture system).
+        await page.goto('/file')
 
         // Dismiss any confirmation dialog (none expected on clean state, but be safe)
         page.on('dialog', (dialog) => void dialog.accept())

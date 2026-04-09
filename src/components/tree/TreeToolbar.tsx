@@ -1,14 +1,5 @@
 import { useEffect, useState } from 'react'
-import {
-    Download,
-    Upload,
-    RotateCcw,
-    Undo2,
-    Redo2,
-    ArrowLeft,
-    ArrowRight,
-    CircleHelp,
-} from 'lucide-react'
+import { Download, Upload, RotateCcw, Undo2, Redo2, CircleHelp } from 'lucide-react'
 import { useShallow } from 'zustand/shallow'
 import integraLogo from '../../assets/integra-logo.svg'
 import integraEditLogo from '../../assets/integra-logo-edit.svg'
@@ -30,24 +21,15 @@ function serializeYaml(comp: ComponentNode): string {
     )
 }
 
-interface TreeToolbarProps {
-    /** Ref tracking whether the tree panel is "active" (for keyboard shortcuts). */
-    treeActive: React.RefObject<boolean>
-}
-
-export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
+export const TreeToolbar = () => {
     const {
         rootComponent,
         setSystem,
         clearSystem,
         undo,
         redo,
-        goBack,
-        goForward,
         savedSnapshot,
         markSaved,
-        canNavBack,
-        canNavForward,
         uiMode,
         toggleUiMode,
         browseLocked,
@@ -59,12 +41,8 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
             clearSystem: s.clearSystem,
             undo: s.undo,
             redo: s.redo,
-            goBack: s.goBack,
-            goForward: s.goForward,
             savedSnapshot: s.savedSnapshot,
             markSaved: s.markSaved,
-            canNavBack: s.canNavBack,
-            canNavForward: s.canNavForward,
             uiMode: s.uiMode,
             toggleUiMode: s.toggleUiMode,
             browseLocked: s.browseLocked,
@@ -87,7 +65,7 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
         }
     }, [markSaved, rootComponent, savedSnapshot])
 
-    // Keyboard shortcuts for undo/redo/nav (attached here; treeActive is passed in from TreeView)
+    // Keyboard shortcuts for undo/redo
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
             if (
@@ -105,18 +83,10 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
                 e.preventDefault()
                 redo()
             }
-            if (e.altKey && e.key === 'ArrowLeft' && treeActive.current) {
-                e.preventDefault()
-                goBack()
-            }
-            if (e.altKey && e.key === 'ArrowRight' && treeActive.current) {
-                e.preventDefault()
-                goForward()
-            }
         }
         document.addEventListener('keydown', onKeyDown)
         return () => document.removeEventListener('keydown', onKeyDown)
-    }, [readOnly, undo, redo, goBack, goForward, treeActive])
+    }, [readOnly, undo, redo])
 
     const handleSave = async () => {
         try {
@@ -160,8 +130,8 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
             setDirHandle(handle)
             markSaved(serializeYaml(loadedSystem))
             setBrowseLocked(false)
-            if (window.location.pathname !== '/' || window.location.search !== '') {
-                window.location.href = '/'
+            if (window.location.pathname !== '/file') {
+                window.location.href = '/file'
             }
         } catch (error) {
             if ((error as DOMException).name !== 'AbortError') {
@@ -227,22 +197,6 @@ export const TreeToolbar = ({ treeActive }: TreeToolbarProps) => {
                 )}
             </button>
             <div className="flex gap-1">
-                <button
-                    onClick={goBack}
-                    disabled={!canNavBack}
-                    className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                    title="Go back (Alt+←)"
-                >
-                    <ArrowLeft size={16} />
-                </button>
-                <button
-                    onClick={goForward}
-                    disabled={!canNavForward}
-                    className="p-1.5 hover:bg-gray-700 rounded text-gray-400 hover:text-gray-200 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                    title="Go forward (Alt+→)"
-                >
-                    <ArrowRight size={16} />
-                </button>
                 {!readOnly && (
                     <>
                         <button

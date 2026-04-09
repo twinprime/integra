@@ -1,6 +1,17 @@
 import { describe, it, expect } from 'vitest'
-import { mergeLists, deleteNodeFromTree, reorderChildInParent } from './nodeTree'
-import type { ComponentNode } from '../store/types'
+import {
+    mergeLists,
+    deleteNodeFromTree,
+    reorderChildInParent,
+    getNodeIdPath,
+    findNodeByIdPath,
+} from './nodeTree'
+import type {
+    ComponentNode,
+    UseCaseDiagramNode,
+    UseCaseNode,
+    SequenceDiagramNode,
+} from '../store/types'
 
 // ─── mergeLists ───────────────────────────────────────────────────────────────
 
@@ -330,5 +341,141 @@ describe('reorderChildInParent', () => {
         const root = makeRoot()
         const result = reorderChildInParent(root, 'root', 'c1', 'c1')
         expect(result.subComponents.map((n) => n.uuid)).toEqual(['c1', 'c2', 'c3'])
+    })
+})
+
+// ─── getNodeIdPath ────────────────────────────────────────────────────────────
+
+describe('getNodeIdPath', () => {
+    function buildTree(): ComponentNode {
+        const seqDiag: SequenceDiagramNode = {
+            uuid: 'seq-uuid',
+            id: 'login-flow',
+            name: 'Login Flow',
+            type: 'sequence-diagram',
+            content: '',
+            description: '',
+            referencedNodeIds: [],
+            referencedFunctionUuids: [],
+            ownerComponentUuid: 'auth-uuid',
+        }
+        const uc: UseCaseNode = {
+            uuid: 'uc-uuid',
+            id: 'login',
+            name: 'Login',
+            type: 'use-case',
+            sequenceDiagrams: [seqDiag],
+        }
+        const ucd: UseCaseDiagramNode = {
+            uuid: 'ucd-uuid',
+            id: 'auth-flows',
+            name: 'Auth Flows',
+            type: 'use-case-diagram',
+            content: '',
+            description: '',
+            referencedNodeIds: [],
+            ownerComponentUuid: 'auth-uuid',
+            useCases: [uc],
+        }
+        const auth: ComponentNode = {
+            uuid: 'auth-uuid',
+            id: 'auth',
+            name: 'Auth',
+            type: 'component',
+            subComponents: [],
+            actors: [],
+            useCaseDiagrams: [ucd],
+            interfaces: [],
+        }
+        return {
+            uuid: 'root-uuid',
+            id: 'root',
+            name: 'Root',
+            type: 'component',
+            subComponents: [auth],
+            actors: [],
+            useCaseDiagrams: [],
+            interfaces: [],
+        }
+    }
+
+    it('returns [] when uuid matches root', () => {
+        const root = buildTree()
+        expect(getNodeIdPath(root, 'root-uuid')).toEqual([])
+    })
+
+    it('returns single-segment path for direct child component', () => {
+        const root = buildTree()
+        expect(getNodeIdPath(root, 'auth-uuid')).toEqual(['auth'])
+    })
+
+    it('returns multi-segment path for deeply nested node', () => {
+        const root = buildTree()
+        expect(getNodeIdPath(root, 'seq-uuid')).toEqual([
+            'auth',
+            'auth-flows',
+            'login',
+            'login-flow',
+        ])
+    })
+
+    it('returns null when uuid is not in tree', () => {
+        const root = buildTree()
+        expect(getNodeIdPath(root, 'nonexistent')).toBeNull()
+    })
+})
+
+// ─── findNodeByIdPath ─────────────────────────────────────────────────────────
+
+describe('findNodeByIdPath', () => {
+    function buildTree(): ComponentNode {
+        const auth: ComponentNode = {
+            uuid: 'auth-uuid',
+            id: 'auth',
+            name: 'Auth',
+            type: 'component',
+            subComponents: [],
+            actors: [],
+            useCaseDiagrams: [],
+            interfaces: [],
+        }
+        return {
+            uuid: 'root-uuid',
+            id: 'root',
+            name: 'Root',
+            type: 'component',
+            subComponents: [auth],
+            actors: [],
+            useCaseDiagrams: [],
+            interfaces: [],
+        }
+    }
+
+    it('returns root when segments is empty', () => {
+        const root = buildTree()
+        expect(findNodeByIdPath(root, [])).toBe(root)
+    })
+
+    it('resolves a direct child by id', () => {
+        const root = buildTree()
+        const result = findNodeByIdPath(root, ['auth'])
+        expect(result?.uuid).toBe('auth-uuid')
+    })
+
+    it('returns null for an unknown id segment', () => {
+        const root = buildTree()
+        expect(findNodeByIdPath(root, ['unknown'])).toBeNull()
+    })
+
+    it('returns null when path is partially valid but leaf is unknown', () => {
+        const root = buildTree()
+        expect(findNodeByIdPath(root, ['auth', 'missing'])).toBeNull()
+    })
+
+    it('round-trips with getNodeIdPath', () => {
+        const root = buildTree()
+        const path = getNodeIdPath(root, 'auth-uuid')!
+        const node = findNodeByIdPath(root, path)
+        expect(node?.uuid).toBe('auth-uuid')
     })
 })

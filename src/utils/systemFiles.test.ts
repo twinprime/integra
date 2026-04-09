@@ -2,6 +2,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import type { ComponentNode } from '../store/types'
 import {
+    getModelEntitySegments,
+    getFileEntitySegments,
     rootFilename,
     descendantPath,
     flattenToFiles,
@@ -509,5 +511,61 @@ describe('loadFromUrl', () => {
         )
 
         await expect(loadFromUrl('bad')).rejects.toThrow('Invalid component YAML')
+    })
+})
+
+// ─── getModelEntitySegments ───────────────────────────────────────────────────
+
+describe('getModelEntitySegments', () => {
+    it('returns empty array for bare /models/<id> path', () => {
+        expect(getModelEntitySegments('/models/my-system')).toEqual([])
+    })
+
+    it('returns empty array for /models/<id>/ with trailing slash', () => {
+        expect(getModelEntitySegments('/models/my-system/')).toEqual([])
+    })
+
+    it('returns single segment for one entity', () => {
+        expect(getModelEntitySegments('/models/my-system/auth')).toEqual(['auth'])
+    })
+
+    it('returns multiple segments for deeply nested entity', () => {
+        expect(getModelEntitySegments('/models/my-system/auth/login-flow/checkout')).toEqual([
+            'auth',
+            'login-flow',
+            'checkout',
+        ])
+    })
+
+    it('returns empty array for unrelated path', () => {
+        expect(getModelEntitySegments('/file/auth')).toEqual([])
+    })
+})
+
+// ─── getFileEntitySegments ────────────────────────────────────────────────────
+
+describe('getFileEntitySegments', () => {
+    it('returns empty array for bare /file path', () => {
+        expect(getFileEntitySegments('/file')).toEqual([])
+    })
+
+    it('returns empty array for /file/ with trailing slash', () => {
+        expect(getFileEntitySegments('/file/')).toEqual([])
+    })
+
+    it('returns single segment for one entity', () => {
+        expect(getFileEntitySegments('/file/auth')).toEqual(['auth'])
+    })
+
+    it('returns multiple segments for deeply nested entity', () => {
+        expect(getFileEntitySegments('/file/auth/login-flow/checkout')).toEqual([
+            'auth',
+            'login-flow',
+            'checkout',
+        ])
+    })
+
+    it('returns empty array for unrelated path', () => {
+        expect(getFileEntitySegments('/models/my-system/auth')).toEqual([])
     })
 })

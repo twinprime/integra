@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useShallow } from 'zustand/shallow'
 import { useSystemStore } from '../store/useSystemStore'
 import type { Node, ComponentNode, UseCaseDiagramNode, SequenceDiagramNode } from '../store/types'
@@ -9,19 +9,17 @@ import { TreeToolbar } from './tree/TreeToolbar'
 import { findParentNode } from '../nodes/nodeTree'
 
 export const TreeView = () => {
-    const { rootComponent, addNode, selectNode, selectedNodeId, uiMode } = useSystemStore(
+    const { rootComponent, addNode, selectNode, uiMode } = useSystemStore(
         useShallow((s) => ({
             rootComponent: s.rootComponent,
             addNode: s.addNode,
             selectNode: s.selectNode,
-            selectedNodeId: s.selectedNodeId,
             uiMode: s.uiMode,
         }))
     )
     const readOnly = uiMode === 'browse'
 
     const treeRef = useRef<HTMLDivElement>(null)
-    const treeActive = useRef(false)
 
     const [contextMenu, setContextMenu] = useState<{
         x: number
@@ -34,24 +32,6 @@ export const TreeView = () => {
         placeholder: string
         onConfirm: (id: string, name: string) => void
     } | null>(null)
-
-    // Track whether the tree panel is "active" (last interacted with).
-    useEffect(() => {
-        const onPointer = (e: PointerEvent) => {
-            treeActive.current = !!(
-                treeRef.current &&
-                e.target instanceof globalThis.Node &&
-                treeRef.current.contains(e.target)
-            )
-        }
-        document.addEventListener('pointerdown', onPointer)
-        return () => document.removeEventListener('pointerdown', onPointer)
-    }, [])
-
-    // Navigating to a node via a diagram link also activates the tree.
-    useEffect(() => {
-        if (selectedNodeId) treeActive.current = true
-    }, [selectedNodeId])
 
     const handleCloseContextMenu = () => {
         setContextMenu(null)
@@ -175,7 +155,7 @@ export const TreeView = () => {
 
     return (
         <div ref={treeRef} className="contents">
-            <TreeToolbar treeActive={treeActive} />
+            <TreeToolbar />
             <div className="flex-1 overflow-auto pb-8">
                 <TreeNode
                     node={rootComponent}

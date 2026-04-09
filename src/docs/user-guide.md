@@ -64,13 +64,16 @@ Navigate the tree to inspect generated nodes. On initial load, only the root nod
 
 ### Sharing models via direct URL
 
-If the web server serving Integra also hosts model YAML files under `/models/`, you can link directly to a model:
+If the web server serving Integra also hosts model YAML files under `/models/`, you can link directly to a model or to a specific entity within it:
 
 ```
 https://your-server/models/<component-id>
+https://your-server/models/<component-id>/<entity-path>
 ```
 
-The app will fetch `/models/<component-id>/root.yaml` and all referenced sub-components automatically, then render the model in **browse mode** (read-only, edit mode locked). If the model file is not found, a 404 page is shown.
+The entity path is the chain of node `id` fields from root's first child down to the target node, separated by `/`. For example, `/models/my-system/auth/login-flow/checkout` opens the `checkout` use case inside `auth/login-flow`.
+
+The app will fetch the model YAML files automatically and render the model in **browse mode** (read-only, edit mode locked). If the model file is not found, a 404 page is shown. If the entity path cannot be resolved, the full layout is shown with the tree visible and a "Entity not found" message in the right panel.
 
 **Expected file layout on the server:**
 
@@ -93,7 +96,18 @@ location ~* ^/models/.*\.yaml$ { }
 location /models/ {
     try_files $uri /index.html;
 }
+
+# /file routes → SPA
+location /file/ {
+    try_files $uri /index.html;
+}
 ```
+
+### Bookmarking filesystem models
+
+When you load a model from the filesystem (via the **Load** button), the URL changes to `/file` and updates as you navigate the tree — e.g. `/file/auth/login-flow/checkout`. You can bookmark these URLs.
+
+Visiting a `/file/...` URL in a new browser session will prompt you to load a model directory first; once loaded, the app navigates to the bookmarked entity automatically (if it still exists in the loaded model).
 
 ---
 
@@ -117,15 +131,12 @@ Suggestions appear automatically as you type. They reflect nodes already defined
 | `Shift+Enter`                     | Save spec and preview diagram without leaving edit mode              |
 | `Cmd/Ctrl+Z`                      | Undo in the diagram spec editor (CodeMirror history) _or_ tree-level |
 | `Cmd/Ctrl+Shift+Z` / `Cmd/Ctrl+Y` | Redo                                                                 |
-| `Alt+←`                           | Navigate back to the previously selected tree node                   |
-| `Alt+→`                           | Navigate forward (after going back)                                  |
-
 Tree-level undo/redo is also accessible via the toolbar buttons above the system tree.
 The diagram spec editor uses CodeMirror's built-in history, fully independent from the tree-level history.
 
 #### Node Navigation History
 
-The toolbar above the system tree includes **← Back** and **→ Forward** buttons (before Undo/Redo). These work like browser navigation — clicking any node in the tree adds it to the history, and you can step backwards and forwards through your recent selections. The history is per-session and is not persisted across page reloads.
+Each entity selection updates the browser's URL and history. Use the browser's native **← Back** and **→ Forward** buttons (or keyboard shortcuts) to step through your recent entity selections. Because the URL reflects the selected entity, you can bookmark any entity and return to it directly.
 
 When navigation happens from a rendered diagram or a markdown node link, the
 tree automatically expands the newly selected node's ancestor chain and scrolls

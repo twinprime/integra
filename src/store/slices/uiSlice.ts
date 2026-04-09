@@ -1,8 +1,6 @@
 import type { StateCreator } from 'zustand'
 import type { SystemState } from '../useSystemStore'
 
-const NAV_HISTORY_LIMIT = 50
-
 export type UiMode = 'browse' | 'edit'
 
 export type UiSlice = {
@@ -14,10 +12,6 @@ export type UiSlice = {
     selectedInterfaceUuid: string | null
     parseError: string | null
     savedSnapshot: string | null
-    navBack: string[]
-    navForward: string[]
-    canNavBack: boolean
-    canNavForward: boolean
     setUiMode: (mode: UiMode) => void
     toggleUiMode: () => void
     setBrowseLocked: (locked: boolean) => void
@@ -25,8 +19,6 @@ export type UiSlice = {
     selectVisualizationView: (viewId: string | null) => void
     setShowGeneratedClassDiagramInterfaces: (show: boolean) => void
     selectInterface: (interfaceUuid: string | null) => void
-    goBack: () => void
-    goForward: () => void
     clearParseError: () => void
     markSaved: (snapshot: string) => void
 }
@@ -40,10 +32,6 @@ export const createUiSlice: StateCreator<SystemState, [], [], UiSlice> = (set) =
     selectedInterfaceUuid: null,
     parseError: null,
     savedSnapshot: null,
-    navBack: [],
-    navForward: [],
-    canNavBack: false,
-    canNavForward: false,
     setUiMode: (uiMode) => set({ uiMode }),
     toggleUiMode: () =>
         set((state) => {
@@ -54,56 +42,10 @@ export const createUiSlice: StateCreator<SystemState, [], [], UiSlice> = (set) =
     selectNode: (nodeId) =>
         set((state) => {
             if (nodeId === state.selectedNodeId) return {}
-            const newBack =
-                state.selectedNodeId != null
-                    ? [...state.navBack.slice(-(NAV_HISTORY_LIMIT - 1)), state.selectedNodeId]
-                    : state.navBack
             return {
                 selectedNodeId: nodeId,
                 activeVisualizationViewId: null,
                 parseError: null,
-                navBack: newBack,
-                navForward: [],
-                canNavBack: newBack.length > 0,
-                canNavForward: false,
-            }
-        }),
-    goBack: () =>
-        set((state) => {
-            if (!state.navBack.length) return {}
-            const prev = state.navBack[state.navBack.length - 1]
-            const newBack = state.navBack.slice(0, -1)
-            const newForward =
-                state.selectedNodeId != null
-                    ? [state.selectedNodeId, ...state.navForward]
-                    : state.navForward
-            return {
-                selectedNodeId: prev,
-                activeVisualizationViewId: null,
-                parseError: null,
-                navBack: newBack,
-                navForward: newForward,
-                canNavBack: newBack.length > 0,
-                canNavForward: newForward.length > 0,
-            }
-        }),
-    goForward: () =>
-        set((state) => {
-            if (!state.navForward.length) return {}
-            const next = state.navForward[0]
-            const newForward = state.navForward.slice(1)
-            const newBack =
-                state.selectedNodeId != null
-                    ? [...state.navBack.slice(-(NAV_HISTORY_LIMIT - 1)), state.selectedNodeId]
-                    : state.navBack
-            return {
-                selectedNodeId: next,
-                activeVisualizationViewId: null,
-                parseError: null,
-                navBack: newBack,
-                navForward: newForward,
-                canNavBack: newBack.length > 0,
-                canNavForward: newForward.length > 0,
             }
         }),
     selectVisualizationView: (viewId) => set({ activeVisualizationViewId: viewId }),

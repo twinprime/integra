@@ -7,19 +7,11 @@ Review the file after each task to see if it should be updated.
 
 Do not commit after individual TDD steps. Only commit once per high-level task defined in the plan.
 
-**⚠️ PRE-IMPLEMENTATION CHECKLIST — must be completed before writing any code:**
-
-ONLY when following the 'using-superpowers' workflow:
-
-1. Include the task number or spec filename in every commit message (e.g., feat: implement logic for [plan-xyz.md:Task 2]).
-
-ONLY when NOT following the 'using-superpowers' workflow:
+**⚠️ PRE-IMPLEMENTATION CHECKLIST — must be completed before making any changes to existing files:**
 
 1. Check the current branch with `git branch --show-current`.
 2. If on `main`: create a new feature branch and switch to it before touching any files.
 3. If not on `main`: ask the user whether to merge to `main` first or continue on the current branch.
-4. **Never commit until the user explicitly asks for a commit.** Do not invoke the git-commit skill proactively.
-5. Include a list of the specific user prompts that led to these changes at the end of the message for traceability
 
 # Coding Standards
 
@@ -34,4 +26,4 @@ ALWAYS use the skill post-task-review before declaring a coding task complete.
 
 # Maintain Model Invariants
 
-When implementing any changes, ensure that the core invariants of the model as documented in the [Developer Guide](docs/developer-guide.md) section "Model Invariants" are maintained.
+When implementing any changes, ensure that the core invariants of the model as documented in the [Developer Guide](../docs/developer-guide.md) section "Model Invariants" are maintained.

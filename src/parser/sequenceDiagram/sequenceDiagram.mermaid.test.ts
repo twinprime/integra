@@ -595,6 +595,7 @@ describe('generateSequenceMermaidFromAst — functionRef display label', () => {
                 renderedLabel: 'shared',
                 targetUuid: 'owner-uuid',
                 interfaceUuid: 'owner-iface',
+                functionId: 'doWork',
                 clickable: true,
             },
             {

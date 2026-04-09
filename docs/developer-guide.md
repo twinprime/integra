@@ -17,7 +17,7 @@ Integra is a single-page web application that allows users to model software sys
 9. **Function update flow** — when a function signature changes, the user is prompted to update all affected sequence diagrams or add an overload
 9. **Orphan detection** — actors and components not referenced by any diagram are deletable; otherwise the delete button is hidden
 10. **Syntax highlighting** — the diagram specification editor (CodeMirror 6) highlights known tokens (keywords, participants, interfaces, functions, use case references) in real time using a Chevrotain-based decoration pass
-11. **Navigation** — highlighted tokens in the specification editor are clickable and navigate to the corresponding node in the tree; entities in the rendered Mermaid diagram are also clickable for the same purpose
+11. **Navigation** — highlighted tokens in the specification editor are clickable and navigate to the corresponding node in the tree; entities in the rendered Mermaid diagram are also clickable for the same purpose; entity selection is reflected in the browser URL so entities can be bookmarked and linked directly; browser back/forward navigate through the entity selection history
 12. **Persistence** — system state is persisted to `localStorage` and restored on page load; a clear button resets to the initial state; Save / Load buttons use the File System Access API to read/write YAML files
 13. **Auto-generated use-case class diagram** — selecting a use-case node renders a class diagram in the bottom panel derived from all its sequence diagrams plus transitively referenced `Sequence:` and `UseCase:` targets, showing actors, components, interfaces (with methods), and realization / dependency relationships; repeated reachable diagrams are deduplicated and circular references are ignored after the first visit. Messages whose arrows are prefixed with `X` are skipped when deriving dependencies
 14. **Auto-generated component class diagram** — selecting a component node renders a class diagram showing: the component's own interfaces (with method signatures, filtered to only the methods actually called in diagrams when those interfaces participate in derived dependencies); sibling actors/components that call those interfaces (dependents); sibling components that this component calls out to (dependencies); and dependency interfaces derived from nested calls without rendering the selected component's own sub-components as separate classes; with distinct colors for the subject component and its own interfaces; when the root component is selected, shows direct root children, participating root actors, and relationships between them, including dependencies rolled up from nested descendants. Dependency derivation follows transitively referenced `Sequence:` and `UseCase:` targets with deduplication and cycle protection, and ignores messages whose arrows are prefixed with `X`
@@ -124,10 +124,18 @@ The UI is split into three panels managed by `MainLayout`. Each panel is indepen
 ```mermaid
 graph TD
     App --> MainLayout
+    App --> ModelPage
+    App --> FilePage
+
+    ModelPage --> MainLayout
+    FilePage --> MainLayout
 
     MainLayout -->|left panel| TreeView
     MainLayout -->|right panel| EditorPanel
     MainLayout -->|bottom panel| DiagramPanel
+
+    ModelPage --> useEntityNavigation
+    FilePage --> useEntityNavigation
 
     TreeView --> TreeNode["TreeNode (recursive)"]
     TreeNode --> ContextMenu
@@ -156,6 +164,8 @@ graph TD
 
 | Component | Role |
 |---|---|
+| `ModelPage` | Loads a model from the web server at `/models/<id>/root.yaml`; mounts `useEntityNavigation`; shows 404 if model not found |
+| `FilePage` | Handles `/file/...` routes; prompts to load a filesystem model if none is present; mounts `useEntityNavigation` |
 | `MainLayout` | Split-panel layout with draggable resize handles and expand/collapse buttons |
 | `TreeView` | System tree with add/delete/rename; Save, Load, Clear, Undo/Redo toolbar; Integra app icon in header |
 | `TreeNode` | Recursive node row — renders label, type icon, +/delete buttons, selection highlight |
@@ -191,6 +201,7 @@ Rendering logic for Mermaid diagrams is extracted into custom hooks to keep comp
 | `useUseCaseDiagramClassDiagram` | `UseCaseDiagramClassDiagram` | Thin wrapper: calls `useMermaidClassDiagram(buildUseCaseDiagramClassDiagram, node, "uc-diagram-class")` |
 | `useComponentClassDiagram` | `ComponentClassDiagram` | Thin wrapper: calls `useMermaidClassDiagram(buildComponentClassDiagram, node, "comp-class")` |
 | `useAutoComplete` | `DiagramEditor` / `integraAutocomplete.ts` | Thin React hook — wires cursor position to suggestion results; pure logic (`detectContext`, `buildSuggestions`, etc.) lives in `autoCompleteLogic.ts` |
+| `useEntityNavigation` | `ModelPage`, `FilePage` | Syncs `selectedNodeId` ↔ browser URL via `history.pushState`; handles `popstate` for browser back/forward; resolves entity path on initial mount |
 
 #### State Management
 
@@ -218,6 +229,7 @@ graph LR
     Store -->|"rootComponent<br>selectedNodeId"| DiagramPanel
 
     TreeView -->|"selectNode<br>updateNode<br>addNode<br>deleteNode<br>undo / redo<br>markSaved<br>setSystem"| Store
+    useEntityNavigation -->|selectNode| Store
     EditorPanel -->|"updateNode<br>applyFunctionUpdates"| Store
     DiagramPanel -->|selectNode| Store
 ```
@@ -230,6 +242,8 @@ Key state fields:
 | `selectedNodeId` | `string \| null` | `uiSlice` | Currently selected node UUID |
 | `savedSnapshot` | `string \| null` | `uiSlice` | YAML snapshot at last save (for unsaved-changes detection) |
 | `past` / `future` | `ComponentNode[]` | `historySlice` | Undo/redo history stacks |
+
+> **Navigation history** is no longer stored in the Zustand store. Browser history entries are created by `useEntityNavigation` via `history.pushState` on each entity selection, so browser back/forward navigate through entity selections natively.
 
 #### Node Types
 
