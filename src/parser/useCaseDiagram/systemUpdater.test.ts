@@ -84,12 +84,12 @@ describe('parseUseCaseDiagram — actor declaration', () => {
         expect(actors[0]).toMatchObject({ id: 'customer', type: 'actor' })
     })
 
-    it('actor with alias uses alias as name', () => {
+    it('actor with alias uses derived name, not alias', () => {
         const root = makeRoot()
         const result = parseUseCaseDiagram('actor cust as Customer', root, OWNER_UUID, UCD_UUID)
         const actor = getOwner(result).actors[0]
         expect(actor.id).toBe('cust')
-        expect(actor.name).toBe('Customer')
+        expect(actor.name).toBe('Cust')
     })
 })
 

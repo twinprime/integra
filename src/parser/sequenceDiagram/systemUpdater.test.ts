@@ -114,7 +114,7 @@ describe('parseSequenceDiagram — participant declarations', () => {
         expect(subComponents[0]).toMatchObject({ id: 'orderSvc', type: 'component' })
     })
 
-    it('component participant with alias uses alias as name', () => {
+    it('component participant with alias uses derived name, not alias', () => {
         const root = makeRoot()
         const result = parseSequenceDiagram(
             'component order_service as orders',
@@ -124,7 +124,7 @@ describe('parseSequenceDiagram — participant declarations', () => {
         )
         const sub = getOwner(result).subComponents[0]
         expect(sub.id).toBe('order_service')
-        expect(sub.name).toBe('orders')
+        expect(sub.name).toBe('Order Service')
     })
 })
 
@@ -159,6 +159,21 @@ describe('parseSequenceDiagram — function call message', () => {
 
         expect(seqDiag.referencedFunctionUuids).toHaveLength(1)
         // UUID must be a valid non-empty string that was assigned during parsing
+        expect(typeof seqDiag.referencedFunctionUuids[0]).toBe('string')
+        expect(seqDiag.referencedFunctionUuids[0]).not.toBe('')
+    })
+
+    it('referencedFunctionUuids is populated when receiver is referenced by alias', () => {
+        const content = [
+            'actor customer',
+            'component orderSvc as orders',
+            'customer ->> orders: OrdersAPI:placeOrder(orderId: string)',
+        ].join('\n')
+        const root = makeRoot()
+        const result = parseSequenceDiagram(content, root, OWNER_UUID, SEQ_UUID)
+        const seqDiag = getSeqDiag(result)
+
+        expect(seqDiag.referencedFunctionUuids).toHaveLength(1)
         expect(typeof seqDiag.referencedFunctionUuids[0]).toBe('string')
         expect(seqDiag.referencedFunctionUuids[0]).not.toBe('')
     })

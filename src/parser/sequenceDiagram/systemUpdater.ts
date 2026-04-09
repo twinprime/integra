@@ -252,7 +252,7 @@ export function parseSequenceDiagram(
                 localActors.push({
                     uuid: crypto.randomUUID(),
                     id: treeNodeId,
-                    name: decl.alias ?? deriveNameFromId(treeNodeId),
+                    name: deriveNameFromId(treeNodeId),
                     type: 'actor',
                     description: '',
                 })
@@ -260,7 +260,7 @@ export function parseSequenceDiagram(
                 localComponents.push({
                     uuid: crypto.randomUUID(),
                     id: treeNodeId,
-                    name: decl.alias ?? deriveNameFromId(treeNodeId),
+                    name: deriveNameFromId(treeNodeId),
                     type: 'component',
                     description: '',
                     subComponents: [],
@@ -434,10 +434,11 @@ export function parseSequenceDiagram(
     const referencedFunctionUuids: string[] = []
     for (const msg of astMessages) {
         if (msg.content.kind !== 'functionRef') continue
+        const toTreeId = participantToTreeId.get(msg.to) ?? msg.to
         const fnUuid =
             resolveFunctionReferenceTarget(
                 updatedRoot,
-                msg.to,
+                toTreeId,
                 msg.content.interfaceId,
                 msg.content.functionId
             )?.functionUuid ?? null

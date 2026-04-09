@@ -25,12 +25,17 @@ export function buildFunctionReferenceLookup(
         if (ownerNode?.type !== 'component') continue
 
         const ast = getCachedSeqAst(diagram.content)
+        const aliasToNodeId = new Map<string, string>()
+        for (const decl of ast.declarations) {
+            if (decl.alias) aliasToNodeId.set(decl.alias, decl.path[decl.path.length - 1])
+        }
         for (const message of flattenMessages(ast.statements)) {
             if (message.content.kind !== 'functionRef') continue
 
+            const receiverNodeId = aliasToNodeId.get(message.to) ?? message.to
             const resolvedTarget = resolveFunctionReferenceTarget(
                 rootComponent,
-                message.to,
+                receiverNodeId,
                 message.content.interfaceId,
                 message.content.functionId
             )

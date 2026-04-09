@@ -63,7 +63,7 @@ export function parseUseCaseDiagram(
                 localActors.push({
                     uuid: crypto.randomUUID(),
                     id: treeNodeId,
-                    name: decl.alias ?? deriveNameFromId(treeNodeId),
+                    name: deriveNameFromId(treeNodeId),
                     type: 'actor',
                     description: '',
                 })
@@ -71,7 +71,7 @@ export function parseUseCaseDiagram(
                 localComponents.push({
                     uuid: crypto.randomUUID(),
                     id: treeNodeId,
-                    name: decl.alias ?? deriveNameFromId(treeNodeId),
+                    name: deriveNameFromId(treeNodeId),
                     type: 'component',
                     description: '',
                     subComponents: [],
@@ -84,7 +84,7 @@ export function parseUseCaseDiagram(
                 localUseCases.push({
                     uuid: crypto.randomUUID(),
                     id: treeNodeId,
-                    name: decl.alias ?? deriveNameFromId(treeNodeId),
+                    name: deriveNameFromId(treeNodeId),
                     type: 'use-case',
                     description: '',
                     sequenceDiagrams: [],

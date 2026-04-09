@@ -135,4 +135,44 @@ describe('function reference lookup', () => {
             { uuid: 'parent-flow-uuid', name: 'parent-flow' },
         ])
     })
+
+    it('resolves participant aliases when building the lookup', () => {
+        const sequence = makeSequenceDiagram(
+            'alias-flow',
+            'root-uuid',
+            ['actor user', 'component root as svc', 'user ->> svc: API:doThing()'].join('\n')
+        )
+        const root: ComponentNode = {
+            uuid: 'root-uuid',
+            id: 'root',
+            name: 'Root',
+            type: 'component',
+            description: '',
+            actors: [
+                { uuid: 'user-uuid', id: 'user', name: 'User', type: 'actor', description: '' },
+            ],
+            interfaces: [
+                {
+                    uuid: 'iface-uuid',
+                    id: 'API',
+                    name: 'API',
+                    type: 'rest',
+                    functions: [{ uuid: 'fn-uuid', id: 'doThing', parameters: [] }],
+                },
+            ],
+            useCaseDiagrams: [
+                makeUseCaseDiagram('diag', 'root-uuid', makeUseCase('uc', sequence)),
+            ],
+            subComponents: [],
+        }
+
+        const lookup = buildFunctionReferenceLookup(root)
+
+        expect(getInterfaceReferencedFunctionIds(lookup, 'iface-uuid')).toEqual(
+            new Set(['doThing'])
+        )
+        expect(getFunctionTargetReferences(lookup, 'iface-uuid', 'doThing')).toEqual([
+            { uuid: 'alias-flow-uuid', name: 'alias-flow' },
+        ])
+    })
 })
