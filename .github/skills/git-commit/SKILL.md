@@ -1,6 +1,6 @@
 ---
 name: git-commit
-description: 'Use this skill to commit changes to git with a well formatted commit message.'
+description: Use this skill to commit changes to git with a well formatted commit message.
 ---
 
 For every commit, follow these strict rules:

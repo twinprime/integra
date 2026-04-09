@@ -1,6 +1,6 @@
 ---
 name: post-task-review
-description: 'Use this skill before declaring a coding task complete to validate changes before finalising work.'
+description: Use this skill before declaring a coding task complete to validate changes before finalising work.
 ---
 
 # Post-Task Code Review Skill

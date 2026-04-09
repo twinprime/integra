@@ -1,11 +1,7 @@
 ---
-name: ui-bug-fixer
-description: Fixes UI bugs by first creating a failing reproduction test. Prioritizes Unit Tests, then E2E tests if necessary.
+name: bug-fixer
+description: Use when user reports any bug, validation failure or unexpected behavior and you are not following the 'using-superpowers' workflow
 ---
-
-# UI Bug Fixer Skill
-
-Use this skill when a user reports a UI-related issue, such as visual glitches, broken interactions, or incorrect state rendering.
 
 ## 1. Analysis
 
