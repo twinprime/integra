@@ -21,10 +21,16 @@ ONLY when NOT following the 'using-superpowers' workflow:
 4. **Never commit until the user explicitly asks for a commit.** Do not invoke the git-commit skill proactively.
 5. Include a list of the specific user prompts that led to these changes at the end of the message for traceability
 
-# Linting
+# Coding Standards
 
-Follow the coding standards defined in the project's .prettierrc and .eslintrc files. After making any changes, you must run `npm run lint:fix` to automatically fix any linting issues and ensure that the code adheres to the defined style guidelines. You should also fix any
+Follow the coding standards defined in the project's .prettierrc and .eslintrc files. After making any changes, YOU MUST RUN `npm run lint:fix` to automatically fix any linting issues and ensure that the code adheres to the defined style guidelines. You should also fix any
 other issues reported by the linter that cannot be automatically fixed.
+
+# Post Task Review
+
+**Important**
+
+ALWAYS use the skill post-task-review before declaring a coding task complete.
 
 # Maintain Model Invariants
 
