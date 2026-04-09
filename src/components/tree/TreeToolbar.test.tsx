@@ -20,7 +20,6 @@ vi.mock('../../store/useSystemStore', () => ({
 import { useSystemStore } from '../../store/useSystemStore'
 
 const mockToggleUiMode = vi.fn()
-const treeActive = { current: false }
 const openSpy = vi.fn()
 
 function setupStoreMock(uiMode: 'browse' | 'edit' = 'browse') {
@@ -40,12 +39,8 @@ function setupStoreMock(uiMode: 'browse' | 'edit' = 'browse') {
         clearSystem: vi.fn(),
         undo: vi.fn(),
         redo: vi.fn(),
-        goBack: vi.fn(),
-        goForward: vi.fn(),
         savedSnapshot: 'snapshot',
         markSaved: vi.fn(),
-        canNavBack: false,
-        canNavForward: false,
         past: [],
         future: [],
         uiMode,
@@ -66,7 +61,7 @@ describe('TreeToolbar', () => {
     })
 
     it('hides undo, redo, save, and clear in browse mode', () => {
-        render(<TreeToolbar treeActive={treeActive} />)
+        render(<TreeToolbar />)
 
         expect(screen.queryByTitle('Undo (Cmd+Z)')).not.toBeInTheDocument()
         expect(screen.queryByTitle('Redo (Cmd+Shift+Z)')).not.toBeInTheDocument()
@@ -83,7 +78,7 @@ describe('TreeToolbar', () => {
     it('shows edit-only actions and the edit-mode icon variant', () => {
         setupStoreMock('edit')
 
-        render(<TreeToolbar treeActive={treeActive} />)
+        render(<TreeToolbar />)
 
         expect(screen.getByTitle('Undo (Cmd+Z)')).toBeInTheDocument()
         expect(screen.getByTitle('Redo (Cmd+Shift+Z)')).toBeInTheDocument()
@@ -103,7 +98,7 @@ describe('TreeToolbar', () => {
     it('toggles mode when the Integra icon is clicked', async () => {
         const user = userEvent.setup()
 
-        render(<TreeToolbar treeActive={treeActive} />)
+        render(<TreeToolbar />)
 
         await user.click(screen.getByLabelText('Switch to edit mode'))
 
@@ -113,7 +108,7 @@ describe('TreeToolbar', () => {
     it('opens the user guide in a new tab', async () => {
         const user = userEvent.setup()
 
-        render(<TreeToolbar treeActive={treeActive} />)
+        render(<TreeToolbar />)
 
         await user.click(screen.getByTitle('Help'))
 

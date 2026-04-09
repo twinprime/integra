@@ -142,6 +142,36 @@ export const traversePath = (node: Node, remaining: string[]): string | null => 
     return child ? traversePath(child, rest) : null
 }
 
+/**
+ * Returns the id-segment path from root's first child down to the node with the given uuid.
+ * Returns [] if uuid matches the root itself, null if not found anywhere in the tree.
+ */
+export function getNodeIdPath(root: ComponentNode, uuid: string): string[] | null {
+    if (root.uuid === uuid) return []
+
+    function search(node: Node, path: string[]): string[] | null {
+        for (const child of getNodeChildren(node)) {
+            const childPath = [...path, child.id]
+            if (child.uuid === uuid) return childPath
+            const found = search(child, childPath)
+            if (found !== null) return found
+        }
+        return null
+    }
+
+    return search(root, [])
+}
+
+/**
+ * Resolves a chain of id segments to a node, starting from root's children.
+ * Returns root if segments is empty, null if the path cannot be resolved.
+ */
+export function findNodeByIdPath(root: ComponentNode, segments: string[]): Node | null {
+    if (segments.length === 0) return root
+    const uuid = traversePath(root, segments)
+    return uuid ? findNodeByUuid([root], uuid) : null
+}
+
 // ─── Parent lookup ────────────────────────────────────────────────────────────
 
 export const findParentNode = (root: ComponentNode, targetUuid: string): Node | null =>

@@ -232,8 +232,22 @@ const MODELS_BASE_PATH = '/models'
 
 /** Returns the component ID from the URL if on a /models/<id> route, otherwise null. */
 export function getModelRouteComponentId(): string | null {
-    const match = window.location.pathname.match(new RegExp(`^${MODELS_BASE_PATH}/([^/]+)/?$`))
+    const match = window.location.pathname.match(
+        new RegExp(`^${MODELS_BASE_PATH}/([^/]+)(?:/.*)?$`)
+    )
     return match ? match[1] : null
+}
+
+/** Extracts entity id segments from a /models/<id>/seg1/seg2/... pathname. */
+export function getModelEntitySegments(pathname: string): string[] {
+    const match = pathname.match(new RegExp(`^${MODELS_BASE_PATH}/[^/]+/(.+)$`))
+    return match ? match[1].split('/').filter(Boolean) : []
+}
+
+/** Extracts entity id segments from a /file/seg1/seg2/... pathname. */
+export function getFileEntitySegments(pathname: string): string[] {
+    const match = pathname.match(/^\/file\/(.+)$/)
+    return match ? match[1].split('/').filter(Boolean) : []
 }
 
 export class NotFoundError extends Error {

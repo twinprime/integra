@@ -5,6 +5,7 @@ import { EditorPanel } from './EditorPanel'
 import { DiagramPanel } from './DiagramPanel'
 import { useSystemStore } from '../store/useSystemStore'
 import { loadFromUrl, NotFoundError, getModelRouteComponentId } from '../utils/systemFiles'
+import { useEntityNavigation } from '../hooks/useEntityNavigation'
 
 type LoadState =
     | { status: 'loading' }
@@ -33,6 +34,7 @@ export function ModelPage() {
     const setSystem = useSystemStore((s) => s.setSystem)
     const setUiMode = useSystemStore((s) => s.setUiMode)
     const setBrowseLocked = useSystemStore((s) => s.setBrowseLocked)
+    const rootComponent = useSystemStore((s) => s.rootComponent)
 
     const [loadState, setLoadState] = useState<LoadState>(() =>
         componentId ? { status: 'loading' } : { status: 'not-found', componentId: '' }
@@ -64,6 +66,10 @@ export function ModelPage() {
             cancelled = true
         }
     }, [componentId, setSystem, setUiMode, setBrowseLocked])
+
+    const root = loadState.status === 'ready' ? rootComponent : null
+    const routePrefix = componentId ? `/models/${componentId}` : '/models'
+    const { notFoundPath } = useEntityNavigation(root, routePrefix)
 
     if (loadState.status === 'loading') {
         return (
@@ -97,10 +103,18 @@ export function ModelPage() {
         )
     }
 
+    const rightPanel = notFoundPath ? (
+        <div className="h-full flex items-center justify-center text-gray-500 text-sm font-mono">
+            Entity not found: {notFoundPath}
+        </div>
+    ) : (
+        <EditorPanel />
+    )
+
     return (
         <MainLayout
             leftPanel={<TreeView />}
-            rightPanel={<EditorPanel />}
+            rightPanel={rightPanel}
             bottomPanel={<DiagramPanel />}
         />
     )

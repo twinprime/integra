@@ -1,6 +1,7 @@
 import { MainLayout } from './layouts/MainLayout'
 import { UserGuidePage } from './components/UserGuidePage'
 import { ModelPage } from './components/ModelPage'
+import { FilePage } from './components/FilePage'
 import { TreeView } from './components/TreeView'
 import { EditorPanel } from './components/EditorPanel'
 import { DiagramPanel } from './components/DiagramPanel'
@@ -11,6 +12,10 @@ function App() {
 
     if (view === 'user-guide') {
         return <UserGuidePage />
+    }
+
+    if (window.location.pathname.startsWith('/file')) {
+        return <FilePage />
     }
 
     if (getModelRouteComponentId() !== null) {
