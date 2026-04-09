@@ -19,6 +19,7 @@ import { SeqColon, SeqArrow } from '../../parser/sequenceDiagram/lexer'
 import { isInScope, getComponentAbsolutePath } from '../../utils/nodeUtils'
 import { resolveEffectiveInterfaceFunctions } from '../../utils/interfaceFunctions'
 import { isComponentReferenceTargetInScope } from '../../utils/diagramResolvers'
+import { getCachedSeqAst } from '../../utils/seqAstCache'
 
 export type Suggestion = {
     label: string
@@ -417,15 +418,27 @@ function resolveReceiverComp(
     return fromSubs ?? findComponentByIdInTree(rootComponent, ctx.receiverId)
 }
 
+function buildAliasMap(content: string): Map<string, string> {
+    const aliasMap = new Map<string, string>()
+    const ast = getCachedSeqAst(content)
+    for (const decl of ast.declarations) {
+        if (decl.alias) aliasMap.set(decl.alias, decl.path[decl.path.length - 1])
+    }
+    return aliasMap
+}
+
 function buildFunctionRefSuggestions(
     ctx: Extract<Context, { type: 'function-ref' }>,
     ownerComp: ComponentNode,
-    rootComponent: ComponentNode
+    rootComponent: ComponentNode,
+    content: string
 ): Suggestion[] {
     const suggs: Suggestion[] = []
 
+    const receiverId = buildAliasMap(content).get(ctx.receiverId) ?? ctx.receiverId
+
     // Interface/function suggestions are receiver-specific (calling a method on the receiver)
-    const receiverComp = resolveReceiverComp(ctx, ownerComp, rootComponent)
+    const receiverComp = resolveReceiverComp({ ...ctx, receiverId }, ownerComp, rootComponent)
     if (receiverComp) {
         for (const iface of receiverComp.interfaces) {
             for (const fn of resolveEffectiveInterfaceFunctions(
@@ -513,7 +526,7 @@ export function buildSuggestions(
         return buildEntityNameSuggestions(ctx, ownerComp, rootComponent, diagramType)
     }
     if (ctx.type === 'function-ref') {
-        return buildFunctionRefSuggestions(ctx, ownerComp, rootComponent)
+        return buildFunctionRefSuggestions(ctx, ownerComp, rootComponent, content)
     }
     if (
         ctx.type === 'seq-receiver' ||

@@ -501,6 +501,35 @@ describe('buildSuggestions — Sequence: inherited interface functions', () => {
         ).toBeDefined()
     })
 
+    it('suggests interface functions when receiver is declared with an alias', () => {
+        const iface = {
+            uuid: 'iface-uuid',
+            id: 'AuthService',
+            name: 'AuthService',
+            type: 'rest' as const,
+            functions: [
+                {
+                    uuid: 'fn-login-uuid',
+                    id: 'login',
+                    parameters: [],
+                },
+            ],
+        }
+        const auth = makeComp('auth-uuid', 'auth', { interfaces: [iface] })
+        const owner = makeComp('owner-uuid', 'owner')
+        const root = makeComp('root-uuid', 'root', { subComponents: [owner, auth] })
+
+        // auth component is declared with alias "AuthAlias" in the diagram
+        const content = 'actor user\ncomponent auth as AuthAlias\nuser ->> AuthAlias: '
+        const ctx = detectContext(content, content.length, 'sequence-diagram')
+        expect(ctx?.type).toBe('function-ref')
+        if (ctx?.type !== 'function-ref') throw new Error('Expected function-ref context')
+        expect(ctx.receiverId).toBe('AuthAlias')
+
+        const suggs = buildSuggestions(ctx, content, owner, root, 'sequence-diagram')
+        expect(suggs.find((s) => s.insertText === 'AuthService:login()')).toBeDefined()
+    })
+
     it('does not duplicate inherited functions when parent also appears as receiver', () => {
         const parentIface = {
             uuid: 'iface-parent-uuid',
