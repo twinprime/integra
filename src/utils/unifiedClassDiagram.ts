@@ -256,12 +256,16 @@ function buildClassDiagramGraph({
             }
 
             const { interfaceId, functionId } = message.content
-            const resolvedTarget = resolveFunctionReferenceTarget(
-                rootComponent,
-                message.to,
-                interfaceId,
-                functionId
-            )
+            const actualReceiverNode = receiverUuid ? findNode([rootComponent], receiverUuid) : null
+            const resolvedTarget =
+                actualReceiverNode?.type === 'component'
+                    ? resolveFunctionReferenceTarget(
+                          rootComponent,
+                          actualReceiverNode.id,
+                          interfaceId,
+                          functionId
+                      )
+                    : null
             if (!resolvedTarget) {
                 addDependencyEdge(
                     senderNodeDefinition.nodeId,

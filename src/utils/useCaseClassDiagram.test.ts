@@ -208,6 +208,33 @@ describe('buildUseCaseClassDiagram', () => {
         })
     })
 
+    it('links aliased child component calls to the child interface', () => {
+        const primaryUseCase = makeUseCase(
+            'primary',
+            makeSeqDiagram(
+                'entry',
+                [
+                    'actor root/rootUser as rootUser',
+                    'component childSvc as childAlias',
+                    'rootUser ->> childAlias: IChild:run()',
+                ].join('\n')
+            )
+        )
+        const root = makeRoot(primaryUseCase)
+
+        const result = buildUseCaseClassDiagram(primaryUseCase, root)
+
+        expect(result.mermaidContent).toContain('class rootUser["Root User"]:::actor')
+        expect(result.mermaidContent).toContain('class childSvc["Child Service"]')
+        expect(result.mermaidContent).toContain('class iface_child_iface_uuid["IChild"] {')
+        expect(result.relationshipMetadata).toContainEqual({
+            kind: 'dependency',
+            sourceName: 'Root User',
+            targetName: 'IChild',
+            sequenceDiagrams: [{ uuid: 'entry-uuid', name: 'entry' }],
+        })
+    })
+
     it('follows referenced use cases transitively', () => {
         const secondaryUseCase = makeUseCase(
             'secondary',
