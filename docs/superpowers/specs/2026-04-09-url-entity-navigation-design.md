@@ -47,9 +47,15 @@ The existing `/` route (localStorage-based main app) is **not** affected and rec
 A `useEntityNavigation` hook subscribes to `selectedNodeId`. On each change it:
 
 1. Computes the entity path via `getNodeIdPath(root, uuid)` — returns `string[]` of `id` segments from root's first child to the node (empty array = root selected, null = not found).
-2. Calls `history.replaceState` to update the URL without a page reload.
+2. Calls `history.pushState` to update the URL, adding a browser history entry so the browser's native back/forward navigate between entity selections.
 
 This hook is mounted inside both `ModelPage` and `FilePage`.
+
+### Browser back/forward
+
+The hook also listens for `popstate` events (fired when the user presses browser back/forward). On each `popstate` it re-parses the entity path from the new `window.location.pathname` and calls `selectNode` with the resolved UUID (or shows the "Entity not found" state if unresolvable).
+
+Because browser navigation now handles back/forward, **the in-app back/forward buttons are removed**, along with the associated store state (`navBack`, `navForward`, `canNavBack`, `canNavForward`, `goBack`, `goForward`) and keyboard shortcuts (`Alt+←` / `Alt+→`).
 
 ### Reading (URL → store)
 
@@ -109,7 +115,8 @@ function findNodeByIdPath(root: ComponentNode, segments: string[]): Node | null
 - `src/utils/nodeTree.ts` — add `getNodeIdPath` and `findNodeByIdPath`
 - `src/App.tsx` — add `/file` route; wire entity path into `ModelPage` and `FilePage`
 - `src/components/ModelPage.tsx` — mount `useEntityNavigation`, resolve initial entity path on load
-- `src/components/tree/TreeToolbar.tsx` — redirect to `/file` (not `/`) after `handleLoad`
+- `src/components/tree/TreeToolbar.tsx` — redirect to `/file` (not `/`) after `handleLoad`; remove back/forward buttons and `Alt+←`/`Alt+→` keyboard shortcuts
+- `src/store/slices/uiSlice.ts` — remove `navBack`, `navForward`, `canNavBack`, `canNavForward`, `goBack`, `goForward`
 
 ### Unchanged
-- Store slices, node types, diagram components, `TreeView`, `TreeNode`
+- Node types, diagram components, `TreeView`, `TreeNode`
