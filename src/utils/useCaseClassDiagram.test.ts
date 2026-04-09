@@ -54,7 +54,15 @@ function makeRoot(primaryUseCase?: UseCaseNode, secondaryUseCase?: UseCaseNode):
         id: 'root',
         name: 'Root',
         type: 'component',
-        actors: [],
+        actors: [
+            {
+                uuid: 'root-user-uuid',
+                id: 'rootUser',
+                name: 'Root User',
+                type: 'actor',
+                description: '',
+            },
+        ],
         subComponents: [
             {
                 uuid: 'compa-uuid',
@@ -173,6 +181,33 @@ describe('buildUseCaseClassDiagram', () => {
         })
     })
 
+    it('shows a root-owned actor calling a child component interface', () => {
+        const primaryUseCase = makeUseCase(
+            'primary',
+            makeSeqDiagram(
+                'entry',
+                [
+                    'actor root/rootUser as rootUser',
+                    'component childSvc',
+                    'rootUser ->> childSvc: IChild:run()',
+                ].join('\n')
+            )
+        )
+        const root = makeRoot(primaryUseCase)
+
+        const result = buildUseCaseClassDiagram(primaryUseCase, root)
+
+        expect(result.mermaidContent).toContain('class rootUser["Root User"]:::actor')
+        expect(result.mermaidContent).toContain('class childSvc["Child Service"]')
+        expect(result.mermaidContent).toContain('class iface_child_iface_uuid["IChild"] {')
+        expect(result.relationshipMetadata).toContainEqual({
+            kind: 'dependency',
+            sourceName: 'Root User',
+            targetName: 'IChild',
+            sequenceDiagrams: [{ uuid: 'entry-uuid', name: 'entry' }],
+        })
+    })
+
     it('follows referenced use cases transitively', () => {
         const secondaryUseCase = makeUseCase(
             'secondary',
@@ -248,6 +283,42 @@ describe('buildUseCaseClassDiagram', () => {
 
         expect(result.mermaidContent).not.toContain('childSvc ..> platform')
         expect(result.relationshipMetadata.filter(Boolean)).toHaveLength(0)
+    })
+
+    it('does not create class-diagram links for actor-sent diagram references', () => {
+        const scenarios = [
+            {
+                name: 'use case reference',
+                ref: 'UseCase:secondary',
+            },
+            {
+                name: 'use case diagram reference',
+                ref: 'UseCaseDiagram:compa-diagram',
+            },
+            {
+                name: 'sequence diagram reference',
+                ref: 'Sequence:secondary-seq',
+            },
+        ]
+
+        for (const scenario of scenarios) {
+            const secondaryUseCase = makeUseCase('secondary', makeSeqDiagram('secondary-seq', ''))
+            const primaryUseCase = makeUseCase(
+                'primary',
+                makeSeqDiagram(
+                    'entry',
+                    ['actor user', 'component childSvc', `user ->> childSvc: ${scenario.ref}`].join(
+                        '\n'
+                    )
+                )
+            )
+            const root = makeRoot(primaryUseCase, secondaryUseCase)
+
+            const result = buildUseCaseClassDiagram(primaryUseCase, root)
+
+            expect(result.mermaidContent, scenario.name).not.toContain('user ..>')
+            expect(result.relationshipMetadata.filter(Boolean), scenario.name).toEqual([])
+        }
     })
 
     it('collapses hidden interfaces into direct component dependencies', () => {

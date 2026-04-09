@@ -142,6 +142,58 @@ describe('buildRootClassDiagram', () => {
         )
     })
 
+    it('does not create class-diagram links for actor-sent diagram references', () => {
+        const scenarios = [
+            {
+                name: 'use case reference',
+                sequenceDiagrams: [
+                    makeSeqDiagram(
+                        'actor-use-case-ref',
+                        [
+                            'actor user',
+                            'component platform',
+                            'user ->> platform: UseCase:missingFlow',
+                        ].join('\n')
+                    ),
+                ],
+            },
+            {
+                name: 'use case diagram reference',
+                sequenceDiagrams: [
+                    makeSeqDiagram(
+                        'actor-use-case-diagram-ref',
+                        [
+                            'actor user',
+                            'component platform',
+                            'user ->> platform: UseCaseDiagram:root-diagram',
+                        ].join('\n')
+                    ),
+                ],
+            },
+            {
+                name: 'sequence diagram reference',
+                sequenceDiagrams: [
+                    makeSeqDiagram(
+                        'actor-sequence-ref',
+                        [
+                            'actor user',
+                            'component platform',
+                            'user ->> platform: Sequence:secondary-seq',
+                        ].join('\n')
+                    ),
+                    makeSeqDiagram('secondary-seq', ''),
+                ],
+            },
+        ]
+
+        for (const scenario of scenarios) {
+            const result = buildRootClassDiagram(makeRoot(scenario.sequenceDiagrams))
+
+            expect(result.mermaidContent, scenario.name).not.toContain('user ..>')
+            expect(result.relationshipMetadata.filter(Boolean), scenario.name).toEqual([])
+        }
+    })
+
     it('collapses interface dependencies to direct component links when interfaces are hidden', () => {
         const root = makeRoot([
             makeSeqDiagram(

@@ -51,6 +51,7 @@ const SAVE_MOCK_SCRIPT = `
  * containing a single YAML file for a minimal "Loaded System" component.
  */
 const LOAD_MOCK_SCRIPT = `
+  globalThis.__pickerCalled = false;
   var LOADED_YAML = [
     'uuid: e2e-loaded-uuid',
     'id: LoadedSystem',
@@ -63,6 +64,7 @@ const LOAD_MOCK_SCRIPT = `
   ].join('\\n') + '\\n';
 
   window.showDirectoryPicker = async function() {
+    globalThis.__pickerCalled = true;
     return {
       kind: 'directory',
       name: 'test-dir',
@@ -226,16 +228,20 @@ test.describe('load flow with mocked directory picker', () => {
     test('clicking Load reads YAML from the mock directory and updates the tree', async ({
         page,
     }) => {
-        // Navigate directly to /file so that clicking Load stays on the same page.
-        // handleLoad only redirects when the current pathname is not /file, so
-        // starting here avoids a full navigation (and the addInitScript re-runs
-        // that would overwrite localStorage with the fixture system).
+        // Navigate directly to /file so loading can stay on the current page.
+        // The empty-selection URL normalizes back to "/", so pin the pathname
+        // back to /file after hydration before clicking Load.
         await page.goto('/file')
+        await expect(page.getByRole('treeitem').filter({ hasText: 'System' }).first()).toBeVisible()
+        await page.evaluate(() => window.history.replaceState({}, '', '/file'))
 
         // Dismiss any confirmation dialog (none expected on clean state, but be safe)
         page.on('dialog', (dialog) => void dialog.accept())
 
         await page.getByTitle('Load system from YAML file').click()
+        await page.waitForFunction(
+            () => (globalThis as unknown as { __pickerCalled: boolean }).__pickerCalled === true
+        )
 
         // The root component name "Loaded System" should appear in the tree
         await expect(

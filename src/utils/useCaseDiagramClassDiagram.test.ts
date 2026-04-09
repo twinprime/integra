@@ -191,6 +191,46 @@ describe('buildUseCaseDiagramClassDiagram', () => {
         expect(result.relationshipMetadata.filter(Boolean)).toHaveLength(0)
     })
 
+    it('does not create class-diagram links for actor-sent diagram references', () => {
+        const scenarios = [
+            {
+                name: 'use case reference',
+                ref: 'UseCase:uc-2',
+            },
+            {
+                name: 'use case diagram reference',
+                ref: 'UseCaseDiagram:ucd',
+            },
+            {
+                name: 'sequence diagram reference',
+                ref: 'Sequence:secondary-seq',
+            },
+        ]
+
+        for (const scenario of scenarios) {
+            const useCaseDiagram = makeUseCaseDiagram(
+                makeUseCase(
+                    'uc-1',
+                    makeSeqDiagram(
+                        'seq-1',
+                        [
+                            'actor customer',
+                            'component childSvc',
+                            `customer ->> childSvc: ${scenario.ref}`,
+                        ].join('\n')
+                    )
+                ),
+                makeUseCase('uc-2', makeSeqDiagram('secondary-seq', ''))
+            )
+            const root = makeRoot(useCaseDiagram)
+
+            const result = buildUseCaseDiagramClassDiagram(useCaseDiagram, root)
+
+            expect(result.mermaidContent, scenario.name).not.toContain('customer ..>')
+            expect(result.relationshipMetadata.filter(Boolean), scenario.name).toEqual([])
+        }
+    })
+
     it('collapses hidden interfaces across aggregated use cases', () => {
         const useCaseDiagram = makeUseCaseDiagram(
             makeUseCase(

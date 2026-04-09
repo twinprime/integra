@@ -48,6 +48,7 @@ export function isVisibleActorUuid(
     if (parent?.type !== 'component') return false
     return (
         parent.uuid === config.ownerComponent.uuid ||
+        ownerAncestors.has(parent.uuid) ||
         isVisibleComponentUuid(config, parent.uuid, ownerAncestors)
     )
 }

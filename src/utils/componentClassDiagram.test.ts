@@ -170,6 +170,60 @@ describe('buildComponentClassDiagram', () => {
         expect(result.idToUuid.platform).toBeUndefined()
     })
 
+    it('does not create class-diagram links for actor-sent diagram references', () => {
+        const scenarios = [
+            {
+                name: 'use case reference',
+                componentSeqs: [
+                    makeSeqDiagram(
+                        'actor-use-case-ref',
+                        [
+                            'actor user',
+                            'component childSvc',
+                            'user ->> childSvc: UseCase:missingFlow',
+                        ].join('\n')
+                    ),
+                ],
+            },
+            {
+                name: 'use case diagram reference',
+                componentSeqs: [
+                    makeSeqDiagram(
+                        'actor-use-case-diagram-ref',
+                        [
+                            'actor user',
+                            'component childSvc',
+                            'user ->> childSvc: UseCaseDiagram:compA-diagram',
+                        ].join('\n')
+                    ),
+                ],
+            },
+            {
+                name: 'sequence diagram reference',
+                componentSeqs: [
+                    makeSeqDiagram(
+                        'actor-sequence-ref',
+                        [
+                            'actor user',
+                            'component childSvc',
+                            'user ->> childSvc: Sequence:secondary-seq',
+                        ].join('\n')
+                    ),
+                    makeSeqDiagram('secondary-seq', ''),
+                ],
+            },
+        ]
+
+        for (const scenario of scenarios) {
+            const root = makeRoot(scenario.componentSeqs)
+
+            const result = buildComponentClassDiagram(root.subComponents[0], root)
+
+            expect(result.mermaidContent, scenario.name).not.toContain('user ..>')
+            expect(result.relationshipMetadata.filter(Boolean), scenario.name).toEqual([])
+        }
+    })
+
     it('shows the selected component when a dependency link involves it', () => {
         const root = makeRoot([
             makeSeqDiagram(
