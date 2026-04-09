@@ -68,6 +68,7 @@ class SeqPositionedVisitorImpl extends BaseVisitor {
     private _ownerComp!: ComponentNode | null
     private _ownerCompUuid!: string
     private _participantMap!: Map<string, string>
+    private _aliasToNodeId!: Map<string, string>
     private _entries!: NavEntry[]
 
     constructor() {
@@ -85,6 +86,7 @@ class SeqPositionedVisitorImpl extends BaseVisitor {
         this._ownerComp = ownerComp
         this._ownerCompUuid = ownerCompUuid ?? ownerComp?.uuid ?? ''
         this._participantMap = new Map()
+        this._aliasToNodeId = new Map()
         this._entries = []
         this._buildParticipantMap(cst)
         this.visit(cst)
@@ -119,6 +121,7 @@ class SeqPositionedVisitorImpl extends BaseVisitor {
             this._ownerComp
         )
         if (uuid) this._participantMap.set(id, uuid)
+        if (aliasToken) this._aliasToNodeId.set(aliasToken.image, pathIds[pathIds.length - 1])
     }
 
     // ─── Phase 2: emit nav entries ────────────────────────────────────────────
@@ -189,9 +192,10 @@ class SeqPositionedVisitorImpl extends BaseVisitor {
                 const ifaceId = match[1]
                 const functionId = match[2]
                 const receiverId = toRef ? participantRefId(toRef) : ''
+                const resolvedReceiverId = this._aliasToNodeId.get(receiverId) ?? receiverId
                 const target = resolveFunctionReferenceTarget(
                     this._root,
-                    receiverId,
+                    resolvedReceiverId,
                     ifaceId,
                     functionId
                 )

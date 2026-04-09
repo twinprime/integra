@@ -160,9 +160,7 @@ describe('function reference lookup', () => {
                     functions: [{ uuid: 'fn-uuid', id: 'doThing', parameters: [] }],
                 },
             ],
-            useCaseDiagrams: [
-                makeUseCaseDiagram('diag', 'root-uuid', makeUseCase('uc', sequence)),
-            ],
+            useCaseDiagrams: [makeUseCaseDiagram('diag', 'root-uuid', makeUseCase('uc', sequence))],
             subComponents: [],
         }
 

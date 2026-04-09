@@ -117,6 +117,12 @@ export function generateSequenceMermaidFromAst(
         }
     }
 
+    // ─── Build alias→nodeId map for function reference resolution ────────────────
+    const aliasToNodeId = new Map<string, string>()
+    for (const decl of ast.declarations) {
+        if (decl.alias) aliasToNodeId.set(decl.alias, decl.path[decl.path.length - 1])
+    }
+
     // ─── Messages, notes, and blocks in source order ──────────────────────────────
     mermaidContent += emitStatements(
         ast.statements,
@@ -126,7 +132,8 @@ export function generateSequenceMermaidFromAst(
         messageLabelToUuid,
         messageLabelToInterfaceUuid,
         messageLinks,
-        new Map()
+        new Map(),
+        aliasToNodeId
     )
 
     return {
@@ -168,6 +175,7 @@ function emitStatements(
     messageLabelToInterfaceUuid: Record<string, string>,
     messageLinks: SequenceMessageLink[],
     labelMap: LabelMap,
+    aliasToNodeId: Map<string, string> = new Map(),
     indent = ''
 ): string {
     let out = ''
@@ -187,6 +195,7 @@ function emitStatements(
                 messageLabelToInterfaceUuid,
                 messageLinks,
                 labelMap,
+                aliasToNodeId,
                 indent + '  '
             )
             for (const section of sections.slice(1)) {
@@ -202,6 +211,7 @@ function emitStatements(
                     messageLabelToInterfaceUuid,
                     messageLinks,
                     labelMap,
+                    aliasToNodeId,
                     indent + '  '
                 )
             }
@@ -233,13 +243,14 @@ function emitStatements(
                         c.label != null
                             ? c.label
                             : `${c.functionId}(${extractParamNames(c.rawParams)})`
+                    const resolvedTo = aliasToNodeId.get(msg.to) ?? msg.to
                     const target = resolveFunctionReferenceTarget(
                         root,
-                        msg.to,
+                        resolvedTo,
                         c.interfaceId,
                         c.functionId
                     )
-                    const fnKey = `${msg.to}:${c.interfaceId}:${c.functionId}`
+                    const fnKey = `${resolvedTo}:${c.interfaceId}:${c.functionId}`
                     const mermaidLabel = resolveLabel(baseLabel, fnKey, labelMap)
                     const renderedLabel = escapeLabel(mermaidLabel)
                     if (target?.componentUuid && !messageLabelToUuid[mermaidLabel])

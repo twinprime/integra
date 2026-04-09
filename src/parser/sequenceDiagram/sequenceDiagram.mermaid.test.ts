@@ -687,6 +687,49 @@ describe('generateSequenceMermaidFromAst — functionRef display label', () => {
             { uuid: 'compb-uuid', ifaceUuid: 'ifaceB-uuid' },
         ])
     })
+
+    it('produces a clickable messageLink and nav entry when receiver is referenced by alias', () => {
+        const receiver: ComponentNode = {
+            uuid: 'receiver-uuid',
+            id: 'orderSvc',
+            name: 'Order Service',
+            type: 'component',
+            actors: [],
+            subComponents: [],
+            useCaseDiagrams: [],
+            interfaces: [
+                {
+                    uuid: 'iface-uuid',
+                    id: 'OrdersAPI',
+                    name: 'OrdersAPI',
+                    type: 'rest' as const,
+                    functions: [{ uuid: 'fn-uuid', id: 'placeOrder', parameters: [] }],
+                },
+            ],
+        }
+        const owner = makeNamedComp('owner-uuid', 'owner', 'owner', [receiver])
+        const root = makeNamedComp('root-uuid', 'root', 'root', [owner])
+        const content = [
+            'actor customer',
+            'component orderSvc as orders',
+            'customer ->> orders: OrdersAPI:placeOrder()',
+        ].join('\n')
+        const ast = parseAst(content)
+
+        const { messageLinks } = generateSequenceMermaidFromAst(ast, owner, root, 'owner-uuid')
+        expect(messageLinks).toHaveLength(1)
+        expect(messageLinks[0]).toMatchObject({
+            kind: 'functionRef',
+            clickable: true,
+            targetUuid: 'receiver-uuid',
+            interfaceUuid: 'iface-uuid',
+        })
+
+        const navEntries = buildSeqNavEntries(content, root, owner, 'owner-uuid')
+            .filter((e) => e.ifaceUuid != null)
+            .map(({ uuid, ifaceUuid }) => ({ uuid, ifaceUuid }))
+        expect(navEntries).toEqual([{ uuid: 'receiver-uuid', ifaceUuid: 'iface-uuid' }])
+    })
 })
 
 describe('generateSequenceMermaidFromAst — SequenceRef messages', () => {
