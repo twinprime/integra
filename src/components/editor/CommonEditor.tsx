@@ -82,6 +82,7 @@ export const CommonEditor = ({
                 />
                 <NodePathEditorRow
                     nodeUuid={node.uuid}
+                    nodeType={node.type}
                     localId={localId}
                     idError={idError}
                     onIdChange={handleIdChange}

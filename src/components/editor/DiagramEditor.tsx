@@ -187,6 +187,7 @@ export const DiagramEditor = ({
                 />
                 <NodePathEditorRow
                     nodeUuid={node.uuid}
+                    nodeType={node.type}
                     localId={localId}
                     idError={idError}
                     onIdChange={handleIdChange}
