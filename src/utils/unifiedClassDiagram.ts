@@ -7,7 +7,10 @@ import { collectReferencedSequenceDiagrams } from './referencedSequenceDiagrams'
 import { getInterfaceDiagramNodeId } from './classDiagramNodeIds'
 import { emitInterfaceClass, emitParticipantClass } from './classDiagramRendering'
 import { resolveDeclarationUuid } from './classDiagramDeclarationResolution'
-import { resolveFunctionReferenceTarget } from './diagramResolvers'
+import {
+    resolveFunctionReferenceTarget,
+    resolveInheritedAncestorInterfaceOnComponent,
+} from './diagramResolvers'
 import {
     getVisibleRepresentativeUuid,
     isVisibleActorUuid,
@@ -311,6 +314,37 @@ function buildClassDiagramGraph({
                     functionId
                 )
                 continue
+            }
+
+            if (!visibleReceiverMatchesActual && options.showInterfaces) {
+                const ancestorIfaceTarget = resolveInheritedAncestorInterfaceOnComponent(
+                    resolvedTarget.componentUuid,
+                    resolvedTarget.interfaceUuid,
+                    functionId,
+                    visibleTargetUuid,
+                    rootComponent
+                )
+                if (ancestorIfaceTarget) {
+                    const ancestorIfaceNode = ensureInterfaceNode(
+                        ancestorIfaceTarget.componentUuid,
+                        ancestorIfaceTarget.interfaceUuid
+                    )
+                    if (ancestorIfaceNode?.kind === 'interface') {
+                        const calledIds =
+                            interfaceMethodIds.get(ancestorIfaceNode.nodeId) ?? new Set<string>()
+                        calledIds.add(functionId)
+                        interfaceMethodIds.set(ancestorIfaceNode.nodeId, calledIds)
+                        addDependencyEdge(
+                            senderNodeDefinition.nodeId,
+                            ancestorIfaceNode.nodeId,
+                            senderNodeDefinition.name,
+                            ancestorIfaceNode.name,
+                            sequenceDiagram,
+                            functionId
+                        )
+                        continue
+                    }
+                }
             }
 
             addDependencyEdge(

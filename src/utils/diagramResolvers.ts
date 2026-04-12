@@ -1,8 +1,12 @@
 import type { ComponentNode, ActorNode, Parameter } from '../store/types'
 import { findNodeByPath, isInScope } from './nodeUtils'
-import { findCompByUuid, upsertNodeInTree } from '../nodes/nodeTree'
+import { findCompByUuid, findNode, upsertNodeInTree } from '../nodes/nodeTree'
 import { deriveNameFromId } from './nameUtils'
-import { resolveEffectiveInterfaceFunctions } from './interfaceFunctions'
+import {
+    isInheritedInterface,
+    getParentInterfaceResolution,
+    resolveEffectiveInterfaceFunctions,
+} from './interfaceFunctions'
 
 export function findOwnerActorOrComponentUuidById(
     ownerComp: ComponentNode,
@@ -392,5 +396,49 @@ export function resolveSequenceReferenceUuid(
         ownerCompUuid,
         findOwnerSequenceDiagramUuidById,
         isMessageReferenceTargetComponentInScope
+    )
+}
+
+/**
+ * Walks the inherited-interface chain of `subComponentUuid`/`interfaceUuid` upward until it
+ * reaches `targetComponentUuid`, returning the interface UUID at that level if the function is
+ * not locally added at any intermediate step.
+ *
+ * Returns `null` if:
+ * - the interface is not an inherited interface
+ * - `functionId` is locally defined on the sub-component's interface
+ * - the chain cannot be resolved to `targetComponentUuid`
+ */
+export function resolveInheritedAncestorInterfaceOnComponent(
+    subComponentUuid: string,
+    interfaceUuid: string,
+    functionId: string,
+    targetComponentUuid: string,
+    rootComponent: ComponentNode
+): { componentUuid: string; interfaceUuid: string } | null {
+    const component = findNode([rootComponent], subComponentUuid)
+    if (component?.type !== 'component') return null
+
+    const iface = component.interfaces.find((i) => i.uuid === interfaceUuid)
+    if (!iface) return null
+
+    if (!isInheritedInterface(iface)) return null
+    if (iface.functions.some((fn) => fn.id === functionId)) return null
+
+    const resolution = getParentInterfaceResolution(iface, component, rootComponent)
+    if (!resolution) return null
+
+    const { parentComponent, parentInterface } = resolution
+
+    if (parentComponent.uuid === targetComponentUuid) {
+        return { componentUuid: parentComponent.uuid, interfaceUuid: parentInterface.uuid }
+    }
+
+    return resolveInheritedAncestorInterfaceOnComponent(
+        parentComponent.uuid,
+        parentInterface.uuid,
+        functionId,
+        targetComponentUuid,
+        rootComponent
     )
 }

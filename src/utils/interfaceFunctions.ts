@@ -187,12 +187,12 @@ function mergeInheritedAndLocalFunctions(
     return merged
 }
 
-type ParentInterfaceResolution = {
+export type ParentInterfaceResolution = {
     readonly parentComponent: ComponentNode
     readonly parentInterface: InterfaceSpecification
 }
 
-function getParentInterfaceResolution(
+export function getParentInterfaceResolution(
     iface: InheritedInterfaceSpecification,
     ownerComp: ComponentNode,
     rootComponent: ComponentNode
