@@ -93,6 +93,7 @@ function makeComponentNode(): ComponentNode {
 
 beforeEach(() => {
     vi.clearAllMocks()
+    window.HTMLElement.prototype.scrollIntoView = vi.fn()
     vi.mocked(useSystemStore).mockImplementation((selector: (state: SystemState) => unknown) =>
         selector({
             ...mockState,
@@ -162,6 +163,70 @@ describe('TreeNode', () => {
         render(<TreeNode node={makeComponentNode()} onContextMenu={vi.fn()} depth={1} />)
 
         expect(screen.getByText('Root Component')).toBeInTheDocument()
+        expect(screen.queryByText('Child Component')).not.toBeInTheDocument()
+    })
+
+    it('keeps branch expanded after navigation moves away from a child node', () => {
+        // Start with a child node selected — this auto-expands the parent branch
+        vi.mocked(useSystemStore).mockImplementation((selector: (state: SystemState) => unknown) =>
+            selector({
+                ...mockState,
+                selectedNodeId: 'child-uuid',
+                rootComponent: makeComponentNode(),
+            } as unknown as SystemState)
+        )
+
+        const { rerender } = render(
+            <TreeNode node={makeComponentNode()} onContextMenu={vi.fn()} depth={1} />
+        )
+
+        // Child is visible because the branch was auto-expanded
+        expect(screen.getByText('Child Component')).toBeInTheDocument()
+
+        // Now navigate away — select a node that is NOT in this branch
+        vi.mocked(useSystemStore).mockImplementation((selector: (state: SystemState) => unknown) =>
+            selector({
+                ...mockState,
+                selectedNodeId: 'other-uuid',
+                rootComponent: makeComponentNode(),
+            } as unknown as SystemState)
+        )
+
+        rerender(<TreeNode node={makeComponentNode()} onContextMenu={vi.fn()} depth={1} />)
+
+        // Branch should still be expanded — child must still be visible
+        expect(screen.getByText('Child Component')).toBeInTheDocument()
+    })
+
+    it('allows manually collapsing a branch that was previously auto-expanded', async () => {
+        const user = userEvent.setup()
+
+        // Start with a child node selected — auto-expands the parent branch
+        vi.mocked(useSystemStore).mockImplementation((selector: (state: SystemState) => unknown) =>
+            selector({
+                ...mockState,
+                selectedNodeId: 'child-uuid',
+                rootComponent: makeComponentNode(),
+            } as unknown as SystemState)
+        )
+
+        const { rerender } = render(
+            <TreeNode node={makeComponentNode()} onContextMenu={vi.fn()} depth={1} />
+        )
+
+        // Navigate away — branch stays open due to fix
+        vi.mocked(useSystemStore).mockImplementation((selector: (state: SystemState) => unknown) =>
+            selector({
+                ...mockState,
+                selectedNodeId: 'other-uuid',
+                rootComponent: makeComponentNode(),
+            } as unknown as SystemState)
+        )
+        rerender(<TreeNode node={makeComponentNode()} onContextMenu={vi.fn()} depth={1} />)
+        expect(screen.getByText('Child Component')).toBeInTheDocument()
+
+        // User manually collapses the branch
+        await user.click(screen.getByLabelText('Collapse'))
         expect(screen.queryByText('Child Component')).not.toBeInTheDocument()
     })
 

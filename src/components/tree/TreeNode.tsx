@@ -127,6 +127,7 @@ const SortableChildren = ({ items, onContextMenu, depth, readOnly }: SortableChi
 export const TreeNode = memo(
     ({ node, onContextMenu, depth = 0, readOnly = false }: TreeNodeProps) => {
         const [expanded, setExpanded] = useState(depth === 0)
+        const [prevAutoExpanded, setPrevAutoExpanded] = useState(false)
         const [hovered, setHovered] = useState(false)
         const [todoPopupPosition, setTodoPopupPosition] = useState<{ x: number; y: number } | null>(
             null
@@ -157,6 +158,15 @@ export const TreeNode = memo(
         const autoExpanded =
             hasChildren && children.some((child) => subtreeContainsNode(child, selectedNodeId))
         const isExpanded = expanded || autoExpanded
+
+        // Promote auto-expansion to permanent expansion so the branch stays
+        // open after navigation moves away from the child subtree.
+        if (prevAutoExpanded !== autoExpanded) {
+            setPrevAutoExpanded(autoExpanded)
+            if (autoExpanded) {
+                setExpanded(true)
+            }
+        }
 
         useEffect(() => {
             if (isSelected) {
