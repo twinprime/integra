@@ -54,6 +54,8 @@ vi.mock('../../utils/nodeUtils', () => ({
     findReferencingDiagrams: vi.fn(() => []),
     getNodeAbsolutePath: vi.fn(() => ''),
     getNodeAbsolutePathSegments: vi.fn(() => []),
+    findNearestComponentAncestor: vi.fn(() => null),
+    getComponentAbsolutePath: vi.fn(() => ''),
 }))
 
 // ── Helpers ───────────────────────────────────────────────────────────────────

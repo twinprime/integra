@@ -1,7 +1,12 @@
-import { Fragment, useState, useCallback, type ReactNode } from 'react'
+import { Fragment, useState, type ReactNode } from 'react'
 import { Clipboard, Check } from 'lucide-react'
 import { useSystemStore } from '../../store/useSystemStore'
-import { getNodeAbsolutePath, getNodeAbsolutePathSegments } from '../../utils/nodeUtils'
+import {
+    getNodeAbsolutePath,
+    getNodeAbsolutePathSegments,
+    findNearestComponentAncestor,
+    getComponentAbsolutePath,
+} from '../../utils/nodeUtils'
 import type { NodeType } from '../../store/types'
 
 type NodePathEditorRowProps = {
@@ -30,22 +35,33 @@ export const NodePathEditorRow = ({
     const pathSegments = getNodeAbsolutePathSegments(rootComponent, nodeUuid)
     const fullPath = getNodeAbsolutePath(rootComponent, nodeUuid)
 
+    const nodeId = pathSegments.at(-1)?.id ?? localId
+    const ownerComp =
+        nodeType !== 'component' ? findNearestComponentAncestor(rootComponent, nodeUuid) : null
+    const ownerCompPath = ownerComp ? getComponentAbsolutePath(rootComponent, ownerComp.uuid) : ''
+    const specPath =
+        nodeType === 'component'
+            ? getComponentAbsolutePath(rootComponent, nodeUuid)
+            : ownerCompPath
+              ? `${ownerCompPath}/${nodeId}`
+              : nodeId
+
     const specRef =
         nodeType === 'use-case'
-            ? `UseCase:${fullPath}`
+            ? `UseCase:${specPath}`
             : nodeType === 'use-case-diagram'
-              ? `UseCaseDiagram:${fullPath}`
+              ? `UseCaseDiagram:${specPath}`
               : nodeType === 'sequence-diagram'
-                ? `Sequence:${fullPath}`
-                : fullPath
+                ? `Sequence:${specPath}`
+                : specPath
 
     const [copied, setCopied] = useState(false)
-    const handleCopy = useCallback(() => {
+    const handleCopy = () => {
         void navigator.clipboard.writeText(specRef).then(() => {
             setCopied(true)
             setTimeout(() => setCopied(false), 1500)
         })
-    }, [specRef])
+    }
 
     return (
         <div className="mt-1">
