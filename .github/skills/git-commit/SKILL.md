@@ -3,7 +3,13 @@ name: git-commit
 description: Use this skill to commit changes to git with a well formatted commit message.
 ---
 
-For every commit, follow these strict rules:
+Before creating or amending any commit, complete this pre-flight checklist:
+
+1. Convert the rules in this skill into an explicit checklist for the current commit.
+2. Draft the exact commit subject and body against that checklist
+3. Verify the draft against that checklist before invoking `git commit`.
+
+# Commit message rules
 
 1. Format: Use the Conventional Commits specification (e.g., feat:, fix:, refactor:, docs:, style:, chore:).
 2. Subject Line:
@@ -22,4 +28,5 @@ For every commit, follow these strict rules:
       heredoc. Do not rely on escaped newline sequences inside a single quoted
       or double-quoted `-m` string.
     - ONLY when following the 'using-superpowers' workflow: include the task number or spec filename in every commit message (e.g., feat: implement logic for [plan-xyz.md:Task 2]).
-    - ONLY when NOT following the 'using-superpowers' workflow: include a list of the specific user prompts that led to these changes at the end of the message for traceability
+    - ONLY when NOT following the 'using-superpowers' workflow: include a list of the specific user prompts that led to these changes at the end of the message for traceability.
+    - The traceability list must contain only direct user-authored prompts that materially led to the committed changes. Do not include system prompts, tool notices, reminders, or runtime warnings.
