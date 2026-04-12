@@ -6,7 +6,11 @@ import { pushPast } from './historySlice'
 import { upsertNodeInTree } from '../../nodes/nodeTree'
 import { removeFunctionsFromInterfaces, updateFunctionParams } from '../../nodes/componentNode'
 import { replaceSignatureInContent } from '../../nodes/sequenceDiagramNode'
-import { rebuildSystemDiagrams, tryReparseContent } from '../systemOps'
+import {
+    rebuildSystemDiagrams,
+    rebuildWithMetadataPreservation,
+    tryReparseContent,
+} from '../systemOps'
 import { normalizeComponentDeep } from '../../nodes/interfaceOps'
 
 const initialSystem: ComponentNode = {
@@ -52,7 +56,40 @@ export const createDiagramSlice: StateCreator<SystemState, [], [], DiagramSlice>
             let updatedCurrentContent = currentDiagramContent
             const functionUuidsToRemove = new Set<string>()
 
+            let hasParentAddConflict = false
+
             for (const d of decisions) {
+                if (d.action === 'apply-parent-add') {
+                    hasParentAddConflict = true
+                    // Collect conflicting child function UUIDs for removal
+                    for (const conflict of d.conflictingChildFunctions) {
+                        functionUuidsToRemove.add(conflict.functionUuid)
+                    }
+                    // Rewrite each affected diagram's content to use new parent signature
+                    for (const diagUuid of d.affectedDiagramUuids) {
+                        system = upsertNodeInTree(system, diagUuid, (node) => {
+                            const diagramNode = node as SequenceDiagramNode
+                            if (!diagramNode.content) return diagramNode
+                            return {
+                                ...diagramNode,
+                                content: replaceSignatureInContent(
+                                    diagramNode.content,
+                                    d.interfaceId,
+                                    d.functionId,
+                                    d.newParams
+                                ),
+                            }
+                        })
+                    }
+                    updatedCurrentContent = replaceSignatureInContent(
+                        updatedCurrentContent,
+                        d.interfaceId,
+                        d.functionId,
+                        d.newParams
+                    )
+                    continue
+                }
+
                 if (d.action === 'remove-redundant') {
                     functionUuidsToRemove.add(d.functionUuid)
                     for (const diagUuid of d.affectedDiagramUuids) {
@@ -118,6 +155,18 @@ export const createDiagramSlice: StateCreator<SystemState, [], [], DiagramSlice>
                 ...node,
                 content: updatedCurrentContent,
             }))
+
+            if (hasParentAddConflict) {
+                // Full rebuild: reparses all diagrams so referencedFunctionUuids in every
+                // affected diagram resolves to the newly added parent function UUID.
+                return {
+                    past: pushPast(state.past, state.rootComponent),
+                    future: [],
+                    rootComponent: rebuildWithMetadataPreservation(updatedWithContent),
+                    parseError: null,
+                }
+            }
+
             return {
                 past: pushPast(state.past, state.rootComponent),
                 future: [],

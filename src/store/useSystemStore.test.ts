@@ -1056,6 +1056,381 @@ describe('useSystemStore', () => {
             ).toEqual([PARENT_FN_UUID])
             expect(result.current.parseError).toBeNull()
         })
+
+        it('apply-parent-add adds the parent function, removes child-local function, and rebinds references', () => {
+            const { result } = renderHook(() => useSystemStore())
+
+            const CHILD_DIAG = 'child-diag-uuid'
+            const CHILD_LOCAL_FN_UUID = 'child-local-fn-uuid'
+            const PARENT_API_UUID = 'owner-api-iface-uuid'
+            const CHILD_API_UUID = 'child-api-iface-uuid'
+
+            // System: owner has API (no fn yet); child is a sub-component of owner and inherits
+            // API, having a child-local fn(id: number). Sub-component structure ensures that
+            // getParentInterfaceResolution can find owner's API as the parent interface for child's
+            // inherited interface during the post-apply rebuild.
+            const childComp: ComponentNode = {
+                uuid: 'child-comp-uuid',
+                id: 'child',
+                name: 'Child',
+                type: 'component',
+                subComponents: [],
+                actors: [],
+                interfaces: [
+                    {
+                        uuid: CHILD_API_UUID,
+                        id: 'API',
+                        name: 'API',
+                        type: 'rest',
+                        kind: 'inherited',
+                        parentInterfaceUuid: PARENT_API_UUID,
+                        functions: [
+                            {
+                                uuid: CHILD_LOCAL_FN_UUID,
+                                id: 'fn',
+                                parameters: [{ name: 'id', type: 'number', required: true }],
+                            },
+                        ],
+                    },
+                ],
+                useCaseDiagrams: [
+                    {
+                        uuid: 'child-uc-diag-uuid',
+                        id: 'childUcd',
+                        name: 'Child UC',
+                        type: 'use-case-diagram',
+                        content: '',
+                        ownerComponentUuid: 'child-comp-uuid',
+                        referencedNodeIds: [],
+                        useCases: [
+                            {
+                                uuid: 'child-uc-uuid',
+                                id: 'childUseCase',
+                                name: 'Child Use Case',
+                                type: 'use-case',
+                                sequenceDiagrams: [
+                                    {
+                                        uuid: CHILD_DIAG,
+                                        id: 'childSeq',
+                                        name: 'Child Diagram',
+                                        type: 'sequence-diagram',
+                                        content:
+                                            'component child\nchild ->> child: API:fn(id: number)',
+                                        ownerComponentUuid: 'child-comp-uuid',
+                                        referencedNodeIds: [],
+                                        referencedFunctionUuids: [CHILD_LOCAL_FN_UUID],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            }
+
+            const parentAddSystem: ComponentNode = {
+                uuid: 'root-component-uuid',
+                id: 'root',
+                name: 'My System',
+                type: 'component',
+                description: 'Root',
+                subComponents: [
+                    {
+                        uuid: 'owner-comp-uuid',
+                        id: 'owner',
+                        name: 'Owner',
+                        type: 'component',
+                        subComponents: [childComp],
+                        actors: [],
+                        interfaces: [
+                            {
+                                uuid: PARENT_API_UUID,
+                                id: 'API',
+                                name: 'API',
+                                type: 'rest',
+                                kind: 'local',
+                                functions: [], // no fn yet
+                            },
+                        ],
+                        useCaseDiagrams: [
+                            {
+                                uuid: 'uc-diag-uuid',
+                                id: 'ucd',
+                                name: 'UC',
+                                type: 'use-case-diagram',
+                                content: '',
+                                ownerComponentUuid: 'owner-comp-uuid',
+                                referencedNodeIds: [],
+                                useCases: [
+                                    {
+                                        uuid: 'uc-uuid',
+                                        id: 'uc1',
+                                        name: 'UC',
+                                        type: 'use-case',
+                                        sequenceDiagrams: [
+                                            {
+                                                uuid: CURRENT_DIAG,
+                                                id: 'seq1',
+                                                name: 'Current Diagram',
+                                                type: 'sequence-diagram',
+                                                content: '',
+                                                ownerComponentUuid: 'owner-comp-uuid',
+                                                referencedNodeIds: [],
+                                                referencedFunctionUuids: [],
+                                            },
+                                        ],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+                actors: [],
+                useCaseDiagrams: [],
+                interfaces: [],
+            }
+
+            act(() => {
+                useSystemStore.setState({ rootComponent: parentAddSystem })
+            })
+
+            const decision: FunctionDecision = {
+                kind: 'parent-add-conflict',
+                action: 'apply-parent-add',
+                parentComponentUuid: 'owner-comp-uuid',
+                parentInterfaceUuid: PARENT_API_UUID,
+                interfaceId: 'API',
+                functionId: 'fn',
+                newParams: [{ name: 'x', type: 'string', required: true }],
+                conflictingChildFunctions: [
+                    {
+                        componentUuid: 'child-comp-uuid',
+                        componentName: 'Child',
+                        interfaceUuid: CHILD_API_UUID,
+                        interfaceId: 'API',
+                        functionUuid: CHILD_LOCAL_FN_UUID,
+                        functionId: 'fn',
+                    },
+                ],
+                affectedDiagramUuids: [CHILD_DIAG],
+            }
+
+            act(() => {
+                result.current.applyFunctionUpdates(
+                    [decision],
+                    CURRENT_DIAG,
+                    'component owner\nowner ->> owner: API:fn(x: string)'
+                )
+            })
+
+            // owner is subComponents[0] of root; child is subComponents[0] of owner
+            const owner = result.current.rootComponent.subComponents[0]
+            const child = owner.subComponents[0]
+
+            // Parent function is now added to owner's API
+            const parentFns = owner.interfaces[0].functions
+            expect(parentFns).toHaveLength(1)
+            expect(parentFns[0].id).toBe('fn')
+            expect(parentFns[0].parameters).toEqual([{ name: 'x', type: 'string', required: true }])
+
+            // Child-local function is removed
+            expect(child.interfaces[0].functions).toEqual([])
+
+            // Child diagram content uses new signature
+            const childDiag = child.useCaseDiagrams[0].useCases[0].sequenceDiagrams[0]
+            expect(childDiag.content).toContain('API:fn(x: string)')
+            expect(childDiag.content).not.toContain('API:fn(id: number)')
+
+            // Child diagram references now resolve to the new parent function UUID
+            expect(childDiag.referencedFunctionUuids).toEqual([parentFns[0].uuid])
+            expect(result.current.parseError).toBeNull()
+        })
+
+        it('apply-parent-add rewrites all affected diagrams when there are multiple', () => {
+            const { result } = renderHook(() => useSystemStore())
+
+            const CHILD_DIAG_1 = 'child-diag-1-uuid'
+            const CHILD_DIAG_2 = 'child-diag-2-uuid'
+            const CHILD_LOCAL_FN_UUID = 'child-local-fn-uuid'
+            const PARENT_API_UUID = 'owner-api-iface-uuid'
+            const CHILD_API_UUID = 'child-api-iface-uuid'
+
+            // child is a sub-component of owner so getParentInterfaceResolution finds owner's API
+            const multiChildComp: ComponentNode = {
+                uuid: 'child-comp-uuid',
+                id: 'child',
+                name: 'Child',
+                type: 'component',
+                subComponents: [],
+                actors: [],
+                interfaces: [
+                    {
+                        uuid: CHILD_API_UUID,
+                        id: 'API',
+                        name: 'API',
+                        type: 'rest',
+                        kind: 'inherited',
+                        parentInterfaceUuid: PARENT_API_UUID,
+                        functions: [
+                            {
+                                uuid: CHILD_LOCAL_FN_UUID,
+                                id: 'fn',
+                                parameters: [{ name: 'id', type: 'number', required: true }],
+                            },
+                        ],
+                    },
+                ],
+                useCaseDiagrams: [
+                    {
+                        uuid: 'child-uc-diag-uuid',
+                        id: 'childUcd',
+                        name: 'Child UC',
+                        type: 'use-case-diagram',
+                        content: '',
+                        ownerComponentUuid: 'child-comp-uuid',
+                        referencedNodeIds: [],
+                        useCases: [
+                            {
+                                uuid: 'child-uc-uuid',
+                                id: 'childUseCase',
+                                name: 'Child Use Case',
+                                type: 'use-case',
+                                sequenceDiagrams: [
+                                    {
+                                        uuid: CHILD_DIAG_1,
+                                        id: 'childSeq1',
+                                        name: 'Child Diagram 1',
+                                        type: 'sequence-diagram',
+                                        content:
+                                            'component child\nchild ->> child: API:fn(id: number)',
+                                        ownerComponentUuid: 'child-comp-uuid',
+                                        referencedNodeIds: [],
+                                        referencedFunctionUuids: [CHILD_LOCAL_FN_UUID],
+                                    },
+                                    {
+                                        uuid: CHILD_DIAG_2,
+                                        id: 'childSeq2',
+                                        name: 'Child Diagram 2',
+                                        type: 'sequence-diagram',
+                                        content:
+                                            'component child\nchild ->> child: API:fn(id: number)',
+                                        ownerComponentUuid: 'child-comp-uuid',
+                                        referencedNodeIds: [],
+                                        referencedFunctionUuids: [CHILD_LOCAL_FN_UUID],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+            }
+
+            const multiDiagSystem: ComponentNode = {
+                uuid: 'root-component-uuid',
+                id: 'root',
+                name: 'My System',
+                type: 'component',
+                description: 'Root',
+                subComponents: [
+                    {
+                        uuid: 'owner-comp-uuid',
+                        id: 'owner',
+                        name: 'Owner',
+                        type: 'component',
+                        subComponents: [multiChildComp],
+                        actors: [],
+                        interfaces: [
+                            {
+                                uuid: PARENT_API_UUID,
+                                id: 'API',
+                                name: 'API',
+                                type: 'rest',
+                                kind: 'local',
+                                functions: [],
+                            },
+                        ],
+                        useCaseDiagrams: [
+                            {
+                                uuid: 'uc-diag-uuid',
+                                id: 'ucd',
+                                name: 'UC',
+                                type: 'use-case-diagram',
+                                content: '',
+                                ownerComponentUuid: 'owner-comp-uuid',
+                                referencedNodeIds: [],
+                                useCases: [
+                                    {
+                                        uuid: 'uc-uuid',
+                                        id: 'uc1',
+                                        name: 'UC',
+                                        type: 'use-case',
+                                        sequenceDiagrams: [
+                                            {
+                                                uuid: CURRENT_DIAG,
+                                                id: 'seq1',
+                                                name: 'Current Diagram',
+                                                type: 'sequence-diagram',
+                                                content: '',
+                                                ownerComponentUuid: 'owner-comp-uuid',
+                                                referencedNodeIds: [],
+                                                referencedFunctionUuids: [],
+                                            },
+                                        ],
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                ],
+                actors: [],
+                useCaseDiagrams: [],
+                interfaces: [],
+            }
+
+            act(() => {
+                useSystemStore.setState({ rootComponent: multiDiagSystem })
+            })
+
+            const decision: FunctionDecision = {
+                kind: 'parent-add-conflict',
+                action: 'apply-parent-add',
+                parentComponentUuid: 'owner-comp-uuid',
+                parentInterfaceUuid: PARENT_API_UUID,
+                interfaceId: 'API',
+                functionId: 'fn',
+                newParams: [{ name: 'x', type: 'string', required: true }],
+                conflictingChildFunctions: [
+                    {
+                        componentUuid: 'child-comp-uuid',
+                        componentName: 'Child',
+                        interfaceUuid: CHILD_API_UUID,
+                        interfaceId: 'API',
+                        functionUuid: CHILD_LOCAL_FN_UUID,
+                        functionId: 'fn',
+                    },
+                ],
+                affectedDiagramUuids: [CHILD_DIAG_1, CHILD_DIAG_2],
+            }
+
+            act(() => {
+                result.current.applyFunctionUpdates(
+                    [decision],
+                    CURRENT_DIAG,
+                    'component owner\nowner ->> owner: API:fn(x: string)'
+                )
+            })
+
+            // owner is subComponents[0] of root; child is subComponents[0] of owner
+            const owner = result.current.rootComponent.subComponents[0]
+            const child = owner.subComponents[0]
+            const seqDiags = child.useCaseDiagrams[0].useCases[0].sequenceDiagrams
+            const parentFnUuid = owner.interfaces[0].functions[0].uuid
+
+            // Both child diagrams are rewritten and rebound
+            for (const d of seqDiags) {
+                expect(d.content).toContain('API:fn(x: string)')
+                expect(d.referencedFunctionUuids).toEqual([parentFnUuid])
+            }
+        })
     })
 
     describe('toggleUiMode', () => {

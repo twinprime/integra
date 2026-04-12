@@ -1,7 +1,10 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ComponentNode, Node, SequenceDiagramNode } from './types'
-import { type FunctionMatch } from '../parser/sequenceDiagram/systemUpdater'
+import {
+    type ExistingFunctionMatch,
+    type ParentAddConflictMatch,
+} from '../parser/sequenceDiagram/systemUpdater'
 import { findNodeByUuid, collectAllDiagrams } from '../nodes/nodeTree'
 import { createHistorySlice, type HistorySlice } from './slices/historySlice'
 import { createUiSlice, type UiSlice } from './slices/uiSlice'
@@ -11,9 +14,9 @@ import { safeParsePersistedSystemState } from './modelSchema'
 import { normalizeComponentDeep } from '../nodes/interfaceOps'
 import { getModelRouteComponentId } from '../utils/systemFiles'
 
-export type FunctionDecision = FunctionMatch & {
-    action: 'update-existing' | 'remove-redundant'
-}
+export type FunctionDecision =
+    | (ExistingFunctionMatch & { action: 'update-existing' | 'remove-redundant' })
+    | (ParentAddConflictMatch & { action: 'apply-parent-add' })
 
 export interface SystemState extends HistorySlice, UiSlice, NodeOpsSlice, DiagramSlice {
     rootComponent: ComponentNode

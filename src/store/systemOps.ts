@@ -149,6 +149,19 @@ function mergeFunctionAttributes(root: ComponentNode, snapshot: FunctionSnapshot
     return mergeComp(root)
 }
 
+/**
+ * Rebuild all diagrams in the system while preserving user-authored function metadata
+ * (descriptions, etc.). Snapshots metadata before the rebuild and merges it back after.
+ *
+ * Use this instead of `tryReparseContent` when multiple diagrams need to be rebound
+ * (e.g. after a parent-add conflict resolution that removes child-local functions).
+ */
+export function rebuildWithMetadataPreservation(system: ComponentNode): ComponentNode {
+    const snapshot = buildFunctionSnapshot(system)
+    const rebuilt = rebuildSystemDiagrams(system)
+    return mergeFunctionAttributes(rebuilt, snapshot)
+}
+
 export function tryReparseContent(
     content: string,
     system: ComponentNode,

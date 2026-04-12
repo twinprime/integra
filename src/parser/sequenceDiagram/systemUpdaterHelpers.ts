@@ -12,7 +12,7 @@ import { normalizeComponent } from '../../nodes/interfaceOps'
 import {
     classifyFunctionCompatibility,
     type InheritedChildFunctionConflict,
-    findConflictingInheritedChildFunctions,
+    findChildFunctionsInInheritedInterfaces,
     findInheritedParentFunctionById,
     formatFunctionSignature,
     isInheritedInterface,
@@ -43,7 +43,7 @@ export function paramsMatch(a: ReadonlyArray<Parameter>, b: ReadonlyArray<Parame
     )
 }
 
-export type FunctionMatch = {
+export type ExistingFunctionMatch = {
     kind: 'incompatible' | 'redundant'
     interfaceId: string
     functionId: string
@@ -53,6 +53,19 @@ export type FunctionMatch = {
     affectedDiagramUuids: string[]
     conflictingChildFunctions?: ReadonlyArray<InheritedChildFunctionConflict>
 }
+
+export type ParentAddConflictMatch = {
+    kind: 'parent-add-conflict'
+    parentComponentUuid: string
+    parentInterfaceUuid: string
+    interfaceId: string
+    functionId: string
+    newParams: ReadonlyArray<Parameter>
+    conflictingChildFunctions: ReadonlyArray<InheritedChildFunctionConflict>
+    affectedDiagramUuids: string[]
+}
+
+export type FunctionMatch = ExistingFunctionMatch | ParentAddConflictMatch
 
 function findInterfaceByUuid(
     root: ComponentNode,
@@ -132,15 +145,16 @@ function withFunctionOnInterface(
     }
 }
 
-export function findParentInterfaceChildConflicts(
+export function findChildFunctionsByParentInterface(
     root: ComponentNode,
     interfaceUuid: string,
     functionId: string,
-    newParams: ReadonlyArray<Parameter>
+    params: ReadonlyArray<Parameter>,
+    mode: 'same' | 'different' = 'same'
 ): ReadonlyArray<InheritedChildFunctionConflict> {
     const iface = findInterfaceByUuid(root, interfaceUuid)
     if (!iface) return []
-    return findConflictingInheritedChildFunctions(root, iface.uuid, functionId, newParams)
+    return findChildFunctionsInInheritedInterfaces(root, iface.uuid, functionId, params, mode)
 }
 
 function createLocalInterface(interfaceId: string): LocalInterfaceSpecification {

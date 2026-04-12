@@ -13,7 +13,7 @@ import { PanelTitleInput } from './PanelTitleInput'
 import { useInterfaceTabManager } from './useInterfaceTabManager'
 import {
     analyzeInterfaceInheritanceMerge,
-    findConflictingInheritedChildFunctions,
+    findChildFunctionsInInheritedInterfaces,
     findInheritedParentFunction,
     isInheritedInterface,
     isLocalInterface,
@@ -201,7 +201,7 @@ export const ComponentEditor = ({
                 return
             }
         } else {
-            const conflictingChildren = findConflictingInheritedChildFunctions(
+            const conflictingChildren = findChildFunctionsInInheritedInterfaces(
                 rootComponent,
                 iface.uuid,
                 newId,

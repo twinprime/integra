@@ -1,5 +1,9 @@
 import type { FunctionDecision } from '../store/useSystemStore'
-import type { FunctionMatch } from '../parser/sequenceDiagram/systemUpdater'
+import type {
+    FunctionMatch,
+    ExistingFunctionMatch,
+    ParentAddConflictMatch,
+} from '../parser/sequenceDiagram/systemUpdater'
 import { paramsToString } from '../parser/sequenceDiagram/systemUpdater'
 
 type SeqDiagramInfo = { uuid: string; name: string }
@@ -59,8 +63,15 @@ function SignatureChange({
 }
 
 export function FunctionUpdateDialog({ matches, seqDiagrams, onResolve, onCancel }: Props) {
-    const changedMatches = matches.filter((m) => m.kind === 'incompatible')
-    const redundantMatches = matches.filter((m) => m.kind === 'redundant')
+    const changedMatches = matches.filter(
+        (m): m is ExistingFunctionMatch => m.kind === 'incompatible'
+    )
+    const redundantMatches = matches.filter(
+        (m): m is ExistingFunctionMatch => m.kind === 'redundant'
+    )
+    const parentAddMatches = matches.filter(
+        (m): m is ParentAddConflictMatch => m.kind === 'parent-add-conflict'
+    )
 
     const handleApply = (): void => {
         const decisions: FunctionDecision[] = []
@@ -71,6 +82,10 @@ export function FunctionUpdateDialog({ matches, seqDiagrams, onResolve, onCancel
 
         for (const m of redundantMatches) {
             decisions.push({ ...m, action: 'remove-redundant' })
+        }
+
+        for (const m of parentAddMatches) {
+            decisions.push({ ...m, action: 'apply-parent-add' })
         }
 
         onResolve(decisions)
@@ -161,6 +176,40 @@ export function FunctionUpdateDialog({ matches, seqDiagrams, onResolve, onCancel
                                         />
                                     </div>
                                 )}
+                            </div>
+                        )
+                    })}
+
+                    {parentAddMatches.map((m) => {
+                        const key = `${m.interfaceId}:${m.functionId}:${m.parentInterfaceUuid}`
+                        return (
+                            <div key={key} className="space-y-2">
+                                <p className="text-sm text-gray-200">
+                                    <span className="font-semibold text-teal-300">
+                                        {m.interfaceId}:{m.functionId}
+                                    </span>{' '}
+                                    will be added to the parent interface. Applying this change will
+                                    remove the conflicting child-local definitions listed below.
+                                </p>
+                                <div className="mt-1 font-mono text-xs text-green-400">
+                                    {m.interfaceId}:{m.functionId}({paramsToString(m.newParams)})
+                                </div>
+                                <div className="text-xs text-gray-400 space-y-2">
+                                    <div>
+                                        Child-added inherited-interface functions that will be
+                                        removed:
+                                        <ChildConflictList matches={m.conflictingChildFunctions} />
+                                    </div>
+                                    {m.affectedDiagramUuids.length > 0 && (
+                                        <div>
+                                            Affected diagrams:
+                                            <DiagramList
+                                                uuids={m.affectedDiagramUuids}
+                                                seqDiagrams={seqDiagrams}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )
                     })}
