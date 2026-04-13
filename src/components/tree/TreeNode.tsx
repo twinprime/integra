@@ -124,14 +124,65 @@ const SortableChildren = ({ items, onContextMenu, depth, readOnly }: SortableChi
     </SortableContext>
 )
 
+function getRowClassName(isSelected: boolean, isDragging: boolean): string {
+    return `group flex items-center py-1 px-2 cursor-pointer rounded select-none text-[0.9rem] text-gray-300 hover:bg-gray-800 ${isSelected ? 'bg-sky-900/50 text-sky-300' : ''} ${isDragging ? 'opacity-40' : ''}`
+}
+
+function ExpandCollapseIcon({
+    hasChildren,
+    isExpanded,
+}: {
+    hasChildren: boolean
+    isExpanded: boolean
+}) {
+    if (!hasChildren) return null
+    return isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />
+}
+
+function useAutoExpand(
+    autoExpanded: boolean,
+    setExpanded: React.Dispatch<React.SetStateAction<boolean>>
+) {
+    const [prevAutoExpanded, setPrevAutoExpanded] = useState(false)
+    // Promote auto-expansion to permanent expansion so the branch stays
+    // open after navigation moves away from the child subtree.
+    if (prevAutoExpanded !== autoExpanded) {
+        setPrevAutoExpanded(autoExpanded)
+        if (autoExpanded) {
+            setExpanded(true)
+        }
+    }
+}
+
+type TodoPopupPosition = { x: number; y: number } | null
+
+function useTodoPopupDismiss(
+    todoPopupPosition: TodoPopupPosition,
+    todoButtonRef: React.RefObject<HTMLButtonElement | null>,
+    todoPopupRef: React.RefObject<HTMLDivElement | null>,
+    setTodoPopupPosition: React.Dispatch<React.SetStateAction<TodoPopupPosition>>
+) {
+    useEffect(() => {
+        if (!todoPopupPosition) return
+
+        const handlePointerDown = (event: PointerEvent) => {
+            const target = event.target
+            if (!(target instanceof globalThis.Node)) return
+            if (todoButtonRef.current?.contains(target)) return
+            if (todoPopupRef.current?.contains(target)) return
+            setTodoPopupPosition(null)
+        }
+
+        document.addEventListener('pointerdown', handlePointerDown)
+        return () => document.removeEventListener('pointerdown', handlePointerDown)
+    }, [todoPopupPosition, todoButtonRef, todoPopupRef, setTodoPopupPosition])
+}
+
 export const TreeNode = memo(
     ({ node, onContextMenu, depth = 0, readOnly = false }: TreeNodeProps) => {
         const [expanded, setExpanded] = useState(depth === 0)
-        const [prevAutoExpanded, setPrevAutoExpanded] = useState(false)
         const [hovered, setHovered] = useState(false)
-        const [todoPopupPosition, setTodoPopupPosition] = useState<{ x: number; y: number } | null>(
-            null
-        )
+        const [todoPopupPosition, setTodoPopupPosition] = useState<TodoPopupPosition>(null)
         const rowRef = useRef<HTMLDivElement | null>(null)
         const todoButtonRef = useRef<HTMLButtonElement | null>(null)
         const todoPopupRef = useRef<HTMLDivElement | null>(null)
@@ -159,14 +210,7 @@ export const TreeNode = memo(
             hasChildren && children.some((child) => subtreeContainsNode(child, selectedNodeId))
         const isExpanded = expanded || autoExpanded
 
-        // Promote auto-expansion to permanent expansion so the branch stays
-        // open after navigation moves away from the child subtree.
-        if (prevAutoExpanded !== autoExpanded) {
-            setPrevAutoExpanded(autoExpanded)
-            if (autoExpanded) {
-                setExpanded(true)
-            }
-        }
+        useAutoExpand(autoExpanded, setExpanded)
 
         useEffect(() => {
             if (isSelected) {
@@ -174,20 +218,7 @@ export const TreeNode = memo(
             }
         }, [isSelected])
 
-        useEffect(() => {
-            if (!todoPopupPosition) return
-
-            const handlePointerDown = (event: PointerEvent) => {
-                const target = event.target
-                if (!(target instanceof globalThis.Node)) return
-                if (todoButtonRef.current?.contains(target)) return
-                if (todoPopupRef.current?.contains(target)) return
-                setTodoPopupPosition(null)
-            }
-
-            document.addEventListener('pointerdown', handlePointerDown)
-            return () => document.removeEventListener('pointerdown', handlePointerDown)
-        }, [todoPopupPosition])
+        useTodoPopupDismiss(todoPopupPosition, todoButtonRef, todoPopupRef, setTodoPopupPosition)
 
         const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
             useSortable({
@@ -271,9 +302,7 @@ export const TreeNode = memo(
                     role="treeitem"
                     aria-selected={isSelected}
                     tabIndex={0}
-                    className={`group flex items-center py-1 px-2 cursor-pointer rounded select-none text-[0.9rem] text-gray-300 hover:bg-gray-800 ${
-                        isSelected ? 'bg-sky-900/50 text-sky-300' : ''
-                    } ${isDragging ? 'opacity-40' : ''}`}
+                    className={getRowClassName(isSelected, isDragging)}
                     style={style}
                     onClick={handleClick}
                     onKeyDown={(e) => {
@@ -289,8 +318,7 @@ export const TreeNode = memo(
                         className="w-4 h-4 flex items-center justify-center mr-1 text-gray-500 hover:text-gray-400 bg-transparent border-0 p-0 cursor-pointer"
                         onClick={hasChildren ? handleToggle : undefined}
                     >
-                        {hasChildren &&
-                            (isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
+                        <ExpandCollapseIcon hasChildren={hasChildren} isExpanded={isExpanded} />
                     </button>
                     <div className="mr-2 w-4 h-4">
                         <NodeIcon type={node.type} />

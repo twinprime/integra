@@ -17,7 +17,6 @@ import {
     assertMessageReferencePathInScope,
     isComponentReferenceTargetInScope,
 } from '../../utils/diagramResolvers'
-import { resolveDeclarationUuid } from '../../utils/classDiagramDeclarationResolution'
 import { parseSequenceDiagramCst } from './parser'
 import { buildSeqAst, flattenMessages } from './visitor'
 import { deriveNameFromId } from '../../utils/nameUtils'
@@ -30,6 +29,7 @@ import {
     type FunctionMatch,
     type ExistingFunctionMatch,
     type ParentAddConflictMatch,
+    type DiagramRef,
     findChildFunctionsByParentInterface,
     parseParameters,
     paramsToString,
@@ -37,50 +37,14 @@ import {
     applyFunctionToComponentByUuid,
     resolveExternalOwnerUuid,
     applyMessageToComponents,
+    findComponentByTreeId,
+    buildParticipantToTreeIdMap,
+    diagramsReferencingFunction,
+    findFunctionOwnerInterface,
 } from './systemUpdaterHelpers'
 
 export type { FunctionMatch, ExistingFunctionMatch, ParentAddConflictMatch }
 export { parseParameters, paramsToString }
-
-function findComponentByTreeId(root: ComponentNode, id: string): ComponentNode | null {
-    if (root.id === id) return root
-    for (const sub of root.subComponents) {
-        const found = findComponentByTreeId(sub, id)
-        if (found) return found
-    }
-    return null
-}
-
-type DiagramRef = { uuid: string; referencedFunctionUuids: ReadonlyArray<string> }
-
-type AstDeclaration = ReturnType<typeof buildSeqAst>['declarations'][number]
-
-function buildParticipantToTreeIdMap(
-    declarations: ReadonlyArray<AstDeclaration>,
-    ownerComponent: ComponentNode | null,
-    rootComponent: ComponentNode
-): Map<string, string> {
-    const map = new Map<string, string>()
-    for (const decl of declarations) {
-        const resolvedUuid = resolveDeclarationUuid(decl.path, ownerComponent, rootComponent)
-        if (!resolvedUuid) continue
-        const resolvedNode = findNode([rootComponent], resolvedUuid)
-        if (resolvedNode?.type === 'component' || resolvedNode?.type === 'actor') {
-            map.set(decl.id, resolvedNode.id)
-        }
-    }
-    return map
-}
-
-function diagramsReferencingFunction(
-    allSeqDiagrams: ReadonlyArray<DiagramRef>,
-    functionUuid: string,
-    excludeUuid: string
-): string[] {
-    return allSeqDiagrams
-        .filter((d) => d.uuid !== excludeUuid && d.referencedFunctionUuids.includes(functionUuid))
-        .map((d) => d.uuid)
-}
 
 function detectParentAddConflict(
     rootComponent: ComponentNode,
@@ -222,24 +186,6 @@ function detectExistingFunctionConflict(
             newParams
         ),
     }
-}
-
-function findFunctionOwnerInterface(
-    root: ComponentNode,
-    functionUuid: string
-): { component: ComponentNode; interfaceUuid: string } | null {
-    for (const iface of root.interfaces) {
-        if (iface.functions.some((candidate) => candidate.uuid === functionUuid)) {
-            return { component: root, interfaceUuid: iface.uuid }
-        }
-    }
-
-    for (const child of root.subComponents) {
-        const found = findFunctionOwnerInterface(child, functionUuid)
-        if (found) return found
-    }
-
-    return null
 }
 
 export function analyzeSequenceDiagramChanges(

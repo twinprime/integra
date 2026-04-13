@@ -6,8 +6,10 @@ import type {
     Parameter,
 } from '../../store/types'
 import { newFunctionUuid, newInterfaceUuid } from '../../store/types'
-import { upsertNodeInTree } from '../../nodes/nodeTree'
+import { upsertNodeInTree, findNode } from '../../nodes/nodeTree'
 import { findCompByUuid } from '../../nodes/nodeTree'
+import { buildSeqAst } from './visitor'
+import { resolveDeclarationUuid } from '../../utils/classDiagramDeclarationResolution'
 import { normalizeComponent } from '../../nodes/interfaceOps'
 import {
     classifyFunctionCompatibility,
@@ -290,4 +292,62 @@ export function applyMessageToComponents(
     interfaces[ifaceIdx] = withFunctionOnInterface(currentInterface, functionId, newParams)
     result[ownerIdx] = normalizeComponent({ ...targetComp, interfaces })
     return result
+}
+
+export type DiagramRef = { uuid: string; referencedFunctionUuids: ReadonlyArray<string> }
+
+export type AstDeclaration = ReturnType<typeof buildSeqAst>['declarations'][number]
+
+export function findComponentByTreeId(root: ComponentNode, id: string): ComponentNode | null {
+    if (root.id === id) return root
+    for (const sub of root.subComponents) {
+        const found = findComponentByTreeId(sub, id)
+        if (found) return found
+    }
+    return null
+}
+
+export function buildParticipantToTreeIdMap(
+    declarations: ReadonlyArray<AstDeclaration>,
+    ownerComponent: ComponentNode | null,
+    rootComponent: ComponentNode
+): Map<string, string> {
+    const map = new Map<string, string>()
+    for (const decl of declarations) {
+        const resolvedUuid = resolveDeclarationUuid(decl.path, ownerComponent, rootComponent)
+        if (!resolvedUuid) continue
+        const resolvedNode = findNode([rootComponent], resolvedUuid)
+        if (resolvedNode?.type === 'component' || resolvedNode?.type === 'actor') {
+            map.set(decl.id, resolvedNode.id)
+        }
+    }
+    return map
+}
+
+export function diagramsReferencingFunction(
+    allSeqDiagrams: ReadonlyArray<DiagramRef>,
+    functionUuid: string,
+    excludeUuid: string
+): string[] {
+    return allSeqDiagrams
+        .filter((d) => d.uuid !== excludeUuid && d.referencedFunctionUuids.includes(functionUuid))
+        .map((d) => d.uuid)
+}
+
+export function findFunctionOwnerInterface(
+    root: ComponentNode,
+    functionUuid: string
+): { component: ComponentNode; interfaceUuid: string } | null {
+    for (const iface of root.interfaces) {
+        if (iface.functions.some((candidate) => candidate.uuid === functionUuid)) {
+            return { component: root, interfaceUuid: iface.uuid }
+        }
+    }
+
+    for (const child of root.subComponents) {
+        const found = findFunctionOwnerInterface(child, functionUuid)
+        if (found) return found
+    }
+
+    return null
 }
