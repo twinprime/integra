@@ -17,7 +17,6 @@ import {
     assertMessageReferencePathInScope,
     isComponentReferenceTargetInScope,
 } from '../../utils/diagramResolvers'
-import { resolveDeclarationUuid } from '../../utils/classDiagramDeclarationResolution'
 import { parseSequenceDiagramCst } from './parser'
 import { buildSeqAst, flattenMessages } from './visitor'
 import { deriveNameFromId } from '../../utils/nameUtils'
@@ -28,41 +27,172 @@ import {
 } from '../../utils/interfaceFunctions'
 import {
     type FunctionMatch,
-    findParentInterfaceChildConflicts,
+    type ExistingFunctionMatch,
+    type ParentAddConflictMatch,
+    type DiagramRef,
+    findChildFunctionsByParentInterface,
     parseParameters,
     paramsToString,
     paramsMatch,
     applyFunctionToComponentByUuid,
     resolveExternalOwnerUuid,
     applyMessageToComponents,
+    findComponentByTreeId,
+    buildParticipantToTreeIdMap,
+    diagramsReferencingFunction,
+    findFunctionOwnerInterface,
 } from './systemUpdaterHelpers'
 
-export type { FunctionMatch }
+export type { FunctionMatch, ExistingFunctionMatch, ParentAddConflictMatch }
 export { parseParameters, paramsToString }
 
-function findFunctionOwnerInterface(
-    root: ComponentNode,
-    functionUuid: string
-): { component: ComponentNode; interfaceUuid: string } | null {
-    for (const iface of root.interfaces) {
-        if (iface.functions.some((candidate) => candidate.uuid === functionUuid)) {
-            return { component: root, interfaceUuid: iface.uuid }
+function detectParentAddConflict(
+    rootComponent: ComponentNode,
+    targetComp: ComponentNode,
+    interfaceId: string,
+    functionId: string,
+    newParams: ReturnType<typeof parseParameters>,
+    allSeqDiagrams: ReadonlyArray<DiagramRef>,
+    diagramUuid: string
+): ParentAddConflictMatch | null {
+    const targetIface = targetComp.interfaces.find((i) => i.id === interfaceId)
+    if (!targetIface || isInheritedInterface(targetIface)) return null
+
+    const directFnExists = resolveEffectiveInterfaceFunctions(
+        targetIface,
+        targetComp,
+        rootComponent
+    ).some((f) => f.id === functionId)
+    if (directFnExists) return null
+
+    const conflictingChildFunctions = findChildFunctionsByParentInterface(
+        rootComponent,
+        targetIface.uuid,
+        functionId,
+        newParams,
+        'different'
+    )
+    if (conflictingChildFunctions.length === 0) return null
+
+    const affectedDiagramUuids = allSeqDiagrams
+        .filter(
+            (d) =>
+                d.uuid !== diagramUuid &&
+                conflictingChildFunctions.some((c) =>
+                    d.referencedFunctionUuids.includes(c.functionUuid)
+                )
+        )
+        .map((d) => d.uuid)
+
+    return {
+        kind: 'parent-add-conflict',
+        parentComponentUuid: targetComp.uuid,
+        parentInterfaceUuid: targetIface.uuid,
+        interfaceId,
+        functionId,
+        newParams,
+        conflictingChildFunctions,
+        affectedDiagramUuids,
+    }
+}
+
+function detectExistingFunctionConflict(
+    existing: NonNullable<ReturnType<typeof resolveFunctionReferenceTarget>>,
+    currentDiagramReferencedFunctionUuids: ReadonlySet<string>,
+    rootComponent: ComponentNode,
+    interfaceId: string,
+    functionId: string,
+    newParams: ReturnType<typeof parseParameters>,
+    allSeqDiagrams: ReadonlyArray<DiagramRef>,
+    diagramUuid: string
+): ExistingFunctionMatch | null {
+    let resolved = existing
+    const ownerComponent = findCompByUuid(rootComponent, resolved.componentUuid)
+    const existingInterface =
+        ownerComponent?.interfaces.find((iface) => iface.uuid === resolved.interfaceUuid) ?? null
+    if (!ownerComponent || !existingInterface) return null
+
+    if (!currentDiagramReferencedFunctionUuids.has(resolved.functionUuid)) {
+        const referencedFunction = resolveEffectiveInterfaceFunctions(
+            existingInterface,
+            ownerComponent,
+            rootComponent
+        ).find(
+            (candidate) =>
+                candidate.id === functionId &&
+                currentDiagramReferencedFunctionUuids.has(candidate.uuid)
+        )
+        if (referencedFunction) {
+            resolved = {
+                ...resolved,
+                functionUuid: referencedFunction.uuid,
+                parameters: referencedFunction.parameters,
+            }
         }
     }
 
-    for (const child of root.subComponents) {
-        const found = findFunctionOwnerInterface(child, functionUuid)
-        if (found) return found
+    if (paramsMatch(resolved.parameters, newParams)) return null
+
+    if (isInheritedInterface(existingInterface)) {
+        const isChildLocalFunction = existingInterface.functions.some(
+            (candidate) => candidate.uuid === resolved.functionUuid
+        )
+        if (isChildLocalFunction) {
+            const inheritedParentFn = findInheritedParentFunction(
+                existingInterface,
+                ownerComponent,
+                rootComponent,
+                functionId,
+                newParams
+            )
+            if (inheritedParentFn) {
+                return {
+                    kind: 'redundant',
+                    interfaceId,
+                    functionId,
+                    functionUuid: resolved.functionUuid,
+                    oldParams: resolved.parameters,
+                    newParams,
+                    affectedDiagramUuids: diagramsReferencingFunction(
+                        allSeqDiagrams,
+                        resolved.functionUuid,
+                        diagramUuid
+                    ),
+                    conflictingChildFunctions: [],
+                }
+            }
+        }
     }
 
-    return null
+    const functionOwner = findFunctionOwnerInterface(rootComponent, resolved.functionUuid)
+    const conflictInterfaceUuid = functionOwner?.interfaceUuid ?? resolved.interfaceUuid
+
+    return {
+        kind: 'incompatible',
+        interfaceId,
+        functionId,
+        functionUuid: resolved.functionUuid,
+        oldParams: resolved.parameters,
+        newParams,
+        affectedDiagramUuids: diagramsReferencingFunction(
+            allSeqDiagrams,
+            resolved.functionUuid,
+            diagramUuid
+        ),
+        conflictingChildFunctions: findChildFunctionsByParentInterface(
+            rootComponent,
+            conflictInterfaceUuid,
+            functionId,
+            newParams
+        ),
+    }
 }
 
 export function analyzeSequenceDiagramChanges(
     content: string,
     rootComponent: ComponentNode,
     diagramUuid: string,
-    allSeqDiagrams: ReadonlyArray<{ uuid: string; referencedFunctionUuids: ReadonlyArray<string> }>
+    allSeqDiagrams: ReadonlyArray<DiagramRef>
 ): FunctionMatch[] {
     if (!content.trim()) return []
     const { cst, lexErrors, parseErrors } = parseSequenceDiagramCst(content)
@@ -79,16 +209,11 @@ export function analyzeSequenceDiagramChanges(
             ? findNode([rootComponent], diagramNode.ownerComponentUuid)
             : null
     const ownerComponent = ownerNode?.type === 'component' ? ownerNode : null
-    const participantToTreeId = new Map<string, string>()
-
-    for (const decl of ast.declarations) {
-        const resolvedUuid = resolveDeclarationUuid(decl.path, ownerComponent, rootComponent)
-        if (!resolvedUuid) continue
-        const resolvedNode = findNode([rootComponent], resolvedUuid)
-        if (resolvedNode?.type === 'component' || resolvedNode?.type === 'actor') {
-            participantToTreeId.set(decl.id, resolvedNode.id)
-        }
-    }
+    const participantToTreeId = buildParticipantToTreeIdMap(
+        ast.declarations,
+        ownerComponent,
+        rootComponent
+    )
 
     const matches: FunctionMatch[] = []
     const seen = new Set<string>()
@@ -101,106 +226,50 @@ export function analyzeSequenceDiagramChanges(
         seen.add(key)
 
         const newParams = parseParameters(rawParams)
+        const treeNodeId = participantToTreeId.get(stmt.to) ?? stmt.to
+        const targetComp = findComponentByTreeId(rootComponent, treeNodeId)
         const initialExisting = resolveFunctionReferenceTarget(
             rootComponent,
-            participantToTreeId.get(stmt.to) ?? stmt.to,
+            treeNodeId,
             interfaceId,
             functionId
         )
-        if (!initialExisting) continue
-        let existing = initialExisting
 
-        const ownerComponent = findCompByUuid(rootComponent, existing.componentUuid)
-        const existingInterface =
-            ownerComponent?.interfaces.find((iface) => iface.uuid === existing.interfaceUuid) ??
-            null
-        if (!ownerComponent || !existingInterface) continue
+        // resolveFunctionReferenceTarget recurses into subComponents, so a child's inherited
+        // function may be returned even when the target component doesn't own the function
+        // directly. Compare componentUuids to distinguish direct vs. child-recursive resolution.
+        const fnIsDirectlyOnTarget =
+            initialExisting !== null &&
+            targetComp !== null &&
+            initialExisting.componentUuid === targetComp.uuid
 
-        if (!currentDiagramReferencedFunctionUuids.has(existing.functionUuid)) {
-            const referencedFunction = resolveEffectiveInterfaceFunctions(
-                existingInterface,
-                ownerComponent,
-                rootComponent
-            ).find(
-                (candidate) =>
-                    candidate.id === functionId &&
-                    currentDiagramReferencedFunctionUuids.has(candidate.uuid)
-            )
-            if (referencedFunction) {
-                existing = {
-                    ...existing,
-                    functionUuid: referencedFunction.uuid,
-                    parameters: referencedFunction.parameters,
-                }
-            }
-        }
-
-        if (paramsMatch(existing.parameters, newParams)) continue
-
-        const functionOwner = findFunctionOwnerInterface(rootComponent, existing.functionUuid)
-        const conflictInterfaceUuid = functionOwner?.interfaceUuid ?? existing.interfaceUuid
-
-        if (isInheritedInterface(existingInterface)) {
-            const isChildLocalFunction = existingInterface.functions.some(
-                (candidate) => candidate.uuid === existing.functionUuid
-            )
-            if (isChildLocalFunction) {
-                const inheritedParentFn = findInheritedParentFunction(
-                    existingInterface,
-                    ownerComponent,
+        if (!fnIsDirectlyOnTarget) {
+            if (targetComp) {
+                const conflict = detectParentAddConflict(
                     rootComponent,
+                    targetComp,
+                    interfaceId,
                     functionId,
-                    newParams
+                    newParams,
+                    allSeqDiagrams,
+                    diagramUuid
                 )
-
-                if (inheritedParentFn) {
-                    const affectedDiagramUuids = allSeqDiagrams
-                        .filter(
-                            (d) =>
-                                d.uuid !== diagramUuid &&
-                                d.referencedFunctionUuids.includes(existing.functionUuid)
-                        )
-                        .map((d) => d.uuid)
-
-                    matches.push({
-                        kind: 'redundant',
-                        interfaceId,
-                        functionId,
-                        functionUuid: existing.functionUuid,
-                        oldParams: existing.parameters,
-                        newParams,
-                        affectedDiagramUuids,
-                        conflictingChildFunctions: [],
-                    })
-                    continue
-                }
+                if (conflict) matches.push(conflict)
             }
+            continue
         }
 
-        const affectedDiagramUuids = allSeqDiagrams
-            .filter(
-                (d) =>
-                    d.uuid !== diagramUuid &&
-                    d.referencedFunctionUuids.includes(existing.functionUuid)
-            )
-            .map((d) => d.uuid)
-        const conflictingChildFunctions = findParentInterfaceChildConflicts(
+        const match = detectExistingFunctionConflict(
+            initialExisting,
+            currentDiagramReferencedFunctionUuids,
             rootComponent,
-            conflictInterfaceUuid,
-            functionId,
-            newParams
-        )
-
-        matches.push({
-            kind: 'incompatible',
             interfaceId,
             functionId,
-            functionUuid: existing.functionUuid,
-            oldParams: existing.parameters,
             newParams,
-            affectedDiagramUuids,
-            conflictingChildFunctions,
-        })
+            allSeqDiagrams,
+            diagramUuid
+        )
+        if (match) matches.push(match)
     }
 
     return matches

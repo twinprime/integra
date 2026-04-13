@@ -427,6 +427,51 @@ function buildAliasMap(content: string): Map<string, string> {
     return aliasMap
 }
 
+function buildNavigationSuggestionsForComp(
+    comp: ComponentNode,
+    ownerComp: ComponentNode,
+    rootComponent: ComponentNode,
+    ctx: { partial: string; replaceFrom: number }
+): Suggestion[] {
+    const suggs: Suggestion[] = []
+    const isLocal = comp.uuid === ownerComp.uuid
+    const absPath = isLocal ? null : getComponentAbsolutePath(rootComponent, comp.uuid)
+    for (const ucDiag of comp.useCaseDiagrams) {
+        const ucdPath = isLocal ? ucDiag.id : absPath ? `${absPath}/${ucDiag.id}` : ucDiag.id
+        const ucdInsertText = `UseCaseDiagram:${ucdPath}`
+        if (matchLower(ucdInsertText, ctx.partial)) {
+            suggs.push({
+                label: `${ucdInsertText} (${ucDiag.name})`,
+                insertText: ucdInsertText,
+                replaceFrom: ctx.replaceFrom,
+            })
+        }
+        for (const uc of ucDiag.useCases) {
+            const ucPath = isLocal ? uc.id : absPath ? `${absPath}/${uc.id}` : uc.id
+            const insertText = `UseCase:${ucPath}`
+            if (matchLower(insertText, ctx.partial)) {
+                suggs.push({
+                    label: `${insertText} (${uc.name})`,
+                    insertText,
+                    replaceFrom: ctx.replaceFrom,
+                })
+            }
+            for (const seq of uc.sequenceDiagrams ?? []) {
+                const seqPath = isLocal ? seq.id : absPath ? `${absPath}/${seq.id}` : seq.id
+                const seqInsertText = `Sequence:${seqPath}`
+                if (matchLower(seqInsertText, ctx.partial)) {
+                    suggs.push({
+                        label: `${seqInsertText} (${seq.name})`,
+                        insertText: seqInsertText,
+                        replaceFrom: ctx.replaceFrom,
+                    })
+                }
+            }
+        }
+    }
+    return suggs
+}
+
 function buildFunctionRefSuggestions(
     ctx: Extract<Context, { type: 'function-ref' }>,
     ownerComp: ComponentNode,
@@ -459,41 +504,7 @@ function buildFunctionRefSuggestions(
     const referencedComps = collectAllComponents(rootComponent)
 
     for (const comp of referencedComps) {
-        const isLocal = comp.uuid === ownerComp.uuid
-        const absPath = isLocal ? null : getComponentAbsolutePath(rootComponent, comp.uuid)
-        for (const ucDiag of comp.useCaseDiagrams) {
-            const ucdPath = isLocal ? ucDiag.id : absPath ? `${absPath}/${ucDiag.id}` : ucDiag.id
-            const ucdInsertText = `UseCaseDiagram:${ucdPath}`
-            if (matchLower(ucdInsertText, ctx.partial)) {
-                suggs.push({
-                    label: `${ucdInsertText} (${ucDiag.name})`,
-                    insertText: ucdInsertText,
-                    replaceFrom: ctx.replaceFrom,
-                })
-            }
-            for (const uc of ucDiag.useCases) {
-                const ucPath = isLocal ? uc.id : absPath ? `${absPath}/${uc.id}` : uc.id
-                const insertText = `UseCase:${ucPath}`
-                if (matchLower(insertText, ctx.partial)) {
-                    suggs.push({
-                        label: `${insertText} (${uc.name})`,
-                        insertText,
-                        replaceFrom: ctx.replaceFrom,
-                    })
-                }
-                for (const seq of uc.sequenceDiagrams ?? []) {
-                    const seqPath = isLocal ? seq.id : absPath ? `${absPath}/${seq.id}` : seq.id
-                    const seqInsertText = `Sequence:${seqPath}`
-                    if (matchLower(seqInsertText, ctx.partial)) {
-                        suggs.push({
-                            label: `${seqInsertText} (${seq.name})`,
-                            insertText: seqInsertText,
-                            replaceFrom: ctx.replaceFrom,
-                        })
-                    }
-                }
-            }
-        }
+        suggs.push(...buildNavigationSuggestionsForComp(comp, ownerComp, rootComponent, ctx))
     }
 
     return suggs

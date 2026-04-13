@@ -319,11 +319,12 @@ export function findInheritedParentFunctionById(
     return parentFunctions.find((candidate) => candidate.id === functionId) ?? null
 }
 
-export function findConflictingInheritedChildFunctions(
+export function findChildFunctionsInInheritedInterfaces(
     rootComponent: ComponentNode,
     parentInterfaceUuid: string,
     functionId: string,
-    parameters: ReadonlyArray<InterfaceFunction['parameters'][number]>
+    parameters: ReadonlyArray<InterfaceFunction['parameters'][number]>,
+    mode: 'same' | 'different' = 'same'
 ): ReadonlyArray<InheritedChildFunctionConflict> {
     const conflicts: InheritedChildFunctionConflict[] = []
 
@@ -341,7 +342,8 @@ export function findConflictingInheritedChildFunctions(
             )
                 continue
             for (const fn of iface.functions) {
-                if (fn.id === functionId && paramsMatch(fn.parameters, parameters)) {
+                const matches = paramsMatch(fn.parameters, parameters)
+                if (fn.id === functionId && (mode === 'same' ? matches : !matches)) {
                     conflicts.push({
                         componentUuid: component.uuid,
                         componentName: component.name,
@@ -428,10 +430,10 @@ export function resolveComponentInterfaces(
 
 export function isResolvedInterfaceDeletable(
     iface: ResolvedInterface,
-    referencedFunctionIds: ReadonlySet<string>
+    referencedFunctionUuids: ReadonlySet<string>
 ): boolean {
     if ((iface.inheritedByCount ?? 0) > 0) return false
     if (isLocalInterface(iface)) return iface.effectiveFunctions.length === 0
 
-    return iface.effectiveFunctions.every((fn) => !referencedFunctionIds.has(fn.id))
+    return iface.effectiveFunctions.every((fn) => !referencedFunctionUuids.has(fn.uuid))
 }

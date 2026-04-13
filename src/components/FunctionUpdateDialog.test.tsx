@@ -35,9 +35,33 @@ function makeRedundantMatch(overrides: Partial<FunctionMatch> = {}): FunctionMat
     }
 }
 
+function makeParentAddMatch(overrides: Partial<FunctionMatch> = {}): FunctionMatch {
+    return {
+        kind: 'parent-add-conflict',
+        parentComponentUuid: 'parent-comp-uuid',
+        parentInterfaceUuid: 'parent-iface-uuid',
+        interfaceId: 'PaymentAPI',
+        functionId: 'charge',
+        newParams: [makeParam('amount', 'number'), makeParam('currency')],
+        conflictingChildFunctions: [
+            {
+                componentUuid: 'child-comp-uuid',
+                componentName: 'PaymentGateway',
+                interfaceUuid: 'child-iface-uuid',
+                interfaceId: 'PaymentAPI',
+                functionUuid: 'child-fn-uuid',
+                functionId: 'charge',
+            },
+        ],
+        affectedDiagramUuids: ['diag-uuid-3'],
+        ...overrides,
+    }
+}
+
 const defaultSeqDiagrams = [
     { uuid: 'diag-uuid-1', name: 'User Flow' },
     { uuid: 'diag-uuid-2', name: 'Order Flow' },
+    { uuid: 'diag-uuid-3', name: 'Payment Flow' },
 ]
 
 beforeEach(() => {
@@ -129,6 +153,67 @@ describe('FunctionUpdateDialog', () => {
         expect(onResolve).toHaveBeenCalledWith([
             expect.objectContaining({ action: 'remove-redundant', functionId: 'createOrder' }),
         ])
+    })
+
+    it('renders parent-add-conflict matches with new signature and conflicting child list', () => {
+        render(
+            <FunctionUpdateDialog
+                matches={[makeParentAddMatch()]}
+                seqDiagrams={defaultSeqDiagrams}
+                onResolve={vi.fn()}
+                onCancel={vi.fn()}
+            />
+        )
+
+        expect(screen.getByText('Function Definition Conflict')).toBeInTheDocument()
+        expect(screen.getByText('PaymentAPI:charge')).toBeInTheDocument()
+        expect(screen.getByText(/will be added to the parent interface/i)).toBeInTheDocument()
+        // New signature shown
+        expect(
+            screen.getByText(/PaymentAPI:charge\(amount: number, currency: string\)/)
+        ).toBeInTheDocument()
+        // Conflicting child interface listed
+        expect(screen.getByText(/PaymentGateway/)).toBeInTheDocument()
+        // Affected diagram listed
+        expect(screen.getByText('Payment Flow')).toBeInTheDocument()
+    })
+
+    it('resolves parent-add-conflict matches with apply-parent-add action', async () => {
+        const user = userEvent.setup()
+        const onResolve = vi.fn()
+        render(
+            <FunctionUpdateDialog
+                matches={[makeParentAddMatch()]}
+                seqDiagrams={defaultSeqDiagrams}
+                onResolve={onResolve}
+                onCancel={vi.fn()}
+            />
+        )
+
+        await user.click(screen.getByText('Apply'))
+
+        expect(onResolve).toHaveBeenCalledWith([
+            expect.objectContaining({ action: 'apply-parent-add', functionId: 'charge' }),
+        ])
+    })
+
+    it('calls onCancel without emitting decisions for parent-add-conflict when Cancel is clicked', async () => {
+        const user = userEvent.setup()
+        const onCancel = vi.fn()
+        const onResolve = vi.fn()
+        render(
+            <FunctionUpdateDialog
+                matches={[makeParentAddMatch()]}
+                seqDiagrams={defaultSeqDiagrams}
+                onResolve={onResolve}
+                onCancel={onCancel}
+            />
+        )
+
+        await user.click(screen.getByText('Cancel'))
+
+        expect(onCancel).toHaveBeenCalledTimes(1)
+        expect(onResolve).not.toHaveBeenCalled()
     })
 
     it('resolves mixed matches with their respective actions', async () => {

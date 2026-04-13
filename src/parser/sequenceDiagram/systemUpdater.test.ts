@@ -360,6 +360,239 @@ describe('analyzeSequenceDiagramChanges', () => {
             },
         ])
     })
+
+    it('detects parent-add conflict when function would be added to a parent interface where a child already has it with a different signature', () => {
+        const CURRENT_DIAG_UUID = 'parent-diag-uuid'
+        const CHILD_FN_UUID = 'child-fn-uuid'
+        const PARENT_API_UUID = 'parent-api-uuid'
+        const CHILD_API_UUID = 'child-api-uuid'
+        const CHILD_DIAG_UUID = 'child-diag-uuid'
+
+        const childComponent: ComponentNode = {
+            uuid: 'child-uuid',
+            id: 'child',
+            name: 'Child',
+            type: 'component',
+            description: '',
+            subComponents: [],
+            actors: [],
+            interfaces: [
+                {
+                    uuid: CHILD_API_UUID,
+                    id: 'API',
+                    name: 'API',
+                    type: 'rest',
+                    kind: 'inherited',
+                    parentInterfaceUuid: PARENT_API_UUID,
+                    functions: [
+                        {
+                            uuid: CHILD_FN_UUID,
+                            id: 'fn',
+                            parameters: [{ name: 'id', type: 'number', required: true }],
+                        },
+                    ],
+                },
+            ],
+            useCaseDiagrams: [],
+        }
+
+        // Owner has API with no 'fn' yet. Child is a sub-component of owner so that
+        // getParentInterfaceResolution can find owner's API as the parent interface.
+        // resolveFunctionReferenceTarget will find fn recursively on child, but
+        // fnIsDirectlyOnTarget will be false (componentUuid mismatch) → parent-add detection runs.
+        const ownerWithDiag: ComponentNode = {
+            uuid: OWNER_UUID,
+            id: 'owner',
+            name: 'Owner',
+            type: 'component',
+            description: '',
+            subComponents: [childComponent],
+            actors: [],
+            interfaces: [
+                {
+                    uuid: PARENT_API_UUID,
+                    id: 'API',
+                    name: 'API',
+                    type: 'rest',
+                    kind: 'local',
+                    functions: [],
+                },
+            ],
+            useCaseDiagrams: [
+                {
+                    uuid: UCD_UUID,
+                    id: 'ucd',
+                    name: 'Use Cases',
+                    type: 'use-case-diagram',
+                    content: '',
+                    ownerComponentUuid: OWNER_UUID,
+                    referencedNodeIds: [],
+                    useCases: [
+                        {
+                            uuid: UC_UUID,
+                            id: 'uc',
+                            name: 'Use Case',
+                            type: 'use-case',
+                            description: '',
+                            sequenceDiagrams: [
+                                makeSeqDiag({
+                                    uuid: CURRENT_DIAG_UUID,
+                                    ownerComponentUuid: OWNER_UUID,
+                                    referencedFunctionUuids: [],
+                                }),
+                            ],
+                        },
+                    ],
+                },
+            ],
+        }
+
+        const root: ComponentNode = {
+            uuid: ROOT_UUID,
+            id: 'root',
+            name: 'Root',
+            type: 'component',
+            description: '',
+            subComponents: [ownerWithDiag],
+            actors: [],
+            interfaces: [],
+            useCaseDiagrams: [],
+        }
+
+        // Diagram tries to add fn(x: string) to owner's API — but child already has fn(id: number)
+        const content = 'component owner\nowner ->> owner: API:fn(x: string)'
+
+        expect(
+            analyzeSequenceDiagramChanges(content, root, CURRENT_DIAG_UUID, [
+                { uuid: CURRENT_DIAG_UUID, referencedFunctionUuids: [] },
+                { uuid: CHILD_DIAG_UUID, referencedFunctionUuids: [CHILD_FN_UUID] },
+            ])
+        ).toEqual([
+            {
+                kind: 'parent-add-conflict',
+                parentComponentUuid: OWNER_UUID,
+                parentInterfaceUuid: PARENT_API_UUID,
+                interfaceId: 'API',
+                functionId: 'fn',
+                newParams: [{ name: 'x', type: 'string', required: true }],
+                conflictingChildFunctions: [
+                    {
+                        componentUuid: 'child-uuid',
+                        componentName: 'Child',
+                        interfaceUuid: CHILD_API_UUID,
+                        interfaceId: 'API',
+                        functionUuid: CHILD_FN_UUID,
+                        functionId: 'fn',
+                    },
+                ],
+                affectedDiagramUuids: [CHILD_DIAG_UUID],
+            },
+        ])
+    })
+
+    it('does not emit parent-add-conflict when child signature matches the new parent signature', () => {
+        const CURRENT_DIAG_UUID = 'parent-diag-uuid'
+        const CHILD_FN_UUID = 'child-fn-uuid'
+        const PARENT_API_UUID = 'parent-api-uuid'
+        const CHILD_API_UUID = 'child-api-uuid'
+
+        const childComponent: ComponentNode = {
+            uuid: 'child-uuid',
+            id: 'child',
+            name: 'Child',
+            type: 'component',
+            description: '',
+            subComponents: [],
+            actors: [],
+            interfaces: [
+                {
+                    uuid: CHILD_API_UUID,
+                    id: 'API',
+                    name: 'API',
+                    type: 'rest',
+                    kind: 'inherited',
+                    parentInterfaceUuid: PARENT_API_UUID,
+                    // Same signature as what we're about to add — no parent-add conflict
+                    functions: [
+                        {
+                            uuid: CHILD_FN_UUID,
+                            id: 'fn',
+                            parameters: [{ name: 'x', type: 'string', required: true }],
+                        },
+                    ],
+                },
+            ],
+            useCaseDiagrams: [],
+        }
+
+        const ownerWithDiag: ComponentNode = {
+            uuid: OWNER_UUID,
+            id: 'owner',
+            name: 'Owner',
+            type: 'component',
+            description: '',
+            subComponents: [childComponent],
+            actors: [],
+            interfaces: [
+                {
+                    uuid: PARENT_API_UUID,
+                    id: 'API',
+                    name: 'API',
+                    type: 'rest',
+                    kind: 'local',
+                    functions: [],
+                },
+            ],
+            useCaseDiagrams: [
+                {
+                    uuid: UCD_UUID,
+                    id: 'ucd',
+                    name: 'Use Cases',
+                    type: 'use-case-diagram',
+                    content: '',
+                    ownerComponentUuid: OWNER_UUID,
+                    referencedNodeIds: [],
+                    useCases: [
+                        {
+                            uuid: UC_UUID,
+                            id: 'uc',
+                            name: 'Use Case',
+                            type: 'use-case',
+                            description: '',
+                            sequenceDiagrams: [
+                                makeSeqDiag({
+                                    uuid: CURRENT_DIAG_UUID,
+                                    ownerComponentUuid: OWNER_UUID,
+                                    referencedFunctionUuids: [],
+                                }),
+                            ],
+                        },
+                    ],
+                },
+            ],
+        }
+
+        const root: ComponentNode = {
+            uuid: ROOT_UUID,
+            id: 'root',
+            name: 'Root',
+            type: 'component',
+            description: '',
+            subComponents: [ownerWithDiag],
+            actors: [],
+            interfaces: [],
+            useCaseDiagrams: [],
+        }
+
+        const content = 'component owner\nowner ->> owner: API:fn(x: string)'
+
+        // Child has same signature as what we're adding — no conflict (handled by redundant flow)
+        expect(
+            analyzeSequenceDiagramChanges(content, root, CURRENT_DIAG_UUID, [
+                { uuid: CURRENT_DIAG_UUID, referencedFunctionUuids: [] },
+            ])
+        ).toEqual([])
+    })
 })
 
 describe('parseSequenceDiagram — cross-component path references', () => {

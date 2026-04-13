@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import type { ComponentNode, InterfaceSpecification, InterfaceFunction } from '../../store/types'
 import { useSystemStore } from '../../store/useSystemStore'
-import { findReferencingDiagrams } from '../../utils/nodeUtils'
+import { collectReferencedFunctionUuids, findReferencingDiagrams } from '../../utils/nodeUtils'
 import { getNodeSiblingIds } from '../../nodes/nodeTree'
 import { FunctionRenameConflictDialog } from '../FunctionRenameConflictDialog'
 import { InterfaceInheritanceDialog } from '../InterfaceInheritanceDialog'
@@ -13,7 +13,7 @@ import { PanelTitleInput } from './PanelTitleInput'
 import { useInterfaceTabManager } from './useInterfaceTabManager'
 import {
     analyzeInterfaceInheritanceMerge,
-    findConflictingInheritedChildFunctions,
+    findChildFunctionsInInheritedInterfaces,
     findInheritedParentFunction,
     isInheritedInterface,
     isLocalInterface,
@@ -23,10 +23,7 @@ import {
     type ResolvedInterface,
     resolveEffectiveInterfaceFunctions,
 } from '../../utils/interfaceFunctions'
-import {
-    buildFunctionReferenceLookup,
-    getInterfaceReferencedFunctionIds,
-} from '../../utils/functionReferenceLookup'
+import { buildFunctionReferenceLookup } from '../../utils/functionReferenceLookup'
 
 type EditableInterfaceUpdates = Partial<
     Pick<InterfaceSpecification, 'id' | 'name' | 'description' | 'type'>
@@ -78,6 +75,10 @@ export const ComponentEditor = ({
     const referencingDiagrams = findReferencingDiagrams(rootComponent, node.uuid)
     const functionReferenceLookup = useMemo(
         () => buildFunctionReferenceLookup(rootComponent),
+        [rootComponent]
+    )
+    const referencedFunctionUuids = useMemo(
+        () => collectReferencedFunctionUuids(rootComponent),
         [rootComponent]
     )
 
@@ -201,7 +202,7 @@ export const ComponentEditor = ({
                 return
             }
         } else {
-            const conflictingChildren = findConflictingInheritedChildFunctions(
+            const conflictingChildren = findChildFunctionsInInheritedInterfaces(
                 rootComponent,
                 iface.uuid,
                 newId,
@@ -415,10 +416,6 @@ export const ComponentEditor = ({
                         {resolvedInterfaces.map((iface) => {
                             const isActive = iface.uuid === activeTabUuid
                             const hasSubComponents = node.subComponents.length > 0
-                            const referencedFunctionIds = getInterfaceReferencedFunctionIds(
-                                functionReferenceLookup,
-                                iface.uuid
-                            )
                             const isInherited = node.subComponents.some((sub) =>
                                 sub.interfaces.some(
                                     (si) =>
@@ -442,7 +439,7 @@ export const ComponentEditor = ({
                                         className={
                                             isResolvedInterfaceDeletable(
                                                 iface,
-                                                referencedFunctionIds
+                                                referencedFunctionUuids
                                             )
                                                 ? 'line-through'
                                                 : undefined
@@ -469,10 +466,6 @@ export const ComponentEditor = ({
                     {resolvedInterfaces.map((iface: ResolvedInterface, ifaceIdx) =>
                         iface.uuid === activeTabUuid
                             ? (() => {
-                                  const referencedFunctionIds = getInterfaceReferencedFunctionIds(
-                                      functionReferenceLookup,
-                                      iface.uuid
-                                  )
                                   const functionReferencesById =
                                       functionReferenceLookup.get(iface.uuid) ?? new Map()
 
@@ -485,7 +478,7 @@ export const ComponentEditor = ({
                                           <InterfaceEditor
                                               iface={iface}
                                               ifaceIdx={ifaceIdx}
-                                              referencedFunctionIds={referencedFunctionIds}
+                                              referencedFunctionUuids={referencedFunctionUuids}
                                               functionReferencesById={functionReferencesById}
                                               siblingInterfaceIds={node.interfaces
                                                   .filter((_, i) => i !== ifaceIdx)

@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import {
     analyzeInterfaceInheritanceMerge,
     classifyFunctionCompatibility,
-    findConflictingInheritedChildFunctions,
+    findChildFunctionsInInheritedInterfaces,
     findInheritedParentFunction,
     formatFunctionSignature,
     isResolvedInterfaceDeletable,
@@ -434,7 +434,7 @@ describe('isResolvedInterfaceDeletable', () => {
         }
 
         expect(isResolvedInterfaceDeletable(resolved, new Set())).toBe(true)
-        expect(isResolvedInterfaceDeletable(resolved, new Set(['parentCall']))).toBe(false)
+        expect(isResolvedInterfaceDeletable(resolved, new Set(['parent-fn-uuid']))).toBe(false)
     })
 })
 
@@ -498,7 +498,7 @@ describe('findInheritedParentFunction', () => {
     })
 })
 
-describe('findConflictingInheritedChildFunctions', () => {
+describe('findChildFunctionsInInheritedInterfaces', () => {
     it('finds conflicting child-local functions on transitive descendants', () => {
         const conflictParams = [{ name: 'id', type: 'string', required: true }]
         const rootIface = {
@@ -549,7 +549,12 @@ describe('findConflictingInheritedChildFunctions', () => {
         })
 
         expect(
-            findConflictingInheritedChildFunctions(root, 'root-iface-uuid', 'login', conflictParams)
+            findChildFunctionsInInheritedInterfaces(
+                root,
+                'root-iface-uuid',
+                'login',
+                conflictParams
+            )
         ).toEqual([
             {
                 componentUuid: 'grandchild-uuid',

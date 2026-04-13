@@ -140,7 +140,7 @@ describe('InterfaceEditor', () => {
             <InterfaceEditor
                 iface={buildInheritedInterface()}
                 ifaceIdx={0}
-                referencedFunctionIds={new Set()}
+                referencedFunctionUuids={new Set()}
                 functionReferencesById={new Map()}
                 siblingInterfaceIds={[]}
                 onInterfaceUpdate={noop}
@@ -165,7 +165,7 @@ describe('InterfaceEditor', () => {
             <InterfaceEditor
                 iface={buildInheritedInterface()}
                 ifaceIdx={0}
-                referencedFunctionIds={new Set()}
+                referencedFunctionUuids={new Set()}
                 functionReferencesById={new Map()}
                 siblingInterfaceIds={[]}
                 onInterfaceUpdate={noop}
@@ -188,7 +188,7 @@ describe('InterfaceEditor', () => {
             <InterfaceEditor
                 iface={buildInheritedInterface()}
                 ifaceIdx={0}
-                referencedFunctionIds={new Set(['doThing'])}
+                referencedFunctionUuids={new Set(['parent-fn-uuid'])}
                 functionReferencesById={new Map([['doThing', [{ uuid: 'seq-uuid', name: 'Seq' }]]])}
                 siblingInterfaceIds={[]}
                 onInterfaceUpdate={noop}
@@ -210,7 +210,7 @@ describe('InterfaceEditor', () => {
             <InterfaceEditor
                 iface={buildLocalInterface()}
                 ifaceIdx={0}
-                referencedFunctionIds={new Set()}
+                referencedFunctionUuids={new Set()}
                 functionReferencesById={new Map()}
                 siblingInterfaceIds={[]}
                 onInterfaceUpdate={noop}
@@ -231,7 +231,7 @@ describe('InterfaceEditor', () => {
             <InterfaceEditor
                 iface={buildInheritedParentLocalInterface()}
                 ifaceIdx={0}
-                referencedFunctionIds={new Set()}
+                referencedFunctionUuids={new Set()}
                 functionReferencesById={new Map()}
                 siblingInterfaceIds={[]}
                 onInterfaceUpdate={noop}
