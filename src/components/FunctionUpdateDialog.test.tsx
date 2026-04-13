@@ -2,14 +2,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { FunctionUpdateDialog } from './FunctionUpdateDialog'
-import type { FunctionMatch } from '../parser/sequenceDiagram/systemUpdater'
+import type {
+    ExistingFunctionMatch,
+    ParentAddConflictMatch,
+} from '../parser/sequenceDiagram/systemUpdater'
 import type { Parameter } from '../store/types'
 
 function makeParam(name: string, type = 'string'): Parameter {
     return { name, type, required: true }
 }
 
-function makeChangedMatch(overrides: Partial<FunctionMatch> = {}): FunctionMatch {
+function makeChangedMatch(overrides: Partial<ExistingFunctionMatch> = {}): ExistingFunctionMatch {
     return {
         kind: 'incompatible',
         interfaceId: 'UserService',
@@ -22,7 +25,7 @@ function makeChangedMatch(overrides: Partial<FunctionMatch> = {}): FunctionMatch
     }
 }
 
-function makeRedundantMatch(overrides: Partial<FunctionMatch> = {}): FunctionMatch {
+function makeRedundantMatch(overrides: Partial<ExistingFunctionMatch> = {}): ExistingFunctionMatch {
     return {
         kind: 'redundant',
         interfaceId: 'OrderService',
@@ -35,7 +38,9 @@ function makeRedundantMatch(overrides: Partial<FunctionMatch> = {}): FunctionMat
     }
 }
 
-function makeParentAddMatch(overrides: Partial<FunctionMatch> = {}): FunctionMatch {
+function makeParentAddMatch(
+    overrides: Partial<ParentAddConflictMatch> = {}
+): ParentAddConflictMatch {
     return {
         kind: 'parent-add-conflict',
         parentComponentUuid: 'parent-comp-uuid',

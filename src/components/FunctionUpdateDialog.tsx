@@ -49,7 +49,7 @@ function SignatureChange({
     functionId,
     oldParams,
     newParams,
-}: Pick<FunctionMatch, 'interfaceId' | 'functionId' | 'oldParams' | 'newParams'>) {
+}: Pick<ExistingFunctionMatch, 'interfaceId' | 'functionId' | 'oldParams' | 'newParams'>) {
     return (
         <div className="mt-1 font-mono text-xs space-y-0.5">
             <div className="text-red-400 line-through">
