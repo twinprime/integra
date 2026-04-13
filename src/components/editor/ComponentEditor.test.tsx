@@ -2,7 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ComponentEditor } from './ComponentEditor'
-import type { ComponentNode, InterfaceSpecification } from '../../store/types'
+import type {
+    ComponentNode,
+    InterfaceSpecification,
+    SequenceDiagramNode,
+    UseCaseDiagramNode,
+    UseCaseNode,
+} from '../../store/types'
 import type { SystemState } from '../../store/useSystemStore'
 
 // ── Mocks ─────────────────────────────────────────────────────────────────────
@@ -48,8 +54,19 @@ vi.mock('./NodeReferencesButton', () => ({
 
 // Stub InterfaceEditor to avoid deep rendering complexity
 vi.mock('./InterfaceEditor', () => ({
-    InterfaceEditor: ({ iface }: { iface: { uuid: string; name: string } }) => (
-        <div data-testid={`interface-editor-${iface.uuid}`}>{iface.name}</div>
+    InterfaceEditor: ({
+        iface,
+        referencedFunctionUuids,
+    }: {
+        iface: { uuid: string; name: string }
+        referencedFunctionUuids?: Set<string>
+    }) => (
+        <div
+            data-testid={`interface-editor-${iface.uuid}`}
+            data-referenced-functions={[...(referencedFunctionUuids ?? new Set())].join(',')}
+        >
+            {iface.name}
+        </div>
     ),
 }))
 
@@ -57,9 +74,42 @@ vi.mock('../../nodes/nodeTree', () => ({
     getNodeSiblingIds: vi.fn(() => []),
     findParentNode: vi.fn(() => null),
     collectAllDiagrams: vi.fn(() => []),
+    findNode: vi.fn((nodes: ComponentNode[], uuid: string) => {
+        const walk = (node: ComponentNode): ComponentNode | null => {
+            if (node.uuid === uuid) return node
+            for (const child of node.subComponents) {
+                const found = walk(child)
+                if (found) return found
+            }
+            return null
+        }
+
+        for (const node of nodes) {
+            const found = walk(node)
+            if (found) return found
+        }
+
+        return null
+    }),
 }))
 
 vi.mock('../../utils/nodeUtils', () => ({
+    collectReferencedFunctionUuids: vi.fn((root: ComponentNode) => {
+        const uuids = new Set<string>()
+        const walk = (component: ComponentNode) => {
+            component.useCaseDiagrams.forEach((diagram) => {
+                diagram.useCases.forEach((useCase) => {
+                    useCase.sequenceDiagrams.forEach((sequenceDiagram) => {
+                        sequenceDiagram.referencedFunctionUuids.forEach((uuid) => uuids.add(uuid))
+                    })
+                })
+            })
+            component.subComponents.forEach(walk)
+        }
+
+        walk(root)
+        return uuids
+    }),
     findReferencingDiagrams: vi.fn(() => []),
     getNodeAbsolutePath: vi.fn(() => ''),
     getNodeAbsolutePathSegments: vi.fn(() => []),
@@ -71,7 +121,7 @@ vi.mock('../../utils/nodeUtils', () => ({
 
 import { useSystemStore } from '../../store/useSystemStore'
 import { getNodeAbsolutePath, getNodeAbsolutePathSegments } from '../../utils/nodeUtils'
-import { findParentNode } from '../../nodes/nodeTree'
+import { collectAllDiagrams, findParentNode } from '../../nodes/nodeTree'
 
 const mockRenameNodeId = vi.fn()
 const mockSelectNode = vi.fn()
@@ -89,9 +139,12 @@ const mockRootComponent: ComponentNode = {
     interfaces: [],
 }
 
-function setupStoreMock(selectedInterfaceUuid: string | null = null) {
+function setupStoreMock(
+    selectedInterfaceUuid: string | null = null,
+    rootComponent: ComponentNode = mockRootComponent
+) {
     const state = {
-        rootComponent: mockRootComponent,
+        rootComponent,
         renameNodeId: mockRenameNodeId,
         selectNode: mockSelectNode,
         selectedInterfaceUuid,
@@ -109,14 +162,14 @@ function makeInterface(
 ): InterfaceSpecification {
     if ('parentInterfaceUuid' in overrides && overrides.parentInterfaceUuid) {
         return {
-            uuid: `iface-uuid-${id}`,
+            uuid: overrides.uuid ?? `iface-uuid-${id}`,
             id,
             name,
             type: 'rest',
             kind: 'inherited',
             parentInterfaceUuid: overrides.parentInterfaceUuid,
             functions: [],
-            description: overrides.description,
+            ...overrides,
         }
     }
     const localOverrides = overrides as Partial<Extract<InterfaceSpecification, { kind?: 'local' }>>
@@ -158,6 +211,51 @@ function makeComponentNode(overrides: Partial<ComponentNode> = {}): ComponentNod
         interfaces: [],
         description: '',
         ...overrides,
+    }
+}
+
+function makeSequenceDiagram(
+    id: string,
+    ownerComponentUuid: string,
+    content: string,
+    referencedFunctionUuids: string[] = []
+): SequenceDiagramNode {
+    return {
+        uuid: `${id}-uuid`,
+        id,
+        name: id,
+        type: 'sequence-diagram',
+        content,
+        ownerComponentUuid,
+        referencedNodeIds: [],
+        referencedFunctionUuids,
+    }
+}
+
+function makeUseCase(id: string, ...sequenceDiagrams: SequenceDiagramNode[]): UseCaseNode {
+    return {
+        uuid: `${id}-uuid`,
+        id,
+        name: id,
+        type: 'use-case',
+        sequenceDiagrams,
+    }
+}
+
+function makeUseCaseDiagram(
+    id: string,
+    ownerComponentUuid: string,
+    ...useCases: UseCaseNode[]
+): UseCaseDiagramNode {
+    return {
+        uuid: `${id}-uuid`,
+        id,
+        name: id,
+        type: 'use-case-diagram',
+        content: '',
+        ownerComponentUuid,
+        referencedNodeIds: [],
+        useCases,
     }
 }
 
@@ -283,6 +381,59 @@ describe('ComponentEditor', () => {
             render(<ComponentEditor node={node} onUpdate={vi.fn()} />)
 
             expect(screen.getByTestId('interface-tab-label-api')).toHaveClass('line-through')
+        })
+
+        it('passes inherited child references through to the parent interface editor', () => {
+            const parentInterface = makeInterface('api', 'API', {
+                uuid: 'parent-iface-uuid',
+                functions: [makeFunction('doThing', [])],
+            })
+            const childInterface = makeInterface('api', 'API', {
+                uuid: 'child-iface-uuid',
+                parentInterfaceUuid: 'parent-iface-uuid',
+            })
+            const childSequence = makeSequenceDiagram(
+                'child-flow',
+                'child-uuid',
+                ['actor User', 'component child', 'User ->> child: API:doThing()'].join('\n'),
+                ['fn-uuid-doThing-none']
+            )
+            const root = makeComponentNode({
+                uuid: 'root-uuid',
+                id: 'root',
+                name: 'Root',
+                interfaces: [parentInterface],
+                subComponents: [
+                    makeComponentNode({
+                        uuid: 'child-uuid',
+                        id: 'child',
+                        name: 'Child',
+                        interfaces: [childInterface],
+                        useCaseDiagrams: [
+                            makeUseCaseDiagram(
+                                'child-diagram',
+                                'child-uuid',
+                                makeUseCase('child-uc', childSequence)
+                            ),
+                        ],
+                    }),
+                ],
+            })
+
+            setupStoreMock(null, root)
+            vi.mocked(collectAllDiagrams).mockReturnValue([
+                {
+                    ownerComponentUuid: 'child-uuid',
+                    diagram: childSequence,
+                },
+            ])
+
+            render(<ComponentEditor node={root} onUpdate={vi.fn()} />)
+
+            expect(screen.getByTestId('interface-editor-parent-iface-uuid')).toHaveAttribute(
+                'data-referenced-functions',
+                'fn-uuid-doThing-none'
+            )
         })
 
         it('renders nothing when interfaces list is empty', () => {
